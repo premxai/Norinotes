@@ -1,0 +1,7 @@
+{
+  "totalFound": 2,
+  "content": [
+    { "id": "743999", "name": "SRE", "company": { "name": "Hooli" }, "location": { "city": "Austin", "country": "us", "remote": false } },
+    { "id": "744000", "name": "Support Engineer", "company": { "name": "Hooli" }, "location": { "city": "Remote", "country": "us", "remote": true }, "releasedDate": "2025-04-01T00:00:00.000Z" }
+  ]
+}

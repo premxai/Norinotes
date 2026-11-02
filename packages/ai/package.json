@@ -1,0 +1,13 @@
+{
+  "name": "@norinote/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@norinote/db": "*",
+    "drizzle-orm": "^0.45.4",
+    "openai": "^7.47.0",
+    "zod": "^4.6.7"
+  }
+}

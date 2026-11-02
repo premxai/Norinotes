@@ -1,0 +1,84 @@
+import { Hono } from "hono";
+import { and, applications, careerPoints, companies, desc, eq, inArray, isNull, jobs, shortlist, sql } from "@norinote/db";
+import { JOBS } from "@norinote/queue";
+import { requireUser } from "../auth/session.js";
+import { intParam, notFound, uuidParam } from "../http.js";
+import { enqueueSoft, type AppEnv, type Ctx } from "../types.js";
+
+export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
+  const r = new Hono<AppEnv>();
+  const auth = requireUser(ctx);
+  const { db } = ctx;
+
+  r.get("/", auth, async (c) => {
+    const userId = c.get("user").id;
+    const limit = intParam(c.req.query("limit"), 50, 1, 200);
+    // Read extra rows: the same role posted in several cities collapses into one entry below.
+    const rows = await db.select({
+      id: shortlist.id, jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, status: shortlist.status, createdAt: shortlist.createdAt,
+      jobTitle: jobs.title, location: jobs.location, remote: jobs.remote, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, companyName: companies.name,
+    }).from(shortlist)
+      .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
+      .innerJoin(companies, eq(companies.id, jobs.companyId))
+      .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false)))
+      .orderBy(desc(shortlist.fit), desc(shortlist.createdAt)).limit(limit * 4);
+
+    if (rows.length === 0) await queueFirstRun(userId);
+
+    // One entry per company and role: keep the best-fitting posting, list the other cities.
+    const groups = new Map<string, { row: (typeof rows)[number]; locations: string[] }>();
+    for (const s of rows) {
+      const key = roleKey(s.companyName, s.jobTitle);
+      const g = groups.get(key);
+      if (!g) groups.set(key, { row: s, locations: s.location ? [s.location] : [] });
+      else if (s.location && !g.locations.includes(s.location)) g.locations.push(s.location);
+    }
+
+    return c.json([...groups.values()].slice(0, limit).map(({ row: s, locations }) => ({
+      id: s.id, jobId: s.jobId, fit: s.fit, reasons: s.reasons, status: s.status, createdAt: s.createdAt.toISOString(),
+      locations: Math.max(1, locations.length), locationNames: locations.slice(0, 8),
+      job: { id: s.jobId, companyName: s.companyName, title: s.jobTitle, location: s.location, remote: s.remote, applyUrl: s.applyUrl, postedAt: s.postedAt ? s.postedAt.toISOString() : null },
+    })));
+  });
+
+  /** A user with career points but no shortlist rows at all has never been matched: queue one run (deduplicated). */
+  async function queueFirstRun(userId: string): Promise<void> {
+    const [any] = await db.select({ id: shortlist.id }).from(shortlist).where(eq(shortlist.userId, userId)).limit(1);
+    if (any) return;
+    const [apps] = await db.select({ id: applications.id }).from(applications).where(eq(applications.userId, userId)).limit(1);
+    if (apps) return;
+    const [points] = await db.select({ n: sql<number>`count(*)::int` }).from(careerPoints).where(eq(careerPoints.userId, userId));
+    if ((points?.n ?? 0) === 0) return;
+    await enqueueSoft(ctx, JOBS.matchUser, { userId, reason: "manual" }, { dedupeKey: `first-shortlist:${userId}`, dedupeSeconds: 300 });
+  }
+
+  r.post("/:jobId/dismiss", auth, async (c) => {
+    const jobId = uuidParam(c, "jobId");
+    const userId = c.get("user").id;
+    const done = await db.update(shortlist).set({ status: "dismissed" })
+      .where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId), eq(shortlist.status, "new"))).returning({ id: shortlist.id });
+    if (done.length > 0) {
+      // Dismissing a role dismisses its postings in other cities too, so the same role does not come straight back.
+      const [job] = await db.select({ title: jobs.title, companyId: jobs.companyId }).from(jobs).where(eq(jobs.id, jobId)).limit(1);
+      if (job?.companyId) {
+        const siblings = await db.select({ id: jobs.id, title: jobs.title }).from(jobs).where(and(eq(jobs.companyId, job.companyId), isNull(jobs.closedAt)));
+        const ids = siblings.filter((s) => s.id !== jobId && normTitle(s.title) === normTitle(job.title)).map((s) => s.id);
+        if (ids.length) {
+          await db.update(shortlist).set({ status: "dismissed" })
+            .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, ids)));
+        }
+      }
+    }
+    if (done.length === 0) {
+      // Already dismissed or applied: nothing to do. Not on the list at all: 404.
+      const [row] = await db.select({ id: shortlist.id }).from(shortlist).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId))).limit(1);
+      if (!row) throw notFound("That job is not on your shortlist");
+    }
+    return c.json({ ok: true });
+  });
+
+  return r;
+}
+
+const normTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const roleKey = (company: string, title: string) => `${company.toLowerCase().trim()}|${normTitle(title)}`;

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "11111111-aaaa-bbbb-cccc-222222222222",
+    "text": "Backend Engineer",
+    "hostedUrl": "https://jobs.lever.co/globex/11111111-aaaa-bbbb-cccc-222222222222",
+    "applyUrl": "https://jobs.lever.co/globex/11111111-aaaa-bbbb-cccc-222222222222/apply",
+    "descriptionPlain": "Build services in Go.",
+    "lists": [{ "text": "Requirements", "content": "<li>Go</li><li>Postgres</li>" }],
+    "additionalPlain": "We are an equal opportunity employer.",
+    "categories": { "location": "San Francisco, CA" },
+    "createdAt": 1700000000000,
+    "workplaceType": "hybrid"
+  },
+  {
+    "id": "33333333-aaaa-bbbb-cccc-444444444444",
+    "text": "Designer",
+    "hostedUrl": "https://jobs.lever.co/globex/33333333-aaaa-bbbb-cccc-444444444444",
+    "descriptionPlain": "Design.",
+    "categories": { "location": "Anywhere" },
+    "createdAt": 1700000001000,
+    "workplaceType": "remote"
+  }
+]

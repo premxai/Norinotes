@@ -1,0 +1,28 @@
+{
+  "jobs": [
+    {
+      "id": "a1",
+      "title": "ML Engineer",
+      "location": "Remote",
+      "isRemote": true,
+      "descriptionPlain": "Train models",
+      "jobUrl": "https://jobs.ashbyhq.com/initech/a1",
+      "applyUrl": "https://jobs.ashbyhq.com/initech/a1/application",
+      "publishedAt": "2025-01-02"
+    },
+    {
+      "id": "a2",
+      "title": "Platform Engineer",
+      "location": "Berlin, Germany",
+      "descriptionHtml": "<p>Run the <em>platform</em>.</p><ul><li>Kubernetes</li></ul>",
+      "jobUrl": "https://jobs.ashbyhq.com/initech/a2"
+    },
+    {
+      "id": "a3",
+      "title": "Hidden role",
+      "isListed": false,
+      "descriptionPlain": "Not public",
+      "jobUrl": "https://jobs.ashbyhq.com/initech/a3"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+import path from "node:path";
+
+/** API settings read from the environment. Everything has a default so `npm run dev:api` works with no setup. */
+export type ApiConfig = {
+  port: number;
+  production: boolean;
+  /** The only browser origin allowed to call the API with credentials. */
+  webUrl: string;
+  /** Public URL of the API; also accepted as an Origin on unsafe requests. */
+  apiUrl: string | null;
+  cookieName: string;
+  /** `secure` flag on the session cookie (production). */
+  secureCookies: boolean;
+  sessionDays: number;
+  /** Trust X-Forwarded-For / Fly-Client-IP for rate limiting. Only set behind a proxy that overwrites them. */
+  trustProxy: boolean;
+  /** Domain of the per-user inbound addresses. Undefined in production until INBOUND_EMAIL_DOMAIN is set. */
+  inboundEmailDomain: string | undefined;
+  inboundWebhookSecret: string | undefined;
+  artifactsDir: string;
+  /** ALLOW_REAL_SUBMIT === "true". Without it applications are dry runs. */
+  allowRealSubmit: boolean;
+  telegramBotToken: string | undefined;
+  telegramBotUsername: string | null;
+  maxResumeBytes: number;
+};
+
+const clean = (v: string | undefined): string | undefined => v?.trim() || undefined;
+
+export function loadConfig(env: Record<string, string | undefined> = process.env): ApiConfig {
+  const production = env.NODE_ENV === "production";
+  const port = Number.parseInt(env.PORT ?? "", 10);
+  return {
+    port: Number.isInteger(port) && port > 0 ? port : 4000,
+    production,
+    webUrl: (clean(env.WEB_URL) ?? "http://localhost:3000").replace(/\/+$/, ""),
+    apiUrl: clean(env.API_URL)?.replace(/\/+$/, "") ?? null,
+    cookieName: clean(env.SESSION_COOKIE_NAME) ?? "norinote_session",
+    secureCookies: production,
+    sessionDays: 30,
+    trustProxy: env.TRUST_PROXY === "true",
+    inboundEmailDomain: clean(env.INBOUND_EMAIL_DOMAIN) ?? (production ? undefined : "inbox.norinote.local"),
+    inboundWebhookSecret: clean(env.INBOUND_WEBHOOK_SECRET),
+    artifactsDir: path.resolve(clean(env.ARTIFACTS_DIR) ?? path.join("data", "artifacts")),
+    allowRealSubmit: env.ALLOW_REAL_SUBMIT === "true",
+    telegramBotToken: clean(env.TELEGRAM_BOT_TOKEN),
+    telegramBotUsername: clean(env.TELEGRAM_BOT_USERNAME)?.replace(/^@/, "") ?? null,
+    maxResumeBytes: 10 * 1024 * 1024,
+  };
+}

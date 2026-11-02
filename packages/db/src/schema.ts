@@ -1,0 +1,302 @@
+import { sql } from "drizzle-orm";
+import {
+  bigint, bigserial, boolean, date, index, integer, jsonb, numeric, pgTable, primaryKey, real, text,
+  timestamp, uniqueIndex, uuid, vector,
+} from "drizzle-orm/pg-core";
+import type { ApplicationStatus, AtsType, CareerPointKind, InboxKind, JobSpec, ShortlistStatus } from "@norinote/shared";
+
+/** Embedding width. Must match EMBEDDING_MODEL (text-embedding-3-small is 1536). */
+export const EMBEDDING_DIMENSIONS = 1536;
+
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
+const id = () => uuid("id").primaryKey().default(sql`gen_random_uuid()`);
+const createdAt = () => ts("created_at").notNull().defaultNow();
+const updatedAt = () => ts("updated_at").notNull().defaultNow();
+/** `text[]` column; callers add .notNull().default(...). */
+const textArray = (name: string) => text(name).array();
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Shared, written once
+// ---------------------------------------------------------------------------------------------------------------------
+
+export const companies = pgTable("companies", {
+  id: id(),
+  atsType: text("ats_type").$type<AtsType>().notNull(),
+  atsToken: text("ats_token").notNull(),
+  name: text("name").notNull(),
+  lastPolledAt: ts("last_polled_at"),
+  blocked: boolean("blocked").notNull().default(false),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex("companies_ats_token_uq").on(t.atsType, t.atsToken),
+  index("companies_last_polled_idx").on(t.blocked, t.lastPolledAt),
+]);
+
+export const jobs = pgTable("jobs", {
+  id: id(),
+  companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  atsType: text("ats_type").$type<AtsType>().notNull(),
+  externalId: text("external_id").notNull(),
+  title: text("title").notNull(),
+  location: text("location"),
+  remote: boolean("remote").notNull().default(false),
+  descriptionText: text("description_text").notNull().default(""),
+  applyUrl: text("apply_url").notNull(),
+  postedAt: ts("posted_at"),
+  firstSeenAt: ts("first_seen_at").notNull().defaultNow(),
+  lastSeenAt: ts("last_seen_at").notNull().defaultNow(),
+  closedAt: ts("closed_at"),
+  /** Normalised company + title + location, so the same job on two boards is stored once. */
+  dedupeKey: text("dedupe_key").notNull(),
+}, (t) => [
+  uniqueIndex("jobs_ats_external_uq").on(t.atsType, t.externalId),
+  index("jobs_closed_posted_idx").on(t.closedAt, t.postedAt),
+  index("jobs_dedupe_key_idx").on(t.dedupeKey),
+  index("jobs_company_idx").on(t.companyId),
+]);
+
+export const jobSpecs = pgTable("job_specs", {
+  id: id(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  spec: jsonb("spec").$type<JobSpec>().notNull(),
+  model: text("model").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("job_specs_job_version_uq").on(t.jobId, t.version)]);
+
+export const jobEmbeddings = pgTable("job_embeddings", {
+  jobId: uuid("job_id").primaryKey().references(() => jobs.id, { onDelete: "cascade" }),
+  embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+  model: text("model").notNull(),
+  createdAt: createdAt(),
+}, (t) => [index("job_embeddings_hnsw_idx").using("hnsw", t.embedding.op("vector_cosine_ops"))]);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Per user
+// ---------------------------------------------------------------------------------------------------------------------
+
+export const users = pgTable("users", {
+  id: id(),
+  /** Stored lower-cased. */
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  emailVerifiedAt: ts("email_verified_at"),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("users_email_uq").on(t.email)]);
+
+export const sessions = pgTable("sessions", {
+  /** SHA-256 of the cookie token; the token itself is never stored. */
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userAgent: text("user_agent"),
+  createdAt: createdAt(),
+  lastSeenAt: ts("last_seen_at").notNull().defaultNow(),
+  expiresAt: ts("expires_at").notNull(),
+}, (t) => [index("sessions_user_idx").on(t.userId)]);
+
+export const authTokens = pgTable("auth_tokens", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<"email_verification" | "password_reset">().notNull(),
+  /** SHA-256 of the emailed token. */
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: ts("expires_at").notNull(),
+  usedAt: ts("used_at"),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("auth_tokens_hash_uq").on(t.tokenHash), index("auth_tokens_user_idx").on(t.userId, t.kind)]);
+
+export const profiles = pgTable("profiles", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  /** Name, email, phone, links. */
+  contact: jsonb("contact").$type<Record<string, string>>().notNull().default({}),
+  location: text("location"),
+  /** Per country: authorised, needs sponsorship, citizenship, clearance. */
+  workAuth: jsonb("work_auth").$type<Record<string, unknown>>().notNull().default({}),
+  salaryExpectation: jsonb("salary_expectation").$type<Record<string, unknown>>().notNull().default({}),
+  startDate: text("start_date"),
+  /** Equal opportunity defaults (gender, race, veteran, disability), each may be "decline". */
+  eeo: jsonb("eeo").$type<Record<string, string>>().notNull().default({}),
+  preferences: jsonb("preferences").$type<Record<string, unknown>>().notNull().default({}),
+  resumeText: text("resume_text"),
+  /** One shared daily cap for all lanes. 0 = autopilot off. */
+  dailyCap: integer("daily_cap").notNull().default(0),
+  updatedAt: updatedAt(),
+});
+
+export const lanes = pgTable("lanes", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  titles: textArray("titles").notNull().default(sql`'{}'::text[]`),
+  locations: textArray("locations").notNull().default(sql`'{}'::text[]`),
+  /** Remote jobs also qualify, whatever their location. */
+  remote: boolean("remote").notNull().default(false),
+  minFit: real("min_fit").notNull().default(0.6),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: createdAt(),
+}, (t) => [index("lanes_user_idx").on(t.userId)]);
+
+export const careerPoints = pgTable("career_points", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<CareerPointKind>().notNull(),
+  title: text("title").notNull(),
+  org: text("org"),
+  /** `YYYY` or `YYYY-MM`. */
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  text: text("text").notNull().default(""),
+  skills: textArray("skills").notNull().default(sql`'{}'::text[]`),
+  scope: jsonb("scope").$type<Record<string, unknown>>().notNull().default({}),
+  metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull().default({}),
+  sourceQuote: text("source_quote"),
+  /** `resume` points are replaced on every resume upload; `user` facts (added by the user) are never touched. */
+  source: text("source").$type<"resume" | "user">().notNull().default("resume"),
+  createdAt: createdAt(),
+}, (t) => [index("career_points_user_kind_idx").on(t.userId, t.kind)]);
+
+export const careerPointEmbeddings = pgTable("career_point_embeddings", {
+  careerPointId: uuid("career_point_id").primaryKey().references(() => careerPoints.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+  model: text("model").notNull(),
+  /** Hash of the text that was embedded; a point is re-embedded when its text no longer hashes to this. */
+  contentHash: text("content_hash"),
+  createdAt: createdAt(),
+}, (t) => [
+  index("career_point_embeddings_user_idx").on(t.userId),
+  index("career_point_embeddings_hnsw_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
+]);
+
+export const shortlist = pgTable("shortlist", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  /** 0 to 1. */
+  fit: numeric("fit", { precision: 4, scale: 3, mode: "number" }).notNull(),
+  fitMap: jsonb("fit_map").$type<unknown[]>().notNull().default([]),
+  reasons: textArray("reasons").notNull().default(sql`'{}'::text[]`),
+  status: text("status").$type<ShortlistStatus>().notNull().default("new"),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex("shortlist_user_job_uq").on(t.userId, t.jobId),
+  index("shortlist_user_status_fit_idx").on(t.userId, t.status, t.fit.desc()),
+]);
+
+export const applications = pgTable("applications", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  status: text("status").$type<ApplicationStatus>().notNull().default("queued"),
+  /** The resume tailored for this application. No foreign key: resumes point back at applications. */
+  resumeId: uuid("resume_id"),
+  answers: jsonb("answers").$type<Record<string, string>>().notNull().default({}),
+  pendingQuestions: jsonb("pending_questions").$type<unknown[]>().notNull().default([]),
+  receipt: jsonb("receipt").$type<Record<string, unknown>>(),
+  error: text("error"),
+  attempts: integer("attempts").notNull().default(0),
+  preparedAt: ts("prepared_at"),
+  approvedAt: ts("approved_at"),
+  submittedAt: ts("submitted_at"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex("applications_user_job_uq").on(t.userId, t.jobId),
+  index("applications_user_status_idx").on(t.userId, t.status),
+]);
+
+export const resumes = pgTable("resumes", {
+  id: id(),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+  /** What was changed from the base resume, for the user to review. */
+  changes: jsonb("changes").$type<unknown[]>().notNull().default([]),
+  pdfPath: text("pdf_path"),
+  pages: integer("pages"),
+  atsChecks: jsonb("ats_checks").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+}, (t) => [index("resumes_application_idx").on(t.applicationId)]);
+
+export const answerBank = pgTable("answer_bank", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  questionText: text("question_text").notNull(),
+  questionEmbedding: vector("question_embedding", { dimensions: EMBEDDING_DIMENSIONS }),
+  answer: text("answer").notNull(),
+  source: text("source").$type<"default" | "user" | "model">().notNull(),
+  lastUsedAt: ts("last_used_at"),
+  createdAt: createdAt(),
+}, (t) => [
+  index("answer_bank_user_idx").on(t.userId),
+  index("answer_bank_hnsw_idx").using("hnsw", t.questionEmbedding.op("vector_cosine_ops")),
+]);
+
+export const runEvents = pgTable("run_events", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  ts: ts("ts").notNull().defaultNow(),
+  step: text("step").notNull(),
+  level: text("level").$type<"info" | "warn" | "error">().notNull().default("info"),
+  message: text("message").notNull(),
+  data: jsonb("data").$type<Record<string, unknown>>(),
+}, (t) => [index("run_events_application_ts_idx").on(t.applicationId, t.ts)]);
+
+export const inboxAddresses = pgTable("inbox_addresses", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  address: text("address").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("inbox_addresses_address_uq").on(t.address), index("inbox_addresses_user_idx").on(t.userId)]);
+
+export const inboxMessages = pgTable("inbox_messages", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  applicationId: uuid("application_id").references(() => applications.id, { onDelete: "set null" }),
+  kind: text("kind").$type<InboxKind>().notNull(),
+  code: text("code"),
+  fromAddress: text("from_address").notNull(),
+  /** The Message-ID header (or the provider id): a webhook retry of the same message is stored once. */
+  messageId: text("message_id"),
+  /** Magic links and confirmation URLs found in the message. */
+  links: jsonb("links").$type<string[]>().notNull().default([]),
+  subject: text("subject").notNull().default(""),
+  body: text("body").notNull().default(""),
+  receivedAt: ts("received_at").notNull().defaultNow(),
+}, (t) => [
+  index("inbox_messages_user_received_idx").on(t.userId, t.receivedAt),
+  index("inbox_messages_application_idx").on(t.applicationId),
+  uniqueIndex("inbox_messages_user_message_uq").on(t.userId, t.messageId),
+]);
+
+export const channels = pgTable("channels", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<"telegram">().notNull(),
+  address: text("address").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("channels_user_kind_uq").on(t.userId, t.kind)]);
+
+export const llmUsage = pgTable("llm_usage", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  /** UTC day, YYYY-MM-DD. */
+  day: date("day", { mode: "string" }).notNull(),
+  promptTokens: integer("prompt_tokens").notNull().default(0),
+  completionTokens: integer("completion_tokens").notNull().default(0),
+  /** Millionths of a US dollar. */
+  costMicros: bigint("cost_micros", { mode: "number" }).notNull().default(0),
+  calls: integer("calls").notNull().default(0),
+  updatedAt: updatedAt(),
+}, (t) => [primaryKey({ columns: [t.userId, t.day] })]);
+
+export const outcomes = pgTable("outcomes", {
+  id: id(),
+  applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<"reply" | "interview" | "rejection" | "offer">().notNull(),
+  at: ts("at").notNull().defaultNow(),
+}, (t) => [index("outcomes_application_idx").on(t.applicationId)]);
+
+export const schema = {
+  companies, jobs, jobSpecs, jobEmbeddings, users, sessions, authTokens, profiles, lanes, careerPoints,
+  careerPointEmbeddings, shortlist, applications, resumes, answerBank, runEvents, inboxAddresses, inboxMessages,
+  channels, llmUsage, outcomes,
+};

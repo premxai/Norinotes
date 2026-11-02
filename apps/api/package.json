@@ -1,0 +1,23 @@
+{
+  "name": "@norinote/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@norinote/db": "*",
+    "@norinote/shared": "*",
+    "@norinote/ai": "*",
+    "@norinote/queue": "*",
+    "@norinote/ingest": "*",
+    "@norinote/graph": "*",
+    "@norinote/match": "*",
+    "@norinote/tailor": "*",
+    "@norinote/answers": "*",
+    "@norinote/apply": "*",
+    "@norinote/inbox": "*",
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7"
+  }
+}

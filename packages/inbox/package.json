@@ -1,0 +1,16 @@
+{
+  "name": "@norinote/inbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@norinote/db": "*",
+    "@norinote/shared": "*",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7",
+    "postal-mime": "^2.3.0"
+  }
+}

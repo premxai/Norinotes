@@ -1,0 +1,15 @@
+{
+  "name": "@norinote/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./schema": "./src/schema.ts", "./testing": "./src/testing.ts" },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.13",
+    "@electric-sql/pglite-pgvector": "0.0.14",
+    "@norinote/shared": "*",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": { "@types/pg": "^8.11.0" }
+}

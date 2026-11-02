@@ -1,0 +1,29 @@
+{
+  "jobs": [
+    {
+      "id": 4001,
+      "title": "Senior Frontend Engineer",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4001",
+      "first_published": "2025-02-10T09:00:00-05:00",
+      "updated_at": "2025-03-01T10:00:00-05:00",
+      "location": { "name": "Remote - US" },
+      "company_name": "Acme Robotics",
+      "content": "&lt;p&gt;Build UI with &lt;strong&gt;React&lt;/strong&gt; &amp;amp; TypeScript.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;4+ years of experience&lt;/li&gt;&lt;li&gt;Caf&amp;eacute; culture&lt;/li&gt;&lt;/ul&gt;"
+    },
+    {
+      "id": 4002,
+      "title": "Data Engineer",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4002",
+      "updated_at": "2025-03-02T10:00:00-05:00",
+      "location": { "name": "New York, NY" },
+      "content": "&lt;p&gt;Pipelines.&lt;/p&gt;"
+    },
+    {
+      "id": 4003,
+      "title": "Recruiter",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4003",
+      "location": { "name": "" },
+      "content": ""
+    }
+  ]
+}

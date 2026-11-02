@@ -1,0 +1,14 @@
+{
+  "id": "743999",
+  "name": "SRE",
+  "releasedDate": "2025-03-15T12:00:00.000Z",
+  "company": { "name": "Hooli" },
+  "location": { "city": "Austin", "country": "us" },
+  "postingUrl": "https://jobs.smartrecruiters.com/Hooli/743999-sre",
+  "jobAd": {
+    "sections": {
+      "jobDescription": { "title": "Job Description", "text": "<p>Keep it up</p>" },
+      "qualifications": { "title": "Qualifications", "text": "<ul><li>Kubernetes</li></ul>" }
+    }
+  }
+}

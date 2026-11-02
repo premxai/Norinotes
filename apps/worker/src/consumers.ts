@@ -1,0 +1,258 @@
+import { createHash } from "node:crypto";
+import { companies, eq, type Db } from "@norinote/db";
+import { PendingQuestion } from "@norinote/shared";
+import { answerQuestions } from "@norinote/answers";
+import {
+  approveAndSubmit, createApplyHandler, createPrepareHandler, loadApplication, saveAnswers, type ApplyDeps,
+} from "@norinote/apply";
+import { AiUnavailableError } from "@norinote/ai";
+import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
+import { dueBoards, feedHost, HostBackedOffError, HostBackoff, pollBoard } from "@norinote/ingest";
+import { reprocessMessage } from "@norinote/inbox";
+import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
+import { JOBS, type Handler, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
+import type { WorkerConfig } from "./config.js";
+import type { LogFields, Logger } from "./log.js";
+
+export type ConsumerDeps = {
+  db: Db;
+  queue: QueueAdapter;
+  log: Logger;
+  config: WorkerConfig;
+  apply: ApplyDeps;
+  /** Replaces the global fetch for board polling (tests). */
+  fetch?: typeof fetch;
+  now?: () => Date;
+};
+
+export type Consumers = {
+  /** Enqueues `ingest.poll-board` for every board that is due. Returns how many were queued. */
+  enqueueDueBoards(): Promise<number>;
+  /** Matches the jobs understood so far right now instead of waiting for the quiet period. */
+  flushMatchBatch(): Promise<void>;
+};
+
+/** Ids in a payload, for the one log line per job. Never the payload itself. */
+function payloadFields(p: Record<string, unknown>): LogFields {
+  const out: LogFields = {};
+  for (const k of ["companyId", "jobId", "userId", "applicationId", "messageId", "reason", "trigger"]) if (typeof p[k] === "string") out[k] = p[k];
+  if (Array.isArray(p.jobIds)) out.jobs = p.jobIds.length;
+  return out;
+}
+
+/** Runs `fn`, writes one log line for the job (ok or error, with duration), and rethrows errors so the queue retries. */
+function instrument<N extends JobName>(log: Logger, queue: N, fn: (payload: Payload<N>) => Promise<LogFields | void>): Handler<N> {
+  return async (payload, ctx) => {
+    const started = Date.now();
+    const base = { queue, jobId: ctx.id, attempt: ctx.attempt, ...payloadFields(payload as Record<string, unknown>) };
+    try {
+      const extra = await fn(payload);
+      log.info("job", { ...base, ok: true, ms: Date.now() - started, ...(extra ?? {}) });
+    } catch (err) {
+      log.error("job", { ...base, ok: false, ms: Date.now() - started, error: err instanceof Error ? err.message : String(err) });
+      throw err;
+    }
+  };
+}
+
+/** At most `limit` tasks at once per key (a feed host), the rest wait. */
+class KeyedLimiter {
+  private active = new Map<string, number>();
+  private waiting = new Map<string, (() => void)[]>();
+  constructor(private readonly limit: number) {}
+  async run<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    while ((this.active.get(key) ?? 0) >= this.limit) await new Promise<void>((resolve) => this.waiting.set(key, [...(this.waiting.get(key) ?? []), resolve]));
+    this.active.set(key, (this.active.get(key) ?? 0) + 1);
+    try {
+      return await fn();
+    } finally {
+      this.active.set(key, (this.active.get(key) ?? 1) - 1);
+      this.waiting.get(key)?.shift()?.();
+    }
+  }
+}
+
+const MATCH_CHUNK = 200;
+const MATCH_MAX_WAIT_MS = 30_000;
+
+/**
+ * Collects the ids of jobs that were just understood and hands them to `match.new-jobs` in batches: a burst of understood
+ * jobs becomes a handful of match runs instead of one per job. The enqueue is deduplicated per minute and batch, so a
+ * retried understand job cannot queue the same batch twice.
+ */
+class MatchBatcher {
+  private ids = new Set<string>();
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private firstAt = 0;
+  constructor(private readonly queue: QueueAdapter, private readonly delayMs: number, private readonly now: () => Date) {}
+
+  add(jobId: string): void {
+    this.ids.add(jobId);
+    if (this.ids.size >= MATCH_CHUNK) { void this.flush(); return; }
+    if (!this.firstAt) this.firstAt = Date.now();
+    if (this.timer) clearTimeout(this.timer);
+    // Debounce: wait for a quiet moment, but never hold a batch longer than the max wait.
+    const wait = Math.max(0, Math.min(this.delayMs, this.firstAt + MATCH_MAX_WAIT_MS - Date.now()));
+    this.timer = setTimeout(() => { void this.flush(); }, wait);
+    this.timer.unref();
+  }
+
+  async flush(): Promise<void> {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.firstAt = 0;
+    const all = [...this.ids];
+    this.ids = new Set();
+    const minute = Math.floor(this.now().getTime() / 60_000);
+    for (let i = 0; i < all.length; i += MATCH_CHUNK) {
+      const jobIds = all.slice(i, i + MATCH_CHUNK);
+      const digest = createHash("sha1").update([...jobIds].sort().join(",")).digest("hex").slice(0, 16);
+      await this.queue.enqueue(JOBS.matchNewJobs, { jobIds }, { dedupeKey: `${minute}:${digest}`, dedupeSeconds: 60 });
+    }
+  }
+}
+
+/** One understand.job per job per hour at most, whoever asks (a poll, a lane change). */
+const UNDERSTAND_DEDUPE_SECONDS = 3600;
+
+/** Dedupe window for one board in the queue: longer than the scheduler period, so a slow poll is not queued twice. */
+const BOARD_DEDUPE_SECONDS = 15 * 60;
+/** How long a board waits when its feed host is refusing requests. */
+const BACKED_OFF_RETRY_SECONDS = 5 * 60;
+
+/**
+ * If an application stopped on questions the form asked, try to answer them from the profile and the answer bank. When
+ * every required one is answered the application goes straight back to applying (the user already clicked). Returns what
+ * happened for the log. The attempt counter on the application bounds how often this can repeat.
+ */
+async function autoAnswerPending(db: Db, applicationId: string): Promise<{ answered: number; resumed: boolean }> {
+  const row = await loadApplication(db, applicationId);
+  if (!row || row.status !== "needs_user" || !row.approvedAt || row.pendingQuestions.length === 0) return { answered: 0, resumed: false };
+  const questions = row.pendingQuestions.flatMap((q) => { const p = PendingQuestion.safeParse(q); return p.success ? [p.data] : []; });
+  if (questions.length === 0) return { answered: 0, resumed: false };
+  const res = await answerQuestions(db, { userId: row.userId, jobId: row.jobId, questions });
+  const answered = Object.keys(res.answers).length;
+  if (answered === 0) return { answered: 0, resumed: false };
+  await saveAnswers(db, applicationId, res.answers);
+  if (res.pending.length > 0) return { answered, resumed: false };
+  const approved = await approveAndSubmit(db, applicationId);
+  return { answered, resumed: approved.ok && approved.started };
+}
+
+/** Registers every queue consumer from ARCHITECTURE.md and returns the hooks the scheduler and tests need. */
+export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> {
+  const { db, queue, log, config, apply } = deps;
+  const now = deps.now ?? (() => new Date());
+  const limiter = new KeyedLimiter(config.pollsPerHost);
+  const batcher = new MatchBatcher(queue, config.matchBatchMs, now);
+  let backoff = new HostBackoff();
+
+  async function enqueueDueBoards(): Promise<number> {
+    // A new cycle starts with a clean slate: hosts that refused us last time are tried again.
+    backoff = new HostBackoff();
+    const due = await dueBoards(db, { now: now(), limit: config.boardsPerRun });
+    let queued = 0;
+    for (const b of due) {
+      const id = await queue.enqueue(JOBS.ingestPollBoard, { companyId: b.id }, { dedupeKey: b.id, dedupeSeconds: BOARD_DEDUPE_SECONDS });
+      if (id) queued++;
+    }
+    log.info("scheduler", { due: due.length, queued });
+    return queued;
+  }
+
+  /** Queues understand.job for these jobs (deduplicated). Returns how many were newly queued. */
+  async function enqueueUnderstand(jobIds: readonly string[]): Promise<number> {
+    let queued = 0;
+    for (const jobId of jobIds) {
+      const id = await queue.enqueue(JOBS.understandJob, { jobId }, { dedupeKey: jobId, dedupeSeconds: UNDERSTAND_DEDUPE_SECONDS });
+      if (id) queued++;
+    }
+    return queued;
+  }
+
+  // ingest.poll-board: one board's feed into `jobs`. A new job is understood (one model call) only when it could be shown
+  // to somebody: it fits an enabled lane of some user. The rest wait until a lane that fits them exists (match.user below).
+  await queue.work(JOBS.ingestPollBoard, instrument(log, JOBS.ingestPollBoard, async ({ companyId }) => {
+    const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+    if (!company || company.blocked) return { skipped: company ? "blocked" : "missing" };
+    let result;
+    try {
+      result = await limiter.run(feedHost(company.atsType), () =>
+        pollBoard(db, { atsType: company.atsType, token: company.atsToken }, { now: now(), fetch: deps.fetch, backoff }));
+    } catch (err) {
+      if (err instanceof HostBackedOffError) {
+        // The host is refusing us: try this board again later without using up a retry.
+        await queue.enqueue(JOBS.ingestPollBoard, { companyId }, { delaySeconds: BACKED_OFF_RETRY_SECONDS });
+        return { backedOff: err.host };
+      }
+      throw err;
+    }
+    const wanted = await jobsFittingLanes(db, result.newJobIds, { now: now() });
+    const understand = await enqueueUnderstand(wanted);
+    return {
+      board: `${company.atsType}/${company.atsToken}`, added: result.added, updated: result.updated, closed: result.closed, total: result.total,
+      understand, notWanted: result.newJobIds.length - wanted.length, skipped: result.skipped,
+    };
+  }));
+
+  // understand.job: spec and embedding, once per job; then it joins the next match batch (which is how a user whose lanes
+  // just caused a backlog to be read gets those jobs matched as they finish). Rate-limited: at most N at once.
+  await queue.work(JOBS.understandJob, instrument(log, JOBS.understandJob, async ({ jobId }) => {
+    const r = await understandJob(db, jobId);
+    batcher.add(jobId);
+    return { skippedModel: r.skipped, embedded: r.embedded, heuristic: r.heuristic, embeddingPending: r.embeddingPending };
+  }), { concurrency: config.understandConcurrency });
+
+  // match.new-jobs: which users the new jobs fit.
+  await queue.work(JOBS.matchNewJobs, instrument(log, JOBS.matchNewJobs, async ({ jobIds }) => {
+    const r = await matchNewJobs(db, jobIds, { now: now() });
+    return { usersEvaluated: r.usersEvaluated, lanePairs: r.lanePairs, fitted: r.pairsFitted, saved: r.saved };
+  }));
+
+  // match.user: a profile, graph or lanes change: rebuild one user's shortlist. First the jobs that fit the user's lanes and
+  // have not been read yet are queued for understanding (the cost is paid only for jobs somebody can be shown); they
+  // reach the user through the match batch as each one finishes. Then the shortlist is built from what is understood now.
+  // Without the AI service, unembedded points stay for the next run and jobs and points are compared by skill overlap.
+  await queue.work(JOBS.matchUser, instrument(log, JOBS.matchUser, async ({ userId }) => {
+    const backlog = await unspeccedJobsForUser(db, userId, { now: now() });
+    const understandQueued = await enqueueUnderstand(backlog);
+    let embedPending = false;
+    try {
+      await embedCareerPoints(db, userId);
+    } catch (err) {
+      if (!(err instanceof AiUnavailableError)) throw err;
+      embedPending = true;
+    }
+    const vector = await profileEmbedding(db, userId, now());
+    const stats = await buildShortlist(db, userId, { now: now(), profileEmbedding: vector, ...(config.explainTop > 0 ? { explain: { top: config.explainTop } } : {}) });
+    return {
+      backlog: backlog.length, understandQueued, ...(embedPending ? { embedPending } : {}),
+      considered: stats.considered, lexical: stats.lexical, scored: stats.scored, saved: stats.saved,
+      ...(stats.considered === 0 && !vector ? { skipped: "no career points or no lane" } : {}),
+    };
+  }));
+
+  // prepare.application: tailored resume and standard answers, ready before the click.
+  await queue.work(JOBS.prepareApplication, instrument(log, JOBS.prepareApplication, async (payload) => {
+    await createPrepareHandler(db, apply)(payload);
+  }));
+
+  // apply.run: the browser step; afterwards, questions the form asked get answered from the bank when they can be.
+  const applyHandler = createApplyHandler(db, apply);
+  await queue.work(JOBS.applyRun, instrument(log, JOBS.applyRun, async (payload) => {
+    await applyHandler(payload);
+    const auto = await autoAnswerPending(db, payload.applicationId);
+    if (auto.resumed) await queue.enqueue(JOBS.applyRun, { applicationId: payload.applicationId, trigger: payload.trigger }, { delaySeconds: 1 });
+    const after = await loadApplication(db, payload.applicationId);
+    return { status: after?.status ?? "missing", autoAnswered: auto.answered, resumed: auto.resumed };
+  }));
+
+  // inbox.receive: a stored inbound message: classify again, link, record outcomes. A waiting apply.run polls for its code.
+  await queue.work(JOBS.inboxReceive, instrument(log, JOBS.inboxReceive, async ({ messageId }) => {
+    const r = await reprocessMessage(db, messageId);
+    if (!r.stored) return { stored: false, reason: r.reason };
+    return { kind: r.kind, linked: r.applicationId !== null, wake: r.wake?.reason ?? null, outcome: r.outcome };
+  }));
+
+  return { enqueueDueBoards, flushMatchBatch: () => batcher.flush() };
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@norinote/match",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@norinote/db": "*",
+    "@norinote/shared": "*",
+    "@norinote/ai": "*",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7"
+  }
+}

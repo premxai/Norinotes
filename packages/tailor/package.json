@@ -1,0 +1,22 @@
+{
+  "name": "@norinote/tailor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@norinote/db": "*",
+    "@norinote/shared": "*",
+    "@norinote/ai": "*",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7",
+    "playwright": "^1.56.0",
+    "@fontsource/inter": "^5.1.0",
+    "@fontsource/source-sans-3": "^5.1.0",
+    "@fontsource/eb-garamond": "^5.1.0",
+    "@fontsource/tinos": "^5.1.0",
+    "@fontsource/lora": "^5.1.0"
+  }
+}

@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/*
+ * Norinote design tokens: airy warm stone, warm ink, one ink-blue accent, three signals. See apps/web/DESIGN.md.
+ *   orange (attn)   = the person must act before the agent continues. Nothing decorative is ever orange.
+ *   violet (sandbox)= dry run: forms are filled, nothing is sent.
+ *   brick (danger)  = something broke, or the action cannot be undone.
+ * Every text pairing passes WCAG AA (4.5:1); control edges pass 3:1. Light only: there is no dark theme.
+ */
+:root {
+  --bg: #fbfaf8;
+  --surface: #fffefc;
+  --sunken: #f3f1ed;
+  --line: #e9e5df;
+  --control: #8e877d;
+  --ink: #2b2722;
+  --ink-2: #4a443c;
+  --muted: #6b645b;
+  --on-ink: #fffefc;
+
+  --accent: #2f5a8a;
+  --accent-tint: #e6eef7;
+  --accent-fg: #1f3f63;
+
+  --attn: #b5480f;
+  --attn-tint: #fdede1;
+  --attn-fg: #7a2e08;
+
+  --sandbox: #efeaf6;
+  --sandbox-fg: #47336e;
+  --sandbox-line: #d3c8e6;
+
+  --danger: #b4281c;
+  --danger-tint: #fcedea;
+  --danger-fg: #8c1d14;
+
+  --rail-w: 232px;
+  --content-max: 1200px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-control: var(--control);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-on-ink: var(--on-ink);
+  --color-accent: var(--accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-fg: var(--accent-fg);
+  --color-attn: var(--attn);
+  --color-attn-tint: var(--attn-tint);
+  --color-attn-fg: var(--attn-fg);
+  --color-sandbox: var(--sandbox);
+  --color-sandbox-fg: var(--sandbox-fg);
+  --color-sandbox-line: var(--sandbox-line);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-danger-fg: var(--danger-fg);
+
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Type scale. One family (Inter); weight and size carry the hierarchy, never all caps. */
+  --text-display-xl: 2rem;
+  --text-display-xl--line-height: 1.15;
+  --text-display-xl--letter-spacing: -0.02em;
+  --text-display-lg: 1.625rem;
+  --text-display-lg--line-height: 1.2;
+  --text-display-lg--letter-spacing: -0.015em;
+  --text-display-md: 1.375rem;
+  --text-display-md--line-height: 1.25;
+  --text-display-md--letter-spacing: -0.01em;
+  --text-title: 1.0625rem;
+  --text-title--line-height: 1.35;
+  --text-title--letter-spacing: -0.005em;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.55;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.5;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.45;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.3;
+  --text-label--letter-spacing: 0.01em;
+}
+
+/* Corner radii: 8px for controls and pills' containers, 12px for cards. `rounded-control`, `rounded-card`. */
+@theme {
+  --radius-control: 8px;
+  --radius-card: 12px;
+}
+
+html { background: var(--bg); }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+input, select, textarea, button { font: inherit; }
+
+::selection { background: var(--accent-tint); color: var(--ink); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* tabular figures wherever numbers line up */
+.tnum, table, time, [data-tnum] { font-variant-numeric: tabular-nums; }
+
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--ink); }
+
+/* selects: drop the native chrome, draw a quiet chevron that works on both themes */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238e877d' stroke-width='1.4'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px !important;
+}
+
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+}
+
+/* A step that is running: a calm three-dot pulse, never a spinner that suggests a stall. */
+.dots::after { content: "..."; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.4s steps(4, end) infinite; overflow: hidden; vertical-align: bottom; }
+@keyframes dots { from { width: 0; } to { width: 1.2em; } }

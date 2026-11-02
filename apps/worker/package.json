@@ -1,0 +1,22 @@
+{
+  "name": "@norinote/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@norinote/db": "*",
+    "@norinote/shared": "*",
+    "@norinote/ai": "*",
+    "@norinote/queue": "*",
+    "@norinote/ingest": "*",
+    "@norinote/graph": "*",
+    "@norinote/match": "*",
+    "@norinote/tailor": "*",
+    "@norinote/answers": "*",
+    "@norinote/apply": "*",
+    "@norinote/inbox": "*",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7",
+    "playwright": "^1.56.0"
+  }
+}

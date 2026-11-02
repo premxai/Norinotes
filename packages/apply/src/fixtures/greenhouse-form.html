@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Job Application for Senior Software Engineer at Acme Robotics</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; color: #222; }
+    #wrapper { max-width: 760px; margin: 0 auto; background: #fff; padding: 24px 32px; }
+    #header .company-name { color: #666; }
+    .field { margin: 14px 0; }
+    .field > label, legend { display: block; font-weight: bold; margin-bottom: 4px; }
+    .asterisk { color: #b00; }
+    input[type=text], input[type=email], input[type=tel], select, textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+    fieldset { border: 0; padding: 0; margin: 14px 0; }
+    fieldset label { font-weight: normal; margin-right: 16px; }
+    .drop-zone { border: 1px dashed #aaa; padding: 10px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .error { color: #b00; font-size: 12px; }
+    .select-shell { position: relative; border: 1px solid #aaa; padding: 4px; min-height: 28px; }
+    .select-shell input[role=combobox] { border: 0; outline: 0; width: 60%; }
+    .select__single-value { display: inline-block; color: #222; }
+    .select__menu, .autocomplete-list { border: 1px solid #ccc; background: #fff; margin: 0; padding: 0; list-style: none; }
+    .select__menu [role=option], .autocomplete-list li { padding: 6px; cursor: pointer; }
+    .phone-input { display: flex; gap: 8px; }
+    .phone-input .select-shell { width: 200px; }
+    .checkbox-field label { display: inline; font-weight: normal; }
+    #submit_buttons { margin-top: 24px; }
+    #submit_app { background: #3a8d3a; color: #fff; border: 0; padding: 10px 18px; font-size: 15px; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div id="wrapper">
+  <div id="app_body">
+    <div id="header">
+      <h1 class="app-title">Senior Software Engineer</h1>
+      <span class="company-name">at Acme Robotics</span>
+      <div class="location">San Francisco, CA (Hybrid)</div>
+    </div>
+
+    <div id="content">
+      <p>Acme Robotics builds autonomous warehouse robots. We are looking for a Senior Software Engineer to own
+        our fleet orchestration platform, written in TypeScript and Go, running on Kubernetes.</p>
+      <ul>
+        <li>5+ years building production backend systems</li>
+        <li>Experience with distributed systems and PostgreSQL</li>
+      </ul>
+    </div>
+
+    <div id="application">
+      <h2 class="heading">Apply for this Job</h2>
+      <form id="application_form" class="application-form" action="#" method="post" enctype="multipart/form-data" novalidate>
+        <input type="hidden" name="authenticity_token" value="abc123">
+        <input type="hidden" name="job_application[job_id]" value="4012345">
+
+        <div id="main_fields">
+          <div class="field">
+            <label for="first_name">First Name <span class="asterisk">*</span></label>
+            <input type="text" id="first_name" name="job_application[first_name]" aria-required="true" autocomplete="given-name">
+          </div>
+          <div class="field">
+            <label for="last_name">Last Name <span class="asterisk">*</span></label>
+            <input type="text" id="last_name" name="job_application[last_name]" aria-required="true" autocomplete="family-name">
+          </div>
+          <div class="field">
+            <label for="email">Email <span class="asterisk">*</span></label>
+            <input type="email" id="email" name="job_application[email]" aria-required="true" autocomplete="email">
+          </div>
+          <div class="field">
+            <label for="phone">Phone</label>
+            <div class="phone-input">
+              <div class="select-shell" data-combo="phone_country">
+                <input type="text" role="combobox" id="phone_country" aria-label="Country" aria-expanded="false"
+                       aria-autocomplete="list" aria-required="true" autocomplete="off">
+                <input type="hidden" name="job_application[phone_country]" id="phone_country_value">
+                <div class="select__single-value"></div>
+              </div>
+              <input type="tel" id="phone" name="job_application[phone]" autocomplete="tel">
+            </div>
+          </div>
+          <div class="field">
+            <label for="candidate-location">Location (City) <span class="asterisk">*</span></label>
+            <input type="text" id="candidate-location" name="job_application[location]" autocomplete="off" aria-required="true">
+            <ul id="location_autocomplete" class="autocomplete-list" role="listbox" style="display:none"></ul>
+          </div>
+
+          <div class="field" id="resume_fieldset">
+            <label>Resume/CV <span class="asterisk">*</span></label>
+            <div class="drop-zone">
+              <button type="button" class="attach" data-source="attach" onclick="document.getElementById('resume').click()">Attach</button>
+              <span class="drop-zone-copy">or drag and drop here</span>
+              <span id="resume_filename"></span>
+              <input type="file" id="resume" name="job_application[resume]" class="visually-hidden" accept=".pdf,.doc,.docx,.txt,.rtf">
+            </div>
+          </div>
+        </div>
+
+        <div id="custom_fields">
+          <div class="field">
+            <label for="question_github">Github</label>
+            <input type="text" id="question_github" name="job_application[answers_attributes][10][text_value]">
+          </div>
+          <div class="field">
+            <label for="question_twitter">Twitter</label>
+            <input type="text" id="question_twitter" name="job_application[answers_attributes][11][text_value]">
+          </div>
+          <div class="field">
+            <label for="question_country">Country</label>
+            <div class="select-shell" data-combo="country">
+              <input type="text" role="combobox" id="question_country" aria-expanded="false" aria-autocomplete="list" autocomplete="off">
+              <input type="hidden" name="job_application[answers_attributes][12][text_value]" id="question_country_value">
+              <div class="select__single-value"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label id="question_office-label" for="question_office">Which office would you like to work from? <span class="asterisk">*</span></label>
+            <div class="select-shell" data-combo="office">
+              <input type="text" role="combobox" id="question_office" aria-labelledby="question_office-label" aria-expanded="false"
+                     aria-autocomplete="list" aria-required="true" autocomplete="off">
+              <input type="hidden" name="job_application[answers_attributes][13][text_value]" id="question_office_value">
+              <div class="select__single-value"></div>
+            </div>
+          </div>
+          <div class="field checkbox-field">
+            <input type="checkbox" id="question_ack" name="job_application[answers_attributes][14][boolean_value]" value="1">
+            <label for="question_ack">I acknowledge that the information I have provided is accurate. <span class="asterisk">*</span></label>
+          </div>
+          <div class="field">
+            <label>LinkedIn Profile
+              <input type="text" id="job_application_answers_attributes_0_text_value" name="job_application[answers_attributes][0][text_value]">
+            </label>
+          </div>
+          <div class="field">
+            <label>Website
+              <input type="text" id="job_application_answers_attributes_1_text_value" name="job_application[answers_attributes][1][text_value]">
+            </label>
+          </div>
+          <div class="field">
+            <label for="job_application_answers_attributes_2_boolean_value">Are you authorized to work in the US? <span class="asterisk">*</span></label>
+            <select id="job_application_answers_attributes_2_boolean_value" name="job_application[answers_attributes][2][boolean_value]" aria-required="true">
+              <option value="">--</option>
+              <option value="1">Yes</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+          <fieldset class="field" aria-required="true">
+            <legend>Will you need sponsorship? <span class="asterisk">*</span></legend>
+            <label><input type="radio" name="job_application[answers_attributes][3][boolean_value]" value="1"> Yes</label>
+            <label><input type="radio" name="job_application[answers_attributes][3][boolean_value]" value="0"> No</label>
+          </fieldset>
+          <div class="field">
+            <label for="job_application_answers_attributes_4_text_value">Why do you want to work here? <span class="asterisk">*</span></label>
+            <textarea id="job_application_answers_attributes_4_text_value" name="job_application[answers_attributes][4][text_value]" rows="5" aria-required="true"></textarea>
+          </div>
+          <div class="field">
+            <label for="job_application_answers_attributes_5_answer_selected_options_attributes_0_question_option_id">How did you hear about us? <span class="asterisk">*</span></label>
+            <select id="job_application_answers_attributes_5_answer_selected_options_attributes_0_question_option_id"
+                    name="job_application[answers_attributes][5][answer_selected_options_attributes][0][question_option_id]" required>
+              <option value="">Please select</option>
+              <option value="101">LinkedIn</option>
+              <option value="102">Employee referral</option>
+              <option value="103">Company website</option>
+              <option value="104">Other</option>
+            </select>
+          </div>
+
+          <!-- honeypot: real users never see this -->
+          <div class="field" style="display:none" aria-hidden="true">
+            <label for="job_application_url">Leave this blank</label>
+            <input type="text" id="job_application_url" name="job_application[url]" tabindex="-1" autocomplete="off">
+          </div>
+        </div>
+
+        <div id="submit_buttons">
+          <button type="button" id="submit_app" class="button">Submit Application</button>
+        </div>
+        <div id="form_errors" class="error" role="alert"></div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  // Minimal react-select replica: the listbox exists only while open; options are [role=option] divs.
+  var COMBOS = {
+    phone_country: ['Canada +1', 'United States Minor Outlying Islands +1', 'United States +1', 'India +91', 'United Kingdom +44'],
+    country: ['Canada', 'Germany', 'India', 'United Kingdom', 'United States'],
+    office: ['San Francisco', 'New York', 'Remote (US)']
+  };
+  document.querySelectorAll('[data-combo]').forEach(function (shell) {
+    var key = shell.getAttribute('data-combo');
+    var input = shell.querySelector('input[role=combobox]');
+    var hidden = shell.querySelector('input[type=hidden]');
+    var display = shell.querySelector('.select__single-value');
+    var listId = input.id + '-listbox';
+    function close() {
+      var l = document.getElementById(listId);
+      if (l) l.remove();
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-controls');
+    }
+    function open() {
+      close();
+      var q = input.value.toLowerCase();
+      var list = document.createElement('div');
+      list.id = listId;
+      list.setAttribute('role', 'listbox');
+      list.className = 'select__menu';
+      COMBOS[key].filter(function (o) { return o.toLowerCase().indexOf(q) >= 0; }).forEach(function (o, i) {
+        var opt = document.createElement('div');
+        opt.setAttribute('role', 'option');
+        opt.id = input.id + '-option-' + i;
+        opt.textContent = o;
+        opt.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        opt.addEventListener('click', function () {
+          hidden.value = o;
+          display.textContent = o;
+          input.value = '';
+          close();
+        });
+        list.appendChild(opt);
+      });
+      shell.appendChild(list);
+      input.setAttribute('aria-expanded', 'true');
+      input.setAttribute('aria-controls', listId);
+    }
+    input.addEventListener('focus', open);
+    input.addEventListener('mousedown', open);
+    input.addEventListener('input', open);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); if (e.key === 'ArrowDown') open(); });
+    input.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== input) close(); }, 150); });
+  });
+
+  // Places-style autocomplete: typed text only counts once a suggestion is picked.
+  (function () {
+    var input = document.getElementById('candidate-location');
+    var list = document.getElementById('location_autocomplete');
+    var PLACES = ['San Francisco, California, United States', 'San Francisco de Macoris, Dominican Republic', 'San Jose, California, United States', 'New York, New York, United States'];
+    var selected = false, timer = null;
+    function setError(on) {
+      var err = document.getElementById('location_error');
+      if (on && !err) {
+        err = document.createElement('span');
+        err.id = 'location_error';
+        err.className = 'error';
+        err.textContent = 'Please enter your location';
+        list.after(err);
+      }
+      if (!on && err) err.remove();
+      if (on) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    }
+    input.addEventListener('input', function () {
+      selected = false;
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        var q = input.value.slice(0, 3).toLowerCase();
+        list.innerHTML = '';
+        PLACES.filter(function (p) { return q && p.toLowerCase().indexOf(q) === 0; }).forEach(function (p) {
+          var li = document.createElement('li');
+          li.setAttribute('role', 'option');
+          li.textContent = p;
+          li.addEventListener('mousedown', function (e) { e.preventDefault(); });
+          li.addEventListener('click', function () { input.value = p; selected = true; list.style.display = 'none'; setError(false); });
+          list.appendChild(li);
+        });
+        list.style.display = list.children.length ? 'block' : 'none';
+      }, 300);
+    });
+    input.addEventListener('blur', function () {
+      setTimeout(function () { list.style.display = 'none'; setError(!selected); }, 200);
+    });
+    window.__locationSelected = function () { return selected; };
+  })();
+
+  document.getElementById('resume').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    document.getElementById('resume_filename').textContent = f ? f.name : '';
+  });
+  document.getElementById('submit_app').addEventListener('click', function () {
+    var form = document.getElementById('application_form');
+    var missing = [];
+    form.querySelectorAll('[aria-required=true], [required]').forEach(function (el) {
+      if (el.tagName === 'FIELDSET') {
+        if (!el.querySelector('input:checked')) missing.push(el.querySelector('legend').textContent.trim());
+      } else if (el.getAttribute('role') === 'combobox' || el.type === 'checkbox') {
+        return;
+      } else if (!el.value) {
+        missing.push(el.id);
+      }
+    });
+    if (!document.getElementById('resume').files.length) missing.push('resume');
+    if (document.getElementById('job_application_url').value) missing.push('spam');
+    if (!window.__locationSelected()) missing.push('location');
+    if (!document.getElementById('question_office_value').value) missing.push('office');
+    if (!document.getElementById('phone_country_value').value) missing.push('phone_country');
+    if (!document.getElementById('question_ack').checked) missing.push('acknowledgment');
+    if (missing.length) {
+      document.getElementById('form_errors').textContent = 'Please complete: ' + missing.join(', ');
+      return;
+    }
+    var done = document.createElement('div');
+    done.id = 'application_confirmation';
+    done.innerHTML = '<h2>Thank you for applying.</h2><p>Your application has been submitted to Acme Robotics. We will be in touch.</p>';
+    document.getElementById('application').replaceWith(done);
+  });
+</script>
+</body>
+</html>

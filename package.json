@@ -1,0 +1,36 @@
+{
+  "name": "norinote",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Norinote: a personal job agent. A daily shortlist of jobs you are likely to get, applied in about 20 seconds each.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "gate": "node scripts/gate.mjs",
+    "db:migrate": "tsx packages/db/src/migrate-cli.ts",
+    "db:generate": "drizzle-kit generate --config packages/db/drizzle.config.ts",
+    "dev:api": "tsx watch apps/api/src/index.ts",
+    "dev:worker": "tsx watch apps/worker/src/index.ts",
+    "dev": "tsx scripts/dev-all.mts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^22.10.0",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "4.1.12"
+  }
+}
