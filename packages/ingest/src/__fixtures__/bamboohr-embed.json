@@ -1,0 +1,41 @@
+{
+  "version": null,
+  "labels": {
+    "heading": "Open Positions",
+    "blankStateTitle": "We currently have no open positions.",
+    "blankStateBody": "Please check back as we will most certainly be looking for great people to join our team in the future."
+  },
+  "departments": [
+    {
+      "id": 18443,
+      "label": "Accounts",
+      "positions": [
+        {
+          "id": 161,
+          "name": "Senior Client Account Strategist (Digital / Insurance Focus)",
+          "url": "https://321theagency.bamboohr.com/careers/161",
+          "location": "Remote"
+        },
+        {
+          "id": 148,
+          "name": "Senior Client Account Strategist (Digital)",
+          "url": "https://321theagency.bamboohr.com/careers/148",
+          "location": "Remote"
+        }
+      ]
+    },
+    {
+      "id": 18813,
+      "label": "Client Success",
+      "positions": [
+        {
+          "id": 173,
+          "name": "Senior Client Strategist (Digital & Growth)",
+          "url": "https://321theagency.bamboohr.com/careers/173",
+          "location": "Remote"
+        }
+      ]
+    }
+  ],
+  "success": true
+}

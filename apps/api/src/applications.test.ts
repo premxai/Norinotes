@@ -43,7 +43,7 @@ describe("shortlist", () => {
     expect(list.status).toBe(200);
     expect(list.json.map((r: { job: { companyName: string } }) => r.job.companyName)).toEqual(["Beta", "Alpha"]);
     expect(list.json[1]).toEqual({
-      id: expect.any(String), jobId: a.job.id, fit: 0.7, reasons: ["Fits at 70%"], status: "new", createdAt: expect.any(String),
+      id: expect.any(String), jobId: a.job.id, fit: 0.7, reasons: ["Fits at 70%"], status: "new", createdAt: expect.any(String), widenedBy: null,
       locations: 1, locationNames: ["Austin, TX"],
       job: { id: a.job.id, companyName: "Alpha", title: "Backend Engineer", location: "Austin, TX", remote: false, applyUrl: a.job.applyUrl, postedAt: expect.any(String) },
     });

@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { loadDotEnv } from "@norinote/db";
 import { createLogger } from "./log.js";
 import { startWorker } from "./worker.js";
 
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
 
 // Run only when started directly (`npm run dev:worker`), not when imported by a test.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  loadDotEnv();
   main().catch((err) => {
     createLogger().error("worker.start_failed", { error: err instanceof Error ? err.message : String(err) });
     process.exit(1);

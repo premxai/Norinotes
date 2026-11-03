@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "totalCount": 3
+  },
+  "result": [
+    {
+      "id": "146",
+      "jobOpeningName": "Project Manager (Creative & Digital)",
+      "departmentId": "18601",
+      "departmentLabel": "Project Management",
+      "employmentStatusLabel": "Full-Time",
+      "employmentType": null,
+      "location": {
+        "city": null,
+        "state": null
+      },
+      "atsLocation": {
+        "country": "United States",
+        "state": "Florida",
+        "province": null,
+        "city": "Orlando"
+      },
+      "isRemote": null,
+      "locationType": "1"
+    },
+    {
+      "id": "148",
+      "jobOpeningName": "Senior Client Account Strategist (Digital)",
+      "departmentId": "18443",
+      "departmentLabel": "Accounts",
+      "employmentStatusLabel": "Full-Time",
+      "employmentType": null,
+      "location": {
+        "city": null,
+        "state": null
+      },
+      "atsLocation": {
+        "country": "United States",
+        "state": "Florida",
+        "province": null,
+        "city": "Orlando"
+      },
+      "isRemote": true,
+      "locationType": "1"
+    },
+    {
+      "id": "154",
+      "jobOpeningName": "Senior Social Media Manager & Content Strategist",
+      "departmentId": "18810",
+      "departmentLabel": "Social",
+      "employmentStatusLabel": "Full-Time",
+      "employmentType": null,
+      "location": {
+        "city": null,
+        "state": null
+      },
+      "atsLocation": {
+        "country": "United States",
+        "state": "Texas",
+        "province": null,
+        "city": "Austin"
+      },
+      "isRemote": null,
+      "locationType": "0"
+    }
+  ]
+}

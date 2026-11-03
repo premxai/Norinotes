@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { and, applications, careerPoints, companies, desc, eq, inArray, isNull, jobs, shortlist, sql } from "@norinote/db";
+import { WIDENED_BY, widenedByOf, withoutWidenedReasons, type WidenedBy } from "@norinote/match";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { intParam, notFound, uuidParam } from "../http.js";
@@ -10,35 +11,59 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   const auth = requireUser(ctx);
   const { db } = ctx;
 
-  r.get("/", auth, async (c) => {
-    const userId = c.get("user").id;
-    const limit = intParam(c.req.query("limit"), 50, 1, 200);
-    // Read extra rows: the same role posted in several cities collapses into one entry below.
-    const rows = await db.select({
-      id: shortlist.id, jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, status: shortlist.status, createdAt: shortlist.createdAt,
-      jobTitle: jobs.title, location: jobs.location, remote: jobs.remote, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, companyName: companies.name,
-    }).from(shortlist)
-      .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
-      .innerJoin(companies, eq(companies.id, jobs.companyId))
-      .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false)))
-      .orderBy(desc(shortlist.fit), desc(shortlist.createdAt)).limit(limit * 4);
+  type Entry = { row: Row; locations: string[]; widenedBy: WidenedBy | null };
+  type Row = Awaited<ReturnType<typeof loadRows>>[number];
 
+  /** Visible rows (new, open, company not blocked): the jobs the lanes fit first, then the widened ones, each best fit first. */
+  const loadRows = (userId: string, take: number) => db.select({
+    id: shortlist.id, jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, status: shortlist.status, createdAt: shortlist.createdAt,
+    jobTitle: jobs.title, location: jobs.location, remote: jobs.remote, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, companyName: companies.name,
+  }).from(shortlist)
+    .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
+    .innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false)))
+    .orderBy(sql`(EXISTS (SELECT 1 FROM unnest(${shortlist.reasons}) AS r WHERE r LIKE ${WIDENED_LIKE})) asc`, desc(shortlist.fit), desc(shortlist.createdAt)).limit(take);
+
+  /** One entry per company and role: keep the best-fitting posting, list the other cities. */
+  async function loadEntries(userId: string, limit: number): Promise<Entry[]> {
+    // Read extra rows: the same role posted in several cities collapses into one entry.
+    const rows = await loadRows(userId, limit * 4);
     if (rows.length === 0) await queueFirstRun(userId);
-
-    // One entry per company and role: keep the best-fitting posting, list the other cities.
-    const groups = new Map<string, { row: (typeof rows)[number]; locations: string[] }>();
+    const groups = new Map<string, Entry>();
     for (const s of rows) {
       const key = roleKey(s.companyName, s.jobTitle);
       const g = groups.get(key);
-      if (!g) groups.set(key, { row: s, locations: s.location ? [s.location] : [] });
+      if (!g) groups.set(key, { row: s, locations: s.location ? [s.location] : [], widenedBy: widenedByOf(s.reasons) });
       else if (s.location && !g.locations.includes(s.location)) g.locations.push(s.location);
     }
+    return [...groups.values()].slice(0, limit);
+  }
 
-    return c.json([...groups.values()].slice(0, limit).map(({ row: s, locations }) => ({
-      id: s.id, jobId: s.jobId, fit: s.fit, reasons: s.reasons, status: s.status, createdAt: s.createdAt.toISOString(),
+  r.get("/", auth, async (c) => {
+    const limit = intParam(c.req.query("limit"), 50, 1, 200);
+    const entries = await loadEntries(c.get("user").id, limit);
+    return c.json(entries.map(({ row: s, locations, widenedBy }) => ({
+      id: s.id, jobId: s.jobId, fit: s.fit, reasons: withoutWidenedReasons(s.reasons), status: s.status, createdAt: s.createdAt.toISOString(),
+      // Set when the job is here because the lanes were widened ("Showing similar roles while we look for more").
+      widenedBy,
       locations: Math.max(1, locations.length), locationNames: locations.slice(0, 8),
       job: { id: s.jobId, companyName: s.companyName, title: s.jobTitle, location: s.location, remote: s.remote, applyUrl: s.applyUrl, postedAt: s.postedAt ? s.postedAt.toISOString() : null },
     })));
+  });
+
+  /**
+   * What the list above is made of, for the banner: how many roles, which widening steps were used (in ladder order),
+   * how many fit the lanes as written, and whether the role-family pool contributed.
+   */
+  r.get("/meta", auth, async (c) => {
+    const entries = await loadEntries(c.get("user").id, 200);
+    const used = new Set(entries.flatMap((e) => (e.widenedBy ? [e.widenedBy] : [])));
+    return c.json({
+      total: entries.length,
+      widened: WIDENED_BY.filter((w) => used.has(w)),
+      lanesMatched: entries.filter((e) => e.widenedBy === null).length,
+      poolUsed: used.has("role_pool"),
+    });
   });
 
   /** A user with career points but no shortlist rows at all has never been matched: queue one run (deduplicated). */
@@ -80,5 +105,6 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   return r;
 }
 
+const WIDENED_LIKE = "widened:%";
 const normTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const roleKey = (company: string, title: string) => `${company.toLowerCase().trim()}|${normTitle(title)}`;

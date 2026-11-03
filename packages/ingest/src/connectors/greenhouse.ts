@@ -1,5 +1,5 @@
 import { htmlToText, unescapeHtml } from "../html.js";
-import { getJson } from "../http.js";
+import { getJson, getJsonConditional } from "../http.js";
 import type { Connector, NormalizedJob } from "../types.js";
 import { parseDate, prettifyToken, REMOTE_RE, safeUrl } from "../util.js";
 
@@ -32,9 +32,12 @@ function toJob(token: string, j: GhJob): NormalizedJob {
  */
 export const greenhouse: Connector = {
   atsType: "greenhouse",
-  async listJobs(token, http) {
-    const data = await getJson<{ jobs?: GhJob[] }>(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs?content=true`, http);
-    return (data?.jobs ?? []).map((j) => toJob(token, j));
+  capabilities: { conditional: true, maxConcurrencyPerHost: 4 },
+  async listJobs(token, http, opts) {
+    const res = await getJsonConditional<{ jobs?: GhJob[] }>(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs?content=true`, http, opts?.etag);
+    if (res.status === "notFound") return { jobs: [], complete: true, notFound: true };
+    if (res.status === "notModified") return { jobs: [], complete: true, notModified: true, etag: res.etag };
+    return { jobs: (res.data?.jobs ?? []).map((j) => toJob(token, j)), complete: true, etag: res.etag };
   },
   async fetchJob(token, externalId, http) {
     const j = await getJson<GhJob>(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs/${encodeURIComponent(externalId)}?content=true`, http);

@@ -1,0 +1,57 @@
+{
+  "items": [
+    {
+      "SiteNumber": "CX_45001",
+      "Offset": 0,
+      "Limit": 3,
+      "TotalJobsCount": 2,
+      "requisitionList": [
+        {
+          "Id": "333299",
+          "Title": "Principal, End-to-End Data Center Power Delivery Manager",
+          "PostedDate": "2026-11-02",
+          "Language": "US",
+          "PrimaryLocationCountry": "US",
+          "HotJobFlag": true,
+          "ShortDescriptionStr": "Accountable for end-to-end program oversight, sequencing cross-functional execution for the data center capital build to ensure delivery predictability, disciplined change management, and an operationally ready turnover to internal network teams, operations, and the client. An active onsite presence is essential to maintain the accelerated schedule and enable rapid, effective issue resolution.  **This role is based in the El Paso, TX/Las Cruces, NM area and requires one to live in the area. Relocation assistance available. Only apply if you currently live in this area or are able to relocate permanently to the area. **",
+          "PrimaryLocation": "NM, United States",
+          "TrendingFlag": false,
+          "BeFirstToApplyFlag": false,
+          "WorkplaceType": "",
+          "secondaryLocations": [
+            {
+              "RequisitionLocationId": 302965714906150,
+              "GeographyNodeId": 100865088699822,
+              "GeographyId": 300000000149325,
+              "Name": "United States",
+              "CountryCode": "US",
+              "Latitude": 39.82844,
+              "Longitude": -98.57939
+            }
+          ],
+          "workLocation": []
+        },
+        {
+          "Id": "342030",
+          "Title": "Lead Principal Application Software Engineer- Forward Deployed Engineer",
+          "PostedDate": "2026-11-02",
+          "Language": "US",
+          "PrimaryLocationCountry": "US",
+          "HotJobFlag": true,
+          "WorkplaceTypeCode": "ORA_REMOTE",
+          "ShortDescriptionStr": "Build tomorrow’s AI platforms today—lead enterprise AI transformation, architecting, modernizing, and delivering Oracle AI Data Platform solutions that help the world’s largest organizations unlock the full potential of AI.\n\nNOTE: We are unable to provide visa sponsorship for this role at this time. No candidates requiring visa sponsorship will be considered. \n",
+          "PrimaryLocation": "Remote - United States",
+          "TrendingFlag": false,
+          "BeFirstToApplyFlag": false,
+          "WorkplaceType": "",
+          "secondaryLocations": [],
+          "workLocation": []
+        }
+      ]
+    }
+  ],
+  "count": 1,
+  "hasMore": false,
+  "limit": 200,
+  "offset": 0
+}

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { serve, type ServerType } from "@hono/node-server";
-import { connect, migrate } from "@norinote/db";
+import { connect, loadDotEnv, migrate } from "@norinote/db";
 import { createQueue } from "@norinote/queue";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
@@ -41,6 +41,7 @@ export async function startApi(env: Record<string, string | undefined> = process
 
 // Run only when started directly (`npm run dev:api`), not when imported by a test.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  loadDotEnv();
   startApi().then((api) => {
     let stopping = false;
     const shutdown = (signal: string) => {

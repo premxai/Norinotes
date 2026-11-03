@@ -1,0 +1,31 @@
+{
+  "jobPostingInfo": {
+    "id": "949fca57f285102452f515b7549a0000",
+    "title": "Senior Software Engineer, Machine Learning Safety",
+    "jobDescription": "<p><span>NVIDIA’s Deep Learning Safety group is looking for a Senior Software Safety Engineer.</span></p><p></p><p><span>At NVIDIA, we are building the system, hardware, and software technology which enables autonomous driving. Our deep learning safety team is currently searching for a Senior Software Safety Engineer to help us craft the next generation of products for autonomous driving. You should have strong programming skills, a good grasp of Hardware and Software Architectures, experience with software develop</span></p><ul><li>Build things</li><li>Ship things</li></ul>",
+    "location": "US, CA, Santa Clara",
+    "postedOn": "Posted Today",
+    "startDate": "2026-11-02",
+    "timeType": "Full time",
+    "jobReqId": "JR2023004",
+    "jobPostingId": "Senior-Software-Engineer--Machine-Learning-Safety_JR2023004",
+    "jobPostingSiteId": "NVIDIAExternalCareerSite",
+    "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "externalUrl": "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/Senior-Software-Engineer--Machine-Learning-Safety_JR2023004",
+    "questionnaireId": "2f2764b3a82910064296831695150000",
+    "additionalLocations": [
+      "US, TX, Austin"
+    ]
+  },
+  "hiringOrganization": {
+    "name": "2100 NVIDIA USA",
+    "url": ""
+  },
+  "userAuthenticated": false
+}

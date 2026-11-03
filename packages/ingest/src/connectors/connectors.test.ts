@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ATS_TYPES } from "@norinote/shared";
 import ashbyBoard from "../__fixtures__/ashby-board.json";
 import ghBoard from "../__fixtures__/greenhouse-board.json";
 import ghJob from "../__fixtures__/greenhouse-job.json";
@@ -7,12 +8,13 @@ import leverBoard from "../__fixtures__/lever-board.json";
 import srDetail from "../__fixtures__/smartrecruiters-detail.json";
 import srList from "../__fixtures__/smartrecruiters-list.json";
 import { RateLimitedError } from "../http.js";
+import type { ListResult } from "../types.js";
 import { ashby, CONNECTORS, getConnector, greenhouse, greenhouseFormUrl, isSupportedAts, lever, matchJobUrl, oracle, smartrecruiters, workday } from "./index.js";
 
 describe("greenhouse", () => {
   it("normalises the board", async () => {
     const f = routeFetch({ "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true": () => json(ghBoard) });
-    const out = await greenhouse.listJobs("acme", { fetch: f });
+    const out = (await greenhouse.listJobs("acme", { fetch: f }) as ListResult).jobs;
     expect(out).toHaveLength(3);
     expect(out[0]).toMatchObject({
       atsType: "greenhouse", externalId: "4001", companyToken: "acme", companyName: "Acme Robotics", title: "Senior Frontend Engineer",
@@ -27,7 +29,7 @@ describe("greenhouse", () => {
   });
 
   it("returns [] for an unknown board, throws on a server error, and surfaces rate limiting", async () => {
-    expect(await greenhouse.listJobs("missing", { fetch: routeFetch({}) })).toEqual([]);
+    expect(await greenhouse.listJobs("missing", { fetch: routeFetch({}) })).toMatchObject({ jobs: [], complete: true, notFound: true });
     await expect(greenhouse.listJobs("x", { fetch: routeFetch({ "https://": () => new Response("boom", { status: 500 }) }) })).rejects.toThrow(/500/);
     await expect(greenhouse.listJobs("x", { fetch: routeFetch({ "https://": () => new Response("", { status: 429 }) }), ...noSleep })).rejects.toBeInstanceOf(RateLimitedError);
   });
@@ -68,7 +70,7 @@ describe("greenhouseFormUrl", () => {
 describe("lever", () => {
   it("normalises postings, joining description, lists and closing text", async () => {
     const f = routeFetch({ "https://api.lever.co/v0/postings/globex?mode=json": () => json(leverBoard) });
-    const out = await lever.listJobs("globex", { fetch: f });
+    const out = (await lever.listJobs("globex", { fetch: f }) as ListResult).jobs;
     expect(out).toHaveLength(2);
     expect(out[0]).toMatchObject({
       atsType: "lever", externalId: "11111111-aaaa-bbbb-cccc-222222222222", companyName: "Globex", title: "Backend Engineer",
@@ -80,7 +82,7 @@ describe("lever", () => {
   });
 
   it("returns [] on 404, fetches one posting, and parses URLs", async () => {
-    expect(await lever.listJobs("nope", { fetch: routeFetch({}) })).toEqual([]);
+    expect(await lever.listJobs("nope", { fetch: routeFetch({}) })).toMatchObject({ jobs: [], complete: true, notFound: true });
     const f = routeFetch({ "https://api.lever.co/v0/postings/globex/3333": () => json(leverBoard[1]) });
     expect(await lever.fetchJob?.("globex", "3333", { fetch: f })).toMatchObject({ title: "Designer" });
     expect(await lever.fetchJob?.("globex", "gone", { fetch: f })).toBeNull();
@@ -93,7 +95,7 @@ describe("lever", () => {
 describe("ashby", () => {
   it("normalises listed jobs only, using plain text or stripped HTML", async () => {
     const f = routeFetch({ "https://api.ashbyhq.com/posting-api/job-board/initech": () => json(ashbyBoard) });
-    const out = await ashby.listJobs("initech", { fetch: f });
+    const out = (await ashby.listJobs("initech", { fetch: f }) as ListResult).jobs;
     expect(out.map((j) => j.externalId)).toEqual(["a1", "a2"]);
     expect(out[0]).toMatchObject({
       companyName: "Initech", remote: true, location: "Remote", descriptionText: "Train models",
@@ -122,7 +124,7 @@ describe("smartrecruiters", () => {
   });
 
   it("lists, reads each detail, and keeps list data when a detail fails", async () => {
-    const out = await smartrecruiters.listJobs("Hooli", { fetch: routes() });
+    const out = (await smartrecruiters.listJobs("Hooli", { fetch: routes() }) as ListResult).jobs;
     expect(out.map((j) => j.externalId)).toEqual(["743999", "744000"]);
     expect(out[0]).toMatchObject({
       companyName: "Hooli", title: "SRE", location: "Austin, US", remote: false, applyUrl: "https://jobs.smartrecruiters.com/Hooli/743999-sre",
@@ -133,7 +135,7 @@ describe("smartrecruiters", () => {
   });
 
   it("returns [] for an unknown company, fetches one job, and parses URLs", async () => {
-    expect(await smartrecruiters.listJobs("Nobody", { fetch: routeFetch({}) })).toEqual([]);
+    expect(await smartrecruiters.listJobs("Nobody", { fetch: routeFetch({}) })).toMatchObject({ jobs: [], complete: true, notFound: true });
     expect(await smartrecruiters.fetchJob?.("Hooli", "743999", { fetch: routes() })).toMatchObject({ title: "SRE" });
     expect(await smartrecruiters.fetchJob?.("Hooli", "1", { fetch: routes() })).toBeNull();
     expect(smartrecruiters.parseUrl("https://jobs.smartrecruiters.com/Hooli/743999-site-reliability-engineer")).toEqual({ token: "Hooli", externalId: "743999" });
@@ -142,19 +144,72 @@ describe("smartrecruiters", () => {
 });
 
 describe("connector registry", () => {
-  it("covers every job system; Workday and Oracle are stubs that throw", async () => {
-    expect(Object.keys(CONNECTORS).sort()).toEqual(["ashby", "greenhouse", "lever", "oracle", "smartrecruiters", "workday"]);
+  it("covers every job system, and Workday and Oracle are real connectors now", () => {
+    expect(Object.keys(CONNECTORS).sort()).toEqual([...ATS_TYPES].sort());
     expect(getConnector("lever")).toBe(lever);
     expect(isSupportedAts("greenhouse")).toBe(true);
-    expect(isSupportedAts("workday")).toBe(false);
-    await expect(workday.listJobs("t|wd5|site")).rejects.toThrow(/not implemented/);
-    await expect(oracle.listJobs("x")).rejects.toThrow(/not implemented/);
-    await expect(workday.fetchJob?.("t", "1")).rejects.toThrow(/not implemented/);
+    expect(isSupportedAts("workday")).toBe(true);
+    expect(isSupportedAts("oracle")).toBe(true);
+    expect(workday.ready).not.toBe(false);
+    expect(oracle.ready).not.toBe(false);
+    expect(typeof workday.fetchJob).toBe("function");
   });
 
   it("matches a URL to the right connector", () => {
     expect(matchJobUrl("https://jobs.ashbyhq.com/initech/a1")).toMatchObject({ token: "initech", externalId: "a1" });
     expect(matchJobUrl("https://jobs.ashbyhq.com/initech/a1")?.connector).toBe(ashby);
     expect(matchJobUrl("https://example.com/careers/1")).toBeNull();
+  });
+});
+
+describe("conditional reads (ETag)", () => {
+  const cases = [
+    { name: "greenhouse", connector: greenhouse, url: "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true", body: ghBoard, count: 3 },
+    { name: "lever", connector: lever, url: "https://api.lever.co/v0/postings/globex?mode=json", body: leverBoard, count: (leverBoard as unknown[]).length },
+    { name: "ashby", connector: ashby, url: "https://api.ashbyhq.com/posting-api/job-board/initech", body: ashbyBoard, count: 0 },
+  ] as const;
+
+  for (const c of cases) {
+    it(`${c.name}: returns the ETag, sends it back, and reports notModified on 304`, async () => {
+      const token = c.url.includes("acme") ? "acme" : c.url.includes("globex") ? "globex" : "initech";
+      const first = await c.connector.listJobs(token, { fetch: routeFetch({ [c.url]: () => json(c.body, 200, { etag: "\"abc\"" }) }) }) as ListResult;
+      expect(first).toMatchObject({ complete: true, etag: "\"abc\"" });
+      expect(first.notModified).toBeUndefined();
+      if (c.count) expect(first.jobs).toHaveLength(c.count);
+
+      const sent: Array<string | null> = [];
+      const f = routeFetch({ [c.url]: (_u, init) => { sent.push(new Headers(init?.headers).get("if-none-match")); return new Response(null, { status: 304 }); } });
+      const second = await c.connector.listJobs(token, { fetch: f }, { etag: first.etag }) as ListResult;
+      expect(sent).toEqual(["\"abc\""]);
+      expect(second).toMatchObject({ jobs: [], complete: true, notModified: true, etag: "\"abc\"" });
+    });
+
+    it(`${c.name}: sends no validator on a first read and reports a 404 as notFound`, async () => {
+      const sent: Array<string | null> = [];
+      const f = routeFetch({ [c.url]: (_u, init) => { sent.push(new Headers(init?.headers).get("if-none-match")); return new Response("", { status: 404 }); } });
+      const token = c.url.includes("acme") ? "acme" : c.url.includes("globex") ? "globex" : "initech";
+      expect(await c.connector.listJobs(token, { fetch: f })).toMatchObject({ jobs: [], complete: true, notFound: true });
+      expect(sent).toEqual([null]);
+    });
+  }
+
+  it("smartrecruiters: a board bigger than the cap is an incomplete read", async () => {
+    const page = (offset: number) => ({ totalFound: 450, content: Array.from({ length: 100 }, (_, i) => ({ id: String(offset + i), name: "J", company: { name: "Big" }, location: {} })) });
+    const f = routeFetch({
+      "https://api.smartrecruiters.com/v1/companies/Big/postings?limit=100&offset=0": () => json(page(0)),
+      "https://api.smartrecruiters.com/v1/companies/Big/postings?limit=100&offset=100": () => json(page(100)),
+      "https://api.smartrecruiters.com/v1/companies/Big/postings/": () => new Response("", { status: 404 }),
+    });
+    const res = await smartrecruiters.listJobs("Big", { fetch: f }) as ListResult;
+    expect(res.jobs).toHaveLength(200);
+    expect(res.complete).toBe(false);
+  });
+
+  it("smartrecruiters: a small board is complete", async () => {
+    const f = routeFetch({
+      "https://api.smartrecruiters.com/v1/companies/Hooli/postings?": () => json(srList),
+      "https://api.smartrecruiters.com/v1/companies/Hooli/postings/": () => json(srDetail),
+    });
+    expect(await smartrecruiters.listJobs("Hooli", { fetch: f })).toMatchObject({ complete: true });
   });
 });

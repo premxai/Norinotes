@@ -7,11 +7,13 @@ import {
 } from "@norinote/apply";
 import { AiUnavailableError } from "@norinote/ai";
 import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
-import { dueBoards, feedHost, HostBackedOffError, HostBackoff, pollBoard } from "@norinote/ingest";
+import { feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, type DueBoard } from "@norinote/ingest";
 import { reprocessMessage } from "@norinote/inbox";
 import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
 import { JOBS, type Handler, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
+import { boostCompaniesForUser } from "./boost.js";
 import type { WorkerConfig } from "./config.js";
+import { createDemandCounter } from "./demand.js";
 import type { LogFields, Logger } from "./log.js";
 
 export type ConsumerDeps = {
@@ -26,8 +28,10 @@ export type ConsumerDeps = {
 };
 
 export type Consumers = {
-  /** Enqueues `ingest.poll-board` for every board that is due. Returns how many were queued. */
+  /** Enqueues `ingest.poll-board` for the boards that are due (validation of new candidates included). Returns how many were queued. */
   enqueueDueBoards(): Promise<number>;
+  /** Enqueues only the validation polls: a candidate's first poll decides whether it becomes active or dead. Returns how many were queued. */
+  enqueueValidations(): Promise<number>;
   /** Matches the jobs understood so far right now instead of waiting for the quiet period. */
   flushMatchBatch(): Promise<void>;
 };
@@ -55,13 +59,12 @@ function instrument<N extends JobName>(log: Logger, queue: N, fn: (payload: Payl
   };
 }
 
-/** At most `limit` tasks at once per key (a feed host), the rest wait. */
+/** At most `limit` tasks at once per key (a host group), the rest wait. The limit is given per call, since it depends on the job system. */
 class KeyedLimiter {
   private active = new Map<string, number>();
   private waiting = new Map<string, (() => void)[]>();
-  constructor(private readonly limit: number) {}
-  async run<T>(key: string, fn: () => Promise<T>): Promise<T> {
-    while ((this.active.get(key) ?? 0) >= this.limit) await new Promise<void>((resolve) => this.waiting.set(key, [...(this.waiting.get(key) ?? []), resolve]));
+  async run<T>(key: string, limit: number, fn: () => Promise<T>): Promise<T> {
+    while ((this.active.get(key) ?? 0) >= limit) await new Promise<void>((resolve) => this.waiting.set(key, [...(this.waiting.get(key) ?? []), resolve]));
     this.active.set(key, (this.active.get(key) ?? 0) + 1);
     try {
       return await fn();
@@ -143,21 +146,35 @@ async function autoAnswerPending(db: Db, applicationId: string): Promise<{ answe
 export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> {
   const { db, queue, log, config, apply } = deps;
   const now = deps.now ?? (() => new Date());
-  const limiter = new KeyedLimiter(config.pollsPerHost);
+  const limiter = new KeyedLimiter();
+  const demandFor = createDemandCounter(db, now);
   const batcher = new MatchBatcher(queue, config.matchBatchMs, now);
   let backoff = new HostBackoff();
 
-  async function enqueueDueBoards(): Promise<number> {
-    // A new cycle starts with a clean slate: hosts that refused us last time are tried again.
-    backoff = new HostBackoff();
-    const due = await dueBoards(db, { now: now(), limit: config.boardsPerRun });
+  async function enqueueBoards(due: DueBoard[]): Promise<number> {
     let queued = 0;
     for (const b of due) {
       const id = await queue.enqueue(JOBS.ingestPollBoard, { companyId: b.id }, { dedupeKey: b.id, dedupeSeconds: BOARD_DEDUPE_SECONDS });
       if (id) queued++;
     }
-    log.info("scheduler", { due: due.length, queued });
     return queued;
+  }
+
+  /** Candidates are validated by their first poll; they get their own budget so a long seed list cannot crowd out the refresh of live boards (or the other way round). */
+  async function enqueueValidations(): Promise<number> {
+    const due = await nextBoards(db, { now: now(), limit: config.validatePerRun, perHostLimit: config.hostBoardsPerRun, candidates: "only" });
+    const queued = await enqueueBoards(due);
+    if (due.length) log.info("scheduler.validate", { due: due.length, queued });
+    return queued;
+  }
+
+  async function enqueueDueBoards(): Promise<number> {
+    // A new cycle starts with a clean slate: hosts that refused us last time are tried again.
+    backoff = new HostBackoff();
+    const due = await nextBoards(db, { now: now(), limit: config.boardsPerRun, perHostLimit: config.hostBoardsPerRun, candidates: "exclude" });
+    const queued = await enqueueBoards(due);
+    log.info("scheduler", { due: due.length, queued });
+    return queued + await enqueueValidations();
   }
 
   /** Queues understand.job for these jobs (deduplicated). Returns how many were newly queued. */
@@ -175,10 +192,11 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
   await queue.work(JOBS.ingestPollBoard, instrument(log, JOBS.ingestPollBoard, async ({ companyId }) => {
     const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
     if (!company || company.blocked) return { skipped: company ? "blocked" : "missing" };
+    const demand = await demandFor(company.id);
     let result;
     try {
-      result = await limiter.run(feedHost(company.atsType), () =>
-        pollBoard(db, { atsType: company.atsType, token: company.atsToken }, { now: now(), fetch: deps.fetch, backoff }));
+      result = await limiter.run(feedHost(company.atsType, company.atsToken), maxPollsPerHost(company.atsType, config.pollsPerHost), () =>
+        pollBoard(db, { atsType: company.atsType, token: company.atsToken }, { now: now(), fetch: deps.fetch, backoff, demand }));
     } catch (err) {
       if (err instanceof HostBackedOffError) {
         // The host is refusing us: try this board again later without using up a retry.
@@ -192,15 +210,24 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return {
       board: `${company.atsType}/${company.atsToken}`, added: result.added, updated: result.updated, closed: result.closed, total: result.total,
       understand, notWanted: result.newJobIds.length - wanted.length, skipped: result.skipped,
+      status: result.status, demand,
+      ...(result.previousStatus === "candidate" ? { validated: result.status } : {}),
+      ...(result.notModified ? { notModified: true } : {}),
+      ...(result.notFound ? { notFound: true } : {}),
+      ...(result.complete ? {} : { incomplete: true }),
     };
-  }));
+  }), { concurrency: config.pollConcurrency });
 
   // understand.job: spec and embedding, once per job; then it joins the next match batch (which is how a user whose lanes
   // just caused a backlog to be read gets those jobs matched as they finish). Rate-limited: at most N at once.
   await queue.work(JOBS.understandJob, instrument(log, JOBS.understandJob, async ({ jobId }) => {
+    // List feeds without text (Workday) are read one posting at a time, only now that the job matters. A failed read
+    // is not fatal: the job is understood from its title and gets its text the next time.
+    let described = "n/a";
+    try { described = await fillJobDescription(db, jobId, { fetch: deps.fetch }); } catch (err) { described = "failed"; log.warn("understand.describe_failed", { jobId, error: err instanceof Error ? err.message : String(err) }); }
     const r = await understandJob(db, jobId);
     batcher.add(jobId);
-    return { skippedModel: r.skipped, embedded: r.embedded, heuristic: r.heuristic, embeddingPending: r.embeddingPending };
+    return { described, skippedModel: r.skipped, embedded: r.embedded, heuristic: r.heuristic, embeddingPending: r.embeddingPending };
   }), { concurrency: config.understandConcurrency });
 
   // match.new-jobs: which users the new jobs fit.
@@ -225,9 +252,12 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     }
     const vector = await profileEmbedding(db, userId, now());
     const stats = await buildShortlist(db, userId, { now: now(), profileEmbedding: vector, ...(config.explainTop > 0 ? { explain: { top: config.explainTop } } : {}) });
+    // Poll first the companies whose jobs fit this user's lanes, so a new user's list fills up sooner.
+    const boosted = await boostCompaniesForUser(db, userId, now());
     return {
-      backlog: backlog.length, understandQueued, ...(embedPending ? { embedPending } : {}),
+      backlog: backlog.length, understandQueued, ...(embedPending ? { embedPending } : {}), boosted,
       considered: stats.considered, lexical: stats.lexical, scored: stats.scored, saved: stats.saved,
+      laneMatches: stats.laneMatches, widened: stats.widened.length, ...(stats.poolUsed ? { poolUsed: true } : {}), ...(stats.temporaryLane ? { temporaryLane: true } : {}),
       ...(stats.considered === 0 && !vector ? { skipped: "no career points or no lane" } : {}),
     };
   }));
@@ -254,5 +284,5 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return { kind: r.kind, linked: r.applicationId !== null, wake: r.wake?.reason ?? null, outcome: r.outcome };
   }));
 
-  return { enqueueDueBoards, flushMatchBatch: () => batcher.flush() };
+  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush() };
 }

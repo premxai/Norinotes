@@ -19,17 +19,53 @@ const textArray = (name: string) => text(name).array();
 // Shared, written once
 // ---------------------------------------------------------------------------------------------------------------------
 
+/** Where a company stands in the registry. New seeds start as candidate; the first poll validates them. */
+export const COMPANY_STATUSES = ["candidate", "active", "probation", "disabled", "dead"] as const;
+export type CompanyStatus = (typeof COMPANY_STATUSES)[number];
+
+/**
+ * A company is a tenant on one job system. The registry columns drive the scheduler (see docs/job-collection.md):
+ * `status`, `next_poll_at`, `priority` and `host` pick what to poll next; the rest record how the board behaves.
+ */
 export const companies = pgTable("companies", {
   id: id(),
   atsType: text("ats_type").$type<AtsType>().notNull(),
   atsToken: text("ats_token").notNull(),
   name: text("name").notNull(),
+  /** Company web domain when a seed knows it. */
+  domain: text("domain"),
+  /** registry, seed:ats-scrapers, seed:open-ats-feed, user, url, crawl. */
+  discoveredVia: text("discovered_via").notNull().default("user"),
+  status: text("status").$type<CompanyStatus>().notNull().default("active"),
+  /** Politeness group: boards with the same host share a concurrency limit. Null = the job system's own group. */
+  host: text("host"),
+  /** Why the board is disabled or dead (blocked by its host, five failed polls, 14 days empty, gone). Null otherwise. */
+  statusReason: text("status_reason"),
   lastPolledAt: ts("last_polled_at"),
+  lastSuccessAt: ts("last_success_at"),
+  nextPollAt: ts("next_poll_at"),
+  /** Consecutive failed polls. */
+  errorStreak: integer("error_streak").notNull().default(0),
+  /** First "board not found" answer of the current probation. */
+  notFoundSince: ts("not_found_since"),
+  /** When the board first read as empty (null while it has jobs). 14 days empty disables it. */
+  emptySince: ts("empty_since"),
+  lastJobCount: integer("last_job_count").notNull().default(0),
+  /** Jobs published (or first seen) in the last 7 days, as of the last poll. Drives the poll interval. */
+  newJobs7d: integer("new_jobs_7d").notNull().default(0),
+  /** Validator for conditional requests (If-None-Match). */
+  etag: text("etag"),
+  /** Higher polls first. Curated registry 100, seeds 0, empty boards -10. */
+  priority: integer("priority").notNull().default(0),
+  /** A user is waiting on this company (their lanes fit its jobs): until this time it polls at boost priority. */
+  boostUntil: ts("boost_until"),
   blocked: boolean("blocked").notNull().default(false),
   createdAt: createdAt(),
 }, (t) => [
   uniqueIndex("companies_ats_token_uq").on(t.atsType, t.atsToken),
   index("companies_last_polled_idx").on(t.blocked, t.lastPolledAt),
+  index("companies_status_next_poll_idx").on(t.status, t.nextPollAt),
+  index("companies_ats_status_idx").on(t.atsType, t.status),
 ]);
 
 export const jobs = pgTable("jobs", {
@@ -46,6 +82,8 @@ export const jobs = pgTable("jobs", {
   firstSeenAt: ts("first_seen_at").notNull().defaultNow(),
   lastSeenAt: ts("last_seen_at").notNull().defaultNow(),
   closedAt: ts("closed_at"),
+  /** Complete reads of the board in a row that did not list this job. A job closes at 2. */
+  missingReads: integer("missing_reads").notNull().default(0),
   /** Normalised company + title + location, so the same job on two boards is stored once. */
   dedupeKey: text("dedupe_key").notNull(),
 }, (t) => [

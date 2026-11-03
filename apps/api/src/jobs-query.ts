@@ -1,5 +1,5 @@
-import { and, applications, companies, desc, eq, inArray, isNull, jobs, lanes, ne, or, queryRows, shortlist, sql, type Db } from "@norinote/db";
-import { laneFitsSql, needsUsCitizenshipOrClearance } from "@norinote/match";
+import { and, applications, companies, desc, eq, inArray, isNotNull, isNull, jobs, lanes, ne, or, queryRows, shortlist, sql, type Db } from "@norinote/db";
+import { inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
 import type { SQL } from "drizzle-orm";
 import { toJob, toMatch } from "./serialize.js";
 
@@ -34,6 +34,16 @@ const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 /** Does one of the user's enabled lanes fit this job? */
 const laneExists = (userId: string) => sql`EXISTS (SELECT 1 FROM ${lanes} WHERE ${lanes.userId} = ${userId} AND ${lanes.enabled} AND ${laneFitsSql()})`;
 
+/**
+ * What "fits the user's lanes" means for this user: their enabled lanes, else a temporary lane from their latest role and
+ * location (so a new user's Best match is not the whole index), else nothing to filter by.
+ */
+async function laneCondition(db: Db, userId: string, now: Date): Promise<SQL | undefined> {
+  if (await hasEnabledLanes(db, userId)) return laneExists(userId);
+  const temporary = await loadTemporaryLane(db, userId, now);
+  return temporary ? inlineLanesFitSql([temporary]) : undefined;
+}
+
 export async function hasEnabledLanes(db: Db, userId: string): Promise<boolean> {
   const [row] = await db.select({ id: lanes.id }).from(lanes).where(and(eq(lanes.userId, userId), eq(lanes.enabled, true))).limit(1);
   return !!row;
@@ -64,7 +74,11 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
   if (p.status === "open") conds.push(isNull(jobs.closedAt));
   if (p.view === "today") conds.push(sql`${jobs.firstSeenAt} >= ${new Date(now.getTime() - DAY_MS).toISOString()}::timestamptz`);
   if (p.view === "best") conds.push(or(isNull(shortlist.status), ne(shortlist.status, "dismissed")));
-  if (p.lanes && (await hasEnabledLanes(db, userId))) conds.push(laneExists(userId));
+  if (p.lanes) {
+    const fits = await laneCondition(db, userId, now);
+    // Jobs on the user's own shortlist (including ones added by widening) always belong to Best match.
+    if (fits) conds.push(p.view === "best" ? or(fits, and(isNotNull(shortlist.id), eq(shortlist.status, "new"))) : fits);
+  }
   if (p.q) conds.push(sql`(${jobs.title} ilike ${likePattern(p.q)} or ${companies.name} ilike ${likePattern(p.q)})`);
   if (p.minScore !== undefined) conds.push(sql`${shortlist.fit} >= ${p.minScore}`);
 
@@ -128,6 +142,7 @@ async function postingPlaces(db: Db, companyIds: string[], now: Date, p: JobList
 /** Counts over open jobs from the last 60 days. */
 export async function jobsSummary(db: Db, userId: string, now: Date) {
   const hasLanes = await hasEnabledLanes(db, userId);
+  const fitsCondition = hasLanes ? laneExists(userId) : await laneCondition(db, userId, now);
   const day = new Date(now.getTime() - DAY_MS).toISOString();
   const week = new Date(now.getTime() - 7 * DAY_MS).toISOString();
   const since = new Date(now.getTime() - 60 * DAY_MS).toISOString();
@@ -135,7 +150,7 @@ export async function jobsSummary(db: Db, userId: string, now: Date) {
     SELECT count(*)::int AS open,
       (count(*) FILTER (WHERE ${jobs.firstSeenAt} >= ${day}::timestamptz))::int AS today,
       (count(*) FILTER (WHERE ${jobs.firstSeenAt} >= ${week}::timestamptz))::int AS week,
-      ${hasLanes ? sql`(count(*) FILTER (WHERE ${laneExists(userId)}))::int` : sql`0`} AS fits
+      ${fitsCondition ? sql`(count(*) FILTER (WHERE ${fitsCondition}))::int` : sql`0`} AS fits
     FROM ${jobs} INNER JOIN ${companies} ON ${companies.id} = ${jobs.companyId}
     WHERE ${jobs.closedAt} IS NULL AND ${companies.blocked} = false
       AND (${jobs.postedAt} >= ${since}::timestamptz OR (${jobs.postedAt} IS NULL AND ${jobs.firstSeenAt} >= ${since}::timestamptz))`);

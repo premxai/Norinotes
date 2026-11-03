@@ -74,7 +74,7 @@ export async function addJobByUrl(db: Db, url: string, opts: AddJobOptions = {})
   if (isBlockedCompany({ name: fetched.companyName })) throw new BlockedSourceError(fetched.companyName);
 
   const now = opts.now ?? new Date();
-  const companyId = await ensureCompany(db, connector.atsType, token, fetched.companyName);
+  const companyId = await ensureCompany(db, connector.atsType, token, fetched.companyName, "url");
   const { ids, newIds } = await upsertJobs(db, companyId, connector.atsType, [fetched], now);
   const id = ids[0];
   if (!id) throw new Error("the job was not stored");

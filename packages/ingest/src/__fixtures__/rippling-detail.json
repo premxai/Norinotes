@@ -1,0 +1,36 @@
+{
+  "uuid": "7615d61f-adf1-491b-9a4c-6c9dc1681d65",
+  "name": "Patient Coordinator Support Lead",
+  "description": {
+    "company": "<div><body><p style='font-family:\"Basel Grotesk\",Arial,sans-serif;font-size:11pt;font-weight:400;line-height:1.38;letter-spacing:0.25px;margin:0px;padding:0px;'><b><strong style=\"font-size:18pt;white-space:pre-wrap;\">About 1nHealth, Inc.</strong></b><br><span style=\"white-space:pre-wrap;\">1nHealth is a software-centric patient recruitment company for the clinical research industry. We exist to fill studies, connecting patients with research. We have been active for 6 years as a bootstrapped star</body></div>",
+    "role": "<div><body><p style='font-family:\"Basel Grotesk\",Arial,sans-serif;font-size:11pt;font-weight:400;line-height:1.38;letter-spacing:0.25px;margin:0px;padding:0px;'><b><strong style=\"font-size:18pt;white-space:pre-wrap;\">About the role</strong></b></p><p style='font-family:\"Basel Grotesk\",Arial,sans-serif;font-size:11pt;font-weight:400;line-height:1.6;letter-spacing:0.25px;margin:0px 0px 10.6667px;padding:0px;text-align:left;'><span style=\"font-size:11pt;white-space:pre-wrap;\">The Patient Coordinator (PC)</span><span style=\"white-space:pre-wrap;\"> </span><span style=\"font-size:11pt;white-space:pre-wrap;\">Support Lead</span><span style=\"white-space:pre-wrap;\"> </span><span style=\"font-size:11pt;white-space:pre-wrap;\">is a senior individual contributor role that combines the full responsibilitie</body></div>"
+  },
+  "workLocations": [
+    "Remote (United States)"
+  ],
+  "department": {
+    "name": "Enrollment Operations",
+    "base_department": "Enrollment Operations",
+    "department_tree": [
+      "Enrollment Operations"
+    ]
+  },
+  "employmentType": {
+    "label": "HOURLY_FT",
+    "id": "Hourly, full-time"
+  },
+  "createdOn": "2026-11-02T11:50:55.300000-08:00",
+  "eeocQuestionnaireEnabled": false,
+  "eeocQuestionnaireEnabledForJobPost": false,
+  "url": "https://ats.rippling.com/1nhealth/jobs/7615d61f-adf1-491b-9a4c-6c9dc1681d65",
+  "board": {
+    "boardType": "RIPPLING",
+    "slug": "1nhealth"
+  },
+  "payRangeDetails": [],
+  "applicationConfirmationTemplate": "6786b8d45654feb538ac0baa",
+  "hasAIEvaluationsEnabled": true,
+  "companyName": "1nHealth, Inc.",
+  "unlistedFromSearch": false,
+  "jsonLd": null
+}

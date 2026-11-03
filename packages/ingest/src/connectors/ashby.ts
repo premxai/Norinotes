@@ -1,6 +1,6 @@
 import { htmlToText } from "../html.js";
-import { getJson } from "../http.js";
-import type { Connector, HttpOptions, NormalizedJob } from "../types.js";
+import { getJsonConditional } from "../http.js";
+import type { Connector, HttpOptions, ListOptions, ListResult, NormalizedJob } from "../types.js";
 import { parseDate, prettifyToken, REMOTE_RE, safeUrl } from "../util.js";
 
 type AshbyJob = {
@@ -24,9 +24,11 @@ function toJob(token: string, j: AshbyJob): NormalizedJob {
   };
 }
 
-async function listJobs(token: string, http?: HttpOptions): Promise<NormalizedJob[]> {
-  const data = await getJson<{ jobs?: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(token)}`, http);
-  return (data?.jobs ?? []).filter((j) => j.isListed !== false).map((j) => toJob(token, j));
+async function listJobs(token: string, http?: HttpOptions, opts?: ListOptions): Promise<ListResult> {
+  const res = await getJsonConditional<{ jobs?: AshbyJob[] }>(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(token)}`, http, opts?.etag);
+  if (res.status === "notFound") return { jobs: [], complete: true, notFound: true };
+  if (res.status === "notModified") return { jobs: [], complete: true, notModified: true, etag: res.etag };
+  return { jobs: (res.data?.jobs ?? []).filter((j) => j.isListed !== false).map((j) => toJob(token, j)), complete: true, etag: res.etag };
 }
 
 /**
@@ -35,9 +37,10 @@ async function listJobs(token: string, http?: HttpOptions): Promise<NormalizedJo
  */
 export const ashby: Connector = {
   atsType: "ashby",
+  capabilities: { conditional: true, maxConcurrencyPerHost: 4 },
   listJobs,
   async fetchJob(token, externalId, http) {
-    return (await listJobs(token, http)).find((j) => j.externalId === externalId) ?? null;
+    return (await listJobs(token, http)).jobs.find((j) => j.externalId === externalId) ?? null;
   },
   parseUrl(url) {
     const u = safeUrl(url);

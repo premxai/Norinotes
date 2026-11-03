@@ -4,7 +4,7 @@ import { and, applications, eq, shortlist, sql } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { FitMapEntry } from "@norinote/shared";
 import { laneFitsJob } from "./lanes.js";
-import { buildShortlist, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
+import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
 import { NOW, baseSpec, daysAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 
 let t: TestDb;
@@ -16,6 +16,8 @@ beforeAll(async () => {
 afterAll(() => t.close());
 beforeEach(() => clearRequirementVectorCache());
 afterEach(() => setProvider(null));
+/** These tests pin exactly which jobs the lanes produce, so they run without the widening ladder (widen.test.ts covers it). */
+const buildShortlist: typeof buildWidened = (db, userId, o) => buildWidened(db, userId, { widen: false, ...o });
 
 const rowsOf = (userId: string) => t.db.select().from(shortlist).where(eq(shortlist.userId, userId));
 const profileVec = (text: string) => fakeEmbedding(text);

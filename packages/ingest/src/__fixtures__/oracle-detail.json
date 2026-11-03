@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "Id": "333299",
+      "Title": "Principal, End-to-End Data Center Power Delivery Manager",
+      "Category": "Technology Operations",
+      "RequisitionType": "Professional",
+      "RequisitionId": 302965300252284,
+      "ExternalPostedStartDate": "2026-11-02T19:44:43+00:00",
+      "JobFamilyId": 302958497961746,
+      "GeographyId": 100000000686051,
+      "GeographyNodeId": 100865088699825,
+      "ExternalDescriptionStr": "<p>The <strong>Principal, End-to-End Power Delivery Manager</strong> serves as a senior leader responsible for the planning, design, development, and commissioning of large-scale behind-the-meter power generation and electrical infrastructure supporting next-generation hyperscale data center campuses. This role oversees complex energy infrastructure projects from concept through execution, ensurin",
+      "ShortDescriptionStr": "Accountable for end-to-end program oversight, sequencing cross-functional execution for the data center capital build to ensure delivery predictability, disciplined change management, and an operationally ready turnover to internal network teams, operations, and the client. An active onsite presence is essential to maintain the accelerated schedule and enable rapid, effective issue resolution.  **This role is based in the El Paso, TX/Las Cruces, NM area and requires one to live in the area. Relocation assistance available. Only apply if you currently live in this area or are able to relocate permanently to the area. **",
+      "ContentLocale": "en",
+      "PrimaryLocation": "NM, United States",
+      "PrimaryLocationCountry": "US",
+      "ObjectVerNumberProfile": "1",
+      "ApplyWhenNotPostedFlag": true,
+      "ExternalQualificationsStr": "Disclaimer:<br><br><b>Certain U.S. based or U.S. customer or client-facing roles may be required to comply with applicable requirements, such as immunization/occupational health mandates, and/or drug testing requirements.</b><br><br><b>Range and benefit information provided in this posting are specific to the stated locations only</b><br><br>US: Hiring Range in USD from: $126,200 to $264,100 per a",
+      "ExternalResponsibilitiesStr": "<div class=\"WordSection1\"><ul data-start=\"25\" data-end=\"2044\"><li data-section-id=\"ybpu70\" data-start=\"25\" data-end=\"174\">Lead end-to-end delivery of behind-the-meter power generation infrastructure supporting hyperscale and GigaScale data center campus developments.</li><li data-section-id=\"ijaxev\" data-start=\"175\" data-end=\"402\">Oversee planning, design, construction, commissioning, and operatio",
+      "JobFunctionCode": "DCOPS",
+      "HotJobFlag": true,
+      "TrendingFlag": false,
+      "BeFirstToApplyFlag": false,
+      "BusinessUnitId": 300001096431127,
+      "LegalEmployerId": 300000000482027,
+      "OrganizationId": 300001902541887,
+      "JobFunction": "Data Center Operations"
+    }
+  ],
+  "count": 1,
+  "hasMore": false,
+  "limit": 25,
+  "offset": 0
+}

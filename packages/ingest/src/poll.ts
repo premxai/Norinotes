@@ -1,11 +1,17 @@
 import type { AtsType } from "@norinote/shared";
-import { and, companies, eq, isNull, jobs } from "@norinote/db";
+import { and, companies, eq, isNull, jobs, sql } from "@norinote/db";
 import { notInArray } from "drizzle-orm";
-import type { Db } from "@norinote/db";
+import type { CompanyStatus, Db } from "@norinote/db";
 import { isBlockedBoard, isBlockedCompany } from "./blocklist.js";
 import { getConnector } from "./connectors/index.js";
+import { BlockedByHostError } from "./connectors/workday.js";
 import { feedHost, RateLimitedError } from "./http.js";
 import type { HostBackoff } from "./http.js";
+import { toListResult } from "./list-result.js";
+import {
+  EMPTY_DISABLE_MS, ERROR_STREAK_LIMIT, errorRetryMs, MISSING_READS_TO_CLOSE, pollIntervalMs, PRIORITY, PROBATION_MS,
+  PROBATION_RECHECK_MS, RECHECK_MS,
+} from "./schedule.js";
 import { ensureCompany, upsertJobs } from "./store.js";
 import type { HttpOptions } from "./types.js";
 import { prettifyToken } from "./util.js";
@@ -23,7 +29,7 @@ export type PollResult = {
   added: number;
   /** Jobs that already existed and were refreshed (including ones that reopened). */
   updated: number;
-  /** Jobs that were open for this board and are no longer in its feed. */
+  /** Jobs that were open for this board and were closed by this read (missing from two complete reads, or the board stayed gone). */
   closed: number;
   /** Jobs in the feed this time (after dropping blocked sources). */
   total: number;
@@ -31,6 +37,18 @@ export type PollResult = {
   newJobIds: string[];
   /** Set (and nothing else done) when the board belongs to a blocked reposting aggregator. */
   skipped: "blocked" | null;
+  /** The feed answered 304: nothing changed, no job was touched. */
+  notModified: boolean;
+  /** The board does not exist (it is on probation, or its jobs were closed after the probation ended). */
+  notFound: boolean;
+  /** False when the read may have missed jobs; nothing was closed on it. */
+  complete: boolean;
+  /** The company's status after this poll (null when skipped). */
+  status: CompanyStatus | null;
+  /** The company's status before this poll (null when skipped or when the company was created by it). */
+  previousStatus: CompanyStatus | null;
+  /** When the scheduler should poll this board next (null when skipped). */
+  nextPollAt: Date | null;
 };
 
 export type PollOptions = {
@@ -42,52 +60,192 @@ export type PollOptions = {
   http?: Omit<HttpOptions, "fetch">;
   /** Shared per-cycle host back-off. When a host has been refused repeatedly its boards are skipped with HostBackedOffError. */
   backoff?: HostBackoff;
+  /** Enabled lanes (of any user) that match this company's recent jobs; shortens the time to its next poll. Default 0. */
+  demand?: number;
 };
 
-const emptyResult = (skipped: PollResult["skipped"]): PollResult => ({ added: 0, updated: 0, closed: 0, total: 0, newJobIds: [], skipped });
+type CompanyRow = typeof companies.$inferSelect;
+
+const emptyResult = (skipped: PollResult["skipped"]): PollResult => ({
+  added: 0, updated: 0, closed: 0, total: 0, newJobIds: [], skipped,
+  notModified: false, notFound: false, complete: true, status: null, previousStatus: null, nextPollAt: null,
+});
+
+const FEEDS_WITHOUT_COMPANY_NAME: ReadonlySet<AtsType> = new Set<AtsType>(["workday", "oracle"]);
+
+const after = (now: Date, ms: number) => new Date(now.getTime() + ms);
 
 /**
- * Read one board's public feed and bring the `jobs` table in line with it: new jobs are inserted (`first_seen_at`),
- * known jobs refreshed (`last_seen_at`, description, `posted_at` kept when the feed has no date, reopened if they had
- * closed), jobs of this board that are no longer listed get `closed_at`, and `companies.last_polled_at` is set.
- * Postings that name a blocked aggregator are dropped; a blocked board is skipped without any request.
+ * Record a failed poll: the error streak grows (once per backoff window, so the queue's quick retries of one failure
+ * count once), the board waits longer each time, and the fifth failure in a row disables it (rechecked weekly).
+ */
+async function recordFailure(db: Db, row: CompanyRow, now: Date): Promise<void> {
+  const insideWindow = row.errorStreak > 0 && row.nextPollAt !== null && row.nextPollAt.getTime() > now.getTime();
+  const streak = insideWindow ? row.errorStreak : row.errorStreak + 1;
+  const disabled = streak >= ERROR_STREAK_LIMIT;
+  await db.update(companies).set({
+    errorStreak: streak,
+    status: disabled ? "disabled" : row.status,
+    ...(disabled ? { statusReason: `${ERROR_STREAK_LIMIT} failed polls in a row` } : {}),
+    nextPollAt: insideWindow ? row.nextPollAt : after(now, disabled ? RECHECK_MS : errorRetryMs(streak)),
+  }).where(eq(companies.id, row.id));
+}
+
+/** The host answers 401/403 to servers: disable the board at once (no retries) and look again in a week. */
+async function recordBlockedByHost(db: Db, row: CompanyRow, now: Date, err: BlockedByHostError): Promise<void> {
+  await db.update(companies).set({
+    status: "disabled", statusReason: `blocked by host (${err.status})`, lastPolledAt: now, nextPollAt: after(now, RECHECK_MS), etag: null,
+  }).where(eq(companies.id, row.id));
+}
+
+/**
+ * Read one board's public feed and bring the `jobs` table and the company's registry row in line with it.
  *
- * Throws on a feed failure (the board's `last_polled_at` is then left alone so it stays due). Throws
- * `RateLimitedError` when the host refused every retry, and `HostBackedOffError` when `opts.backoff` has already
- * backed the host off. A 404 board is an empty feed: its open jobs close.
+ * - New jobs are inserted (`first_seen_at`), known jobs refreshed (`last_seen_at`, description, `posted_at` kept when
+ *   the feed has no date) and reopened if they had closed. Postings that name a blocked aggregator are dropped; a
+ *   blocked board is skipped without any request.
+ * - A job closes only after two complete reads in a row that do not list it (`jobs.missing_reads`). An incomplete read
+ *   never closes or counts anything; a job seen again resets its counter.
+ * - `notModified` (ETag 304) touches no job, only the poll times. `notFound` puts the board on probation
+ *   (`not_found_since`); its jobs close only once it has been gone for 3 days, and the board is then `dead`.
+ * - Status: a candidate's first poll validates it (jobs or an empty feed: `active`, empty at low priority; not found:
+ *   `dead`). Five failed polls in a row, or 14 days at zero jobs, disable a board; disabled and dead boards are
+ *   rechecked weekly and come back as `active` when they answer with jobs.
+ * - `next_poll_at = now + clamp(24h / (1 + new_jobs_7d / 7), 1h, 48h)`, shortened by `opts.demand`, never shorter than
+ *   the job system allows.
+ *
+ * Throws on a feed failure (the failure is recorded on the company). Throws `RateLimitedError` when the host refused every
+ * retry (not held against the board) and `HostBackedOffError` when `opts.backoff` has already backed the host off.
  */
 export async function pollBoard(db: Db, board: { atsType: AtsType; token: string }, opts: PollOptions = {}): Promise<PollResult> {
   const now = opts.now ?? new Date();
   const { atsType, token } = board;
 
-  const [row] = await db.select({ id: companies.id, blocked: companies.blocked, name: companies.name }).from(companies)
+  let [row] = await db.select().from(companies)
     .where(and(eq(companies.atsType, atsType), eq(companies.atsToken, token))).limit(1);
   if (isBlockedBoard(atsType, token) || row?.blocked) return emptyResult("blocked");
 
-  const host = feedHost(atsType);
+  const host = feedHost(atsType, token);
   if (opts.backoff?.isBackedOff(host)) throw new HostBackedOffError(host);
 
-  let fetched;
+  // A stored validator is only trusted while the board is healthy; a board coming back from a bad spell is read in full.
+  const etag = row && (row.status === "active" || row.status === "candidate") ? row.etag : null;
+  let listed;
   try {
-    fetched = await getConnector(atsType).listJobs(token, { ...opts.http, fetch: opts.fetch });
+    listed = toListResult(await getConnector(atsType).listJobs(token, { ...opts.http, fetch: opts.fetch }, { etag }));
   } catch (err) {
     if (err instanceof RateLimitedError) opts.backoff?.rateLimited(host);
+    else if (err instanceof BlockedByHostError) {
+      if (row) await recordBlockedByHost(db, row, now, err);
+      // The host answered (with a refusal): this is the board's problem, not a reason to back the whole host off.
+      opts.backoff?.ok(host);
+    } else if (row) await recordFailure(db, row, now);
     throw err;
   }
   opts.backoff?.ok(host);
 
-  const kept = fetched.filter((j) => !isBlockedCompany({ name: j.companyName }));
-  const name = row?.name ?? kept[0]?.companyName ?? prettifyToken(token);
-  const companyId = row?.id ?? await ensureCompany(db, atsType, token, name);
+  const feedJobs = listed.jobs.filter((j) => !isBlockedCompany({ name: j.companyName }));
+  const name = row?.name ?? feedJobs[0]?.companyName ?? prettifyToken(token);
+  // Workday and Oracle feeds do not name the company (the connector only prettifies the tenant), so the registry name wins.
+  const kept = row && FEEDS_WITHOUT_COMPANY_NAME.has(atsType) ? feedJobs.map((j) => ({ ...j, companyName: row!.name })) : feedJobs;
+  const previousStatus = row?.status ?? null;
+  if (!row) {
+    const id = await ensureCompany(db, atsType, token, name);
+    [row] = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+    if (!row) throw new Error(`could not create a company row for ${atsType}:${token}`);
+  }
+  const company = row;
+  const demand = opts.demand ?? 0;
+
+  // 304: nothing changed. Only the poll times move.
+  if (listed.notModified) {
+    const nextPollAt = after(now, pollIntervalMs({ atsType, newJobs7d: company.newJobs7d, demand }));
+    await db.update(companies).set({ lastPolledAt: now, lastSuccessAt: now, nextPollAt, errorStreak: 0 }).where(eq(companies.id, company.id));
+    return {
+      ...emptyResult(null), total: company.lastJobCount, notModified: true, status: company.status, previousStatus: company.status, nextPollAt,
+    };
+  }
+
+  // The board does not exist.
+  if (listed.notFound) {
+    return db.transaction(async (tx) => {
+      const since = company.notFoundSince ?? now;
+      const gone = now.getTime() - since.getTime() >= PROBATION_MS;
+      let status: CompanyStatus;
+      let nextPollAt: Date;
+      let closed = 0;
+      if (company.status === "candidate") {
+        status = "dead";
+        nextPollAt = after(now, RECHECK_MS);
+      } else if (gone) {
+        const rows = await tx.update(jobs).set({ closedAt: now }).where(and(eq(jobs.companyId, company.id), isNull(jobs.closedAt))).returning({ id: jobs.id });
+        closed = rows.length;
+        status = "dead";
+        nextPollAt = after(now, RECHECK_MS);
+      } else {
+        status = "probation";
+        nextPollAt = after(now, PROBATION_RECHECK_MS);
+      }
+      await tx.update(companies).set({
+        status, nextPollAt, notFoundSince: since, lastPolledAt: now, etag: null, errorStreak: 0,
+        statusReason: status === "dead" ? "board not found" : status === "probation" ? "board not found, on probation" : null,
+        ...(closed ? { lastJobCount: 0 } : {}),
+      }).where(eq(companies.id, company.id));
+      return { ...emptyResult(null), closed, notFound: true, status, previousStatus, nextPollAt };
+    });
+  }
 
   return db.transaction(async (tx) => {
-    const { ids, newIds, updated } = await upsertJobs(tx as unknown as Db, companyId, atsType, kept, now);
+    const { ids, newIds, updated } = await upsertJobs(tx as unknown as Db, company.id, atsType, kept, now);
 
-    const stillOpen = and(eq(jobs.companyId, companyId), isNull(jobs.closedAt));
-    const gone = ids.length ? and(stillOpen, notInArray(jobs.id, ids)) : stillOpen;
-    const closedRows = await tx.update(jobs).set({ closedAt: now }).where(gone).returning({ id: jobs.id });
+    // Two complete reads in a row must miss a job before it closes; an incomplete read counts nothing.
+    let closed = 0;
+    if (listed.complete) {
+      const unseen = and(eq(jobs.companyId, company.id), isNull(jobs.closedAt), ids.length ? notInArray(jobs.id, ids) : undefined);
+      const rows = await tx.update(jobs).set({
+        missingReads: sql`${jobs.missingReads} + 1`,
+        closedAt: sql`case when ${jobs.missingReads} + 1 >= ${MISSING_READS_TO_CLOSE} then ${now.toISOString()}::timestamptz else null end`,
+      }).where(unseen).returning({ closedAt: jobs.closedAt });
+      closed = rows.filter((r) => r.closedAt !== null).length;
+    }
 
-    await tx.update(companies).set({ lastPolledAt: now }).where(eq(companies.id, companyId));
-    return { added: newIds.length, updated, closed: closedRows.length, total: ids.length, newJobIds: newIds, skipped: null };
+    const cutoff = after(now, -7 * 24 * 3_600_000).toISOString();
+    const [recent] = await tx.select({ n: sql<number>`count(*)::int` }).from(jobs)
+      .where(and(eq(jobs.companyId, company.id), sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt}) >= ${cutoff}::timestamptz`));
+    const newJobs7d = Number(recent?.n ?? 0);
+
+    // Status, priority and the time the board has been empty.
+    const count = ids.length;
+    let status = company.status;
+    let priority = company.priority;
+    let emptySince = company.emptySince;
+    if (count > 0) {
+      emptySince = null;
+      status = "active";
+      if (priority === PRIORITY.empty) priority = PRIORITY.seed;
+    } else if (listed.complete) {
+      emptySince = company.emptySince ?? now;
+      if (priority === PRIORITY.seed) priority = PRIORITY.empty;
+      status = now.getTime() - emptySince.getTime() >= EMPTY_DISABLE_MS ? "disabled" : "active";
+    }
+    // (an incomplete read with no jobs proves nothing: status stays as it was)
+    const nextPollAt = after(now, status === "disabled" ? RECHECK_MS : pollIntervalMs({ atsType, newJobs7d, demand }));
+
+    await tx.update(companies).set({
+      status, priority, emptySince, nextPollAt, newJobs7d,
+      statusReason: status === "disabled" ? "no jobs for 14 days" : null,
+      lastPolledAt: now, lastSuccessAt: now, errorStreak: 0,
+      // An expired boost is dropped on the next successful poll.
+      boostUntil: company.boostUntil && company.boostUntil.getTime() > now.getTime() ? company.boostUntil : null,
+      notFoundSince: count > 0 || listed.complete ? null : company.notFoundSince,
+      lastJobCount: count,
+      // A validator from an incomplete read would hide the jobs that were missed.
+      etag: listed.complete ? (listed.etag ?? null) : null,
+    }).where(eq(companies.id, company.id));
+
+    return {
+      added: newIds.length, updated, closed, total: count, newJobIds: newIds, skipped: null,
+      notModified: false, notFound: false, complete: listed.complete, status, previousStatus, nextPollAt,
+    };
   });
 }

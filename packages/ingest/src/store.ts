@@ -2,6 +2,7 @@ import type { AtsType } from "@norinote/shared";
 import { and, companies, eq, inArray, jobs, sql } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import { dedupeKey } from "./dedupe.js";
+import { hostKey } from "./hosts.js";
 import type { NormalizedJob } from "./types.js";
 
 const CHUNK = 100;
@@ -9,13 +10,16 @@ const CHUNK = 100;
 /** Postgres text cannot hold NUL characters; some feeds contain them. */
 const clean = (s: string): string => s.replaceAll("\u0000", "");
 
-/** Resolve (or create) the companies row for a board and return its id. A user-added or seeded row is never renamed. */
-export async function ensureCompany(db: Db, atsType: AtsType, token: string, name: string): Promise<string> {
+/**
+ * Resolve (or create) the companies row for a board and return its id. A user-added or seeded row is never renamed.
+ * A row created here is `active` (somebody asked for this board) and polled right away; `discoveredVia` says who asked.
+ */
+export async function ensureCompany(db: Db, atsType: AtsType, token: string, name: string, discoveredVia = "user"): Promise<string> {
   const find = async () => (await db.select({ id: companies.id }).from(companies)
     .where(and(eq(companies.atsType, atsType), eq(companies.atsToken, token))).limit(1))[0]?.id;
   const existing = await find();
   if (existing) return existing;
-  await db.insert(companies).values({ name, atsType, atsToken: token }).onConflictDoNothing();
+  await db.insert(companies).values({ name, atsType, atsToken: token, host: hostKey(atsType, token), discoveredVia, status: "active" }).onConflictDoNothing();
   const created = await find();
   if (!created) throw new Error(`could not create a company row for ${atsType}:${token}`);
   return created;
@@ -65,6 +69,7 @@ export async function upsertJobs(db: Db, companyId: string, atsType: AtsType, in
         firstSeenAt: now,
         lastSeenAt: now,
         closedAt: null,
+        missingReads: 0,
         dedupeKey: dedupeKey({ companyName: clean(j.companyName), title, location }),
       };
     })).onConflictDoUpdate({
@@ -74,11 +79,13 @@ export async function upsertJobs(db: Db, companyId: string, atsType: AtsType, in
         title: sql`excluded.title`,
         location: sql`excluded.location`,
         remote: sql`excluded.remote`,
-        descriptionText: sql`excluded.description_text`,
+        // A list feed without text (Workday) must not wipe a description that fetchJob filled in.
+        descriptionText: sql`case when excluded.description_text = '' then ${jobs.descriptionText} else excluded.description_text end`,
         applyUrl: sql`excluded.apply_url`,
         postedAt: sql`coalesce(excluded.posted_at, ${jobs.postedAt})`,
         lastSeenAt: sql`excluded.last_seen_at`,
         closedAt: sql`null`,
+        missingReads: sql`0`,
         dedupeKey: sql`excluded.dedupe_key`,
       },
     }).returning({ id: jobs.id, externalId: jobs.externalId });

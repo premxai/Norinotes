@@ -1,5 +1,5 @@
 import { htmlToText } from "../html.js";
-import { getJson } from "../http.js";
+import { getJson, getJsonConditional } from "../http.js";
 import type { Connector, NormalizedJob } from "../types.js";
 import { parseDate, prettifyToken, REMOTE_RE, safeUrl } from "../util.js";
 
@@ -37,9 +37,12 @@ function toJob(token: string, p: LeverPosting): NormalizedJob {
  */
 export const lever: Connector = {
   atsType: "lever",
-  async listJobs(token, http) {
-    const data = await getJson<LeverPosting[]>(`https://api.lever.co/v0/postings/${encodeURIComponent(token)}?mode=json`, http);
-    return Array.isArray(data) ? data.map((p) => toJob(token, p)) : [];
+  capabilities: { conditional: true, maxConcurrencyPerHost: 2 },
+  async listJobs(token, http, opts) {
+    const res = await getJsonConditional<LeverPosting[]>(`https://api.lever.co/v0/postings/${encodeURIComponent(token)}?mode=json`, http, opts?.etag);
+    if (res.status === "notFound") return { jobs: [], complete: true, notFound: true };
+    if (res.status === "notModified") return { jobs: [], complete: true, notModified: true, etag: res.etag };
+    return { jobs: Array.isArray(res.data) ? res.data.map((p) => toJob(token, p)) : [], complete: true, etag: res.etag };
   },
   async fetchJob(token, externalId, http) {
     const p = await getJson<LeverPosting>(`https://api.lever.co/v0/postings/${encodeURIComponent(token)}/${encodeURIComponent(externalId)}`, http);

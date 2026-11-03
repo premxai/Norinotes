@@ -5,7 +5,7 @@ export { heuristicSpec, roleFamilyFromTitle, seniorityFromTitle, yearsFromText }
 export type { HeuristicJob } from "./heuristic-spec.js";
 export { checkGates, requiredYears } from "./gates.js";
 export type { GateResult } from "./gates.js";
-export { SHORTLIST_MAX_AGE_DAYS, buildShortlist, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
+export { SHORTLIST_MAX_AGE_DAYS, buildShortlist, clearRequirementVectorCache, matchNewJobs, openAndFreshSql, saveShortlistRows } from "./shortlist.js";
 export type {
   BuildShortlistOptions, EmbedFn, ExplainOptions, MatchNewJobsOptions, MatchNewJobsResult, MatchOptions, MatchStats, ShortlistCandidate, ShortlistRow,
 } from "./shortlist.js";
@@ -26,3 +26,13 @@ export {
 export type { SkillEntry, SkillMap } from "./skills.js";
 export { LEXICAL_SIM_FLOOR, LEXICAL_SIM_SPAN, lexicalOverlap, lexicalProfile, lexicalSimilarity, userSkillSet } from "./lexical.js";
 export type { LexicalProfile } from "./lexical.js";
+export {
+  POOL_DEFAULT_LIMIT, POOL_MAX_AGE_DAYS, POOL_TTL_MS, ROLE_FAMILIES, SOFTWARE_SUBFAMILIES, adjacentTitles, clearRolePoolCache, mainFamilyOf, roleFamilyOf, rolePool,
+} from "./roles.js";
+export type { PoolJob, RoleClass, RoleFamily, RoleSeniority, RolePoolOptions, SoftwareSubfamily } from "./roles.js";
+export {
+  OLDER_MAX_AGE_DAYS, WIDENED_BY, WIDENED_REASON_PREFIX, WIDEN_TARGET, deriveTemporaryLane, loadRemoteExcluded, loadTemporaryLane, widenedByOf, widenedReason,
+  wideningPlan, withoutWidenedReasons,
+} from "./widen.js";
+export type { SimpleLane, TemporaryLane, WidenedBy, WideningStep } from "./widen.js";
+export { inlineLanesFitSql } from "./lanes.js";

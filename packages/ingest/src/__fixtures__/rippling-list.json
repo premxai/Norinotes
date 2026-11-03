@@ -1,0 +1,15 @@
+[
+  {
+    "uuid": "7615d61f-adf1-491b-9a4c-6c9dc1681d65",
+    "name": "Patient Coordinator Support Lead",
+    "department": {
+      "id": "Enrollment Operations",
+      "label": "Enrollment Operations"
+    },
+    "url": "https://ats.rippling.com/1nhealth/jobs/7615d61f-adf1-491b-9a4c-6c9dc1681d65",
+    "workLocation": {
+      "label": "Remote (United States)",
+      "id": "Remote (United States)"
+    }
+  }
+]

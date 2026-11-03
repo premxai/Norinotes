@@ -1,0 +1,133 @@
+[
+  {
+    "id": "77078545d414",
+    "friendly_id": "77078545d414-android-developer",
+    "name": "Android Developer",
+    "url": "https://1001.breezy.hr/p/77078545d414-android-developer",
+    "published_date": "2023-08-22T11:14:51.803Z",
+    "type": {
+      "id": "fullTime",
+      "name": "Full-Time"
+    },
+    "location": {
+      "country": {
+        "name": "Iraq",
+        "id": "IQ"
+      },
+      "city": "Baghdad/Erbil",
+      "is_remote": true,
+      "name": "Baghdad/Erbil, IQ"
+    },
+    "department": "Engineering",
+    "salary": "",
+    "company": {
+      "name": "1001",
+      "logo_url": null,
+      "friendly_id": "1001",
+      "isMultipleLocationsEnabled": false
+    },
+    "locations": []
+  },
+  {
+    "id": "8e183aec4d84",
+    "friendly_id": "8e183aec4d84-associate-product-manager",
+    "name": "Associate Product Manager",
+    "url": "https://1001.breezy.hr/p/8e183aec4d84-associate-product-manager",
+    "published_date": "2025-12-24T13:27:00.053Z",
+    "type": {
+      "id": "fullTime",
+      "name": "Full-Time"
+    },
+    "location": {
+      "country": {
+        "name": "Iraq",
+        "id": "IQ"
+      },
+      "city": "Baghdad/Erbil",
+      "is_remote": true,
+      "name": "Baghdad/Erbil, IQ",
+      "primary": true,
+      "remote_details": {
+        "value": "remote",
+        "label": "Fully remote, no location restrictions"
+      },
+      "id": "385845d8a5d1"
+    },
+    "department": "Product",
+    "salary": "",
+    "company": {
+      "name": "1001",
+      "logo_url": null,
+      "friendly_id": "1001",
+      "isMultipleLocationsEnabled": false
+    },
+    "locations": [
+      {
+        "country": {
+          "name": "Iraq",
+          "id": "IQ"
+        },
+        "city": "Baghdad/Erbil",
+        "is_remote": true,
+        "name": "Baghdad/Erbil, IQ",
+        "primary": true,
+        "remote_details": {
+          "value": "remote",
+          "label": "Fully remote, no location restrictions"
+        },
+        "id": "385845d8a5d1"
+      }
+    ]
+  },
+  {
+    "id": "181c2c5e2c33",
+    "friendly_id": "181c2c5e2c33-automation-quality-assurance-manager",
+    "name": "Automation & Quality Assurance Manager",
+    "url": "https://1001.breezy.hr/p/181c2c5e2c33-automation-quality-assurance-manager",
+    "published_date": "2024-09-13T17:36:11.356Z",
+    "type": {
+      "id": "fullTime",
+      "name": "Full-Time"
+    },
+    "location": {
+      "country": {
+        "name": "Iraq",
+        "id": "IQ"
+      },
+      "city": "Baghdad",
+      "primary": true,
+      "is_remote": true,
+      "remote_details": {
+        "value": "remote-location",
+        "label": "Fully remote, within chosen location(s)"
+      },
+      "name": "Baghdad, IQ",
+      "id": "6fa7dea1aa88"
+    },
+    "department": "Platform",
+    "salary": "",
+    "company": {
+      "name": "1001",
+      "logo_url": null,
+      "friendly_id": "1001",
+      "isMultipleLocationsEnabled": false
+    },
+    "locations": [
+      {
+        "country": {
+          "name": "Iraq",
+          "id": "IQ"
+        },
+        "city": "Baghdad",
+        "primary": true,
+        "is_remote": true,
+        "remote_details": {
+          "value": "remote-location",
+          "label": "Fully remote, within chosen location(s)"
+        },
+        "name": "Baghdad, IQ",
+        "id": "6fa7dea1aa88"
+      }
+    ]
+  }
+]

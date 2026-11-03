@@ -70,6 +70,9 @@ async function start(queue: MemoryQueue, over: Partial<WorkerConfig> = {}, extra
   return worker;
 }
 
+/** A shortlist row the lanes produced, not the widening ladder. */
+const laneRow = (r: { reasons: string[] }) => !r.reasons.some((x) => x.startsWith("widened:"));
+
 describe("understand on demand: after a board poll", () => {
   const feed = (rows: Array<{ id: number; title: string; published: string }>): typeof fetch => (async (input: string | URL | Request) => {
     const url = String(input);
@@ -165,7 +168,8 @@ describe("understand on demand: a lane change reads the backlog", () => {
     await worker!.consumers.flushMatchBatch();
     await queue.drain();
     expect(queue.stats(JOBS.matchNewJobs)).toMatchObject({ failed: 0 });
-    expect((await t.db.select().from(shortlist).where(eq(shortlist.userId, userId))).map((r) => r.jobId).sort()).toEqual([fitA!, fitB!].sort());
+    // The two jobs the lane fits; jobs other tests left in the shared index may be added by widening and are labelled as such.
+    expect((await t.db.select().from(shortlist).where(eq(shortlist.userId, userId))).filter(laneRow).map((r) => r.jobId).sort()).toEqual([fitA!, fitB!].sort());
 
     // Asking again reads nothing twice: both jobs have specs.
     await queue.enqueue(JOBS.matchUser, { userId, reason: "manual" });
@@ -230,6 +234,6 @@ describe("the worker while the AI service rejects our key", () => {
     expect(mine).toHaveLength(2);
     expect(mine.every((s) => s.model === "heuristic" && s.version === 0)).toBe(true);
     const rows = await t.db.select().from(shortlist).where(eq(shortlist.userId, userId));
-    expect(rows.map((r) => r.jobId).sort()).toEqual([ids[0]!, ids[1]!].sort());
+    expect(rows.filter(laneRow).map((r) => r.jobId).sort()).toEqual([ids[0]!, ids[1]!].sort());
   });
 });

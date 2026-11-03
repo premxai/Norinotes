@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { applications, jobs, resumes, runEvents } from "@norinote/db";
+import { widenedByOf, withoutWidenedReasons } from "@norinote/match";
 import type { JobSpec } from "@norinote/shared";
 import { iso } from "./http.js";
 
@@ -10,7 +11,7 @@ const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is st
 
 // ---- jobs -------------------------------------------------------------------------------------------------------------
 
-export type JobRow = Omit<typeof jobs.$inferSelect, "descriptionText"> & { descriptionText: string };
+export type JobRow = Omit<typeof jobs.$inferSelect, "descriptionText" | "missingReads"> & { descriptionText: string };
 
 export function toJob(j: JobRow, companyName: string | null, spec?: JobSpec | null) {
   return {
@@ -66,7 +67,8 @@ export function toMatch(jobId: string, row: { fit: number; fitMap: unknown[]; re
       matched.push({ requirement, nodeId: strs(e.careerPointIds)[0] ?? "", label: str(e.note) || requirement, required });
     } else missing.push({ requirement, required });
   }
-  return { jobId, score: row.fit, explanation: { matched, missing, reasons: row.reasons }, computedAt: row.createdAt.toISOString() };
+  // `widenedBy` is set when the job is on the list because the shortlist was widened, not because a lane fits it.
+  return { jobId, score: row.fit, explanation: { matched, missing, reasons: withoutWidenedReasons(row.reasons) }, widenedBy: widenedByOf(row.reasons), computedAt: row.createdAt.toISOString() };
 }
 
 // ---- applications -----------------------------------------------------------------------------------------------------

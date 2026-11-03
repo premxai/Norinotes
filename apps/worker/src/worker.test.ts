@@ -322,7 +322,7 @@ describe("worker: inbox and lifecycle", () => {
 
 describe("config", () => {
   it("reads sizes from the environment and falls back to defaults", () => {
-    expect(loadConfig({})).toMatchObject({ browserPoolSize: 3, scheduleEveryMs: 600_000, pollsPerHost: 2, databaseUrl: undefined });
+    expect(loadConfig({})).toMatchObject({ browserPoolSize: 3, scheduleEveryMs: 180_000, pollsPerHost: 4, hostBoardsPerRun: 8, validatePerRun: 50, databaseUrl: undefined });
     expect(loadConfig({ BROWSER_POOL_SIZE: "4", DATABASE_URL: "postgres://x", SCHEDULE_EVERY_MINUTES: "5" })).toMatchObject({ browserPoolSize: 4, scheduleEveryMs: 300_000, databaseUrl: "postgres://x" });
     expect(loadConfig({ BROWSER_POOL_SIZE: "nope" }).browserPoolSize).toBe(3);
   });

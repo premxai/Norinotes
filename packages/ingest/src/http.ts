@@ -1,4 +1,5 @@
 import type { AtsType } from "@norinote/shared";
+import { hostKey } from "./hosts.js";
 import type { HttpOptions } from "./types.js";
 
 /** Per-attempt timeout for one request. */
@@ -94,16 +95,29 @@ export function getJson<T>(url: string, opts: HttpOptions = {}): Promise<T | nul
   });
 }
 
-/** The API host each job system's feed is read from, so a cycle can back one host off without touching the others. */
-const FEED_HOSTS: Partial<Record<AtsType, string>> = {
-  greenhouse: "boards-api.greenhouse.io",
-  lever: "api.lever.co",
-  ashby: "api.ashbyhq.com",
-  smartrecruiters: "api.smartrecruiters.com",
-};
+/** What a conditional GET answered. `etag` is the validator to send next time (the ETag header). */
+export type ConditionalJson<T> =
+  | { status: "ok"; data: T; etag: string | null }
+  | { status: "notModified"; etag: string | null }
+  | { status: "notFound" };
 
-/** The feed host for a job system; falls back to the system's name for those without a connector yet. */
-export const feedHost = (atsType: AtsType): string => FEED_HOSTS[atsType] ?? atsType;
+/**
+ * GET JSON with If-None-Match when a validator from the previous read is known: 304 is `notModified`, 404 is
+ * `notFound`, any other non-2xx throws. Same retries and timeout as getJson.
+ */
+export function getJsonConditional<T>(url: string, opts: HttpOptions = {}, etag?: string | null): Promise<ConditionalJson<T>> {
+  const headers: Record<string, string> = etag ? { "if-none-match": etag } : {};
+  return requestWithRetry<ConditionalJson<T>>(url, { headers }, opts, async (res) => {
+    const next = res.headers.get("etag");
+    if (res.status === 304) { void res.body?.cancel().catch(() => {}); return { status: "notModified", etag: next ?? etag ?? null }; }
+    if (res.status === 404) return { status: "notFound" };
+    if (!res.ok) throw new Error(`GET ${url} failed: ${res.status} ${res.statusText}`);
+    return { status: "ok", data: (await res.json()) as T, etag: next };
+  });
+}
+
+/** The politeness host of a board (see hostKey); the system name for those without a known host. */
+export const feedHost = (atsType: AtsType, token?: string | null): string => hostKey(atsType, token);
 
 /**
  * Per-host memory of which feed hosts are refusing us. A board whose retries all ended in 429/503 counts as a strike

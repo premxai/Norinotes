@@ -1,16 +1,21 @@
 import { z } from "zod";
 import { AiUnavailableError, complete, embed } from "@norinote/ai";
 import {
-  and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes, or,
+  and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes, notInArray, or,
   shortlist, sql, type Db,
 } from "@norinote/db";
 import { buildRequirements, requirementTexts, scoreFit, type FitMapItem } from "./fit.js";
 import { checkGates } from "./gates.js";
-import { laneFitsSql, matchingLanes } from "./lanes.js";
+import { heuristicSpec } from "./heuristic-spec.js";
+import { inlineLanesFitSql, laneFitsSql, matchingLanes } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
 import { loadMatchProfile, meanProfileEmbedding, type MatchProfile } from "./profile.js";
+import { rolePool } from "./roles.js";
 import { DEFAULT_SKILL_MAP, type SkillMap } from "./skills.js";
 import type { StoredJobSpec } from "./understand.js";
+import {
+  WIDEN_TARGET, loadRemoteExcluded, loadTemporaryLane, widenedReason, wideningPlan, type SimpleLane, type WidenedBy, type WideningStep,
+} from "./widen.js";
 
 export const SHORTLIST_MAX_AGE_DAYS = 60;
 const DAY_MS = 86_400_000;
@@ -42,6 +47,8 @@ export type BuildShortlistOptions = MatchOptions & {
   profileEmbedding: number[] | null;
   /** How many vector-ranked jobs get the detailed fit. Default 200. Up to the same number of lexically ranked jobs (spec, no embedding) may be added. */
   candidates?: number;
+  /** Widen the shortlist (adjacent titles, remote, older, role pool) when the lanes give fewer than 20 candidates. Default true. */
+  widen?: boolean;
 };
 
 export type ShortlistCandidate = {
@@ -51,6 +58,8 @@ export type ShortlistCandidate = {
   reasons: string[];
   /** Cosine similarity between the profile and the job. */
   similarity: number;
+  /** Set when the job is here because the shortlist was widened (it does not fit the user's lanes as written). */
+  widenedBy?: WidenedBy | null;
 };
 
 export type MatchStats = {
@@ -69,6 +78,14 @@ export type MatchStats = {
   /** Rows inserted or refreshed. Dismissed and applied rows are never touched. */
   saved: number;
   items: ShortlistCandidate[];
+  /** Shortlist candidates the lanes themselves produced (after gates and minimum fit), before any widening. */
+  laneMatches: number;
+  /** The jobs added by widening, in ladder order. */
+  widened: Array<{ jobId: string; by: WidenedBy }>;
+  /** True when the role-family pool contributed. */
+  poolUsed: boolean;
+  /** True when the user had no lane and one was derived from their career points. */
+  temporaryLane: boolean;
 };
 
 type CandidateJob = {
@@ -80,13 +97,16 @@ type CandidateJob = {
   similarity: number;
   /** True when `similarity` is a skill-overlap stand-in, not a cosine similarity. */
   lexical?: boolean;
+  /** Widening only: the posting text (for a heuristic spec when the job has none) and whether similarity is still to be computed by skill overlap. */
+  description?: string;
+  rankLexically?: boolean;
 };
 
 // ---- shared SQL conditions --------------------------------------------------------------------------------------------
 
-/** Open, not blocked, and posted (or first seen) within the last 60 days. */
-export function openAndFreshSql(now: Date) {
-  const since = new Date(now.getTime() - SHORTLIST_MAX_AGE_DAYS * DAY_MS).toISOString();
+/** Open, not blocked, and posted (or first seen) within the last 60 days (or `maxAgeDays`). */
+export function openAndFreshSql(now: Date, maxAgeDays: number = SHORTLIST_MAX_AGE_DAYS) {
+  const since = new Date(now.getTime() - maxAgeDays * DAY_MS).toISOString();
   return and(
     isNull(jobs.closedAt),
     eq(companies.blocked, false),
@@ -193,40 +213,78 @@ export async function saveShortlistRows(db: Db, userId: string, rows: readonly S
   return saved.length;
 }
 
+type ScoredItem = ShortlistCandidate & { title: string; companyName: string | null };
+
+type ScoreOptions = {
+  /** The profile the gates run against when the lanes in force differ from `profile.lanes` (temporary and widened lanes). */
+  gateProfile?: MatchProfile;
+  /** Widening: no lane minimum fit (the ladder fills the list up to a target). Gates still apply. */
+  ignoreMinFit?: boolean;
+  /** Widening: a job without a stored spec is read with the heuristic spec in memory, and candidates flagged `rankLexically` get a skill-overlap similarity. */
+  heuristic?: boolean;
+};
+
+type ScoreResult = { scored: ScoredItem[]; withoutSpec: number; gated: Array<{ jobId: string; reasons: string[] }>; belowMinFit: number; scoredCount: number };
+
+/** Gates, then the detailed fit, for each candidate. Nothing is saved. */
+async function scoreCandidates(db: Db, profile: MatchProfile, candidates: CandidateJob[], opts: MatchOptions, so: ScoreOptions = {}): Promise<ScoreResult> {
+  const skills = opts.skills ?? DEFAULT_SKILL_MAP;
+  const gateProfile = so.gateProfile ?? profile;
+  const stored = await loadSpecs(db, candidates.map((c) => c.jobId));
+  const specs = new Map<string, StoredJobSpec>();
+  for (const c of candidates) {
+    const spec = stored.get(c.jobId) ?? (so.heuristic ? heuristicSpec({ title: c.title, descriptionText: c.description ?? "", location: c.location, remote: c.remote }, skills) : undefined);
+    if (spec) specs.set(c.jobId, spec);
+  }
+  const out: ScoreResult = { scored: [], withoutSpec: 0, gated: [], belowMinFit: 0, scoredCount: 0 };
+  const withSpec = candidates.filter((c) => specs.has(c.jobId));
+  out.withoutSpec = candidates.length - withSpec.length;
+  const vectors = await requirementVectors(
+    withSpec.flatMap((c) => requirementTexts(buildRequirements(specs.get(c.jobId)!, skills))),
+    opts.embedFn ?? ((texts) => embed(texts)),
+  );
+  const lp = withSpec.some((c) => c.rankLexically) ? lexicalProfile(profile.points, skills) : null;
+
+  for (const c of withSpec) {
+    const spec = specs.get(c.jobId)!;
+    const gate = checkGates(spec, gateProfile, { title: c.title, location: c.location, remote: c.remote });
+    if (!gate.ok) { out.gated.push({ jobId: c.jobId, reasons: gate.reasons }); continue; }
+    const fitLanes = matchingLanes(gateProfile.lanes, c);
+    const minFit = so.ignoreMinFit ? 0 : Math.min(...(fitLanes.length > 0 ? fitLanes : gateProfile.lanes).map((l) => l.minFit), 1);
+    const similarity = c.rankLexically && lp ? lexicalSimilarity(lexicalOverlap({ title: c.title, spec }, lp, skills)) : c.similarity;
+    const result = scoreFit({
+      spec, points: profile.points, vectors, similarity, experienceYears: profile.experienceYears,
+      laneName: fitLanes[0]?.name ?? null, now: opts.now, skills,
+    });
+    out.scoredCount++;
+    if (result.fit < minFit) { out.belowMinFit++; continue; }
+    out.scored.push({ jobId: c.jobId, fit: result.fit, fitMap: result.fitMap, reasons: result.reasons, similarity, title: c.title, companyName: c.companyName });
+  }
+  out.scored.sort((a, b) => b.fit - a.fit || b.similarity - a.similarity);
+  return out;
+}
+
+function newStats(candidates: CandidateJob[]): MatchStats {
+  return {
+    considered: candidates.length, candidateIds: candidates.map((c) => c.jobId), withoutSpec: 0, lexical: candidates.filter((c) => c.lexical).length, scored: 0,
+    gated: [], belowMinFit: 0, saved: 0, items: [], laneMatches: 0, widened: [], poolUsed: false, temporaryLane: false,
+  };
+}
+
 /**
  * Detailed fit for one user over some candidate jobs, then upsert into `shortlist`. Rows that are dismissed or applied
  * are left exactly as they are; rows that are still new are refreshed.
  */
 async function fitAndSave(db: Db, profile: MatchProfile, candidates: CandidateJob[], opts: MatchOptions): Promise<MatchStats> {
   const limit = opts.limit ?? 20;
-  const skills = opts.skills ?? DEFAULT_SKILL_MAP;
-  const stats: MatchStats = { considered: candidates.length, candidateIds: candidates.map((c) => c.jobId), withoutSpec: 0, lexical: candidates.filter((c) => c.lexical).length, scored: 0, gated: [], belowMinFit: 0, saved: 0, items: [] };
-  const specs = await loadSpecs(db, candidates.map((c) => c.jobId));
-
-  const withSpec = candidates.filter((c) => specs.has(c.jobId));
-  stats.withoutSpec = candidates.length - withSpec.length;
-  const vectors = await requirementVectors(
-    withSpec.flatMap((c) => requirementTexts(buildRequirements(specs.get(c.jobId)!, skills))),
-    opts.embedFn ?? ((texts) => embed(texts)),
-  );
-
-  const scored: Array<ShortlistCandidate & { title: string; companyName: string | null }> = [];
-  for (const c of withSpec) {
-    const spec = specs.get(c.jobId)!;
-    const gate = checkGates(spec, profile, { title: c.title, location: c.location, remote: c.remote });
-    if (!gate.ok) { stats.gated.push({ jobId: c.jobId, reasons: gate.reasons }); continue; }
-    const fitLanes = matchingLanes(profile.lanes, c);
-    const minFit = Math.min(...(fitLanes.length > 0 ? fitLanes : profile.lanes).map((l) => l.minFit), 1);
-    const result = scoreFit({
-      spec, points: profile.points, vectors, similarity: c.similarity, experienceYears: profile.experienceYears,
-      laneName: fitLanes[0]?.name ?? null, now: opts.now, skills,
-    });
-    stats.scored++;
-    if (result.fit < minFit) { stats.belowMinFit++; continue; }
-    scored.push({ jobId: c.jobId, fit: result.fit, fitMap: result.fitMap, reasons: result.reasons, similarity: c.similarity, title: c.title, companyName: c.companyName });
-  }
-  scored.sort((a, b) => b.fit - a.fit || b.similarity - a.similarity);
-  const top = scored.slice(0, limit);
+  const stats = newStats(candidates);
+  const r = await scoreCandidates(db, profile, candidates, opts);
+  stats.withoutSpec = r.withoutSpec;
+  stats.scored = r.scoredCount;
+  stats.gated = r.gated;
+  stats.belowMinFit = r.belowMinFit;
+  const top = r.scored.slice(0, limit);
+  stats.laneMatches = top.length;
 
   if (opts.explain) await explainTop(db, profile, top, opts.explain.top ?? 3);
 
@@ -241,23 +299,31 @@ async function fitAndSave(db: Db, profile: MatchProfile, candidates: CandidateJo
  * Rebuild one user's shortlist.
  *
  * 1. SQL filter: open, posted (else first seen) within 60 days, company not blocked, fits an enabled lane by title and
- *    location or remote, not already dismissed, applied or in progress.
+ *    location or remote, not already dismissed, applied or in progress. A user with no lane yet gets a temporary one from
+ *    their most recent role and their location.
  * 2. Vector rank by cosine distance to the profile embedding on `job_embeddings`, keep `candidates` (200).
  * 3. Detailed fit on those against the user's career points, gates applied, lane `minFit` honoured, best `limit` saved.
- * 4. Optionally, one small-model "why this fits" line for the top few (`explain`).
+ * 4. Fewer than 20 shortlist candidates: widen (see widen.ts): adjacent titles, remote, up to 90 days, the role-family pool.
+ *    Each widened row carries a `widened:<step>` reason. Rows widened by an earlier run and not chosen now are removed.
+ * 5. Optionally, one small-model "why this fits" line for the top few (`explain`).
  *
  * The planner may serve step 2 from the HNSW index or sort the filtered set exactly; for a user whose lanes narrow the
  * field to a few thousand jobs the second is what happens and the order is exact.
  */
 export async function buildShortlist(db: Db, userId: string, opts: BuildShortlistOptions): Promise<MatchStats> {
-  const profile = await loadMatchProfile(db, userId, opts.now, opts.skills);
+  const loaded = await loadMatchProfile(db, userId, opts.now, opts.skills);
+  let temporary = false;
+  let profile = loaded;
+  if (loaded.lanes.length === 0) {
+    const lane = await loadTemporaryLane(db, userId, opts.now);
+    if (lane) { temporary = true; profile = { ...loaded, lanes: [lane] }; }
+  }
   if (profile.lanes.length === 0 || (opts.profileEmbedding === null && profile.points.length === 0)) return emptyStats(0);
   const limit = opts.candidates ?? 200;
-  const fitsUser = and(
-    openAndFreshSql(opts.now),
-    sql`EXISTS (SELECT 1 FROM ${lanes} WHERE ${lanes.userId} = ${userId} AND ${lanes.enabled} AND ${laneFitsSql()})`,
-    notActedOnSql(userId),
-  );
+  const laneFilter = temporary
+    ? inlineLanesFitSql(profile.lanes)
+    : sql`EXISTS (SELECT 1 FROM ${lanes} WHERE ${lanes.userId} = ${userId} AND ${lanes.enabled} AND ${laneFitsSql()})`;
+  const fitsUser = and(openAndFreshSql(opts.now), laneFilter, notActedOnSql(userId));
 
   let candidates: CandidateJob[] = [];
   if (opts.profileEmbedding) {
@@ -273,7 +339,136 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
     candidates = rows.map((r) => ({ jobId: r.jobId, title: r.title, location: r.location, remote: r.remote, companyName: r.companyName, similarity: 1 - Number(r.distance) }));
   }
   candidates.push(...await lexicalCandidates(db, profile, fitsUser, opts, limit));
-  return fitAndSave(db, profile, candidates, opts);
+
+  const stats = newStats(candidates);
+  stats.temporaryLane = temporary;
+  const base = await scoreCandidates(db, profile, candidates, opts);
+  stats.withoutSpec = base.withoutSpec;
+  stats.scored = base.scoredCount;
+  stats.gated = base.gated;
+  stats.belowMinFit = base.belowMinFit;
+  const maxRows = opts.limit ?? 20;
+  const items: ScoredItem[] = base.scored.slice(0, maxRows);
+  stats.laneMatches = items.length;
+
+  const widenedItems: Array<ScoredItem & { widenedBy: WidenedBy }> = [];
+  const target = Math.min(WIDEN_TARGET, maxRows);
+  if (opts.widen !== false && items.length < target) {
+    const seen = new Set<string>([...items.map((i) => i.jobId), ...base.gated.map((g) => g.jobId)]);
+    widenedItems.push(...await widenShortlist(db, userId, profile, opts, {
+      seen, have: items.length, target, roleKeys: new Set(items.map((i) => roleKey(i.companyName, i.title))), gated: stats.gated,
+    }));
+  }
+  const all: ScoredItem[] = [...items, ...widenedItems];
+  if (opts.explain) await explainTop(db, profile, all, opts.explain.top ?? 3);
+  for (const w of widenedItems) w.reasons = [...w.reasons, widenedReason(w.widenedBy)];
+
+  stats.saved = await saveShortlistRows(db, userId, all);
+  await removeStaleWidened(db, userId, all.map((i) => i.jobId));
+  stats.widened = widenedItems.map((w) => ({ jobId: w.jobId, by: w.widenedBy }));
+  stats.poolUsed = widenedItems.some((w) => w.widenedBy === "role_pool");
+  stats.items = all.map((i) => ({ jobId: i.jobId, fit: i.fit, fitMap: i.fitMap, reasons: i.reasons, similarity: i.similarity, widenedBy: (i as { widenedBy?: WidenedBy }).widenedBy ?? null }));
+  return stats;
+}
+
+// ---- the widening ladder ----------------------------------------------------------------------------------------------
+
+/** Per step: how many candidate jobs are read and scored. */
+const WIDEN_SCAN = 150;
+/** Pool jobs requested per step; the pool is cached for an hour, so the size costs one query per hour and key. */
+const WIDEN_POOL_SIZE = 300;
+
+const roleKey = (company: string | null, title: string) => `${(company ?? "").toLowerCase().trim()}|${title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
+
+type WidenState = { seen: Set<string>; have: number; target: number; roleKeys: Set<string>; gated: Array<{ jobId: string; reasons: string[] }> };
+
+/**
+ * Walks the ladder until `target` shortlist candidates exist. Each step reads more jobs than the one before it
+ * allowed (never ones the user dismissed, applied to or that were already considered), runs the same gates, scores them
+ * (a job without a spec is read with the heuristic spec) and keeps the best few that bring the list up to the target.
+ * The same company and role posted in several places counts once.
+ */
+async function widenShortlist(db: Db, userId: string, profile: MatchProfile, opts: BuildShortlistOptions, st: WidenState): Promise<Array<ScoredItem & { widenedBy: WidenedBy }>> {
+  const out: Array<ScoredItem & { widenedBy: WidenedBy }> = [];
+  const remoteExcluded = await loadRemoteExcluded(db, userId);
+  const lastRole = [...profile.points].filter((p) => p.kind === "role").sort((a, b) => (b.endDate ?? "9999").localeCompare(a.endDate ?? "9999") || (b.startDate ?? "").localeCompare(a.startDate ?? ""))[0];
+  const plan = wideningPlan(profile.lanes, { remoteExcluded, extraTitles: lastRole ? [lastRole.title] : [] });
+
+  for (const step of plan) {
+    const need = st.target - st.have - out.length;
+    if (need <= 0) break;
+    const candidates = step.pool
+      ? await poolCandidates(db, userId, step, opts, st.seen)
+      : await laneCandidates(db, userId, step, opts, st.seen);
+    if (candidates.length === 0) continue;
+
+    const gateLanes: SimpleLane[] = step.pool ? [{ titles: [], locations: step.pool.metro ? [step.pool.metro] : [], remote: step.pool.remote }] : step.lanes;
+    const gateProfile: MatchProfile = { ...profile, lanes: gateLanes.map((l, i) => ({ id: `widen-${i}`, name: profile.lanes[0]?.name ?? "widened", minFit: 0, ...l, enabled: true })) };
+    const r = await scoreCandidates(db, profile, candidates, opts, { gateProfile, ignoreMinFit: true, heuristic: true });
+    for (const g of r.gated) { st.seen.add(g.jobId); st.gated.push(g); }
+    for (const s of r.scored) {
+      if (out.length + st.have >= st.target) break;
+      const key = roleKey(s.companyName, s.title);
+      if (st.roleKeys.has(key)) continue;
+      st.roleKeys.add(key);
+      st.seen.add(s.jobId);
+      out.push({ ...s, widenedBy: step.by });
+    }
+  }
+  return out;
+}
+
+/** Jobs that fit the step's lanes within its age limit, newest first, with a similarity where an embedding exists. */
+async function laneCandidates(db: Db, userId: string, step: WideningStep, opts: BuildShortlistOptions, seen: ReadonlySet<string>): Promise<CandidateJob[]> {
+  const distance = opts.profileEmbedding ? cosineDistance(jobEmbeddings.embedding, opts.profileEmbedding) : sql<null>`null`;
+  const rows = await db
+    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, description: sql<string>`left(${jobs.descriptionText}, 12000)`, distance })
+    .from(jobs)
+    .innerJoin(companies, eq(companies.id, jobs.companyId))
+    .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
+    .where(and(
+      openAndFreshSql(opts.now, step.maxAgeDays), inlineLanesFitSql(step.lanes), notActedOnSql(userId),
+      seen.size > 0 ? notInArray(jobs.id, [...seen]) : undefined,
+    ))
+    .orderBy(desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`), jobs.id)
+    .limit(WIDEN_SCAN);
+  return rows.map(widenCandidate);
+}
+
+/** The role-family pool for the user's main family and metro, minus what was already considered or acted on. */
+async function poolCandidates(db: Db, userId: string, step: WideningStep, opts: BuildShortlistOptions, seen: ReadonlySet<string>): Promise<CandidateJob[]> {
+  const pool = step.pool!;
+  const members = await rolePool(db, { family: pool.family, metro: pool.metro, remote: pool.remote, limit: WIDEN_POOL_SIZE, now: opts.now, maxAgeDays: step.maxAgeDays });
+  const ids = members.map((m) => m.jobId).filter((id) => !seen.has(id));
+  if (ids.length === 0) return [];
+  const distance = opts.profileEmbedding ? cosineDistance(jobEmbeddings.embedding, opts.profileEmbedding) : sql<null>`null`;
+  // Same filters as the pool plus the user's own: the pool is shared and cached, so it may hold a job closed or acted on since.
+  const rows = await db
+    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, description: sql<string>`left(${jobs.descriptionText}, 12000)`, distance })
+    .from(jobs)
+    .innerJoin(companies, eq(companies.id, jobs.companyId))
+    .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
+    .where(and(inArray(jobs.id, ids.slice(0, WIDEN_POOL_SIZE)), openAndFreshSql(opts.now, step.maxAgeDays), notActedOnSql(userId)));
+  const order = new Map(ids.map((id, i) => [id, i]));
+  return rows.sort((a, b) => (order.get(a.jobId) ?? 0) - (order.get(b.jobId) ?? 0)).slice(0, WIDEN_SCAN).map(widenCandidate);
+}
+
+function widenCandidate(r: { jobId: string; title: string; location: string | null; remote: boolean; companyName: string | null; description: string; distance: unknown }): CandidateJob {
+  const hasVector = r.distance !== null && r.distance !== undefined;
+  return {
+    jobId: r.jobId, title: r.title, location: r.location, remote: r.remote, companyName: r.companyName, description: r.description,
+    similarity: hasVector ? 1 - Number(r.distance) : 0, ...(hasVector ? {} : { rankLexically: true }),
+  };
+}
+
+/** Widened rows from an earlier run that this run did not choose again: the lanes may match by now, or the jobs are gone. */
+async function removeStaleWidened(db: Db, userId: string, keepJobIds: readonly string[]): Promise<void> {
+  await db.delete(shortlist).where(and(
+    eq(shortlist.userId, userId),
+    eq(shortlist.status, "new"),
+    sql`EXISTS (SELECT 1 FROM unnest(${shortlist.reasons}) AS r WHERE r LIKE 'widened:%')`,
+    keepJobIds.length > 0 ? notInArray(shortlist.jobId, [...keepJobIds]) : undefined,
+  ));
 }
 
 /** How many of the newest spec-without-embedding jobs are scored for lexical ranking. */
@@ -403,5 +598,5 @@ export async function matchNewJobs(db: Db, jobIds: readonly string[], opts: Matc
 }
 
 function emptyStats(considered: number): MatchStats {
-  return { considered, candidateIds: [], withoutSpec: 0, lexical: 0, scored: 0, gated: [], belowMinFit: 0, saved: 0, items: [] };
+  return { considered, candidateIds: [], withoutSpec: 0, lexical: 0, scored: 0, gated: [], belowMinFit: 0, saved: 0, items: [], laneMatches: 0, widened: [], poolUsed: false, temporaryLane: false };
 }

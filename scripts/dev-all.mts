@@ -7,11 +7,12 @@
  */
 import path from "node:path";
 import { serve } from "@hono/node-server";
-import { connect, migrate } from "@norinote/db";
+import { connect, loadDotEnv, migrate } from "@norinote/db";
 import { createQueue } from "@norinote/queue";
 import { createApp, loadConfig } from "../apps/api/src/index.js";
 import { startWorker } from "../apps/worker/src/worker.js";
 
+loadDotEnv();
 const url = process.env.DATABASE_URL?.trim() || undefined;
 const handle = await connect({ url, pgliteDir: process.env.PGLITE_DIR || path.resolve("data/pglite") });
 await migrate(handle);

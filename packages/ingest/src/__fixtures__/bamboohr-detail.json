@@ -1,0 +1,34 @@
+{
+  "meta": {},
+  "result": {
+    "jobOpening": {
+      "jobOpeningShareUrl": "https://321theagency.bamboohr.com/careers/146",
+      "jobOpeningName": "Project Manager (Creative & Digital)",
+      "jobOpeningStatus": "Open",
+      "jobCategoryId": null,
+      "departmentId": "18601",
+      "departmentLabel": "Project Management",
+      "employmentStatusLabel": "Full-Time",
+      "employmentType": null,
+      "location": {
+        "city": null,
+        "state": null,
+        "postalCode": null,
+        "addressCountry": null
+      },
+      "atsLocation": {
+        "country": "United States",
+        "countryId": "1",
+        "state": "Florida",
+        "city": "Orlando"
+      },
+      "description": "<p><span style=\"color: #151516; font-size: 18px; font-weight: 600\">The JD TL;DR</span><br></p>\n<p><span style=\"color: #151516; font-size: 13px\">At 321, our Project Management team strives to deliver exceptional work in the most efficient way possible. We are a team of problem-solvers, skilled communicators, and inspiring motivators who understand that successful execution is crucial to the success of any idea. Our approach balances the needs of our teams with the business requirements, and we get excited about transforming big ideas into results for our clients.</span></p>\n<p><br></p>\n<p><span style=\"color: #151516; font-size: 13px\">Project Managers at 321 are the ultimate agency organizers.",
+      "compensation": "Negotiable",
+      "datePosted": "2025-07-15",
+      "minimumExperience": "Mid-level",
+      "locationType": "1",
+      "seekPromoted": false,
+      "aiProcessingDisclosureEnabled": false
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "total": 5,
+  "jobPostings": [
+    {
+      "title": "Developer Relations Manager - GSI",
+      "externalPath": "/job/US-CA-Santa-Clara/Developer-Relations-Manager---GSI_JR2009256",
+      "locationsText": "2 Locations",
+      "postedOn": "Posted Today",
+      "bulletFields": [
+        "JR2009256"
+      ]
+    },
+    {
+      "title": "Senior Software Engineer, Machine Learning Safety",
+      "externalPath": "/job/US-CA-Santa-Clara/Senior-Software-Engineer--Machine-Learning-Safety_JR2023004",
+      "locationsText": "US, CA, Santa Clara",
+      "postedOn": "Posted 3 Days Ago",
+      "bulletFields": [
+        "JR2023004"
+      ]
+    },
+    {
+      "title": "Post-Silicon Validation and Methodology Engineer",
+      "externalPath": "/job/US-CA-Santa-Clara/Post-Silicon-Validation-and-Methodology-Engineer_JR2018268",
+      "locationsText": "Remote, US",
+      "postedOn": "Posted 30+ Days Ago",
+      "bulletFields": [
+        "JR2018268"
+      ]
+    },
+    {
+      "title": "Critical Facilities Mechanical Engineer – Data Center",
+      "externalPath": "/job/US-CA-Santa-Clara/Critical-Facilities-Mechanical-Engineer---Data-Center_JR2029109",
+      "locationsText": "US, CA, Santa Clara",
+      "postedOn": "Posted Yesterday",
+      "bulletFields": [
+        "JR2029109"
+      ]
+    },
+    {
+      "title": "DSX Energy Engineer",
+      "externalPath": "/job/US-CA-Santa-Clara/DSX-Energy-Engineer_JR2028854",
+      "locationsText": "US, CA, Santa Clara",
+      "postedOn": "Posted Today"
+    }
+  ],
+  "facets": []
+}

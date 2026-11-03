@@ -135,3 +135,19 @@ export function locationFitsSql(): SQL {
 export function laneFitsSql(): SQL {
   return sql`(${titleFitsSql()} AND ${locationFitsSql()})`;
 }
+
+// ---- lanes that are not rows ---------------------------------------------------------------------------------------------
+
+const textArraySql = (xs: readonly string[]): SQL =>
+  xs.length > 0 ? sql`ARRAY[${sql.join(xs.map((x) => sql`${x}`), sql`, `)}]::text[]` : sql`ARRAY[]::text[]`;
+
+/**
+ * True when some lane of `inline` fits `jobs`, for lanes that are not rows of the `lanes` table (a temporary lane derived
+ * from career points, the widened lanes of the shortlist ladder). The lanes become a one-off derived table named `lanes`,
+ * so the same `laneFitsSql` runs on it. `jobs` must be in scope; nothing else is needed.
+ */
+export function inlineLanesFitSql(inline: ReadonlyArray<Pick<LaneLike, "titles" | "locations" | "remote">>): SQL {
+  if (inline.length === 0) return sql`false`;
+  const values = inline.map((l) => sql`(${textArraySql(l.titles)}, ${textArraySql(l.locations)}, ${l.remote}::boolean)`);
+  return sql`EXISTS (SELECT 1 FROM (VALUES ${sql.join(values, sql`, `)}) AS ${sql.identifier("lanes")}(titles, locations, remote) WHERE ${laneFitsSql()})`;
+}

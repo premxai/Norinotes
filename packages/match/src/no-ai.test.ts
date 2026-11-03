@@ -5,7 +5,7 @@ import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { JobSpec } from "@norinote/shared";
 import { heuristicSpec, roleFamilyFromTitle, seniorityFromTitle, yearsFromText } from "./heuristic-spec.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
-import { buildShortlist, clearRequirementVectorCache, matchNewJobs } from "./shortlist.js";
+import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs } from "./shortlist.js";
 import { HEURISTIC_SPEC_VERSION, SPEC_VERSION, loadCurrentSpec, understandJob, type JobSpecModelOutput } from "./understand.js";
 import { NOW, baseSpec, profileOf, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 
@@ -19,6 +19,8 @@ beforeAll(async () => {
 afterAll(() => t.close());
 beforeEach(() => clearRequirementVectorCache());
 afterEach(() => setProvider(null));
+/** These tests pin exactly which jobs the lanes produce, so they run without the widening ladder (widen.test.ts covers it). */
+const buildShortlist: typeof buildWidened = (db, userId, o) => buildWidened(db, userId, { widen: false, ...o });
 
 /** The vendor rejects our key: a 401 on every call, which is what the smoke run saw. */
 function rejectedKey() {

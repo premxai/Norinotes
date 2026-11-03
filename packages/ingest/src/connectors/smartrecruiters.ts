@@ -1,6 +1,6 @@
 import { htmlToText } from "../html.js";
 import { getJson } from "../http.js";
-import type { Connector, HttpOptions, NormalizedJob } from "../types.js";
+import type { Connector, HttpOptions, ListResult, NormalizedJob } from "../types.js";
 import { parseDate, prettifyToken, safeUrl } from "../util.js";
 
 type SrListItem = {
@@ -51,16 +51,25 @@ function fetchDetail(token: string, id: string, http?: HttpOptions): Promise<SrD
  */
 export const smartrecruiters: Connector = {
   atsType: "smartrecruiters",
-  async listJobs(token, http) {
+  capabilities: { maxConcurrencyPerHost: 4 },
+  async listJobs(token, http): Promise<ListResult> {
     const items: SrListItem[] = [];
+    // A board bigger than MAX_POSTINGS (or a page that vanished midway) is a partial read: nothing may be closed on it.
+    let complete = true;
     for (let offset = 0; items.length < MAX_POSTINGS; offset += 100) {
       const page = await getJson<{ content?: SrListItem[]; totalFound?: number }>(
         `https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(token)}/postings?limit=100&offset=${offset}`, http);
-      if (!page) return [];
+      if (!page) {
+        if (offset === 0) return { jobs: [], complete: true, notFound: true };
+        complete = false;
+        break;
+      }
       const batch = page.content ?? [];
       items.push(...batch);
       if (batch.length < 100 || items.length >= (page.totalFound ?? 0)) break;
+      if (items.length >= MAX_POSTINGS) complete = false;
     }
+    if (items.length > MAX_POSTINGS) complete = false;
     const queue = items.slice(0, MAX_POSTINGS).map((item, index) => ({ item, index }));
     const out: NormalizedJob[] = new Array<NormalizedJob>(queue.length);
     const workers = Array.from({ length: DETAIL_CONCURRENCY }, async () => {
@@ -71,7 +80,7 @@ export const smartrecruiters: Connector = {
       }
     });
     await Promise.all(workers);
-    return out;
+    return { jobs: out, complete };
   },
   async fetchJob(token, externalId, http) {
     const d = await fetchDetail(token, externalId, http);

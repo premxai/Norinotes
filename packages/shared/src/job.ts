@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 /** Job systems (applicant tracking systems) a connector exists for or is planned for. */
-export const ATS_TYPES = ["greenhouse", "lever", "ashby", "smartrecruiters", "workday", "oracle"] as const;
+export const ATS_TYPES = [
+  "greenhouse", "lever", "ashby", "smartrecruiters", "workday", "oracle",
+  "workable", "recruitee", "teamtailor", "personio", "bamboohr", "breezy", "rippling", "pinpoint", "icims",
+] as const;
 export const AtsType = z.enum(ATS_TYPES);
 export type AtsType = z.infer<typeof AtsType>;
 

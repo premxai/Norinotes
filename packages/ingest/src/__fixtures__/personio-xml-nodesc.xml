@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<workzag-jobs>
+
+<position>
+    <id>2536632</id>
+    <subcompany>1NCE GmbH</subcompany>
+    <office>Remote Germany</office>
+    <department>Sales &amp; Marketing</department>
+    <recruitingCategory>Sales &amp; Marketing</recruitingCategory>
+    <name>Account Manager - Germany (all)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <keywords>Account Management,Customer care,IoT,Sales,Remote,Telecommunications,Germany</keywords>
+    <occupation>account_management_commissioned</occupation>
+    <occupationCategory>sales_and_business_development</occupationCategory>
+    <createdAt>2026-02-19T09:03:18+00:00</createdAt>
+</position>
+
+<position>
+    <id>2509340</id>
+    <subcompany>1NCE GmbH</subcompany>
+    <office>Remote Norway</office>
+    <additionalOffices>
+        <office>Remote Denmark</office>
+        <office>Remote Sweden</office>
+    </additionalOffices>
+    <department>Sales &amp; Marketing</department>
+    <recruitingCategory>Sales &amp; Marketing</recruitingCategory>
+    <name>Account Manager - Nordics (all)</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>2-5</yearsOfExperience>
+    <keywords>Account Management,Customer care,IoT,Sales,Remote,Denmark,Sweden,Norway,remote,Telecommunications</keywords>
+    <occupation>account_management_commissioned</occupation>
+    <occupationCategory>sales_and_business_development</occupationCategory>
+    <createdAt>2026-01-27T14:46:54+00:00</createdAt>
+</position>
+
+</workzag-jobs>
