@@ -12,7 +12,10 @@
  */
 import { Resolver } from "node:dns/promises";
 
-/** What a public resolver said about one host: it exists, it does not (NXDOMAIN), or we could not tell. */
+/**
+ * What a public resolver said about one host: it has an address, it has none (NXDOMAIN, or the name exists without an A or
+ * AAAA record, which the OS reports as ENOTFOUND too), or we could not tell.
+ */
 export type DnsAnswer = "found" | "nxdomain" | "unknown";
 export type PublicResolver = (host: string) => Promise<DnsAnswer>;
 
@@ -28,14 +31,18 @@ export function publicResolver(server: string, timeoutMs = 3000): PublicResolver
   const r = new Resolver({ timeout: timeoutMs, tries: 2 });
   r.setServers([server]);
   return async (host) => {
+    const noAddress = (err: unknown) => ["ENOTFOUND", "ENODATA"].includes((err as { code?: string }).code ?? "");
     try {
       await r.resolve4(host);
       return "found";
     } catch (err) {
-      const code = (err as { code?: string }).code;
-      if (code === "ENOTFOUND") return "nxdomain";
-      if (code === "ENODATA") return "found"; // the name exists, it just has no A record
-      return "unknown"; // timeout, refused, SERVFAIL: no evidence
+      if (!noAddress(err)) return "unknown"; // timeout, refused, SERVFAIL: no evidence
+    }
+    try {
+      await r.resolve6(host);
+      return "found";
+    } catch (err) {
+      return noAddress(err) ? "nxdomain" : "unknown";
     }
   };
 }
