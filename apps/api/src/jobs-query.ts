@@ -1,4 +1,4 @@
-import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobs, lanes, ne, or, queryRows, shortlist, sql, type Db } from "@norinote/db";
+import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobs, lanes, ne, or, queryRows, savedJobs, shortlist, sql, type Db } from "@norinote/db";
 import { inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
 import type { SQL } from "drizzle-orm";
 import { toJob, toMatch } from "./serialize.js";
@@ -20,6 +20,10 @@ export type JobListParams = {
   status: "open" | "all";
   group: boolean;
 };
+
+/** The user added this job by pasting its link (`since`: only links added since then). */
+const savedByUser = (userId: string, since?: Date) =>
+  sql`EXISTS (SELECT 1 FROM ${savedJobs} WHERE ${savedJobs.userId} = ${userId} AND ${savedJobs.jobId} = ${jobs.id}${since ? sql` AND ${savedJobs.createdAt} >= ${since.toISOString()}::timestamptz` : sql``})`;
 
 const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 
@@ -59,16 +63,19 @@ export type JobListItem = {
 /**
  * The jobs list for one user: open jobs from the shared index (one indexed scan, newest or best-fit first), joined with the
  * user's shortlist fit and application state. Filters that SQL cannot express (the US-citizenship / clearance detector) and
- * grouping by company and title run on pages of rows until `limit` results are found.
+ * grouping by company and title run on pages of rows until `limit` results are found. Jobs the user added by link always
+ * belong, whatever their age or lane fit (in New today: links added in the last 24 hours).
  */
 export async function listJobs(db: Db, userId: string, p: JobListParams, now: Date): Promise<JobListItem[]> {
-  const conds: (SQL | undefined)[] = [eq(companies.blocked, false), freshJobSql(now, p.view === "today" ? Math.min(24, p.maxAgeHours) : p.maxAgeHours)];
+  const today = p.view === "today";
+  const saved = savedByUser(userId, today ? new Date(now.getTime() - 24 * 3_600_000) : undefined);
+  const conds: (SQL | undefined)[] = [eq(companies.blocked, false), or(freshJobSql(now, today ? Math.min(24, p.maxAgeHours) : p.maxAgeHours), saved)];
   if (p.status === "open") conds.push(isNull(jobs.closedAt));
   if (p.view === "best") conds.push(or(isNull(shortlist.status), ne(shortlist.status, "dismissed")));
   if (p.lanes) {
     const fits = await laneCondition(db, userId, now);
     // Jobs on the user's own shortlist (including ones added by widening) always belong to Best match.
-    if (fits) conds.push(p.view === "best" ? or(fits, and(isNotNull(shortlist.id), eq(shortlist.status, "new"))) : fits);
+    if (fits) conds.push(p.view === "best" ? or(fits, and(isNotNull(shortlist.id), eq(shortlist.status, "new")), saved) : or(fits, saved));
   }
   if (p.q) conds.push(sql`(${jobs.title} ilike ${likePattern(p.q)} or ${companies.name} ilike ${likePattern(p.q)})`);
   if (p.minScore !== undefined) conds.push(sql`${shortlist.fit} >= ${p.minScore}`);

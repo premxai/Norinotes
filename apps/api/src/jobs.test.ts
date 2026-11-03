@@ -203,3 +203,31 @@ describe("summary, detail and add by link", () => {
     expect((await api.call("POST", "/api/jobs/url", { cookie, body: {} })).status).toBe(400);
   });
 });
+
+describe("jobs the user added by link", () => {
+  let linkApi: Api;
+  beforeAll(async () => {
+    // An old posting (40 days) that fits none of the user's lanes.
+    linkApi = await makeApi({ addJob: async (db) => ({ job: (await seedJob(db, { title: "Pastry Chef", company: "Old Bakery", hoursAgo: 40 * 24 })).job, created: true }) });
+  });
+  afterAll(() => linkApi.close());
+
+  it("always show for that user, whatever their age or lane fit, and for no one else", async () => {
+    const me = await linkApi.signup("paster@example.com");
+    const other = await linkApi.signup("other@example.com");
+    for (const s of [me, other]) await linkApi.call("PUT", "/api/lanes", { cookie: s.cookie, body: [lane()] });
+    await seedJob(linkApi.db, { title: "Software Engineer", company: "Fresh Co" });
+
+    const added = await linkApi.call("POST", "/api/jobs/url", { cookie: me.cookie, body: { url: "https://boards.greenhouse.io/oldbakery/jobs/1" } });
+    expect(added.status).toBe(201);
+    const id = added.json.job.id;
+    const ids = async (cookie: string, query: string) => (await linkApi.call("GET", `/api/jobs?${query}`, { cookie })).json.map((r: { job: { id: string } }) => r.job.id);
+
+    expect(await ids(me.cookie, "view=best")).toContain(id);
+    expect(await ids(me.cookie, "view=new")).toContain(id);
+    expect(await ids(me.cookie, "view=new&lanes=true")).toContain(id);
+    expect(await ids(me.cookie, "view=today")).toContain(id); // added in the last 24 hours
+    expect(await ids(other.cookie, "view=best")).not.toContain(id);
+    expect(await ids(other.cookie, "view=new&lanes=false")).not.toContain(id);
+  });
+});

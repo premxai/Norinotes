@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, companies, desc, eq, jobSpecs, jobs, shortlist } from "@norinote/db";
+import { and, companies, desc, eq, jobSpecs, jobs, savedJobs, shortlist } from "@norinote/db";
 import { BlockedSourceError, JobNotFoundError, UnsafeUrlError, UnsupportedJobUrlError, addJobByUrl } from "@norinote/ingest";
 import { JOBS } from "@norinote/queue";
 import { JobSpec } from "@norinote/shared";
@@ -62,6 +62,8 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
       ctx.log(`[api] adding a job by url failed: ${err instanceof Error ? err.message : String(err)}`);
       throw new HttpError(503, "We could not read that posting right now. Try again in a moment.");
     }
+    // The user picked this job: it shows for them whatever its age (see savedJobs).
+    await db.insert(savedJobs).values({ userId: user.id, jobId: added.job.id }).onConflictDoNothing();
     if (added.created) await enqueueSoft(ctx, JOBS.understandJob, { jobId: added.job.id }, { dedupeKey: added.job.id, dedupeSeconds: 3600 });
     const [company] = await db.select({ name: companies.name }).from(companies).where(eq(companies.id, added.job.companyId)).limit(1);
     return c.json({ job: toJob(added.job, company?.name ?? null) }, added.created ? 201 : 200);

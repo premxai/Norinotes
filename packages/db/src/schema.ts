@@ -227,6 +227,16 @@ export const shortlist = pgTable("shortlist", {
   index("shortlist_user_status_fit_idx").on(t.userId, t.status, t.fit.desc()),
 ]);
 
+/**
+ * Jobs a user added themselves by pasting a link. These always show for that user, whatever their age or lane fit: the
+ * 72-hour limit is for jobs Norinote finds, not ones the user picked.
+ */
+export const savedJobs = pgTable("saved_jobs", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.userId, t.jobId] })]);
+
 export const applications = pgTable("applications", {
   id: id(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

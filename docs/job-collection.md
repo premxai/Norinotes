@@ -92,6 +92,8 @@ packages/db/src/fresh.ts), everywhere: the shortlist, widening, role pools, the 
 The age is the feed's posted date. For a job whose feed gives none, the time we first saw it stands in, but only if it
 appeared on a later read than the board's first (`companies.first_read_at`): a first read finds everything already on the
 board, of unknown age, so those undated jobs never count. Older jobs stay in the index (for closing and stats) but are not shown.
+The one exception is a job the user added by pasting its link (`saved_jobs`): it always shows for that user, whatever its age
+or lane fit.
 
 ## Never empty
 
