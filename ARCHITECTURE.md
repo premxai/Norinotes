@@ -95,7 +95,7 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 
 ## Matching (packages/match)
 
-1. SQL filter: open, posted within 60 days, fits an enabled lane (title, location, remote), not blocked, gates pass.
+1. SQL filter: open, posted within 72 hours (undated jobs only if they appeared after the board's first read), fits an enabled lane (title, location, remote), not blocked, gates pass.
 2. Vector rank: cosine similarity between the user's profile embedding (mean of top career points) and `job_embeddings`, top about 200.
 3. Detailed fit: requirement by requirement against career points (exact skill match, embedding similarity, graph links), weighted by the spec; must-haves cap the score.
    Then scaled by function alignment (title and role family against the lanes and recent roles), seniority against the user's
@@ -175,7 +175,7 @@ Keeps the shapes the current web app uses for the core flows, so it keeps workin
 `/api/health`, `/api/auth/*` (signup, login, logout, session, forgot/reset password, verify email, change password, sessions),
 `/api/me`, `/api/profile` (PUT), `/api/profile/resume`, `/api/profile/resume-file`, `/api/onboarding` (GET, PUT),
 `/api/graph` (GET), `/api/graph/facts` (POST), `/api/graph/nodes/:id` (DELETE), `/api/lanes` (GET, PUT),
-`/api/jobs` (GET with view/sort/maxAgeDays/clearance), `/api/jobs/summary`, `/api/jobs/:id`, `/api/jobs/url` (POST),
+`/api/jobs` (GET with view/sort/maxAgeHours/clearance), `/api/jobs/summary`, `/api/jobs/:id`, `/api/jobs/url` (POST),
 `/api/shortlist` (GET, new), `/api/applications` (GET, POST), `/api/applications/:id` (GET) and its actions,
 `/api/applications/:id/outcomes` (GET, POST, DELETE `/:outcomeId` or `?kind=`), `/api/outcomes/summary`,
 `/api/resumes/:id`, `/api/agent/status`, `/api/agent/activity`, `/api/inbox` (GET, `/:id`, `/address`, PUT `/settings`), `/api/inbox/webhook/:provider` (POST), `/api/channels/telegram` (GET, PUT, DELETE), `/api/channels/telegram/link` (POST),

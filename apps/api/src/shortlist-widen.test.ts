@@ -55,6 +55,17 @@ describe("GET /api/shortlist/meta and widenedBy", () => {
     await api.call("POST", `/api/shortlist/${job.id}/dismiss`, { cookie: u.cookie });
     expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json.total).toBe(0);
   });
+
+  it("hides a saved row once its job is older than 72 hours", async () => {
+    const u = await api.signup("meta-stale@example.com");
+    const { job: fresh } = await seedJob(api.db, { title: "Line Cook", hoursAgo: 70 });
+    const { job: stale } = await seedJob(api.db, { title: "Line Cook II", hoursAgo: 74 });
+    await seedShortlist(api.db, u.user.id, fresh.id, 0.6);
+    await seedShortlist(api.db, u.user.id, stale.id, 0.9);
+    const list = await api.call<Item[]>("GET", "/api/shortlist", { cookie: u.cookie });
+    expect(list.json.map((i) => i.jobId)).toEqual([fresh.id]);
+    expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json.total).toBe(1);
+  });
 });
 
 describe("jobs Best match for a user with no lanes", () => {

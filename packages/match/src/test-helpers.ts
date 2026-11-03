@@ -7,6 +7,7 @@ import { parseWorkAuth, type MatchProfile } from "./profile.js";
 
 export const NOW = new Date("2026-10-31T12:00:00Z");
 export const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
+export const hoursAgo = (n: number) => new Date(NOW.getTime() - n * 3_600_000);
 
 let counter = 0;
 const uniq = () => `${Date.now().toString(36)}${(counter++).toString(36)}`;
@@ -17,8 +18,15 @@ export async function seedUser(db: Db, opts: { workAuth?: Record<string, unknown
   return u!.id;
 }
 
-export async function seedCompany(db: Db, opts: { name?: string; blocked?: boolean } = {}): Promise<string> {
-  const [c] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: `co${uniq()}`, name: opts.name ?? "Acme", blocked: opts.blocked ?? false }).returning();
+/**
+ * A company whose board was first read 30 days ago (`firstReadAt`), so an undated job first seen since then counts as
+ * fresh within 72 hours of its first sighting. Pass `firstReadAt: null` for a board never read.
+ */
+export async function seedCompany(db: Db, opts: { name?: string; blocked?: boolean; firstReadAt?: Date | null } = {}): Promise<string> {
+  const [c] = await db.insert(companies).values({
+    atsType: "greenhouse", atsToken: `co${uniq()}`, name: opts.name ?? "Acme", blocked: opts.blocked ?? false,
+    firstReadAt: opts.firstReadAt === undefined ? daysAgo(30) : opts.firstReadAt,
+  }).returning();
   return c!.id;
 }
 
@@ -60,7 +68,7 @@ export async function seedJob(db: Db, o: SeedJob): Promise<string> {
     companyId: o.companyId, atsType: "greenhouse", externalId: id, title: o.title ?? "Software Engineer",
     location: o.location === undefined ? "San Francisco, CA" : o.location, remote: o.remote ?? false,
     descriptionText: o.description ?? (o.spec ? NEUTRAL_DESCRIPTION : ""), applyUrl: `https://example.test/jobs/${id}`,
-    postedAt: o.postedAt === undefined ? daysAgo(3) : o.postedAt, firstSeenAt: o.firstSeenAt ?? daysAgo(3),
+    postedAt: o.postedAt === undefined ? hoursAgo(48) : o.postedAt, firstSeenAt: o.firstSeenAt ?? hoursAgo(48),
     closedAt: o.closedAt ?? null, dedupeKey: id,
   }).returning();
   if (o.spec) await db.insert(jobSpecs).values({ jobId: j!.id, version: SPEC_VERSION, spec: o.spec, model: "test" });

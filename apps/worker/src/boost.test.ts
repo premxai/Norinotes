@@ -10,6 +10,7 @@ import { startWorker, type Worker } from "./worker.js";
 
 const NOW = new Date("2026-10-31T12:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
+const hoursAgo = (n: number) => new Date(NOW.getTime() - n * 3_600_000);
 
 let t: TestDb;
 beforeAll(async () => { t = await createTestDb(); });
@@ -24,7 +25,7 @@ async function job(db: Db, companyId: string, title: string, over: Partial<typeo
   const id = `b${n++}`;
   const [j] = await db.insert(jobs).values({
     companyId, atsType: "greenhouse", externalId: id, title, location: "Austin, TX", remote: false, descriptionText: "", applyUrl: `https://x.test/${id}`,
-    postedAt: daysAgo(2), firstSeenAt: daysAgo(2), dedupeKey: id, ...over,
+    postedAt: hoursAgo(48), firstSeenAt: hoursAgo(48), dedupeKey: id, ...over,
   }).returning();
   return j!.id;
 }
@@ -46,14 +47,14 @@ describe("companiesFittingLanes", () => {
     const closed = await company(t.db, "Closed");
     const blocked = await company(t.db, "Blocked", { blocked: true });
     const stale = await company(t.db, "Stale");
-    const strongJob = await job(t.db, strong, "Backend Engineer", { postedAt: daysAgo(20) });
-    await job(t.db, newer, "Backend Engineer II", { postedAt: daysAgo(1) });
-    await job(t.db, older, "Senior Backend Engineer", { postedAt: daysAgo(10) });
+    const strongJob = await job(t.db, strong, "Backend Engineer", { postedAt: hoursAgo(60) });
+    await job(t.db, newer, "Backend Engineer II", { postedAt: hoursAgo(5) });
+    await job(t.db, older, "Senior Backend Engineer", { postedAt: hoursAgo(30) });
     await job(t.db, noFit, "Marketing Manager");
     await job(t.db, noFit, "Backend Engineer", { location: "Berlin, Germany" });
     await job(t.db, closed, "Backend Engineer", { closedAt: daysAgo(1) });
     await job(t.db, blocked, "Backend Engineer");
-    await job(t.db, stale, "Backend Engineer", { postedAt: daysAgo(90), firstSeenAt: daysAgo(90) });
+    await job(t.db, stale, "Backend Engineer", { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(73) });
     await t.db.insert(shortlist).values({ userId, jobId: strongJob, fit: 0.9 });
 
     expect(await companiesFittingLanes(t.db, userId, NOW)).toEqual([strong, newer, older]);

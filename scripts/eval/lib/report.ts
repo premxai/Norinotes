@@ -74,7 +74,7 @@ export function renderReport(r: EvalResults): string {
     const m = p.metrics;
     L.push(`| ${esc(p.label)} | ${p.index.laneFiltered} | ${p.index.understood} | ${p.index.embedded} | ${m.size} | ${f2(m.p10)} | ${f2(m.p20)} | ${f2(m.ndcg20)} | ${f2(m.meanScore)} | ${m.widened.count} (${f2(m.widened.meanScore)}) | ${p.shortlist.ms} | ${usd(p.usd.total ?? 0)} |`);
   }
-  L.push("", "Lane-fit jobs = open, posted within 60 days, fit a lane by title and place. Understood and Embedded count those with a spec and an embedding after the run, so a gap between them is an index gap; a low P@10 with both full is a ranking problem.", "");
+  L.push("", "Lane-fit jobs = open, posted within 72 hours, fit a lane by title and place. Understood and Embedded count those with a spec and an embedding after the run, so a gap between them is an index gap; a low P@10 with both full is a ranking problem.", "");
 
   L.push("## Index coverage per profile", "");
   L.push("| Profile | Lane-fit | With text | Selected (newest) | Selected understood | Selected embedded | Description reads (filled / gone / failed) | Understand failures |", "|---|--:|--:|--:|--:|--:|--|--:|");

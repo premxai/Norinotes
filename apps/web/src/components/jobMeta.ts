@@ -120,15 +120,15 @@ export const JOB_VIEWS: { id: JobsView; label: string }[] = [
   { id: "today", label: "New today" },
 ];
 /** URL params that belong to the view, not the board filters. */
-export const VIEW_PARAMS = ["view", "clearance", "older"] as const;
+export const VIEW_PARAMS = ["view", "clearance"] as const;
 export const CLEARANCE_STORAGE_KEY = "norinote.jobs.hideClearance";
 
-export type ViewState = { view: JobsView; hideClearance: boolean; older: boolean };
+export type ViewState = { view: JobsView; hideClearance: boolean };
 
 export function parseView(sp: SP): ViewState {
   const v = first(sp.view);
   const view: JobsView = v === "new" || v === "today" || v === "best" ? v : first(sp.sort) === "new" ? "new" : "best"; // ?sort=new is the old link
-  return { view, hideClearance: first(sp.clearance) === "hide", older: view !== "today" && first(sp.older) === "1" };
+  return { view, hideClearance: first(sp.clearance) === "hide" };
 }
 
 /** Query for the view alone, leaving out values that are the default so the URL stays short. */
@@ -136,6 +136,5 @@ export function viewToParams(s: ViewState): URLSearchParams {
   const p = new URLSearchParams();
   if (s.view !== "best") p.set("view", s.view);
   if (s.hideClearance) p.set("clearance", "hide");
-  if (s.older) p.set("older", "1");
   return p;
 }

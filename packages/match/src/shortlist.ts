@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { AiUnavailableError, complete, embed } from "@norinote/ai";
 import {
-  and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes, notInArray, or,
-  shortlist, sql, type Db,
+  and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
+  MAX_JOB_AGE_HOURS, notInArray, or, shortlist, sql, type Db,
 } from "@norinote/db";
 import { matchTargetOf, widenedTooFar, type MatchTarget } from "./alignment.js";
 import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitMapItem, type QualityLevel } from "./fit.js";
@@ -20,10 +20,8 @@ import {
   WIDEN_MIN_FIT, WIDEN_TARGET, loadRemoteExcluded, loadTemporaryLane, widenedReason, wideningPlan, type SimpleLane, type WidenedBy, type WideningStep,
 } from "./widen.js";
 
-export const SHORTLIST_MAX_AGE_DAYS = 60;
 /** At most this many pages of `candidates` vector-ranked lane jobs are scored before the shortlist widens. */
 const LANE_PAGES = 3;
-const DAY_MS = 86_400_000;
 const EMBED_BATCH = 256;
 const EMBED_CONCURRENCY = 4;
 
@@ -53,7 +51,7 @@ export type BuildShortlistOptions = MatchOptions & {
   profileEmbedding: number[] | null;
   /** How many vector-ranked jobs get the detailed fit. Default 200. Up to the same number of lexically ranked jobs (spec, no embedding) may be added. */
   candidates?: number;
-  /** Widen the shortlist (adjacent titles, remote, older, role pool) when the lanes give fewer than 20 candidates. Default true. */
+  /** Widen the shortlist (adjacent titles, remote, role pool) when the lanes give fewer than 20 candidates. Default true. */
   widen?: boolean;
 };
 
@@ -122,14 +120,9 @@ const recencySql = () => sql<string>`coalesce(${jobs.postedAt}, ${jobs.firstSeen
 
 // ---- shared SQL conditions --------------------------------------------------------------------------------------------
 
-/** Open, not blocked, and posted (or first seen) within the last 60 days (or `maxAgeDays`). */
-export function openAndFreshSql(now: Date, maxAgeDays: number = SHORTLIST_MAX_AGE_DAYS) {
-  const since = new Date(now.getTime() - maxAgeDays * DAY_MS).toISOString();
-  return and(
-    isNull(jobs.closedAt),
-    eq(companies.blocked, false),
-    sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt}) >= ${since}::timestamptz`,
-  );
+/** Open, not blocked, and posted within the last 72 hours (see `freshJobSql`). */
+export function openAndFreshSql(now: Date) {
+  return and(isNull(jobs.closedAt), eq(companies.blocked, false), freshJobSql(now));
 }
 
 /** The user has not already dismissed, applied to, or started an application for this job. */
@@ -202,14 +195,14 @@ async function loadSpecs(db: Db, jobIds: readonly string[]): Promise<Map<string,
 
 // ---- ranking ----------------------------------------------------------------------------------------------------------
 
-/** At most this much is added to the ranking key of a job posted today, nothing after 30 days. */
+/** At most this much is added to the ranking key of a job posted just now, nothing at the 72-hour limit. */
 const RECENCY_BONUS = 0.03;
-const RECENCY_DAYS = 30;
+const RECENCY_HOURS = MAX_JOB_AGE_HOURS;
 
 /** fit x confidence plus a small bonus for fresh postings. */
 export function rankScore(fit: number, confidence: number, recency: Date | null | undefined, now: Date): number {
-  const age = recency ? Math.max(0, (now.getTime() - recency.getTime()) / DAY_MS) : RECENCY_DAYS;
-  return Math.round((fit * confidence + RECENCY_BONUS * Math.max(0, 1 - age / RECENCY_DAYS)) * 10000) / 10000;
+  const age = recency ? Math.max(0, (now.getTime() - recency.getTime()) / 3_600_000) : RECENCY_HOURS;
+  return Math.round((fit * confidence + RECENCY_BONUS * Math.max(0, 1 - age / RECENCY_HOURS)) * 10000) / 10000;
 }
 
 /** Jobs with a real spec (read by the model from a real posting) come before the rest, whatever their score. */
@@ -311,7 +304,7 @@ async function scoreCandidates(db: Db, profile: MatchProfile, candidates: Candid
   const lp = passed.some((c) => c.rankLexically) ? lexicalProfile(profile.points, skills) : null;
   const laneFloor = Math.min(...profile.lanes.map((l) => l.minFit), 1);
   const widenFloor = Math.min(WIDEN_MIN_FIT, laneFloor);
-  const freshSince = opts.now.getTime() - SHORTLIST_MAX_AGE_DAYS * DAY_MS;
+  const freshSince = opts.now.getTime() - MAX_JOB_AGE_HOURS * 3_600_000;
 
   for (const c of passed) {
     const { spec, heuristic } = specs.get(c.jobId)!;
@@ -385,13 +378,13 @@ async function fitAndSave(db: Db, profile: MatchProfile, candidates: CandidateJo
 /**
  * Rebuild one user's shortlist.
  *
- * 1. SQL filter: open, posted (else first seen) within 60 days, company not blocked, fits an enabled lane by title and
+ * 1. SQL filter: open, posted within 72 hours (`freshJobSql`), company not blocked, fits an enabled lane by title and
  *    location or remote, not already dismissed, applied or in progress. A user with no lane yet gets a temporary one from
  *    their most recent role and their location.
  * 2. Vector rank by cosine distance to the profile embedding on `job_embeddings`, keep `candidates` (200); when fewer than
  *    `limit` of those pass, score the next pages (up to 3) before widening.
  * 3. Detailed fit on those against the user's career points, gates applied, lane `minFit` honoured, best `limit` saved.
- * 4. Fewer than 20 shortlist candidates: widen (see widen.ts): adjacent titles, remote, up to 90 days, the role-family pool.
+ * 4. Fewer than 20 shortlist candidates: widen (see widen.ts): adjacent titles, remote, the role-family pool (never older jobs).
  *    Widened candidates get the same fit and must clear `WIDEN_MIN_FIT`; lane jobs that failed the gates or the lane
  *    minimum are never brought back. Each widened row carries a `widened:<step>` reason. Rows widened by an earlier run
  *    and not chosen now are removed.
@@ -552,7 +545,7 @@ async function laneCandidates(db: Db, userId: string, step: WideningStep, opts: 
     .innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
     .where(and(
-      openAndFreshSql(opts.now, step.maxAgeDays), inlineLanesFitSql(step.lanes), notActedOnSql(userId),
+      openAndFreshSql(opts.now), inlineLanesFitSql(step.lanes), notActedOnSql(userId),
       seen.size > 0 ? notInArray(jobs.id, [...seen]) : undefined,
     ))
     .orderBy(desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`), jobs.id)
@@ -563,7 +556,7 @@ async function laneCandidates(db: Db, userId: string, step: WideningStep, opts: 
 /** The role-family pool for the user's main family and metro, minus what was already considered or acted on. */
 async function poolCandidates(db: Db, userId: string, step: WideningStep, opts: BuildShortlistOptions, seen: ReadonlySet<string>): Promise<CandidateJob[]> {
   const pool = step.pool!;
-  const members = await rolePool(db, { family: pool.family, metro: pool.metro, remote: pool.remote, limit: WIDEN_POOL_SIZE, now: opts.now, maxAgeDays: step.maxAgeDays });
+  const members = await rolePool(db, { family: pool.family, metro: pool.metro, remote: pool.remote, limit: WIDEN_POOL_SIZE, now: opts.now });
   const ids = members.map((m) => m.jobId).filter((id) => !seen.has(id));
   if (ids.length === 0) return [];
   const distance = opts.profileEmbedding ? cosineDistance(jobEmbeddings.embedding, opts.profileEmbedding) : sql<null>`null`;
@@ -573,7 +566,7 @@ async function poolCandidates(db: Db, userId: string, step: WideningStep, opts: 
     .from(jobs)
     .innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
-    .where(and(inArray(jobs.id, ids.slice(0, WIDEN_POOL_SIZE)), openAndFreshSql(opts.now, step.maxAgeDays), notActedOnSql(userId)));
+    .where(and(inArray(jobs.id, ids.slice(0, WIDEN_POOL_SIZE)), openAndFreshSql(opts.now), notActedOnSql(userId)));
   const order = new Map(ids.map((id, i) => [id, i]));
   return rows.sort((a, b) => (order.get(a.jobId) ?? 0) - (order.get(b.jobId) ?? 0)).slice(0, WIDEN_SCAN).map(widenCandidate);
 }

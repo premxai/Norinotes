@@ -9,12 +9,14 @@ import { adjacentTitles, mainFamilyOf, type RoleFamily } from "./roles.js";
  *
  *  1. `adjacent_titles`  the lane titles plus neighbours in the same family (Frontend Engineer -> Software Engineer, UI Engineer)
  *  2. `remote`           remote jobs for those titles, when the user did not say "no remote"
- *  3. `older`            jobs up to 90 days old instead of 60
- *  4. `role_pool`        the role-family pool for the user's main family and metro (see `rolePool`)
+ *  3. `role_pool`        the role-family pool for the user's main family and metro (see `rolePool`)
+ *
+ * Age is never widened: every step keeps the 72-hour limit (`MAX_JOB_AGE_HOURS`). `older` is kept in `WIDENED_BY` only to
+ * read shortlist rows saved before that rule; no step produces it.
  *
  * Gates (citizenship, clearance, sponsorship, years, location scope), blocked companies and jobs the user already
  * dismissed or applied to are never widened; only what the lanes asked for is. Every widened candidate gets the same fit
- * as a lane match and must clear `WIDEN_MIN_FIT`, in every step including `older`; lane jobs that failed the gates or
+ * as a lane match and must clear `WIDEN_MIN_FIT`, in every step; lane jobs that failed the gates or
  * their lane minimum are not brought back under a widened label. Within a step the best candidates win: the fit already
  * prefers the same family and seniority band, and jobs with a real spec come first.
  */
@@ -24,7 +26,6 @@ export type WidenedBy = (typeof WIDENED_BY)[number];
 
 /** Fewer shortlist candidates than this from the lanes triggers the ladder, and the ladder fills up to it. */
 export const WIDEN_TARGET = 20;
-export const OLDER_MAX_AGE_DAYS = 90;
 /**
  * Widened rows are scored with the same fit as lane matches and must reach this (or the user's own lane minimum, when that
  * is lower): a stretch, not noise. See the fit scale in fit.ts.
@@ -109,7 +110,6 @@ export type WideningStep = {
   by: WidenedBy;
   /** The lanes jobs must fit in this step (and that the location gate is checked against). Not used by `role_pool`. */
   lanes: SimpleLane[];
-  maxAgeDays: number;
   /** Only for `role_pool`. */
   pool?: { family: RoleFamily; metro: string | null; remote: boolean };
 };
@@ -131,20 +131,18 @@ export function wideningPlan(base: readonly SimpleLane[], opts: { remoteExcluded
   const widenedTitles = current.map((l) => ({ ...l, titles: dedupe([...l.titles, ...l.titles.flatMap(adjacentTitles)]) }));
   if (widenedTitles.some((l, i) => l.titles.length > current[i]!.titles.length)) {
     current = widenedTitles;
-    plan.push({ by: "adjacent_titles", lanes: current, maxAgeDays: 60 });
+    plan.push({ by: "adjacent_titles", lanes: current });
   }
 
   if (!opts.remoteExcluded && current.some((l) => !l.remote && l.locations.length > 0)) {
     current = current.map((l) => ({ ...l, remote: true }));
-    plan.push({ by: "remote", lanes: current, maxAgeDays: 60 });
+    plan.push({ by: "remote", lanes: current });
   }
-
-  plan.push({ by: "older", lanes: current, maxAgeDays: OLDER_MAX_AGE_DAYS });
 
   const family = mainFamilyOf([...base.flatMap((l) => l.titles), ...(opts.extraTitles ?? [])]);
   if (family !== "other") {
     const metro = base.flatMap((l) => l.locations).find((l) => l.trim() !== "") ?? null;
-    plan.push({ by: "role_pool", lanes: [], maxAgeDays: 60, pool: { family, metro, remote: !opts.remoteExcluded } });
+    plan.push({ by: "role_pool", lanes: [], pool: { family, metro, remote: !opts.remoteExcluded } });
   }
   return plan;
 }

@@ -61,12 +61,12 @@ describe("lanes", () => {
 
 describe("jobs list", () => {
   it("defaults to best-first, fitting a lane, open and fresh, with the match joined", async () => {
-    const strong = await seedJob(api.db, { title: "Senior Software Engineer", company: "Strong Co", daysAgo: 3 });
-    const weak = await seedJob(api.db, { title: "Software Engineer II", company: "Weak Co", daysAgo: 1 });
-    const unmatched = await seedJob(api.db, { title: "Software Engineer", company: "Plain Co", daysAgo: 2 });
-    const wrongTitle = await seedJob(api.db, { title: "Chef de Cuisine", company: "Kitchen Co", daysAgo: 1 });
-    const old = await seedJob(api.db, { title: "Software Engineer", company: "Old Co", daysAgo: 90 });
-    const closed = await seedJob(api.db, { title: "Software Engineer", company: "Closed Co", daysAgo: 2, closed: true });
+    const strong = await seedJob(api.db, { title: "Senior Software Engineer", company: "Strong Co", hoursAgo: 60 });
+    const weak = await seedJob(api.db, { title: "Software Engineer II", company: "Weak Co", hoursAgo: 30 });
+    const unmatched = await seedJob(api.db, { title: "Software Engineer", company: "Plain Co", hoursAgo: 40 });
+    const wrongTitle = await seedJob(api.db, { title: "Chef de Cuisine", company: "Kitchen Co", hoursAgo: 30 });
+    const old = await seedJob(api.db, { title: "Software Engineer", company: "Old Co", hoursAgo: 73 });
+    const closed = await seedJob(api.db, { title: "Software Engineer", company: "Closed Co", hoursAgo: 40, closed: true });
     await seedShortlist(api.db, userId, strong.job.id, 0.91, { fitMap: [
       { requirement: "TypeScript", mustHave: true, score: 0.9, careerPointIds: ["p1"], note: "Built dashboards", evidence: "exact" },
       { requirement: "Kubernetes", mustHave: false, score: 0.1, careerPointIds: [], note: "", evidence: "none" },
@@ -91,24 +91,31 @@ describe("jobs list", () => {
     expect(res.json.find((r: { job: { companyName: string } }) => r.job.companyName === "Plain Co").match).toBeNull();
   });
 
-  it("honours view, sort, lanes, maxAgeDays, status and limit", async () => {
+  it("honours view, sort, lanes, maxAgeHours, status and limit, and never lists a job older than 72 hours", async () => {
     const all = await api.call("GET", "/api/jobs?lanes=false&view=new", { cookie });
     expect(all.json.some((r: { job: { title: string } }) => r.job.title === "Chef de Cuisine")).toBe(true);
     const dates = all.json.map((r: { job: { postedAt: string } }) => r.job.postedAt);
     expect([...dates].sort().reverse()).toEqual(dates);
     expect(all.json.some((r: { job: { companyName: string } }) => r.job.companyName === "Old Co")).toBe(false);
 
-    const anyAge = await api.call("GET", "/api/jobs?lanes=false&view=new&maxAgeDays=0", { cookie });
-    expect(anyAge.json.some((r: { job: { companyName: string } }) => r.job.companyName === "Old Co")).toBe(true);
-    expect(anyAge.json.some((r: { job: { companyName: string } }) => r.job.companyName === "Closed Co")).toBe(false);
+    const names = (rows: Array<{ job: { companyName: string } }>) => rows.map((r) => r.job.companyName);
+    const lastDay = await api.call("GET", "/api/jobs?lanes=false&view=new&maxAgeHours=36", { cookie });
+    expect(names(lastDay.json)).toContain("Weak Co");
+    expect(names(lastDay.json)).not.toContain("Plain Co");
+    expect(names(lastDay.json)).not.toContain("Strong Co");
     const withClosed = await api.call("GET", "/api/jobs?lanes=false&view=new&status=all", { cookie });
-    expect(withClosed.json.some((r: { job: { companyName: string } }) => r.job.companyName === "Closed Co")).toBe(true);
+    expect(names(withClosed.json)).toContain("Closed Co");
+    expect(names(withClosed.json)).not.toContain("Old Co");
+    // Nothing older than 72 hours can be asked for.
+    expect((await api.call("GET", "/api/jobs?lanes=false&maxAgeHours=73", { cookie })).status).toBe(400);
+    expect((await api.call("GET", "/api/jobs?lanes=false&maxAgeHours=0", { cookie })).status).toBe(400);
+    expect((await api.call("GET", "/api/jobs?lanes=false&maxAgeDays=0", { cookie })).json.some((r: { job: { companyName: string } }) => r.job.companyName === "Old Co")).toBe(false);
 
     expect((await api.call("GET", "/api/jobs?limit=2&lanes=false", { cookie })).json).toHaveLength(2);
     const newSort = await api.call("GET", "/api/jobs?view=best&sort=new", { cookie });
     expect(newSort.json[0].job.companyName).not.toBe("Strong Co");
 
-    const fresh = await seedJob(api.db, { title: "Software Engineer", company: "Today Co", daysAgo: 0.2 });
+    const fresh = await seedJob(api.db, { title: "Software Engineer", company: "Today Co", hoursAgo: 5 });
     const today = await api.call("GET", "/api/jobs?view=today", { cookie });
     expect(today.json.map((r: { job: { id: string } }) => r.job.id)).toEqual([fresh.job.id]);
 
@@ -152,13 +159,14 @@ describe("jobs list", () => {
 });
 
 describe("summary, detail and add by link", () => {
-  it("counts open jobs from the last 60 days", async () => {
+  it("counts open jobs posted in the last 72 hours, and those from the last 24 hours as new today", async () => {
     const res = await api.call("GET", "/api/jobs/summary", { cookie });
     expect(res.status).toBe(200);
     expect(res.json.hasLanes).toBe(true);
     expect(res.json.open).toBeGreaterThan(5);
     expect(res.json.newToday).toBeGreaterThanOrEqual(1);
-    expect(res.json.newThisWeek).toBeGreaterThanOrEqual(res.json.newToday);
+    expect(res.json.newToday).toBeLessThan(res.json.open);
+    expect(res.json).not.toHaveProperty("newThisWeek");
     expect(res.json.fitsLanes).toBeGreaterThan(0);
     expect(res.json.fitsLanes).toBeLessThanOrEqual(res.json.open);
     const bare = await api.signup("summary-bare@example.com");

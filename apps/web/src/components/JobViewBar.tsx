@@ -50,7 +50,6 @@ export function JobViewBar({ state }: { state: ViewState }) {
     write(hide);
     router.push(href({ clearance: hide ? "hide" : null }), { scroll: false });
   };
-  const setOlder = (on: boolean) => router.push(href({ older: on ? "1" : null }), { scroll: false });
 
   return (
     <div className="flex flex-col gap-2">
@@ -61,7 +60,7 @@ export function JobViewBar({ state }: { state: ViewState }) {
             return (
               <li key={v.id} className="flex-1 sm:flex-none">
                 <Link
-                  href={href({ view: v.id === "best" ? null : v.id, ...(v.id === "today" ? { older: null } : {}) })}
+                  href={href({ view: v.id === "best" ? null : v.id })}
                   scroll={false}
                   aria-current={on ? "page" : undefined}
                   className={cx(
@@ -81,12 +80,6 @@ export function JobViewBar({ state }: { state: ViewState }) {
           <span className={box(state.hideClearance)} aria-hidden="true"><span className={knob(state.hideClearance)} /></span>
           Hide roles that need US citizenship or clearance
         </button>
-        {state.view !== "today" && (
-          <button type="button" role="switch" aria-checked={state.older} onClick={() => setOlder(!state.older)} className={cx(toggle(), "text-ink-2")}>
-            <span className={box(state.older)} aria-hidden="true"><span className={knob(state.older)} /></span>
-            Include older postings
-          </button>
-        )}
       </div>
     </div>
   );

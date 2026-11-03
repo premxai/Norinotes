@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { companies, eq, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { adjacentTitles, clearRolePoolCache, mainFamilyOf, roleFamilyOf, rolePool } from "./roles.js";
-import { NOW, baseSpec, daysAgo, seedCompany, seedJob } from "./test-helpers.js";
+import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob } from "./test-helpers.js";
 
 describe("roleFamilyOf", () => {
   const cases: Array<[string, string, string | null]> = [
@@ -104,13 +104,13 @@ describe("rolePool", () => {
     const co = await seedCompany(t.db, { name: "PoolCo" });
     const blocked = await seedCompany(t.db, { name: "Blocked", blocked: true });
     const sf = (title: string, over: Partial<Parameters<typeof seedJob>[1]> = {}) => seedJob(t.db, { companyId: co, title, location: "San Francisco, CA", ...over });
-    const newest = await sf("Software Engineer, Newest", { postedAt: daysAgo(0.2) });
-    const unread = await sf("Backend Engineer, Unread", { postedAt: daysAgo(3), firstSeenAt: daysAgo(3) });
-    const read = await sf("Frontend Engineer, Read", { postedAt: daysAgo(3), firstSeenAt: daysAgo(3), spec: baseSpec() });
-    const older = await sf("Platform Engineer, Older", { postedAt: daysAgo(30) });
-    const remote = await seedJob(t.db, { companyId: co, title: "Software Engineer, Remote", location: "Remote - US", remote: true, postedAt: daysAgo(1) });
+    const newest = await sf("Software Engineer, Newest", { postedAt: hoursAgo(5) });
+    const unread = await sf("Backend Engineer, Unread", { postedAt: hoursAgo(48), firstSeenAt: hoursAgo(48) });
+    const read = await sf("Frontend Engineer, Read", { postedAt: hoursAgo(48), firstSeenAt: hoursAgo(48), spec: baseSpec() });
+    const older = await sf("Platform Engineer, Older", { postedAt: hoursAgo(70) });
+    const remote = await seedJob(t.db, { companyId: co, title: "Software Engineer, Remote", location: "Remote - US", remote: true, postedAt: hoursAgo(24) });
     const out = [
-      await sf("Software Engineer, Too Old", { postedAt: daysAgo(61), firstSeenAt: daysAgo(61) }),
+      await sf("Software Engineer, Too Old", { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(73) }),
       await sf("Software Engineer, Closed", { closedAt: daysAgo(1) }),
       await seedJob(t.db, { companyId: blocked, title: "Software Engineer, Blocked", location: "San Francisco, CA" }),
       await sf("Product Manager, Wrong Family"),

@@ -18,7 +18,8 @@ const Query = z.object({
   sort: z.enum(["best", "new"]).optional(),
   lanes: z.enum(["true", "false", "1", "0"]).optional(),
   group: flag(true),
-  maxAgeDays: int(0, 365).default(60),
+  /** Posted within this many hours: 1 to 72 (nothing older than 72 hours is ever listed). */
+  maxAgeHours: int(1, 72).default(72),
   clearance: z.enum(["hide", "show"]).default("show"),
   limit: int(1, 200).default(50),
   q: z.string().trim().max(100).optional(),
@@ -40,7 +41,7 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
       view: q.view,
       sort: q.sort ?? (q.view === "best" ? "best" : "new"),
       lanes: q.lanes === undefined ? q.view === "best" : q.lanes === "true" || q.lanes === "1",
-      maxAgeDays: q.maxAgeDays, clearance: q.clearance, limit: q.limit, q: q.q || undefined, minScore: q.minScore, status: q.status, group: q.group,
+      maxAgeHours: q.maxAgeHours, clearance: q.clearance, limit: q.limit, q: q.q || undefined, minScore: q.minScore, status: q.status, group: q.group,
     };
     return c.json(await listJobs(db, c.get("user").id, params, ctx.now()));
   });

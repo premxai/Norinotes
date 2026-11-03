@@ -20,13 +20,12 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   const viewQuery = viewToParams(state).toString();
 
   // The chosen view is fetched on the server: Best match uses the server's lane filter; Newest and New today are
-  // ordered by posting time in SQL. Older than 60 days is left out unless "Include older postings" is on.
+  // ordered by posting time in SQL. Only jobs posted in the last 72 hours are listed.
   const fetchJobs = (lanes: boolean) => api.listJobs({
     limit: 200,
     view: state.view,
     sort: state.view === "best" ? "best" : "new",
     lanes,
-    maxAgeDays: state.view === "today" ? 1 : state.older ? 0 : undefined,
     clearance: state.hideClearance ? "hide" : undefined,
   }).catch(() => null);
   const [firstItems, summary, appList, detail] = await Promise.all([

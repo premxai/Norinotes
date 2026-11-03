@@ -4,7 +4,7 @@ import { eq, profiles, shortlist } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { clearRolePoolCache } from "./roles.js";
 import { buildShortlist, clearRequirementVectorCache } from "./shortlist.js";
-import { NEUTRAL_DESCRIPTION, NOW, baseSpec, daysAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
+import { NEUTRAL_DESCRIPTION, NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 import { deriveTemporaryLane, loadTemporaryLane, widenedByOf, withoutWidenedReasons, wideningPlan } from "./widen.js";
 
 let t: TestDb;
@@ -26,9 +26,10 @@ const REACT_POSTING = `Requirements: React and TypeScript. ${NEUTRAL_DESCRIPTION
 /**
  * A frontend engineer in San Francisco whose lane matches `laneJobs` jobs, plus pools of jobs for each widening step. Every
  * widened job is a plausible frontend job (widening has a fit floor): some have a stored spec, the rest a posting the
- * heuristic spec reads; some have an embedding, the rest are ranked by skill overlap.
+ * heuristic spec reads; some have an embedding, the rest are ranked by skill overlap. `stale` jobs fit the lane but were posted more
+ * than 72 hours ago: no step ever brings them in.
  */
-async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; older?: number; pool?: number; remoteExcluded?: boolean; lanes?: boolean }) {
+async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; stale?: number; pool?: number; remoteExcluded?: boolean; lanes?: boolean }) {
   const co = await seedCompany(t.db, { name: "Index Co" });
   const userId = await seedUser(t.db, { location: "San Francisco, CA", workAuth: { US: { authorized: true, needsSponsorship: false } } });
   await seedPoint(t.db, userId, { title: "Frontend Engineer", org: "Prev", start: "2021-01", end: null, text: "Built React apps", skills: ["react", "typescript"] });
@@ -39,7 +40,7 @@ async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; o
     for (let i = 0; i < n; i++) {
       ids.push(await seedJob(t.db, {
         companyId: co, title: title(i), embedText: i % 2 === 0 ? "frontend engineer react" : undefined, spec: i % 3 === 0 ? SPEC : undefined,
-        description: i % 3 === 0 ? undefined : REACT_POSTING, postedAt: daysAgo(2 + i), ...(typeof over === "function" ? over(i) : over),
+        description: i % 3 === 0 ? undefined : REACT_POSTING, postedAt: hoursAgo(2 + i), ...(typeof over === "function" ? over(i) : over),
       }));
     }
     return ids;
@@ -48,7 +49,7 @@ async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; o
     lane: await make(o.laneJobs, (i) => `Frontend Engineer, Lane ${i}`, { spec: SPEC }),
     adjacent: await make(o.adjacent ?? 0, (i) => `Software Engineer, Adjacent ${i}`),
     remote: await make(o.remote ?? 0, (i) => `Frontend Engineer, Remote ${i}`, { location: "Remote - US", remote: true }),
-    older: await make(o.older ?? 0, (i) => `Frontend Engineer, Older ${i}`, (i) => ({ postedAt: daysAgo(70 + i), firstSeenAt: daysAgo(70 + i) })),
+    stale: await make(o.stale ?? 0, (i) => `Frontend Engineer, Stale ${i}`, (i) => ({ postedAt: hoursAgo(73 + i), firstSeenAt: hoursAgo(73 + i) })),
     // Same family (software), not one of the adjacent titles: only the role pool brings these in.
     pool: await make(o.pool ?? 0, (i) => `React Developer, Pool ${i}`),
   };
@@ -59,8 +60,8 @@ const rowsOf = (userId: string) => t.db.select().from(shortlist).where(eq(shortl
 const options = { profileEmbedding: vec, now: NOW };
 
 describe("buildShortlist: the widening ladder", () => {
-  it("widens from 3 lane matches to 20 in the order adjacent titles, remote, older, role pool, and labels each step", async () => {
-    const { userId, ids } = await seed({ laneJobs: 3, adjacent: 4, remote: 4, older: 4, pool: 10 });
+  it("widens from 3 lane matches to 20 in the order adjacent titles, remote, role pool, labels each step, and never widens age", async () => {
+    const { userId, ids } = await seed({ laneJobs: 3, adjacent: 4, remote: 4, stale: 4, pool: 12 });
     const stats = await buildShortlist(t.db, userId, options);
 
     expect(stats.laneMatches).toBe(3);
@@ -69,11 +70,12 @@ describe("buildShortlist: the widening ladder", () => {
     const by = (step: string) => stats.widened.filter((w) => w.by === step).map((w) => w.jobId);
     expect(new Set(by("adjacent_titles"))).toEqual(new Set(ids.adjacent));
     expect(new Set(by("remote"))).toEqual(new Set(ids.remote));
-    expect(new Set(by("older"))).toEqual(new Set(ids.older));
-    expect(by("role_pool")).toHaveLength(5);
+    expect(by("older")).toEqual([]);
+    for (const id of ids.stale) expect(stats.items.map((i) => i.jobId)).not.toContain(id);
+    expect(by("role_pool")).toHaveLength(9);
     expect(by("role_pool").every((id) => ids.pool.includes(id))).toBe(true);
     // Ladder order: the widened list never goes back to an earlier step.
-    expect(stats.widened.map((w) => w.by)).toEqual([...Array(4).fill("adjacent_titles"), ...Array(4).fill("remote"), ...Array(4).fill("older"), ...Array(5).fill("role_pool")]);
+    expect(stats.widened.map((w) => w.by)).toEqual([...Array(4).fill("adjacent_titles"), ...Array(4).fill("remote"), ...Array(9).fill("role_pool")]);
     expect(stats.poolUsed).toBe(true);
     expect(stats.temporaryLane).toBe(false);
 
@@ -88,7 +90,7 @@ describe("buildShortlist: the widening ladder", () => {
   });
 
   it("stops at the first step that fills the list and does nothing when the lanes already give 20", async () => {
-    const small = await seed({ laneJobs: 3, adjacent: 25, remote: 5, older: 5, pool: 5 });
+    const small = await seed({ laneJobs: 3, adjacent: 25, remote: 5, stale: 5, pool: 5 });
     const stats = await buildShortlist(t.db, small.userId, options);
     expect(stats.items).toHaveLength(20);
     expect(new Set(stats.widened.map((w) => w.by))).toEqual(new Set(["adjacent_titles"]));
@@ -148,17 +150,18 @@ describe("buildShortlist: the widening ladder", () => {
   });
 
   it("skips the remote step for a user who said no remote, and never admits remote jobs that way", async () => {
-    const { userId, ids } = await seed({ laneJobs: 2, remote: 6, older: 2, remoteExcluded: true });
+    const { userId, ids } = await seed({ laneJobs: 2, remote: 6, stale: 2, remoteExcluded: true });
     const stats = await buildShortlist(t.db, userId, options);
     expect(stats.widened.map((w) => w.by)).not.toContain("remote");
     for (const id of ids.remote) expect(stats.items.map((i) => i.jobId)).not.toContain(id);
-    expect(new Set(stats.widened.filter((w) => w.by === "older").map((w) => w.jobId))).toEqual(new Set(ids.older));
-    expect(wideningPlan([{ titles: ["Frontend Engineer"], locations: ["San Francisco, CA"], remote: false }], { remoteExcluded: true }).map((s) => s.by)).toEqual(["adjacent_titles", "older", "role_pool"]);
+    for (const id of ids.stale) expect(stats.items.map((i) => i.jobId)).not.toContain(id);
+    expect(wideningPlan([{ titles: ["Frontend Engineer"], locations: ["San Francisco, CA"], remote: false }], { remoteExcluded: true }).map((s) => s.by)).toEqual(["adjacent_titles", "role_pool"]);
   });
 
-  it("only adds steps that change something: a remote lane has no remote step, an unknown title no adjacent step", () => {
-    expect(wideningPlan([{ titles: ["Frontend Engineer"], locations: ["Austin"], remote: true }], { remoteExcluded: false }).map((s) => s.by)).toEqual(["adjacent_titles", "older", "role_pool"]);
-    expect(wideningPlan([{ titles: ["Barista"], locations: [], remote: false }], { remoteExcluded: false }).map((s) => s.by)).toEqual(["older"]);
+  it("only adds steps that change something: a remote lane has no remote step, an unknown title no adjacent step, and no step widens age", () => {
+    expect(wideningPlan([{ titles: ["Frontend Engineer"], locations: ["San Francisco, CA"], remote: false }], { remoteExcluded: false }).map((s) => s.by)).toEqual(["adjacent_titles", "remote", "role_pool"]);
+    expect(wideningPlan([{ titles: ["Frontend Engineer"], locations: ["Austin"], remote: true }], { remoteExcluded: false }).map((s) => s.by)).toEqual(["adjacent_titles", "role_pool"]);
+    expect(wideningPlan([{ titles: ["Barista"], locations: [], remote: false }], { remoteExcluded: false })).toEqual([]);
     const pool = wideningPlan([{ titles: ["Product Manager"], locations: ["Boston, MA"], remote: false }], { remoteExcluded: false }).at(-1)!;
     expect(pool).toMatchObject({ by: "role_pool", pool: { family: "product", metro: "Boston, MA", remote: true } });
   });

@@ -85,9 +85,17 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
 - Seeds are imported by a script into `companies` as `candidate`; nothing is trusted until validated.
 - Later: Common Crawl columnar index (Athena) discovery and a career-page scan for custom domains.
 
+## Only the last 72 hours
+
+Users are shown and matched only jobs posted in the last 72 hours (`MAX_JOB_AGE_HOURS` and `freshJobSql` in
+packages/db/src/fresh.ts), everywhere: the shortlist, widening, role pools, the jobs list and summary, and the Telegram digest.
+The age is the feed's posted date. For a job whose feed gives none, the time we first saw it stands in, but only if it
+appeared on a later read than the board's first (`companies.first_read_at`): a first read finds everything already on the
+board, of unknown age, so those undated jobs never count. Older jobs stay in the index (for closing and stats) but are not shown.
+
 ## Never empty
 
 1. Precomputed pools per (role family x metro or remote), refreshed hourly from the shared index.
-2. When a user's lanes match fewer than 20 open jobs, widen step by step: adjacent titles, then remote, then 90 days,
-   then the role-family pool. Tell the user which widening was used.
+2. When a user's lanes match fewer than 20 open jobs, widen step by step: adjacent titles, then remote, then the
+   role-family pool. Age is never widened: every step keeps the 72-hour limit. Tell the user which widening was used.
 3. On signup or a lane change, raise the priority of companies whose recent jobs fit the lanes and poll them first.

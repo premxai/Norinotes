@@ -1,0 +1,16 @@
+import { sql, type SQL } from "drizzle-orm";
+import { companies, jobs } from "./schema.js";
+
+/** The oldest job anyone is shown or matched: posted in the last 72 hours. */
+export const MAX_JOB_AGE_HOURS = 72;
+const HOUR_MS = 3_600_000;
+
+/**
+ * Posted within `hours`. A job whose feed gives no posted date counts only when it appeared on a later read than the
+ * board's first (`companies.first_read_at`), within `hours` of now: everything on a first read was already there, of
+ * unknown age. Needs `companies` joined. Written as two ranges so the (closed, posted) index can serve the dated half.
+ */
+export function freshJobSql(now: Date, hours: number = MAX_JOB_AGE_HOURS): SQL {
+  const since = new Date(now.getTime() - Math.min(hours, MAX_JOB_AGE_HOURS) * HOUR_MS).toISOString();
+  return sql`(${jobs.postedAt} >= ${since}::timestamptz OR (${jobs.postedAt} IS NULL AND ${jobs.firstSeenAt} >= ${since}::timestamptz AND ${jobs.firstSeenAt} > ${companies.firstReadAt}))`;
+}

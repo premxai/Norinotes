@@ -149,8 +149,8 @@ export type JobWithMatch = {
   locationNames?: string[];
 };
 
-/** GET /api/jobs/summary: counts over open jobs from the last 60 days. */
-export type JobsSummary = { open: number; newToday: number; newThisWeek: number; fitsLanes: number; hasLanes: boolean };
+/** GET /api/jobs/summary: counts over open jobs posted in the last 72 hours. */
+export type JobsSummary = { open: number; newToday: number; fitsLanes: number; hasLanes: boolean };
 
 export type JobDetail = { job: Job; match: Match | null };
 

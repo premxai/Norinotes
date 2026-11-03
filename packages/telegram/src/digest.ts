@@ -1,4 +1,4 @@
-import { and, applications, channelMessages, companies, desc, eq, gte, isNull, jobs, shortlist, sql, type Db } from "@norinote/db";
+import { and, applications, channelMessages, companies, desc, eq, freshJobSql, gte, isNull, jobs, shortlist, sql, type Db } from "@norinote/db";
 import type { InlineButton, InlineKeyboard } from "./client.js";
 import { clip, esc, fitBand, MAX_TEXT } from "./format.js";
 import { packId, signCallback } from "./signing.js";
@@ -24,8 +24,8 @@ const roleKey = (company: string, title: string) => `${company.toLowerCase().tri
 const RESEND_AFTER_DAYS = 60;
 
 /**
- * The top `count` new shortlist rows for the daily message: status new, job open, company not blocked, no application yet,
- * never sent in an earlier daily message. Same order as the web shortlist (lane matches before widened rows, then best fit),
+ * The top `count` new shortlist rows for the daily message: status new, job open and posted in the last 72 hours, company
+ * not blocked, no application yet, never sent in an earlier daily message. Same order as the web shortlist (lane matches before widened rows, then best fit),
  * and one entry per company and role.
  */
 export async function selectDigest(db: Db, userId: string, count: number, now: Date): Promise<DigestItem[]> {
@@ -39,7 +39,7 @@ export async function selectDigest(db: Db, userId: string, count: number, now: D
     .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
     .innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(applications, and(eq(applications.userId, shortlist.userId), eq(applications.jobId, shortlist.jobId)))
-    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false), isNull(applications.id)))
+    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false), freshJobSql(now), isNull(applications.id)))
     .orderBy(sql`(EXISTS (SELECT 1 FROM unnest(${shortlist.reasons}) AS r WHERE r LIKE 'widened:%')) asc`, desc(shortlist.fit), desc(shortlist.createdAt))
     .limit(Math.max(40, count * 8));
 

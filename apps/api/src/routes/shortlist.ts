@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, applications, careerPoints, companies, desc, eq, inArray, isNull, jobs, shortlist, sql } from "@norinote/db";
+import { and, applications, careerPoints, companies, desc, eq, freshJobSql, inArray, isNull, jobs, shortlist, sql } from "@norinote/db";
 import { WIDENED_BY, widenedByOf, withoutWidenedReasons, type WidenedBy } from "@norinote/match";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -14,14 +14,17 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   type Entry = { row: Row; locations: string[]; widenedBy: WidenedBy | null };
   type Row = Awaited<ReturnType<typeof loadRows>>[number];
 
-  /** Visible rows (new, open, company not blocked): the jobs the lanes fit first, then the widened ones, each best fit first. */
+  /**
+   * Visible rows (new, open, posted in the last 72 hours, company not blocked): the jobs the lanes fit first, then the
+   * widened ones, each best fit first.
+   */
   const loadRows = (userId: string, take: number) => db.select({
     id: shortlist.id, jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, status: shortlist.status, createdAt: shortlist.createdAt,
     jobTitle: jobs.title, location: jobs.location, remote: jobs.remote, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, companyName: companies.name,
   }).from(shortlist)
     .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
     .innerJoin(companies, eq(companies.id, jobs.companyId))
-    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false)))
+    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false), freshJobSql(ctx.now())))
     .orderBy(sql`(EXISTS (SELECT 1 FROM unnest(${shortlist.reasons}) AS r WHERE r LIKE ${WIDENED_LIKE})) asc`, desc(shortlist.fit), desc(shortlist.createdAt)).limit(take);
 
   /** One entry per company and role: keep the best-fitting posting, list the other cities. */

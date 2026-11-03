@@ -5,7 +5,7 @@ import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { heuristicSpec } from "./heuristic-spec.js";
 import { clearRolePoolCache } from "./roles.js";
 import { buildShortlist, clearRequirementVectorCache } from "./shortlist.js";
-import { NOW, baseSpec, daysAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
+import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 import { HEURISTIC_SPEC_VERSION } from "./understand.js";
 import { WIDEN_MIN_FIT } from "./widen.js";
 
@@ -64,8 +64,8 @@ describe("ordering by fit, confidence and recency", () => {
     await seedPoint(t.db, userId, { title: "Product Designer", start: "2017-01", end: "2019-12", skills: ["Figma"], text: "designed onboarding flows" });
     const text = "product designer figma accessibility";
     const spec = baseSpec({ mustHaves: ["Figma", "Accessibility"], seniority: "senior", roleFamily: "product design" });
-    const best = await seedJob(t.db, { companyId: co, title: "Senior Product Designer", location: "New York, NY", spec, embedText: text, postedAt: daysAgo(20) });
-    const fresh = await seedJob(t.db, { companyId: co, title: "Product Designer, Payments", location: "New York, NY", spec, embedText: text, postedAt: daysAgo(1) });
+    const best = await seedJob(t.db, { companyId: co, title: "Senior Product Designer", location: "New York, NY", spec, embedText: text, postedAt: hoursAgo(60) });
+    const fresh = await seedJob(t.db, { companyId: co, title: "Product Designer, Payments", location: "New York, NY", spec, embedText: text, postedAt: hoursAgo(3) });
     // No description at all: a heuristic spec from the title only. The 0.99 graphic designer of the baseline came in through
     // the design role pool when the shortlist widened.
     const graphic = await heuristicJob({ companyId: co, title: "Senior Graphic Designer, Video Content", location: "Remote", remote: true, description: "", embedText: text });
@@ -127,8 +127,8 @@ describe("widening", () => {
     const web = await seedJob(t.db, { companyId: co, title: "Web Developer", location: "Philadelphia, PA", spec: react, embedText: text });
     const seniorSwe = await seedJob(t.db, { companyId: co, title: "Senior Software Engineer", location: "Philadelphia, PA", spec: baseSpec({ mustHaves: ["React", "TypeScript"], seniority: "senior", yearsMin: 5 }), embedText: text });
     const rpa = await seedJob(t.db, { companyId: co, title: "Software Engineer, RPA (UiPath)", location: "Philadelphia, PA", spec: baseSpec({ mustHaves: ["UiPath"], seniority: "mid" }), embedText: text });
-    // Older than 60 days and weak: the `older` step must drop it too.
-    const oldWeak = await seedJob(t.db, { companyId: co, title: "Frontend Engineer, Legacy", location: "Philadelphia, PA", spec: baseSpec({ mustHaves: ["Angular", "Kubernetes"] }), embedText: text, postedAt: daysAgo(75), firstSeenAt: daysAgo(75) });
+    // Older than 72 hours and weak: no step ever widens age, so it never comes in.
+    const oldWeak = await seedJob(t.db, { companyId: co, title: "Frontend Engineer, Legacy", location: "Philadelphia, PA", spec: baseSpec({ mustHaves: ["Angular", "Kubernetes"] }), embedText: text, postedAt: daysAgo(10), firstSeenAt: daysAgo(10) });
 
     const stats = await buildShortlist(t.db, userId, { profileEmbedding: fakeEmbedding(text), now: NOW });
     const ids = stats.items.map((i) => i.jobId);

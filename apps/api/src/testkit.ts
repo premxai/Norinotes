@@ -85,12 +85,15 @@ export function cookieOf(headers: Headers, name = "norinote_session"): string | 
 
 let seq = 0;
 let ipSeq = 0;
-/** A company and one open job posted `daysAgo` days ago. */
-export async function seedJob(db: Db, o: { title?: string; company?: string; location?: string | null; remote?: boolean; daysAgo?: number; description?: string; closed?: boolean } = {}) {
+/**
+ * A company and one open job posted `hoursAgo` hours ago (default 30: inside the 72-hour window, outside "today"). The
+ * board was first read 30 days ago, so the job also counts when a test clears its posted date.
+ */
+export async function seedJob(db: Db, o: { title?: string; company?: string; location?: string | null; remote?: boolean; hoursAgo?: number; description?: string; closed?: boolean } = {}) {
   seq += 1;
   const company = o.company ?? `Acme ${seq}`;
-  const [co] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: `tok-${seq}-${Math.random().toString(36).slice(2, 8)}`, name: company }).returning();
-  const posted = new Date(Date.now() - (o.daysAgo ?? 1) * 86_400_000);
+  const [co] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: `tok-${seq}-${Math.random().toString(36).slice(2, 8)}`, name: company, firstReadAt: new Date(Date.now() - 30 * 86_400_000) }).returning();
+  const posted = new Date(Date.now() - (o.hoursAgo ?? 30) * 3_600_000);
   const [job] = await db.insert(jobs).values({
     companyId: co!.id, atsType: "greenhouse", externalId: `ext-${seq}-${Math.random().toString(36).slice(2, 8)}`, title: o.title ?? "Software Engineer",
     location: o.location === undefined ? "Remote - US" : o.location, remote: o.remote ?? true, descriptionText: o.description ?? "Build things with TypeScript.",

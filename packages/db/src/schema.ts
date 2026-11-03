@@ -43,6 +43,11 @@ export const companies = pgTable("companies", {
   statusReason: text("status_reason"),
   lastPolledAt: ts("last_polled_at"),
   lastSuccessAt: ts("last_success_at"),
+  /**
+   * First successful read. Jobs seen on that read were already on the board, so a job with no posted date counts as new
+   * only when it first appears on a later read.
+   */
+  firstReadAt: ts("first_read_at"),
   nextPollAt: ts("next_poll_at"),
   /** Consecutive failed polls. */
   errorStreak: integer("error_streak").notNull().default(0),

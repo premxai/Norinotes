@@ -31,10 +31,10 @@ Only private chats that are linked get anything. Any other chat gets one line: c
 | Inbox | interview invite, recruiter reply or offer in the owned inbox (never spam): sender, subject, a short snippet | Open in Norinote |
 | Daily summary | at most once a day from `summaryTime` (default 20:00), only if something happened | Open Norinote |
 
-The daily shortlist takes the top `count` (default 5, max 10) shortlist rows that are `new`, open, from an unblocked company,
-without an application, and never sent before (60 days), in the web shortlist's order (lane matches before widened rows, best
-fit first), one per company and role. Each shows title, company, location, fit band (Strong 0.8+, Good 0.6+, Stretch 0.45+)
-and the first "why this fits" reason.
+The daily shortlist takes the top `count` (default 5, max 10) shortlist rows that are `new`, open, posted in the last 72
+hours, from an unblocked company, without an application, and never sent before (60 days), in the web shortlist's order
+(lane matches before widened rows, best fit first), one per company and role. Each shows title, company, location, fit band
+(Strong 0.8+, Good 0.6+, Stretch 0.45+) and the first "why this fits" reason.
 
 Events are only announced for things that happened after linking and within the last 3 days, so linking never floods a chat.
 

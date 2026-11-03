@@ -246,6 +246,33 @@ describe("pollBoard", () => {
     });
   });
 
+  describe("board first read", () => {
+    it("records the first successful read and keeps it through later reads, full or 304", async () => {
+      await pollBoard(t.db, board, { now: t1, fetch: routeFetch({ [GH]: () => json(withJobs(4001, 4002), 200, { etag: "\"v1\"" }) }) });
+      expect((await company()).firstReadAt?.getTime()).toBe(t1.getTime());
+
+      await pollBoard(t.db, board, { now: t2, fetch: ghFetch(ghBoard) });
+      expect((await company()).firstReadAt?.getTime()).toBe(t1.getTime());
+      await pollBoard(t.db, board, { now: t3, fetch: routeFetch({ [GH]: () => new Response(null, { status: 304, headers: { etag: "\"v1\"" } }) }) });
+      const c = await company();
+      expect(c.lastSuccessAt?.getTime()).toBe(t3.getTime());
+      expect(c.firstReadAt?.getTime()).toBe(t1.getTime());
+
+      // Jobs on the first read were first seen at that read; a job that appears later was first seen after it.
+      const seen = new Map((await allJobs()).map((j) => [j.externalId, j.firstSeenAt.getTime()]));
+      expect(seen.get("4001")).toBe(t1.getTime());
+      expect(seen.get("4003")).toBe(t2.getTime());
+    });
+
+    it("is not set by a failed read, only by the first one that succeeds", async () => {
+      await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: "acme", name: "Acme" });
+      await expect(pollBoard(t.db, board, { now: t1, fetch: routeFetch({ [GH]: () => new Response("boom", { status: 500 }) }) })).rejects.toThrow(/500/);
+      expect((await company()).firstReadAt).toBeNull();
+      await pollBoard(t.db, board, { now: t2, fetch: ghFetch(ghBoard) });
+      expect((await company()).firstReadAt?.getTime()).toBe(t2.getTime());
+    });
+  });
+
   describe("registry state", () => {
     const candidate = (token = "acme", over: Partial<typeof companies.$inferInsert> = {}) =>
       t.db.insert(companies).values({ atsType: "greenhouse", atsToken: token, name: token, status: "candidate", discoveredVia: "seed:ats-scrapers", ...over });

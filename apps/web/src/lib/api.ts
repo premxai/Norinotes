@@ -98,11 +98,11 @@ function mockSession(on: boolean) {
 }
 
 const mock = () => import("./mock");
-/** GET /api/jobs. Server defaults: status open, sort best, maxAgeDays 60 (0 = any age), lanes on for best, group on, clearance show. */
+/** GET /api/jobs. Server defaults: status open, sort best, maxAgeHours 72 (the most), lanes on for best, group on, clearance show. */
 export type ListJobsParams = {
   q?: string; limit?: number; minScore?: number; status?: string;
   view?: "best" | "new" | "today";
-  sort?: "best" | "new"; maxAgeDays?: number; lanes?: boolean; group?: boolean; clearance?: "hide" | "show";
+  sort?: "best" | "new"; maxAgeHours?: number; lanes?: boolean; group?: boolean; clearance?: "hide" | "show";
 };
 
 const qs = (params: Record<string, string | number | boolean | undefined | null>) => {

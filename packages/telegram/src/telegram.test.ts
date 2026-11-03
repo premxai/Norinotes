@@ -21,12 +21,14 @@ async function user(email = `u${++seq}@example.com`) {
   const [u] = await db.insert(users).values({ email, passwordHash: "x" }).returning();
   return u!;
 }
-async function job(o: { title?: string; company?: string; closed?: boolean } = {}) {
+/** A job posted at `postedAt` (default: the real current time, so it is fresh for tests on the real clock). */
+async function job(o: { title?: string; company?: string; closed?: boolean; postedAt?: Date } = {}) {
   seq++;
   const [co] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: `tok${seq}`, name: o.company ?? `Company ${seq}` }).returning();
   const [j] = await db.insert(jobs).values({
     companyId: co!.id, atsType: "greenhouse", externalId: `e${seq}`, title: o.title ?? `Engineer ${seq}`, location: "Remote - US", remote: true,
     applyUrl: `https://boards.greenhouse.io/tok${seq}/jobs/${seq}`, dedupeKey: `k${seq}`, closedAt: o.closed ? new Date() : null,
+    postedAt: o.postedAt ?? new Date(),
   }).returning();
   return j!;
 }
@@ -126,14 +128,18 @@ describe("daily shortlist", () => {
   it("sends the top new rows once, at the user's local time, and nothing on a day with nothing new", async () => {
     const u = await user();
     await link(u.id, "7001");
-    await saveTelegramSettings(db, u.id, { timezone: "Asia/Kolkata", dailyTime: "09:00", count: 2, quietHours: { enabled: false } });
-    const best = await job({ title: "Staff Engineer", company: "Acme" });
-    const second = await job({ title: "Backend Engineer", company: "Beta" });
-    const third = await job({ title: "Data Engineer", company: "Gamma" });
-    const widened = await job({ title: "Wide Role" });
-    const closed = await job({ closed: true });
-    const applied = await job();
-    const skipped = await job();
+    // No daily summary: later tests tick on the real clock, and an evening summary to this chat would take their messages.
+    await saveTelegramSettings(db, u.id, { timezone: "Asia/Kolkata", dailyTime: "09:00", count: 2, quietHours: { enabled: false }, events: { summary: false } });
+    // Posted within 72 hours of every tick below.
+    const postedAt = new Date("2026-11-01T12:00:00Z");
+    const best = await job({ title: "Staff Engineer", company: "Acme", postedAt });
+    const second = await job({ title: "Backend Engineer", company: "Beta", postedAt });
+    const third = await job({ title: "Data Engineer", company: "Gamma", postedAt });
+    const widened = await job({ title: "Wide Role", postedAt });
+    const closed = await job({ closed: true, postedAt });
+    const applied = await job({ postedAt });
+    const skipped = await job({ postedAt });
+    const stale = await job({ title: "Stale Role", postedAt: new Date("2026-10-29T12:00:00Z") });
     await db.insert(shortlist).values([
       { userId: u.id, jobId: best.id, fit: 0.86, reasons: ["Six years of TypeScript match the core stack"] },
       { userId: u.id, jobId: second.id, fit: 0.7, reasons: ["Postgres and AWS"] },
@@ -142,6 +148,7 @@ describe("daily shortlist", () => {
       { userId: u.id, jobId: closed.id, fit: 0.99, reasons: [] },
       { userId: u.id, jobId: applied.id, fit: 0.98, reasons: [], status: "applied" },
       { userId: u.id, jobId: skipped.id, fit: 0.97, reasons: [], status: "dismissed" },
+      { userId: u.id, jobId: stale.id, fit: 0.99, reasons: [] },
     ]);
     const fake = fakeBotApi();
     let now = new Date("2026-11-02T03:00:00Z"); // 08:30 in Kolkata
@@ -159,6 +166,8 @@ describe("daily shortlist", () => {
     expect(text).toContain("Six years of TypeScript");
     expect(text).not.toContain("Data Engineer");
     expect(text).not.toContain("Wide Role");
+    // Posted more than 72 hours before the tick: never sent, however good the fit.
+    expect(text).not.toContain("Stale Role");
     const kb = msgs[0]!.reply_markup!.inline_keyboard!;
     expect(kb).toHaveLength(2);
     expect(kb[0]!.map((b) => b.text)).toEqual(["Apply 1", "Skip 1", "Details 1"]);

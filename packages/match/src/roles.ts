@@ -1,4 +1,4 @@
-import { and, companies, eq, isNull, jobSpecs, jobs, sql, type Db } from "@norinote/db";
+import { and, companies, eq, freshJobSql, isNull, jobSpecs, jobs, sql, type Db } from "@norinote/db";
 import { seniorityFromTitle } from "./heuristic-spec.js";
 import { SPEC_VERSION } from "./understand.js";
 
@@ -195,10 +195,8 @@ export function mainFamilyOf(titles: readonly string[]): RoleFamily {
 
 // ---- pools ------------------------------------------------------------------------------------------------------------
 
-const DAY_MS = 86_400_000;
 export const POOL_TTL_MS = 3_600_000;
 export const POOL_DEFAULT_LIMIT = 300;
-export const POOL_MAX_AGE_DAYS = 60;
 const POOL_PAGE = 400;
 const POOL_MAX_SCAN = 2400;
 
@@ -242,8 +240,6 @@ export type RolePoolOptions = {
   limit?: number;
   /** Clock for freshness and the cache (tests). Default: now. */
   now?: Date;
-  /** Default 60. */
-  maxAgeDays?: number;
 };
 
 type CacheEntry = { at: number; size: number; rows: PoolJob[] };
@@ -259,30 +255,28 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * The freshest open jobs of one role family in one place, from the shared index: open, company not blocked, posted (else
- * first seen) within 60 days, newest day first, then jobs a model has read before jobs it has not. Pools are cached per
+ * posted within 72 hours (see `freshJobSql`), newest day first, then jobs a model has read before jobs it has not. Pools are cached per
  * process for an hour, keyed by family, metro and remote; a call that asks for more rows than the cached pool holds refreshes it.
  */
 export async function rolePool(db: Db, opts: RolePoolOptions): Promise<PoolJob[]> {
   const limit = opts.limit ?? POOL_DEFAULT_LIMIT;
   const now = opts.now ?? new Date();
-  const days = opts.maxAgeDays ?? POOL_MAX_AGE_DAYS;
   const metro = opts.metro ? metroNeedle(opts.metro) : "";
-  const key = `${opts.family}|${metro}|${opts.remote ? "remote" : "onsite"}|${days}`;
+  const key = `${opts.family}|${metro}|${opts.remote ? "remote" : "onsite"}`;
   const hit = poolCache.get(key);
   if (hit && now.getTime() - hit.at < POOL_TTL_MS && now.getTime() >= hit.at && (hit.rows.length < hit.size || hit.rows.length >= limit)) {
     return hit.rows.slice(0, limit);
   }
 
   const size = Math.max(limit, POOL_DEFAULT_LIMIT);
-  const rows = await queryPool(db, opts.family, metro, !!opts.remote, size, now, days);
+  const rows = await queryPool(db, opts.family, metro, !!opts.remote, size, now);
   poolCache.set(key, { at: now.getTime(), size, rows });
   return rows.slice(0, limit);
 }
 
-async function queryPool(db: Db, family: RoleFamily, metro: string, remote: boolean, size: number, now: Date, days: number): Promise<PoolJob[]> {
+async function queryPool(db: Db, family: RoleFamily, metro: string, remote: boolean, size: number, now: Date): Promise<PoolJob[]> {
   const words = FAMILY_PREFILTER[family];
   if (words.length === 0) return [];
-  const since = new Date(now.getTime() - days * DAY_MS).toISOString();
   const recency = sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`;
   const prefilter = sql`lower(${jobs.title}) ~ ${`(${words.map(escapeRegex).join("|")})`}`;
   const place = metro
@@ -300,7 +294,7 @@ async function queryPool(db: Db, family: RoleFamily, metro: string, remote: bool
       .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, recency: sql<Date>`${recency}`.mapWith((v) => new Date(v as string)), quality })
       .from(jobs)
       .innerJoin(companies, eq(companies.id, jobs.companyId))
-      .where(and(isNull(jobs.closedAt), eq(companies.blocked, false), sql`${recency} >= ${since}::timestamptz`, prefilter, place))
+      .where(and(isNull(jobs.closedAt), eq(companies.blocked, false), freshJobSql(now), prefilter, place))
       .orderBy(sql`date_trunc('day', ${recency}) desc`, sql`${quality} desc`, sql`${recency} desc`, jobs.id)
       .limit(POOL_PAGE).offset(offset);
     for (const r of page) {

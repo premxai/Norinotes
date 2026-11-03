@@ -28,6 +28,13 @@ describe("greenhouse", () => {
     expect(out[2]).toMatchObject({ location: null, descriptionText: "", postedAt: null });
   });
 
+  it("never takes updated_at as the posting date: an edit would make an old job look new", async () => {
+    const board = { jobs: [{ id: 1, title: "Analyst", absolute_url: "https://boards.greenhouse.io/acme/jobs/1", updated_at: "2026-11-02T10:00:00Z" }] };
+    const f = routeFetch({ "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true": () => json(board) });
+    const out = (await greenhouse.listJobs("acme", { fetch: f }) as ListResult).jobs;
+    expect(out[0]?.postedAt).toBeNull();
+  });
+
   it("returns [] for an unknown board, throws on a server error, and surfaces rate limiting", async () => {
     expect(await greenhouse.listJobs("missing", { fetch: routeFetch({}) })).toMatchObject({ jobs: [], complete: true, notFound: true });
     await expect(greenhouse.listJobs("x", { fetch: routeFetch({ "https://": () => new Response("boom", { status: 500 }) }) })).rejects.toThrow(/500/);

@@ -46,12 +46,12 @@ const BOARD_URL = "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=
 const feed = {
   jobs: [
     {
-      id: 9001, title: "Backend Engineer", absolute_url: "https://boards.greenhouse.io/acme/jobs/9001", first_published: "2026-10-27T09:00:00Z",
+      id: 9001, title: "Backend Engineer", absolute_url: "https://boards.greenhouse.io/acme/jobs/9001", first_published: "2026-10-30T09:00:00Z",
       location: { name: "Remote - US" }, company_name: "Acme Robotics",
       content: "&lt;p&gt;Backend Engineer. Build backend APIs in Python on Kubernetes with PostgreSQL. Own services end to end.&lt;/p&gt;",
     },
     {
-      id: 9002, title: "Marketing Manager", absolute_url: "https://boards.greenhouse.io/acme/jobs/9002", first_published: "2026-10-27T09:00:00Z",
+      id: 9002, title: "Marketing Manager", absolute_url: "https://boards.greenhouse.io/acme/jobs/9002", first_published: "2026-10-30T09:00:00Z",
       location: { name: "Remote - US" }, company_name: "Acme Robotics",
       content: "&lt;p&gt;Marketing Manager. Plan campaigns and run events.&lt;/p&gt;",
     },

@@ -1,9 +1,8 @@
-import { and, applications, companies, desc, eq, inArray, isNotNull, isNull, jobs, lanes, ne, or, queryRows, shortlist, sql, type Db } from "@norinote/db";
+import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobs, lanes, ne, or, queryRows, shortlist, sql, type Db } from "@norinote/db";
 import { inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
 import type { SQL } from "drizzle-orm";
 import { toJob, toMatch } from "./serialize.js";
 
-const DAY_MS = 86_400_000;
 const LIST_DESCRIPTION_CHARS = 1200;
 /** The most rows one list request reads while it filters and groups. */
 const MAX_SCAN = 2400;
@@ -12,8 +11,8 @@ export type JobListParams = {
   view: "best" | "new" | "today";
   sort: "best" | "new";
   lanes: boolean;
-  /** 0 means any age. */
-  maxAgeDays: number;
+  /** Posted within this many hours, at most 72. */
+  maxAgeHours: number;
   clearance: "hide" | "show";
   limit: number;
   q?: string;
@@ -21,13 +20,6 @@ export type JobListParams = {
   status: "open" | "all";
   group: boolean;
 };
-
-/** Posted (or, with no posted date, first seen) within `days`. Written as two ranges so the (closed, posted) index can serve it. */
-export function freshSql(now: Date, days: number): SQL | undefined {
-  if (days <= 0) return undefined;
-  const since = new Date(now.getTime() - days * DAY_MS).toISOString();
-  return or(sql`${jobs.postedAt} >= ${since}::timestamptz`, and(isNull(jobs.postedAt), sql`${jobs.firstSeenAt} >= ${since}::timestamptz`));
-}
 
 const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 
@@ -70,9 +62,8 @@ export type JobListItem = {
  * grouping by company and title run on pages of rows until `limit` results are found.
  */
 export async function listJobs(db: Db, userId: string, p: JobListParams, now: Date): Promise<JobListItem[]> {
-  const conds: (SQL | undefined)[] = [eq(companies.blocked, false), freshSql(now, p.maxAgeDays)];
+  const conds: (SQL | undefined)[] = [eq(companies.blocked, false), freshJobSql(now, p.view === "today" ? Math.min(24, p.maxAgeHours) : p.maxAgeHours)];
   if (p.status === "open") conds.push(isNull(jobs.closedAt));
-  if (p.view === "today") conds.push(sql`${jobs.firstSeenAt} >= ${new Date(now.getTime() - DAY_MS).toISOString()}::timestamptz`);
   if (p.view === "best") conds.push(or(isNull(shortlist.status), ne(shortlist.status, "dismissed")));
   if (p.lanes) {
     const fits = await laneCondition(db, userId, now);
@@ -128,7 +119,8 @@ async function postingPlaces(db: Db, companyIds: string[], now: Date, p: JobList
   const out = new Map<string, { count: number; names: string[] }>();
   if (companyIds.length === 0) return out;
   const rows = await db.select({ companyId: jobs.companyId, title: jobs.title, location: jobs.location }).from(jobs)
-    .where(and(inArray(jobs.companyId, [...new Set(companyIds)]), isNull(jobs.closedAt), freshSql(now, p.maxAgeDays)));
+    .innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(inArray(jobs.companyId, [...new Set(companyIds)]), isNull(jobs.closedAt), freshJobSql(now, p.maxAgeHours)));
   for (const r of rows) {
     const key = `${r.companyId}|${r.title.trim().toLowerCase()}`;
     const e = out.get(key) ?? { count: 0, names: [] };
@@ -139,20 +131,15 @@ async function postingPlaces(db: Db, companyIds: string[], now: Date, p: JobList
   return out;
 }
 
-/** Counts over open jobs from the last 60 days. */
+/** Counts over open jobs posted in the last 72 hours: all of them, the last 24 hours, and those that fit the user's lanes. */
 export async function jobsSummary(db: Db, userId: string, now: Date) {
   const hasLanes = await hasEnabledLanes(db, userId);
   const fitsCondition = hasLanes ? laneExists(userId) : await laneCondition(db, userId, now);
-  const day = new Date(now.getTime() - DAY_MS).toISOString();
-  const week = new Date(now.getTime() - 7 * DAY_MS).toISOString();
-  const since = new Date(now.getTime() - 60 * DAY_MS).toISOString();
-  const [row] = await queryRows<{ open: number; today: number; week: number; fits: number }>(db, sql`
+  const [row] = await queryRows<{ open: number; today: number; fits: number }>(db, sql`
     SELECT count(*)::int AS open,
-      (count(*) FILTER (WHERE ${jobs.firstSeenAt} >= ${day}::timestamptz))::int AS today,
-      (count(*) FILTER (WHERE ${jobs.firstSeenAt} >= ${week}::timestamptz))::int AS week,
+      (count(*) FILTER (WHERE ${freshJobSql(now, 24)}))::int AS today,
       ${fitsCondition ? sql`(count(*) FILTER (WHERE ${fitsCondition}))::int` : sql`0`} AS fits
     FROM ${jobs} INNER JOIN ${companies} ON ${companies.id} = ${jobs.companyId}
-    WHERE ${jobs.closedAt} IS NULL AND ${companies.blocked} = false
-      AND (${jobs.postedAt} >= ${since}::timestamptz OR (${jobs.postedAt} IS NULL AND ${jobs.firstSeenAt} >= ${since}::timestamptz))`);
-  return { open: row?.open ?? 0, newToday: row?.today ?? 0, newThisWeek: row?.week ?? 0, fitsLanes: row?.fits ?? 0, hasLanes };
+    WHERE ${jobs.closedAt} IS NULL AND ${companies.blocked} = false AND ${freshJobSql(now)}`);
+  return { open: row?.open ?? 0, newToday: row?.today ?? 0, fitsLanes: row?.fits ?? 0, hasLanes };
 }

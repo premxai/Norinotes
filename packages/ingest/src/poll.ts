@@ -160,7 +160,7 @@ export async function pollBoard(db: Db, board: { atsType: AtsType; token: string
   // 304: nothing changed. Only the poll times move.
   if (listed.notModified) {
     const nextPollAt = after(now, pollIntervalMs({ atsType, newJobs7d: company.newJobs7d, demand }));
-    await db.update(companies).set({ lastPolledAt: now, lastSuccessAt: now, nextPollAt, errorStreak: 0 }).where(eq(companies.id, company.id));
+    await db.update(companies).set({ lastPolledAt: now, lastSuccessAt: now, firstReadAt: company.firstReadAt ?? now, nextPollAt, errorStreak: 0 }).where(eq(companies.id, company.id));
     return {
       ...emptyResult(null), total: company.lastJobCount, notModified: true, status: company.status, previousStatus: company.status, nextPollAt,
     };
@@ -234,7 +234,7 @@ export async function pollBoard(db: Db, board: { atsType: AtsType; token: string
     await tx.update(companies).set({
       status, priority, emptySince, nextPollAt, newJobs7d,
       statusReason: status === "disabled" ? "no jobs for 14 days" : null,
-      lastPolledAt: now, lastSuccessAt: now, errorStreak: 0,
+      lastPolledAt: now, lastSuccessAt: now, firstReadAt: company.firstReadAt ?? now, errorStreak: 0,
       // An expired boost is dropped on the next successful poll.
       boostUntil: company.boostUntil && company.boostUntil.getTime() > now.getTime() ? company.boostUntil : null,
       notFoundSince: count > 0 || listed.complete ? null : company.notFoundSince,

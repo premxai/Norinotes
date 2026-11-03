@@ -45,12 +45,12 @@ const modelSpec: JobSpecModelOutput = {
   citizenshipRequired: false, clearanceRequired: false, sponsorship: "unknown", responsibilities: [],
 };
 
-/** A fresh company with open jobs; each is `[title, daysAgo]`. */
+/** A company first read 30 days ago, with open jobs; each is `[title, hoursAgo]`. */
 async function seedBoard(db: Db, token: string, list: Array<[string, number]>): Promise<string[]> {
-  const [c] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: token, name: `Co ${token}` }).returning();
+  const [c] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: token, name: `Co ${token}`, firstReadAt: new Date(NOW.getTime() - 30 * 86_400_000) }).returning();
   const ids: string[] = [];
-  for (const [title, daysAgo] of list) {
-    const posted = new Date(NOW.getTime() - daysAgo * 86_400_000);
+  for (const [title, hoursAgo] of list) {
+    const posted = new Date(NOW.getTime() - hoursAgo * 3_600_000);
     const [j] = await db.insert(jobs).values({
       companyId: c!.id, atsType: "greenhouse", externalId: `${token}-${n++}`, title, location: "Remote - US", remote: true,
       descriptionText: `${title}. Build APIs in Python on Kubernetes.`, applyUrl: `https://example.test/${token}/${n}`, postedAt: posted, firstSeenAt: posted, dedupeKey: `${token}-${n}`,
@@ -98,10 +98,10 @@ describe("understand on demand: after a board poll", () => {
     await start(queue, {}, {
       log: createLogger((l) => lines.push(JSON.parse(l)), () => NOW),
       fetch: feed([
-        { id: 1, title: "Backend Engineer", published: "2026-10-28T09:00:00Z" },
-        { id: 2, title: "Senior Backend Engineer, Payments", published: "2026-10-28T09:00:00Z" },
-        { id: 3, title: "Data Scientist", published: "2026-10-28T09:00:00Z" },
-        { id: 4, title: "Marketing Manager", published: "2026-10-28T09:00:00Z" },
+        { id: 1, title: "Backend Engineer", published: "2026-10-30T09:00:00Z" },
+        { id: 2, title: "Senior Backend Engineer, Payments", published: "2026-10-30T09:00:00Z" },
+        { id: 3, title: "Data Scientist", published: "2026-10-30T09:00:00Z" },
+        { id: 4, title: "Marketing Manager", published: "2026-10-30T09:00:00Z" },
         { id: 5, title: "Backend Engineer, Legacy", published: "2026-06-01T09:00:00Z" },
       ]),
     });
@@ -114,7 +114,7 @@ describe("understand on demand: after a board poll", () => {
     const understood = (await t.db.select().from(jobSpecs)).map((r) => r.jobId);
     const titlesUnderstood = mine.filter((j) => understood.includes(j.id)).map((j) => j.title).sort();
     // Fits lane A and is fresh: the two backend jobs. The data scientist only fits a disabled lane, marketing fits none, and
-    // the legacy one is older than 60 days.
+    // the legacy one is older than 72 hours.
     expect(titlesUnderstood).toEqual(["Backend Engineer", "Senior Backend Engineer, Payments"]);
     expect(queue.stats(JOBS.understandJob)).toMatchObject({ completed: 2, failed: 0 });
     const poll = lines.find((l) => l.queue === JOBS.ingestPollBoard);
@@ -129,7 +129,7 @@ describe("understand on demand: after a board poll", () => {
       const queue = new MemoryQueue();
       worker = await startWorker({
         db: own.db, queue, config: config(), log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool: stubPool,
-        fetch: feed([{ id: 1, title: "Backend Engineer", published: "2026-10-28T09:00:00Z" }, { id: 2, title: "Data Scientist", published: "2026-10-28T09:00:00Z" }]),
+        fetch: feed([{ id: 1, title: "Backend Engineer", published: "2026-10-30T09:00:00Z" }, { id: 2, title: "Data Scientist", published: "2026-10-30T09:00:00Z" }]),
       });
       await worker.consumers.enqueueDueBoards();
       await queue.drain();
@@ -147,7 +147,7 @@ describe("understand on demand: after a board poll", () => {
 describe("understand on demand: a lane change reads the backlog", () => {
   it("match.user queues understand.job for unspecced jobs that fit the user's lanes, then the batch match shortlists them", async () => {
     setProvider(createFakeProvider({ chat: (req) => (req.jsonSchema?.name === "job_spec" ? modelSpec : undefined) }));
-    const [fitA, fitB, stale, other] = await seedBoard(t.db, "backlog", [["Zebra Engineer", 3], ["Senior Zebra Engineer", 5], ["Zebra Engineer", 90], ["Marketing Zebra", 3]]);
+    const [fitA, fitB, stale, other] = await seedBoard(t.db, "backlog", [["Zebra Engineer", 30], ["Senior Zebra Engineer", 50], ["Zebra Engineer", 80], ["Marketing Zebra", 30]]);
     const userId = await seedUser(t.db);
     const queue = new MemoryQueue();
     await start(queue);
@@ -192,7 +192,7 @@ describe("understand on demand: a lane change reads the backlog", () => {
       },
       embed: (req) => fake.embed(req),
     });
-    const ids = await seedBoard(t.db, "burst", Array.from({ length: 12 }, (_, i): [string, number] => [`Walrus Engineer ${i}`, 2]));
+    const ids = await seedBoard(t.db, "burst", Array.from({ length: 12 }, (_, i): [string, number] => [`Walrus Engineer ${i}`, 24]));
     const userId = await seedUser(t.db, { points: false });
     await lane(t.db, userId, ["Walrus Engineer"]);
     const queue = new MemoryQueue();
@@ -217,7 +217,7 @@ describe("the worker while the AI service rejects our key", () => {
   it("fails no job: jobs get heuristic specs, points stay unembedded, and the shortlist still fills by skill overlap", async () => {
     const fail = () => Promise.reject(Object.assign(new Error("401 Incorrect API key provided: sk-proj-SECRET"), { status: 401 }));
     setProvider({ name: "rejected-key", chat: fail, embed: fail });
-    const ids = await seedBoard(t.db, "noai", [["Yak Engineer", 2], ["Yak Engineer, Platform", 4], ["Yak Marketing", 2]]);
+    const ids = await seedBoard(t.db, "noai", [["Yak Engineer", 24], ["Yak Engineer, Platform", 40], ["Yak Marketing", 24]]);
     const userId = await seedUser(t.db);
     await lane(t.db, userId, ["Yak Engineer"]);
     const queue = new MemoryQueue();

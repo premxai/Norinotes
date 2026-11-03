@@ -27,9 +27,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   (`remote` boolean, `minFit` 0..1).
 
 ## Jobs
-- GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeDays`, `clearance`, `limit`; returns
+- GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeHours` (1 to 72, default 72; `view=today` is the last 24 hours),
+  `clearance`, `limit`; only jobs posted in the last 72 hours are ever listed; returns
   `[{ job, match, applicationStatus?, locations?, locationNames? }]`; `job.companyName` is a non-null string.
-- GET `/api/jobs/summary`, GET `/api/jobs/:id` returning `{ job, match }`, POST `/api/jobs/url` returning `{ job }`.
+- GET `/api/jobs/summary` returning `{ open, newToday, fitsLanes, hasLanes }` over the last 72 hours, GET `/api/jobs/:id` returning `{ job, match }`, POST `/api/jobs/url` returning `{ job }`.
 
 ## Shortlist
 - GET `/api/shortlist` returning

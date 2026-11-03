@@ -57,6 +57,13 @@
       "when": 1793691189322,
       "tag": "0007_telegram_channel",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793727039027,
+      "tag": "0008_board_first_read",
+      "breakpoints": true
     }
   ]
 }

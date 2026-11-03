@@ -5,7 +5,7 @@ import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { FitMapEntry } from "@norinote/shared";
 import { laneFitsJob } from "./lanes.js";
 import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
-import { NOW, baseSpec, daysAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
+import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 
 let t: TestDb;
 let companyId: string;
@@ -28,6 +28,7 @@ describe("buildShortlist: the SQL filter", () => {
     await seedLane(t.db, userId, { titles: ["Senior Zeta Engineer"], locations: ["San Francisco, CA"], remote: true });
     await seedLane(t.db, userId, { titles: ["Zeta Manager"], locations: [], enabled: false });
     const blocked = await seedCompany(t.db, { name: "Blocked Inc", blocked: true });
+    const justRead = await seedCompany(t.db, { name: "Just Read Inc", firstReadAt: hoursAgo(10) });
     const mk = (title: string, over: Parameters<typeof seedJob>[1] extends infer P ? Partial<P> : never = {}) =>
       seedJob(t.db, { companyId, title, embedText: "zeta engineer", spec: baseSpec(), ...over });
 
@@ -35,12 +36,16 @@ describe("buildShortlist: the SQL filter", () => {
       sf: await mk("Zeta Engineer II"),
       developer: await mk("Staff Zeta Developer, Payments", { location: "San Francisco Bay Area" }),
       remote: await mk("Zeta Engineers", { location: "Remote - Germany", remote: true }),
-      noPostedDate: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: daysAgo(10) }),
-      justInside: await mk("Zeta Engineer, Platform", { postedAt: daysAgo(59) }),
+      noPostedDate: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: hoursAgo(30) }),
+      justInside: await mk("Zeta Engineer, Platform", { postedAt: hoursAgo(71) }),
     };
     const out = {
-      tooOld: await mk("Zeta Engineer", { postedAt: daysAgo(61), firstSeenAt: daysAgo(61) }),
-      oldFirstSeen: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: daysAgo(61) }),
+      tooOld: await mk("Zeta Engineer", { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(73) }),
+      oldFirstSeen: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: hoursAgo(73) }),
+      // Undated and seen on the board's first read: of unknown age.
+      onFirstRead: await mk("Zeta Engineer", { companyId: justRead, postedAt: null, firstSeenAt: hoursAgo(10) }),
+      // Seen within 72 hours but posted long before.
+      oldPosting: await mk("Zeta Engineer", { postedAt: daysAgo(10), firstSeenAt: hoursAgo(5) }),
       closed: await mk("Zeta Engineer", { closedAt: daysAgo(1) }),
       blocked: await seedJob(t.db, { companyId: blocked, title: "Zeta Engineer", embedText: "zeta engineer", spec: baseSpec() }),
       wrongTitle: await mk("Zeta Marketing Manager"),
