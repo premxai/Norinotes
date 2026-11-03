@@ -20,6 +20,7 @@ const flow: FlowOptions = {
   name: "lever",
   preferredForms: ["#application-form", "form.application-form", "form[action*='lever']"],
   formUrl: leverFormUrl,
+  firstField: "#application-form input[name=name], #application-form input",
 };
 
 export const leverDriver: Driver = {

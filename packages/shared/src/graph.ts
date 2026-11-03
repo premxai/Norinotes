@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const CAREER_POINT_KINDS = ["role", "project", "achievement", "education", "skill"] as const;
+/** `certification`: a licence, professional certification or clinical card; `startDate` is issued, `endDate` is expiry. */
+export const CAREER_POINT_KINDS = ["role", "project", "achievement", "education", "skill", "certification"] as const;
 export const CareerPointKind = z.enum(CAREER_POINT_KINDS);
 export type CareerPointKind = z.infer<typeof CareerPointKind>;
 

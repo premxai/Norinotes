@@ -135,7 +135,8 @@ export const sessions = pgTable("sessions", {
 export const authTokens = pgTable("auth_tokens", {
   id: id(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  kind: text("kind").$type<"email_verification" | "password_reset">().notNull(),
+  /** `telegram_link`: a one-time Telegram deep-link token (see docs/telegram.md). */
+  kind: text("kind").$type<"email_verification" | "password_reset" | "telegram_link">().notNull(),
   /** SHA-256 of the emailed token. */
   tokenHash: text("token_hash").notNull(),
   expiresAt: ts("expires_at").notNull(),
@@ -228,6 +229,8 @@ export const applications = pgTable("applications", {
   status: text("status").$type<ApplicationStatus>().notNull().default("queued"),
   /** The resume tailored for this application. No foreign key: resumes point back at applications. */
   resumeId: uuid("resume_id"),
+  /** The posting's canonical URL (see @norinote/apply canonicalJobUrl): one application per user and URL, whichever job row it came from. */
+  canonicalUrl: text("canonical_url"),
   answers: jsonb("answers").$type<Record<string, string>>().notNull().default({}),
   pendingQuestions: jsonb("pending_questions").$type<unknown[]>().notNull().default([]),
   receipt: jsonb("receipt").$type<Record<string, unknown>>(),
@@ -236,10 +239,18 @@ export const applications = pgTable("applications", {
   preparedAt: ts("prepared_at"),
   approvedAt: ts("approved_at"),
   submittedAt: ts("submitted_at"),
+  /** The job system confirmed receipt (a `confirmation` mail in the owned inbox). Not an outcome. */
+  confirmedAt: ts("confirmed_at"),
+  /**
+   * Which tailoring produced the submitted resume, recorded once after submission: `off` (no tailoring report), `v<N>`
+   * (tailoring report version N with model rewrites), `v<N>-selection` (selection only, the model was unavailable).
+   */
+  tailoringVersion: text("tailoring_version"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
   uniqueIndex("applications_user_job_uq").on(t.userId, t.jobId),
+  uniqueIndex("applications_user_canonical_url_uq").on(t.userId, t.canonicalUrl),
   index("applications_user_status_idx").on(t.userId, t.status),
 ]);
 
@@ -268,6 +279,26 @@ export const answerBank = pgTable("answer_bank", {
   index("answer_bank_user_idx").on(t.userId),
   index("answer_bank_hnsw_idx").using("hnsw", t.questionEmbedding.op("vector_cosine_ops")),
 ]);
+
+/**
+ * Form recipe cache, shared by all users: for one form (fingerprint = hash of job system, company token and the sorted
+ * normalised label|type|options of its fields), which profile slot each question maps to and which widget strategy filled
+ * it. Never an applicant's value. A hit skips the classification model; a stale entry heals once and is rewritten.
+ */
+export const formRecipes = pgTable("form_recipes", {
+  id: id(),
+  fingerprint: text("fingerprint").notNull(),
+  atsType: text("ats_type").notNull(),
+  companyToken: text("company_token").notNull(),
+  /** Per question: { labelKey, label, type, slot, strategy, optionMap }. */
+  fields: jsonb("fields").$type<unknown[]>().notNull().default([]),
+  version: integer("version").notNull().default(1),
+  hits: integer("hits").notNull().default(0),
+  heals: integer("heals").notNull().default(0),
+  lastUsedAt: ts("last_used_at"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [uniqueIndex("form_recipes_fingerprint_uq").on(t.fingerprint), index("form_recipes_company_idx").on(t.atsType, t.companyToken)]);
 
 export const runEvents = pgTable("run_events", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -299,6 +330,11 @@ export const inboxMessages = pgTable("inbox_messages", {
   links: jsonb("links").$type<string[]>().notNull().default([]),
   subject: text("subject").notNull().default(""),
   body: text("body").notNull().default(""),
+  /**
+   * What the inbox package learnt about the message (see `InboxMeta` in @norinote/inbox): transport, attachment metadata
+   * (names, types, sizes; never the content), spam verdict, verification link, link evidence, forwarding state.
+   */
+  meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
   receivedAt: ts("received_at").notNull().defaultNow(),
 }, (t) => [
   index("inbox_messages_user_received_idx").on(t.userId, t.receivedAt),
@@ -314,6 +350,36 @@ export const channels = pgTable("channels", {
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("channels_user_kind_uq").on(t.userId, t.kind)]);
 
+/** What a `channel_messages` row is: a message for the user, or (`apply_intent`) an Apply tap waiting for its application to be prepared. */
+export type ChannelMessageKind = "digest" | "questions" | "prompt" | "submitted" | "needs_user" | "inbox" | "summary" | "notice" | "apply_intent";
+
+/**
+ * Outbox and log of Telegram messages (see docs/telegram.md). One row per message per user, deduplicated by `dedupe_key`
+ * (`digest:2026-11-02`, `submitted:<application id>`, ...). `not_before` holds a message through quiet hours; the worker
+ * sends `pending` rows and records the Telegram message id, which is how a reply or a button press finds its row again.
+ */
+export const channelMessages = pgTable("channel_messages", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<ChannelMessageKind>().notNull(),
+  dedupeKey: text("dedupe_key").notNull(),
+  applicationId: uuid("application_id").references(() => applications.id, { onDelete: "cascade" }),
+  /** Text, buttons and what they refer to (job ids, question groups). Never a secret. */
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  status: text("status").$type<"pending" | "sent" | "skipped" | "failed" | "done">().notNull().default("pending"),
+  notBefore: ts("not_before"),
+  chatId: text("chat_id"),
+  telegramMessageId: bigint("telegram_message_id", { mode: "number" }),
+  attempts: integer("attempts").notNull().default(0),
+  error: text("error"),
+  createdAt: createdAt(),
+  sentAt: ts("sent_at"),
+}, (t) => [
+  uniqueIndex("channel_messages_user_dedupe_uq").on(t.userId, t.dedupeKey),
+  index("channel_messages_status_idx").on(t.status, t.notBefore),
+  index("channel_messages_chat_message_idx").on(t.chatId, t.telegramMessageId),
+]);
+
 export const llmUsage = pgTable("llm_usage", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   /** UTC day, YYYY-MM-DD. */
@@ -326,15 +392,26 @@ export const llmUsage = pgTable("llm_usage", {
   updatedAt: updatedAt(),
 }, (t) => [primaryKey({ columns: [t.userId, t.day] })]);
 
+/**
+ * What happened to a submitted application (see docs/outcomes.md). "No response" is never stored: it is derived 30 days
+ * after submission when no outcome exists. A confirmation is not an outcome (it sets `applications.confirmed_at`).
+ */
 export const outcomes = pgTable("outcomes", {
   id: id(),
   applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
   kind: text("kind").$type<"reply" | "interview" | "rejection" | "offer">().notNull(),
   at: ts("at").notNull().defaultNow(),
-}, (t) => [index("outcomes_application_idx").on(t.applicationId)]);
+  /** `inbox`: from a classified message in the owned inbox. `manual`: the user added it (many replies reach their own mailbox). */
+  source: text("source").$type<"inbox" | "manual">().notNull().default("inbox"),
+  /** The `inbox_messages` row it came from, once per message. Null for manual rows (and after the message is purged). */
+  messageId: uuid("message_id").references(() => inboxMessages.id, { onDelete: "set null" }),
+  /** The user removed it (a wrong automatic outcome). Kept, so re-reading the same message never brings it back. */
+  deletedAt: ts("deleted_at"),
+  createdAt: createdAt(),
+}, (t) => [index("outcomes_application_idx").on(t.applicationId), uniqueIndex("outcomes_message_uq").on(t.messageId)]);
 
 export const schema = {
   companies, jobs, jobSpecs, jobEmbeddings, users, sessions, authTokens, profiles, lanes, careerPoints,
-  careerPointEmbeddings, shortlist, applications, resumes, answerBank, runEvents, inboxAddresses, inboxMessages,
-  channels, llmUsage, outcomes,
+  careerPointEmbeddings, shortlist, applications, resumes, answerBank, formRecipes, runEvents, inboxAddresses, inboxMessages,
+  channels, channelMessages, llmUsage, outcomes,
 };

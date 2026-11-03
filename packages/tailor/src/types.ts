@@ -58,8 +58,10 @@ export type TailoringReport = {
   };
   /** Requirements nothing in the career points supports, and terms missing from partly supported ones. */
   gaps: { requirement: string; mustHave: boolean; lacking: string[]; related: string[] }[];
-  /** Per rewritten-or-offered bullet: its source points, attempts and gate result. */
-  bullets: { bulletId: string; sourceIds: string[]; rewritten: boolean; attempts: number; reverted: boolean; gate: { ok: boolean; failures: { rule: string; detail: string }[] } }[];
+  /** The posting's key phrases the career points support well enough to carry onto the resume. */
+  keyPhrases?: string[];
+  /** Per offered bullet: its source points, attempts and gate result; `kept` when a paraphrase added nothing and the original stayed. */
+  bullets: { bulletId: string; sourceIds: string[]; rewritten: boolean; attempts: number; reverted: boolean; kept?: boolean; gate: { ok: boolean; failures: { rule: string; detail: string }[] } }[];
   summary: { source: "model" | "facts" | "none"; failures: { rule: string; detail: string }[] };
   rounds: { round: number; gaps: number; fixes: number; accepted: number; coverage: number | null; stop: string | null }[];
   stopReason: string;

@@ -3,13 +3,15 @@ import { AiUnavailableError, complete } from "@norinote/ai";
 import type { Db } from "@norinote/db";
 import type { CareerPoint } from "@norinote/shared";
 import { bulletSupports, coverageScore, requirementShown, resumeText, type EvidenceEntry } from "./evidence.js";
-import { bannedIn, bannedPhraseExamples, openingWord } from "./phrases.js";
+import { STRONG_VERBS, WEAK_VERBS, bannedIn, bannedPhraseExamples, boilerplateIn, openerTense, openingWord } from "./phrases.js";
+import { containsPhrase, normPhrase } from "./key-phrases.js";
+import { cleanStrength, isGenericField, roleFamily, roleHead, roleNoun, summarySkills } from "./summary.js";
 import { SOFT_BEHAVIOURS } from "./key-phrases.js";
 import { roleYears, type Selection } from "./select.js";
-import { countTerm, findTerms, mentionsSkill, wordCount } from "./text.js";
+import { countTerm, findTerms, mentionsName, mentionsSkill, numbersIn, wordCount } from "./text.js";
 import type { ResumeBullet, ResumeChange, ResumeContent } from "./types.js";
 import {
-  MAX_TERM_USES, gateBullet, supportOf, untruthfulTitle, validateSummary, type GateFailure, type GateResult, type Support, type Vocab,
+  BULLET_MAX_WORDS, BULLET_MIN_WORDS, MAX_TERM_USES, yearClaims, gateBullet, supportOf, untruthfulTitle, validateSummary, type GateFailure, type GateResult, type Support, type Vocab,
 } from "./validate.js";
 
 /**
@@ -52,19 +54,23 @@ Hard rules (a bullet that breaks one is thrown away):
 - Use only facts in that bullet's source. Never add a skill, tool, employer, product, number, date, team size, scope or seniority the source does not state. Keep numbers exactly as written; when the source has no number, write none.
 - Never mention an avoidTerms term, not even as "familiar with" or "exposure to".
 - Do not raise ownership or scope: "helped", "supported" or "contributed" never become "led", "owned" or "drove"; "a team" never becomes "the company".
-- No first person. Never use: ${bannedPhraseExamples().join(", ")}.
+- No first person. Never use: ${bannedPhraseExamples().slice(0, 45).join(", ")}.
 
 Style:
 - Shape: strong action verb + what + how (tools named in the source) + result (only when the source states one).
 - 18 to 28 words, one sentence.
+- Keep the original opening verb when it is strong (${STRONG_VERBS.slice(0, 16).join(", ")}...), only putting it in the past tense; never trade any verb for a weaker generic one (${WEAK_VERBS.slice(0, 8).join(", ")}).
+- Weave the posting's key noun phrase into what the person did (the work or its object: "Built production services in Go that..."), never append it after the result ("...from 3 days to 2 hours for production services"), and never copy requirement wording ("proficiency in", "strong understanding of", "ability to", "experience with", "demonstrated", "familiarity with").
+- Each bullet lists add (posting terms and phrases its source supports that the text lacks) and fix (problems to correct, such as tense or length). Use each posting phrase on one bullet only. A short bullet may stay short: never pad it with activities, outcomes or qualities the source does not state. Carry every add item the source truly shows and correct every fix item. When both lists are empty, return the bullet exactly as written: the person's own words beat a paraphrase.
 - Past tense for every bullet, the current role included ("Built", "Led", "Reduced"); never "Build" or "Leads".
 - Every bullet opens with a different verb; never reuse an opening verb from another bullet or from usedOpeningVerbs (bullets that stay as written).
 - Mirror the posting. Where the source shows a requirement, carry the posting's own words for it verbatim: the exact term from useTerms (source "Postgres", posting "PostgreSQL": write "PostgreSQL") and each phrase in the bullet's mirror list, word for word ("end-to-end", "production services", "large, heterogeneous datasets"), never a near synonym ("full lifecycle", "live systems").
 - When a bullet has a focus, open with that requirement in the posting's words; the bullets' focuses differ on purpose.
 - Each key term at most 2 to 3 times across the whole resume; do not stuff keywords.
-- Keep the source's specifics (system names, domains, numbers); do not generalise them away.
+- One source, one bullet: never bring in a fact from another bullet or another career point.
+- Keep the source's specifics (system names, domains, numbers); do not generalise them away. Keep every number exactly, unit included ("4.1 s" may become "4.1 seconds"; never round, convert or change a number).
 
-Summary: 2 to 3 sentences, at most 60 words. Open with the person's own title. Mention the target job title only if the person has held it, or in a targeted phrase ("for Data Scientist roles") without seniority words they lack. Years: if yearsOfExperience is a number, you may state exactly that number, only for the role ("Product Manager with 7 years of experience"); if it is null, state no years at all. Never attach years to a skill or tool ("7 years of SQL", "9 years of experience in HubSpot" are not allowed); name the top supported skills separately. No employer names, not the company being applied to, no other numbers.
+Summary: exactly 2 sentences, 25 to 45 words (aim for about 35; count them). Open with summary.roleNoun (a role noun the person truthfully is, never a raw title with course codes or parentheses). Name the target role family (summary.roleFamily); add a targeted phrase ("targeting frontend engineer roles") only when the role noun does not already name that role, and without seniority words the person lacks. Name 2 to 4 skills from summary.topSkills in that exact spelling, and one concrete strength from summary.strengths (with its number when it has one). Do not write "expertise in", "demonstrated", "demonstrating", "proficient", "ability to" or "familiar with"; say what the person did. Years: if yearsOfExperience is a number, you may state exactly that number, only for the role ("Product Manager with 7 years of experience"); if it is null, state no years at all. Never attach years to a skill or tool ("7 years of SQL", "9 years of experience in HubSpot" are not allowed); name the top supported skills separately. No employer names, not the company being applied to, no other numbers.
 
 Reply as JSON: {"summary": string, "bullets": [{"id": string, "sourceId": string, "text": string}]}. Return every bullet you were given with the same id and sourceId.
 mode "retry": the bullets failed checks; fix exactly the listed failures. mode "revise": follow each bullet's instructions within the hard rules. In both modes write summary as "" unless the input has a summary to fix.`;
@@ -83,6 +89,8 @@ export type BulletReport = {
   rewritten: boolean;
   attempts: number;
   reverted: boolean;
+  /** The model's version added no supported posting term or phrase and fixed nothing, so the original stayed. */
+  kept: boolean;
   gate: GateResult;
 };
 export type RoundReport = { round: number; gaps: number; fixes: number; accepted: number; coverage: number | null; stop: string | null };
@@ -127,6 +135,14 @@ type Offer = {
   mirror: string[];
   /** The must-have this bullet leads with (the latest role's first bullets each have a different one). */
   focus: string | null;
+  /** Posting terms and phrases the source supports that the original text lacks. */
+  add: string[];
+  /** What the original needs fixing (tense, length, generic wording, a repeated opening verb); empty when it is fine. */
+  fix: string[];
+  /** The latest role's first bullet: always rewritten to lead with the posting's most important supported requirement. */
+  lead: boolean;
+  /** Supported must-have terms or phrases this bullet's source shows that are not on the page yet. */
+  mustAdd: string[];
 };
 
 const allBullets = (c: ResumeContent): ResumeBullet[] => [...c.experience.flatMap((r) => r.bullets), ...c.projects.flatMap((p) => p.bullets)];
@@ -167,8 +183,28 @@ const YEARS_ON_SKILLS = [
 export function gateSummary(summary: string, ctx: {
   corpus: Support; vocab: Vocab; years: number | null; jobTitle: string; personTitles: readonly string[];
   termUses?: { counts: ReadonlyMap<string, number>; terms: readonly { key: string; jobString: string }[] };
+  /** Shape rules (2 sentences, 25 to 45 words, role family, 2 to 4 skills, a concrete strength). Off for legacy callers. */
+  shape?: { supportedTerms: readonly string[]; strengthHasNumber: boolean };
 }): GateResult {
   const failures: GateFailure[] = [];
+  if (ctx.shape) {
+    const sentences = summary.trim().split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
+    const wc = wordCount(summary);
+    if (sentences !== 2 || wc < 25 || wc > 45) failures.push({ rule: "length", detail: `${sentences} sentence(s), ${wc} words; write exactly 2 sentences, 25 to 45 words` });
+    if (/[()]/.test(summary) || /\b[A-Z]{2,4}\s?\d{2,4}\b/.test(summary)) failures.push({ rule: "title", detail: "no parentheses or course codes; open with a plain role noun" });
+    // Name the role once: "Registered nurse in the registered nurse field" repeats it.
+    const fam = normPhrase(roleFamily(ctx.jobTitle));
+    if (fam && ` ${normPhrase(summary)} `.split(` ${fam} `).length - 1 >= 2) failures.push({ rule: "title", detail: `names "${roleFamily(ctx.jobTitle)}" twice; name the role once` });
+    const head = roleHead(ctx.jobTitle);
+    if (head && !new RegExp(`\\b${head.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`, "i").test(summary)) failures.push({ rule: "source", detail: `name the target role family ("${roleFamily(ctx.jobTitle)}")` });
+    const named = ctx.shape.supportedTerms.filter((t) => mentionsName(summary, t)).length;
+    const want = Math.min(2, ctx.shape.supportedTerms.length);
+    if (named < want || named > 4) failures.push({ rule: "source", detail: `name 2 to 4 of the posting's skills the person has, in its spelling (found ${named})` });
+    const years = new Set(yearClaims(summary).map(String));
+    if (ctx.shape.strengthHasNumber && !numbersIn(summary).some((n) => !years.has(n))) failures.push({ rule: "source", detail: "add one concrete strength from the strengths list, with its number" });
+    const boiler = boilerplateIn(summary, { forSummary: true });
+    if (boiler.length) failures.push({ rule: "boilerplate", detail: `job-ad wording "${boiler.join('", "')}"` });
+  }
   const v = validateSummary(summary, ctx.corpus, ctx.vocab, { years: ctx.years });
   if (!v.ok) failures.push({ rule: "source", detail: v.reason });
   const banned = bannedIn(summary);
@@ -186,7 +222,8 @@ export function gateSummary(summary: string, ctx: {
   if (claim) failures.push({ rule: "title", detail: `presents the person as "${claim}", a title they have not held` });
   if (ctx.termUses) {
     const uses = ctx.termUses;
-    const over = uses.terms.filter((t) => countTerm(summary, t.jobString) + (uses.counts.get(t.key) ?? 0) > MAX_TERM_USES);
+    // One mention in the summary is always fine (it names the skill); a second only within the resume-wide limit.
+    const over = uses.terms.filter((t) => countTerm(summary, t.jobString) > 1 && countTerm(summary, t.jobString) + (uses.counts.get(t.key) ?? 0) > MAX_TERM_USES);
     if (over.length) failures.push({ rule: "overuse", detail: `${over.map((t) => t.jobString).join(", ")} would appear more than ${MAX_TERM_USES} times` });
   }
   return { ok: failures.length === 0, failures };
@@ -207,6 +244,7 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
     changes: [], rejected: [], bullets: [], rounds: [], stopReason: "", summary: { text: null, failures: [] }, calls: [], model: null, error: null, aiUnavailable: false,
   };
   const terms = evidence.supportedJobTerms;
+  const keyPhrases = [...new Set(evidence.entries.filter((e) => e.supported && e.keyPhrase).map((e) => e.keyPhrase!))];
   // Terms the person lacks, and the key phrases of requirements nothing supports ("Higher Education vertical sales").
   const gapPhrases = evidence.gaps.filter((e) => !e.soft && e.keyPhrase && e.keyPhrase.split(/\s+/).length >= 2).map((e) => e.keyPhrase!);
   const lackedTerms = [...evidence.lackedJobTerms.flatMap((t) => [t.jobString, t.key]), ...gapPhrases];
@@ -223,13 +261,40 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
       roleLabel: container ? [container.title, container.org, [container.startDate, container.endDate ?? (container.kind === "role" ? "present" : "")].filter(Boolean).join(" to ")].filter(Boolean).join(", ") : "",
       roleYears: container?.kind === "role" ? roleYears(container) : undefined,
       supports,
-      useTerms: terms.filter((t) => mentionsSkill(source, t.jobString) || mentionsSkill(source, t.key)).map((t) => t.jobString),
+      // Fields and degrees ("Product Management", "BSN") stay in the skills list; as a bullet's object they read badly.
+      useTerms: terms.filter((t) => !isGenericField(t.jobString) && (mentionsSkill(source, t.jobString) || mentionsSkill(source, t.key))).map((t) => t.jobString),
       mirror: [...new Set(sup.filter((e) => e.mirror && e.keyPhrase).map((e) => e.keyPhrase!))],
       focus: selection.focus.get(b.id) ?? null,
+      add: [], fix: [], lead: false, mustAdd: [],
     };
   };
 
+  // A focus is given to the model as the posting's terms or key phrase, never the requirement sentence ("Proficiency in
+  // TypeScript" would invite the job-ad wording the gate rejects).
+  const focusWords = (requirement: string): string => {
+    const e = evidence.entries.find((x) => x.text === requirement);
+    const words = e ? (e.supportedTerms.length ? e.supportedTerms.map((k) => e.terms.find((t) => t.key === k)!.jobString) : e.keyPhrase ? [e.keyPhrase] : []) : [];
+    return words.length ? words.map((w) => `"${w}"`).join(", ") : `"${requirement.replace(/^(?:proficiency|experience|ability|knowledge|familiarity|expertise)\s+(?:in|with|to|of)\s+/i, "")}"`;
+  };
   const offered = pickRewrites(content, input.maxRewrites ?? MAX_REWRITES).map(offerOf);
+  const page = resumeText(content);
+  const leadId = content.experience[0]?.bullets[0]?.id ?? null;
+  for (const o of offered) {
+    o.add = [...new Set([...o.mirror, ...o.useTerms])].filter((p) => !containsPhrase(o.original, p) && !(o.mirror.includes(p) && containsPhrase(page, p)));
+    o.lead = o.bullet.id === leadId;
+    // A supported must-have whose posting wording is not on the page yet, and that this bullet's source shows.
+    const src = selection.sources.get(o.bullet.id) ?? o.bullet.text;
+    o.mustAdd = [...new Set(bulletSupports(evidence, src, o.bullet.careerPointIds).filter((e) => e.mustHave && e.mirror && !requirementShown(e, page, "phrase"))
+      .flatMap((e) => (e.supportedTerms.length ? e.supportedTerms.map((k) => e.terms.find((t) => t.key === k)!.jobString) : e.keyPhrase ? [e.keyPhrase] : [])))];
+    if (o.lead) o.fix.push(`lead bullet of the latest role: start with a strong past-tense verb and bring ${o.focus ? focusWords(o.focus) : "the posting's most important requirement this source shows"} into the first half of the line`);
+    if (o.mustAdd.length) o.fix.push(`must-have not on the page yet: work in ${o.mustAdd.map((p) => `"${p}"`).join(", ")} where the source shows it`);
+    const wc = wordCount(o.original);
+    const opener = openingWord(o.original);
+    if (openerTense(o.original) === "present") o.fix.push("past tense");
+    if (wc > BULLET_MAX_WORDS) o.fix.push(`${wc} words; write 18 to 28`);
+    if (bannedIn(o.original).length || boilerplateIn(o.original).length) o.fix.push(`generic wording: ${[...bannedIn(o.original), ...boilerplateIn(o.original)].join(", ")}`);
+    if (allBullets(content).some((b) => b.id !== o.bullet.id && openingWord(b.text) === opener)) o.fix.push(`opening verb "${opener}" repeats another bullet`);
+  }
   const offerById = new Map(offered.map((o) => [o.bullet.id, o]));
   if (offered.length === 0 && evidence.entries.every((e) => !e.supported)) {
     result.stopReason = "nothing in the career points covers this job";
@@ -237,16 +302,22 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
     return result;
   }
 
+  // Concrete strengths for the summary: the heaviest shown bullets, those with a number first.
+  const strengths = allBullets(content).filter((b) => b.weight > 0).sort((a, b) => Number(numbersIn(b.text).length > 0) - Number(numbersIn(a.text).length > 0) || b.weight - a.weight)
+    .slice(0, 3).map((b) => cleanStrength(b.text));
   const summaryFacts = {
+    roleNoun: roleNoun(input.points, job.title),
+    roleFamily: roleFamily(job.title),
     personTitles: [...new Set(personTitles)].slice(0, 4),
-    latestTitle: content.experience[0]?.title ?? null,
     yearsOfExperience: selection.years,
-    topSkills: terms.map((t) => t.jobString).slice(0, 6),
+    topSkills: summarySkills(terms.map((t) => t.jobString), roleNoun(input.points, job.title)),
+    strengths,
     topRequirements: selection.topRequirements.slice(0, 4).map((r) => r.requirement),
   };
+  const shape = { supportedTerms: terms.map((t) => t.jobString), strengthHasNumber: strengths.some((t) => numbersIn(t).length > 0) };
   const bulletPayload = (o: Offer, extra: Record<string, unknown> = {}) => ({
     id: o.bullet.id, sourceId: o.sourceId, role: o.roleLabel, text: o.original, source: o.source, supports: o.supports, useTerms: o.useTerms, mirror: o.mirror,
-    ...(o.focus ? { focus: o.focus } : {}), ...extra,
+    ...(o.focus ? { focus: focusWords(o.focus) } : {}), add: o.add, fix: o.fix, ...extra,
   });
   const base = { job: { title: job.title }, useTerms: terms.map((t) => t.jobString), avoidTerms: [...evidence.lackedJobTerms.map((t) => t.jobString), ...gapPhrases] };
 
@@ -272,11 +343,11 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
     result.error = errMessage(err);
     result.aiUnavailable = err instanceof AiUnavailableError;
     result.stopReason = "model unavailable";
-    for (const o of offered) result.bullets.push({ bulletId: o.bullet.id, sourceIds: o.bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, gate: { ok: true, failures: [] } });
+    for (const o of offered) result.bullets.push({ bulletId: o.bullet.id, sourceIds: o.bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, kept: false, gate: { ok: true, failures: [] } });
     return result;
   }
 
-  const reports = new Map<string, BulletReport>(offered.map((o) => [o.bullet.id, { bulletId: o.bullet.id, sourceIds: o.bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, gate: { ok: false, failures: [] } }]));
+  const reports = new Map<string, BulletReport>(offered.map((o) => [o.bullet.id, { bulletId: o.bullet.id, sourceIds: o.bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, kept: false, gate: { ok: false, failures: [] } }]));
   const accepted = new Map<string, string>();
   let summaryText: string | null = first.summary.trim() || null;
 
@@ -297,6 +368,11 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
       });
       out.set(b.id, gateBullet(text, {
         source: supportOf([o.source, o.original]), original: o.original, vocab, lackedTerms, lackedPatterns, roleYears: o.roleYears, now,
+        mirrorPhrases: o.mirror,
+        // A short original may stay short (padding invents); the floor is the original's own length, at least 6 words.
+        minWords: Math.min(BULLET_MIN_WORDS, Math.max(6, wordCount(o.original))),
+        phraseUses: { phrases: keyPhrases, others: othersText },
+        otherBullets: othersText,
         usedOpeners: new Set(othersText.map(openingWord).filter(Boolean)),
         termUses: { counts: termCounts([...othersText, summaryText ?? ""], terms), terms },
       }));
@@ -318,7 +394,7 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
     const bullet = allBullets(content).find((b) => b.id === id)!;
     bullet.text = text;
     accepted.set(id, text);
-    const r = reports.get(id) ?? { bulletId: id, sourceIds: bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, gate };
+    const r = reports.get(id) ?? { bulletId: id, sourceIds: bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, kept: false, gate };
     r.rewritten = true; r.reverted = false; r.gate = gate;
     reports.set(id, r);
     const reason = o.supports.length ? `Reworded around "${o.supports[0]}" in the posting's terms` : "Reworded in the posting's vocabulary";
@@ -328,6 +404,16 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
   };
 
   // ---- 2. gate, then one retry with the reasons ---------------------------------------------------------------------
+  /** What a rewrite adds: a supported posting term or key phrase the original lacks, or a fix (tense, length, generic words, a repeated verb). */
+  const gains = (o: Offer, text: string): boolean => {
+    if (o.lead) return true;
+    if ([...o.mirror, ...o.useTerms].some((p) => containsPhrase(text, p) && !containsPhrase(o.original, p))) return true;
+    if (openerTense(o.original) === "present") return true;
+    if (bannedIn(o.original).length > 0 || boilerplateIn(o.original).length > 0) return true;
+    if (wordCount(o.original) > BULLET_MAX_WORDS) return true;
+    const opener = openingWord(o.original);
+    return allBullets(content).some((b) => b.id !== o.bullet.id && openingWord(b.text) === opener);
+  };
   const firstCands = byId(first.bullets);
   const firstGate = gateBatch(firstCands);
   const failed: { o: Offer; text: string; failures: GateFailure[] }[] = [];
@@ -337,13 +423,24 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
     r.attempts = 1;
     if (text === undefined) { failed.push({ o, text: "", failures: [{ rule: "empty", detail: "no rewrite was returned for this bullet" }] }); continue; }
     // Returned as written: the model chose not to rewrite it, and the user's own words are always allowed.
-    if (text === o.original.trim()) { r.gate = { ok: true, failures: [] }; continue; }
+    if (text === o.original.trim()) {
+      if (o.fix.length === 0) { r.gate = { ok: true, failures: [] }; r.kept = true; continue; }
+      failed.push({ o, text, failures: [{ rule: "unchanged", detail: `returned unchanged, but it still needs: ${o.fix.join("; ")}` }] });
+      continue;
+    }
     const g = firstGate.get(o.bullet.id)!;
+    // A paraphrase that adds no supported posting term or phrase and fixes nothing keeps the person's own words (no retry).
+    if (!gains(o, text)) {
+      r.kept = true;
+      r.gate = { ok: true, failures: [] };
+      if (!g.ok) result.rejected.push({ bulletId: o.bullet.id, text, reason: `kept the original, the rewrite added nothing; it also failed: ${g.failures.map((f) => f.detail).join("; ")}` });
+      continue;
+    }
     if (g.ok) apply(o.bullet.id, text, g);
     else failed.push({ o, text, failures: g.failures });
   }
   const summaryGate = () => gateSummary(summaryText ?? "", {
-    corpus: input.corpus, vocab, years: selection.years, jobTitle: job.title, personTitles,
+    corpus: input.corpus, vocab, years: selection.years, jobTitle: job.title, personTitles, shape,
     termUses: { counts: termCounts(allBullets(content).map((b) => b.text), terms), terms },
   });
   let sGate = summaryText ? summaryGate() : null;
@@ -462,7 +559,7 @@ export async function optimise(input: OptimiseInput, content: ResumeContent): Pr
         const id = o.bullet.id;
         const text = cands.get(id);
         const g = text !== undefined ? gates.get(id) : undefined;
-        const r = reports.get(id) ?? { bulletId: id, sourceIds: o.bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, gate: { ok: false, failures: [] } };
+        const r = reports.get(id) ?? { bulletId: id, sourceIds: o.bullet.careerPointIds, rewritten: false, attempts: 0, reverted: false, kept: false, gate: { ok: false, failures: [] } };
         r.attempts++;
         reports.set(id, r);
         if (text !== undefined && g?.ok) { apply(id, text, g); revisedCount++; continue; }

@@ -108,7 +108,9 @@ describe("receiveInbound: raw MIME", () => {
     if (!r.stored) throw new Error("not stored");
     expect(r.links[0]).toBe("https://wd5.myworkdaysite.com/en-US/globex/verify?token=7f3a9c1e&email=nori-test");
     expect(r.links.some((l) => l.includes("unsubscribe"))).toBe(false);
-    expect(r.wake).toBeNull();
+    expect(r.verificationLink).toBe("https://wd5.myworkdaysite.com/en-US/globex/verify?token=7f3a9c1e&email=nori-test");
+    // The ATS display name names the company, so the waiting application is woken with the link.
+    expect(r.wake).toEqual({ applicationId: appId, reason: "code" });
   });
 
   it("links confirmations to the right application for Greenhouse (HTML), Workday and Lever, without waking anything", async () => {
@@ -227,17 +229,16 @@ describe("createCodeWaiter", () => {
     expect(await waiter.waitForCode("00000000-0000-4000-8000-000000000000", { hint: "x", timeoutMs: 10 })).toBeNull();
   });
 
-  it("accepts an unlinked code only from a job system matching the hint", async () => {
+  it("accepts an unlinked code only from the job's own system", async () => {
     const { userId, address } = await seedUser(t.db);
     const appId = await seedApplication(t.db, userId, "Hooli", { status: "awaiting_code" });
     const waiter = createCodeWaiter(t.db, { intervalMs: 10 });
-    // Not linkable (no company named), but sent by Greenhouse's mail system.
-    await receiveInbound(t.db, genericPayload(address, { from: "Jobs <no-reply@us.greenhouse-mail.io>", text: "Your security code is 664422.", messageId: "unlinked-1", subject: "Security code" }));
-    expect(await waiter.waitForCode(appId, { hint: "lever", timeoutMs: 50 })).toBeNull();
-    expect(await waiter.waitForCode(appId, { hint: "greenhouse", timeoutMs: 200 })).toBe("664422");
     // A stranger's code mail is never used.
     await receiveInbound(t.db, genericPayload(address, { from: "x@random-example.net", text: "Your security code is 123987.", messageId: "unlinked-2", subject: "Security code" }));
     expect(await waiter.waitForCode(appId, { hint: "greenhouse", timeoutMs: 50 })).toBeNull();
+    // Not naming the company, but sent by Greenhouse, and Hooli's job is on Greenhouse: linked as the only waiting one.
+    await receiveInbound(t.db, genericPayload(address, { from: "Jobs <no-reply@us.greenhouse-mail.io>", text: "Your security code is 664422.", messageId: "unlinked-1", subject: "Security code" }));
+    expect(await waiter.waitForCode(appId, { hint: "greenhouse", timeoutMs: 200 })).toBe("664422");
   });
 });
 

@@ -1,32 +1,39 @@
 {
   "entries": {
     "tailor|text-embedding-3-small": {
-      "calls": 52,
-      "promptTokens": 1439,
+      "calls": 100,
+      "promptTokens": 3016,
       "cachedTokens": 0,
       "completionTokens": 0,
-      "micros": 57
+      "micros": 113
     },
     "tailor|gpt-4.1": {
-      "calls": 84,
-      "promptTokens": 175879,
-      "cachedTokens": 3840,
-      "completionTokens": 40345,
-      "micros": 668758
+      "calls": 156,
+      "promptTokens": 369063,
+      "cachedTokens": 11264,
+      "completionTokens": 77169,
+      "micros": 1338582
     },
     "tailor|gpt-4.1-mini": {
-      "calls": 178,
-      "promptTokens": 238939,
-      "cachedTokens": 0,
-      "completionTokens": 20191,
-      "micros": 127958
+      "calls": 339,
+      "promptTokens": 497009,
+      "cachedTokens": 4992,
+      "completionTokens": 40682,
+      "micros": 262546
     },
     "judge|gpt-4o": {
-      "calls": 82,
-      "promptTokens": 141510,
+      "calls": 130,
+      "promptTokens": 222142,
       "cachedTokens": 3200,
-      "completionTokens": 4685,
-      "micros": 396646
+      "completionTokens": 7253,
+      "micros": 623918
+    },
+    "judge|gpt-4.1-mini": {
+      "calls": 17,
+      "promptTokens": 26778,
+      "cachedTokens": 0,
+      "completionTokens": 1056,
+      "micros": 12409
     }
   },
   "startedAt": "2026-11-03T03:54:41.115Z"

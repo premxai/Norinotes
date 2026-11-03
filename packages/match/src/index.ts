@@ -42,3 +42,12 @@ export {
 } from "./widen.js";
 export type { SimpleLane, TemporaryLane, WidenedBy, WideningStep } from "./widen.js";
 export { inlineLanesFitSql } from "./lanes.js";
+export {
+  FIT_BANDS, NO_RESPONSE_DAYS, OUTCOME_KINDS, OUTCOME_REASON_PREFIX, SMALL_SAMPLE, addManualOutcome, boardSizeOf, fitBandOf, listOutcomes, loadOutcomeHistory,
+  outcomeNudgeOf, removeOutcome, removeOutcomesOfKind, resolveApplication, stampTailoringVersions, statsOf, summarizeOutcomes, syncInboxOutcomes,
+} from "./outcomes.js";
+export type { BoardSize, FitBand, OutcomeHistoryRow, OutcomeKind, OutcomeRow, OutcomeState, OutcomeStats, OutcomeSummary, Resolution, SyncResult } from "./outcomes.js";
+export {
+  OUTCOME_DIMENSIONS, OUTCOME_LEARNING, applyOutcomeLearning, jobFeatures, learnFromOutcomes, loadOutcomeLearning, outcomeNudge, refreshOutcomeLearning,
+} from "./outcome-learning.js";
+export type { JobFeatures, OutcomeDimension, OutcomeLearning, OutcomeNudge } from "./outcome-learning.js";

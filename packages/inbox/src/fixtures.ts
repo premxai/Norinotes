@@ -179,3 +179,120 @@ export const genericPayload = (to: string, over: Record<string, unknown> = {}): 
   messageId: "generic-1",
   ...over,
 });
+
+// ---- more synthetic mail (no real messages) -------------------------------------------------------------------------
+
+/** Greenhouse's bot check: the code mail as HTML only, with a tracking pixel and a footer full of numbers. */
+export const GREENHOUSE_CODE_HTML = mime([
+  "From: Greenhouse <no-reply@us.greenhouse-mail.io>",
+  "To: {{to}}",
+  "Subject: Security code for your application to Pied Piper",
+  "Message-ID: <gh-code-html-1@us.greenhouse-mail.io>",
+  "Date: Sat, 31 Oct 2026 09:00:00 +0000",
+  "Authentication-Results: mx.example; spf=pass smtp.mailfrom=greenhouse-mail.io; dkim=pass header.d=greenhouse-mail.io; dmarc=pass",
+  "MIME-Version: 1.0",
+  "Content-Type: text/html; charset=utf-8",
+], `<html><head><style>p{color:#333}</style></head><body>
+<p>Hi Ada,</p>
+<p>Copy and paste this code into the security code field on your application for Staff Engineer (Req 4471) at Pied Piper:</p>
+<p style="font-size:24px"><b>Xk7Pq2Lm</b></p>
+<p>This code expires in 15 minutes. Posted on 10/30/2026.</p>
+<p>Greenhouse Software, 228 Park Ave S, New York, NY 10003. Call +1 (415) 555-0137.</p>
+<img src="https://us.greenhouse-mail.io/wf/open?upn=abc123" width="1" height="1" alt="">
+</body></html>`);
+
+export const ASHBY_CONFIRMATION = mime([
+  "From: Hooli Recruiting <no-reply@ashbyhq.com>",
+  "To: {{to}}",
+  "Subject: Thanks for applying to Hooli!",
+  "Message-ID: <ashby-confirm-1@ashbyhq.com>",
+  "Date: Sat, 31 Oct 2026 10:00:00 +0000",
+  "MIME-Version: 1.0",
+  "Content-Type: multipart/alternative; boundary=\"b1\"",
+], `--b1
+Content-Type: text/plain; charset=utf-8
+
+Hi Ada,
+
+Thanks for applying for the Product Designer role at Hooli. Our team will review your application and get back to you.
+You can check the status at https://jobs.ashbyhq.com/hooli/7c1e9b52-3f0a-4d7e-9a1b-2c3d4e5f6a7b/application?utm_source=email
+
+Hooli Recruiting
+--b1
+Content-Type: application/pdf; name="Ada_Lovelace_Resume.pdf"
+Content-Disposition: attachment; filename="Ada_Lovelace_Resume.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJcfsj6IKMSAwIG9iago8PC9UeXBlL0NhdGFsb2c+PgplbmRvYmoK
+--b1--
+`);
+
+/** Workday tenant account creation: verify by link, plus a candidate reference number that is not a code. */
+export const WORKDAY_ACCOUNT = mime([
+  "From: Umbrella Careers <umbrella@myworkday.com>",
+  "To: {{to}}",
+  "Subject: Please verify your candidate account",
+  "Message-ID: <wd-account-1@myworkday.com>",
+  "Date: Sat, 31 Oct 2026 11:00:00 +0000",
+  "MIME-Version: 1.0",
+  "Content-Type: text/plain; charset=utf-8",
+], `Hello,
+
+Thank you for creating a candidate account with Umbrella Corporation. Candidate ID: 2209183.
+To complete your registration, click the link below to verify your email address:
+
+https://umbrella.wd1.myworkdayjobs.com/en-US/External/activate/9f8e7d6c5b4a?redirect=%2Fjob%2FR-88213
+
+This link expires in 24 hours.
+`);
+
+export const CALENDLY_INTERVIEW = mime([
+  "From: Jordan Park <jordan.park@hooli.com>",
+  "To: {{to}}",
+  "Subject: Next steps - Product Designer at Hooli",
+  "Message-ID: <hooli-interview-1@hooli.com>",
+  "Date: Mon, 02 Nov 2026 15:00:00 +0000",
+  "MIME-Version: 1.0",
+  "Content-Type: text/plain; charset=utf-8",
+], `Hi Ada,
+
+Thanks for your application for the Product Designer role. We'd love to schedule a 30 minute phone screen with you.
+Please pick a time that works for you here: https://calendly.com/jordan-park-hooli/30min
+
+Looking forward to it,
+Jordan Park, Talent Partner, Hooli
+`);
+
+export const NEWSLETTER = mime([
+  "From: Career Weekly <newsletter@careerweekly.example>",
+  "To: {{to}}",
+  "Subject: 5 tips to get past the bot check in 2026",
+  "Message-ID: <cw-2026-44@careerweekly.example>",
+  "Date: Sun, 01 Nov 2026 08:00:00 +0000",
+  "MIME-Version: 1.0",
+  "Content-Type: text/plain; charset=utf-8",
+], `Career Weekly - Issue 1044
+
+Recruiters read 250 applications per role. Use promo code SAVE2026 for 20% off our resume course.
+Our code of conduct: be kind. Call 1-800-555-0199, or visit us at 500 Market St, San Francisco, CA 94105.
+Over 31337 readers got a security clearance job last year!
+
+Unsubscribe: https://careerweekly.example/unsubscribe?u=4471
+`);
+
+export const ORDER_RECEIPT = mime([
+  "From: Shop <orders@shop.example>",
+  "To: {{to}}",
+  "Subject: Your order #448812 has shipped",
+  "Message-ID: <order-448812@shop.example>",
+  "Date: Sun, 01 Nov 2026 12:00:00 +0000",
+  "MIME-Version: 1.0",
+  "Content-Type: text/plain; charset=utf-8",
+], `Thanks for your order!
+
+Order number: 448812
+Total: $129.99
+Tracking number: 1Z999AA10123456784
+Your confirmation code for returns is listed on the packing slip.
+Delivered by 11/04/2026.
+`);

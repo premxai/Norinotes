@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { profileFromRows } from "./inputs.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { applications, companies, eq, inboxAddresses, jobs, profiles, resumes, users } from "@norinote/db";
+import { createTestDb, type TestDb } from "@norinote/db/testing";
+import { loadApplyInputs, profileFromRows } from "./inputs.js";
+
+let t: TestDb;
+beforeAll(async () => { t = await createTestDb(); });
+afterAll(() => t.close());
 
 describe("profileFromRows", () => {
   it("builds the applicant from the free-form contact and work-auth JSON", () => {
@@ -25,5 +31,20 @@ describe("profileFromRows", () => {
     expect(p.phone).toBeUndefined();
     const none = profileFromRows({ email: "x@y.test" }, null);
     expect(none).toMatchObject({ email: "x@y.test", fullName: "", workAuth: {} });
+  });
+});
+
+describe("loadApplyInputs", () => {
+  it("fills forms with the owned inbox address once one is assigned, so emailed codes reach Norinote (e2e run 1)", async () => {
+    const [u] = await t.db.insert(users).values({ email: "login@example.test", passwordHash: "x" }).returning();
+    await t.db.insert(profiles).values({ userId: u!.id, contact: { name: "Ada Lovelace", email: "ada@own-mail.test" } });
+    const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: "acme-inputs", name: "Acme" }).returning();
+    const [j] = await t.db.insert(jobs).values({ companyId: c!.id, atsType: "greenhouse", externalId: "4001", title: "SRE", applyUrl: "https://job-boards.greenhouse.io/acme-inputs/jobs/4001", dedupeKey: "acme|sre|inputs" }).returning();
+    const [a] = await t.db.insert(applications).values({ userId: u!.id, jobId: j!.id, status: "applying" }).returning();
+    const [r] = await t.db.insert(resumes).values({ applicationId: a!.id, content: {}, pdfPath: "/tmp/resume.pdf" }).returning();
+    await t.db.update(applications).set({ resumeId: r!.id }).where(eq(applications.id, a!.id));
+    expect((await loadApplyInputs(t.db, a!.id)).profile.email).toBe("ada@own-mail.test");
+    await t.db.insert(inboxAddresses).values({ userId: u!.id, address: "nori-k3x9q2mhd4@in.norinote.test" });
+    expect((await loadApplyInputs(t.db, a!.id)).profile.email).toBe("nori-k3x9q2mhd4@in.norinote.test");
   });
 });

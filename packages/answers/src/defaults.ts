@@ -209,6 +209,9 @@ export function defaultAnswer(q: PendingQuestion, facts: Facts, ctx: { jobCountr
   if (START.test(label) && !/why|motivat/.test(label)) return value(q, facts.startDate);
 
   if (/relocat/.test(label)) {
+    // "Do you require relocation (assistance) to work in our SF office?" asks where the person lives now, not whether they
+    // are willing to move: willingness says nothing about it, so it is left to the person.
+    if (/\b(require|requires|need|needs)\b[^?]{0,40}\breloca|\breloca\w*\s+(assistance|package|support|benefits?|stipend|help)\b/.test(label)) return null;
     const r = bool(facts.preferences.willingToRelocate ?? facts.preferences.relocate ?? facts.preferences.openToRelocation);
     return r === null || (q.options.length > 0 && !q.options.some((o) => isYes(o) || isNo(o))) ? null : yesNo(q, r);
   }

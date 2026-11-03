@@ -1,0 +1,1865 @@
+{
+  "generatedAt": "2026-11-03T05:44:35.460Z",
+  "overall": {
+    "pairs": 27,
+    "coverageBefore": 83.4,
+    "coverageSelected": 91.7,
+    "coverageAfter": 93,
+    "exactBefore": 82.7,
+    "exactAfter": 92.4,
+    "phraseBefore": 74.6,
+    "phraseAfter": 84.4,
+    "presentOpeners": 6,
+    "yearsOnSkills": 0,
+    "strongVerbKept": 99,
+    "tackedOn": 0,
+    "boilerplate": 0,
+    "noOpKept": 61,
+    "summaryShapeOk": 81,
+    "repeatedFacts": 0,
+    "junkSkills": 0,
+    "unnamed": 0,
+    "unsupported": 0,
+    "banned": 0,
+    "wordsPerBullet": 19.4,
+    "wordsPerRewritten": 21.8,
+    "verbDiversity": 1,
+    "rewritten": 43,
+    "offered": 139,
+    "reverted": 31,
+    "judge": {
+      "model": "gpt-4o",
+      "relevance": 3.3,
+      "truthfulness": 4.9,
+      "specificity": 4,
+      "tone": 4.1,
+      "fabrications": 2
+    },
+    "tailorUsdPerResume": 0.011070666666666689,
+    "tailorUsdMax": 0.014841000000000104,
+    "totalUsd": 2.150132
+  },
+  "rows": [
+    {
+      "profile": "new_grad_swe",
+      "kind": "top",
+      "job": "Software Engineer, Product @ Prelim",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 3
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 2,
+      "offered": 5,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 20.8,
+      "wordsPerRewritten": 22.5,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant skills and experiences for the job posting, with no fabrications and good specificity.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.010032999999999959,
+      "judgeUsd": 0.00445300000000004,
+      "error": null,
+      "examples": [
+        {
+          "before": "Ran weekly recitations for 40 students, wrote autograder scripts in Python, held office hours.",
+          "after": "Led weekly recitations for 40 students, created autograder scripts in Python, and held office hours to support learning."
+        },
+        {
+          "before": "Web app that ingests the public MTA GTFS-realtime feed every 30 seconds and shows delays per line. Go service with a worker pool, React and TypeScript front end, deployed on Fly.io. About 400 weekly users in the first month.",
+          "after": "Created a web app with a React front end that ingests MTA GTFS-realtime feed every 30 seconds and shows delays per line to about 400 weekly users."
+        }
+      ],
+      "summary": "Computer science graduate targeting software engineer roles, skilled in React, Node.js, and PostgreSQL. Built a REST endpoint in Python and PostgreSQL for clinic staff and delivered a web app with 400 weekly users in its first month."
+    },
+    {
+      "profile": "new_grad_swe",
+      "kind": "middle",
+      "job": "Software Engineer II (Fullstack), Digital Storefront @ Toast",
+      "fit": 0.619,
+      "coverage": {
+        "before": 50,
+        "selected": 75,
+        "after": 75,
+        "exactBefore": 50,
+        "exactAfter": 75,
+        "phraseBefore": 50,
+        "phraseAfter": 75,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Experience developing full stack web applications"
+      ],
+      "gaps": [
+        "Experience with backend technologies like Node.js and Java/Kotlin (lacks Kotlin)",
+        "Skilled with web fundamentals like HTML, CSS, and JavaScript (lacks HTML, CSS)",
+        "Passionate about writing testable and clean code with API design and unit/integration testing (lacks API)",
+        "Ability to work collaboratively in a team-based environment",
+        "Experience with tools like Docker, Git, Bash/ZSH (lacks Bash)"
+      ],
+      "rewritten": 1,
+      "offered": 5,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "no open gaps, no gate failures, nothing unreviewed",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 24,
+      "wordsPerRewritten": 22,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant skills and experiences for the Software Engineer II role, with a strong focus on full-stack development and technologies like Node.js and Java. It maintains truthfulness and specificity, though it could better emphasize experience with large-scale consumer-facing products.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.01121799999999995,
+      "judgeUsd": 0.004964999999999886,
+      "error": null,
+      "examples": [
+        {
+          "before": "Ran weekly recitations for 40 students, wrote autograder scripts in Python, held office hours.",
+          "after": "Wrote autograder scripts in Python for weekly recitations, ran sessions for 40 students, and held office hours in a data structures course."
+        }
+      ],
+      "summary": "Computer science graduate targeting software engineer roles, working with Node.js, Java, Docker and Git. Wrote autograder scripts in Python for weekly recitations, ran sessions for 40 students, and held office hours in a data structures course."
+    },
+    {
+      "profile": "senior_frontend",
+      "kind": "top",
+      "job": "Senior Frontend Software Engineer, Consumer Engineering @ Reddit",
+      "fit": 0.825,
+      "coverage": {
+        "before": 80,
+        "selected": 80,
+        "after": 80,
+        "exactBefore": 80,
+        "exactAfter": 80,
+        "phraseBefore": 80,
+        "phraseAfter": 80,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 4,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 4,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Bachelor’s degree in Computer Science or related field or equivalent experience"
+      ],
+      "gaps": [
+        "Experience designing and building robust APIs (lacks APIs)",
+        "API design (lacks API design, API)"
+      ],
+      "rewritten": 0,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.3,
+      "wordsPerRewritten": null,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 5,
+        "tone": 5,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant experience and skills for the Reddit position, maintaining truthfulness and specificity throughout.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.011154000000000108,
+      "judgeUsd": 0.004450000000000065,
+      "error": null,
+      "examples": [],
+      "summary": "Senior frontend engineer with 9 years of experience, working with JavaScript, TypeScript, React and Next.js. Tech lead for the merchant dashboard used by 120,000 merchants."
+    },
+    {
+      "profile": "senior_frontend",
+      "kind": "middle",
+      "job": "Senior Software Engineer, Developer Productivity @ Sprig",
+      "fit": 0.71,
+      "coverage": {
+        "before": 88,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 88,
+        "exactAfter": 100,
+        "phraseBefore": 88,
+        "phraseAfter": 100,
+        "total": 8
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 4,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "no open gaps, no gate failures, nothing unreviewed",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 16.5,
+      "wordsPerRewritten": 18,
+      "verbDiversity": 0.83,
+      "repeatedOpeners": 1,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and well-written, but it lacks direct relevance to the job posting's focus on CI/CD and monorepo management.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.012046000000000001,
+      "judgeUsd": 0.004684999999999828,
+      "error": null,
+      "examples": [
+        {
+          "before": "Tech lead for the merchant dashboard (React, TypeScript, GraphQL, Next.js) used by 120,000 merchants; led a team of 5.",
+          "after": "React and TypeScript tech lead for the merchant dashboard used by 120,000 merchants; led a team of 5."
+        }
+      ],
+      "summary": "Senior frontend engineer with 9 years of experience, working with Figma, TypeScript, React and JavaScript. React and TypeScript tech lead for the merchant dashboard used by 120,000 merchants."
+    },
+    {
+      "profile": "backend_platform_mid",
+      "kind": "top",
+      "job": "Senior Software Engineer, ML Platform @ Dailypay",
+      "fit": 0.842,
+      "coverage": {
+        "before": 43,
+        "selected": 86,
+        "after": 86,
+        "exactBefore": 43,
+        "exactAfter": 86,
+        "phraseBefore": 29,
+        "phraseAfter": 71,
+        "total": 7
+      },
+      "readability": {
+        "strongOriginal": 5,
+        "strongKept": 5,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Experience building and operating production services"
+      ],
+      "gaps": [
+        "Experience with distributed systems and service-oriented architecture (lacks distributed systems)",
+        "Experience with infrastructure-as-code (Terraform or CloudFormation) (lacks infrastructure-as-code)",
+        "Experience with CI/CD pipelines (GitHub Actions or equivalent) (lacks GitHub Actions)"
+      ],
+      "rewritten": 0,
+      "offered": 6,
+      "reverted": 6,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 16.8,
+      "wordsPerRewritten": null,
+      "verbDiversity": 0.88,
+      "repeatedOpeners": 1,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 4,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [
+          "6 years of experience (should be 5 years)"
+        ],
+        "comment": "The tailored resume effectively highlights relevant skills and experience for the ML platform role, but slightly exaggerates the candidate's experience duration.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.014841000000000104,
+      "judgeUsd": 0.004774999999999974,
+      "error": null,
+      "examples": [],
+      "summary": "Software engineer with 6 years of experience building with Python, AWS, Terraform, and CI/CD pipelines. Built an internal deployment CLI and Terraform modules used by 9 teams and owned a shipment-tracking service processing 18 million events per day at p99 latency under 120 ms."
+    },
+    {
+      "profile": "backend_platform_mid",
+      "kind": "middle",
+      "job": "Senior Software Engineer (Backend) @ Vclusterlabs",
+      "fit": 0.676,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 2
+      },
+      "readability": {
+        "strongOriginal": 5,
+        "strongKept": 5,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Ability to manage feature development end-to-end",
+        "Self-driven with high technical agency",
+        "Experience working in high-growth startup environments"
+      ],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 16.8,
+      "wordsPerRewritten": 21,
+      "verbDiversity": 0.88,
+      "repeatedOpeners": 1,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 4,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [
+          "Software engineer with 6 years of experience"
+        ],
+        "comment": "The tailored resume effectively highlights relevant Kubernetes and Go experience, but slightly exaggerates the total years of experience.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.011932000000000054,
+      "judgeUsd": 0.004657999999999829,
+      "error": null,
+      "examples": [
+        {
+          "before": "Own the shipment-tracking service (Go, gRPC, PostgreSQL, Kafka) that processes 18 million events per day at p99 latency under 120 ms.",
+          "after": "Owned the shipment-tracking service (Go, gRPC, PostgreSQL, Kafka) that processed 18 million events per day at p99 latency under 120 ms."
+        }
+      ],
+      "summary": "Software engineer with 6 years of experience, working with Kubernetes and Go. Migrated a nightly batch job from cron on a VM to Kubernetes CronJobs."
+    },
+    {
+      "profile": "data_scientist_ml",
+      "kind": "top",
+      "job": "Data Scientist ll - RiskOS @ Socure",
+      "fit": 0.8,
+      "coverage": {
+        "before": 43,
+        "selected": 71,
+        "after": 100,
+        "exactBefore": 29,
+        "exactAfter": 86,
+        "phraseBefore": 29,
+        "phraseAfter": 71,
+        "total": 7
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Experience owning end-to-end analytics and model development projects",
+        "Experience with data science and ML libraries like pandas, scikit-learn, XGBoost, PySpark (lacks pandas)",
+        "Experience with Generative AI or LLM-based products (lacks Generative AI, AI, LLM)"
+      ],
+      "rewritten": 1,
+      "offered": 4,
+      "reverted": 2,
+      "rounds": 2,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 29,
+      "wordsPerRewritten": 29,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific, but lacks direct relevance to the job's focus on fraud detection and RiskOS.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.013036000000000048,
+      "judgeUsd": 0.004693000000000058,
+      "error": null,
+      "examples": [
+        {
+          "before": "Served product-ranking model via Python microservice on Kubernetes at 40 ms p95 latency; lifted conversion by 2.3%.",
+          "after": "Served product-ranking model via Python microservice on Kubernetes at 40 ms p95 latency; lifted conversion by 2.3% working with large, heterogeneous datasets related to fraud, risk, trust & safety."
+        }
+      ],
+      "summary": "Senior data scientist with 5 years of experience, working with machine learning, Python, SQL and scikit-learn. Developed NLP models to extract variants from 200,000 clinical notes with 0.91 F1."
+    },
+    {
+      "profile": "data_scientist_ml",
+      "kind": "middle",
+      "job": "Sr Data Engineer @ Meridianlink",
+      "fit": 0.579,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 2
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "ETL (lacks ETL)",
+        "Databricks (lacks Databricks)"
+      ],
+      "rewritten": 1,
+      "offered": 4,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 26,
+      "wordsPerRewritten": 17,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant skills and experience, but could better emphasize data engineering aspects over data science.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.010391000000000039,
+      "judgeUsd": 0.004504999999999981,
+      "error": null,
+      "examples": [
+        {
+          "before": "Served product-ranking model via Python microservice on Kubernetes at 40 ms p95 latency; lifted conversion by 2.3%.",
+          "after": "Served product-ranking model via Python microservice on Kubernetes at 40 ms p95 latency, lifting conversion by 2.3%."
+        }
+      ],
+      "summary": "Senior data scientist with 5 years of experience targeting data engineer roles, working with SQL, Python, Machine Learning and Spark. Developed NLP models to extract variants from 200,000 clinical notes with 0.91 F1."
+    },
+    {
+      "profile": "product_manager",
+      "kind": "top",
+      "job": "Senior Product Manager @ Versapay",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 3,
+        "strongKept": 3,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 5,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 18.9,
+      "wordsPerRewritten": 22,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant experience and skills for the Senior Product Manager role, with no fabrications and good specificity.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.011041999999999996,
+      "judgeUsd": 0.004815000000000014,
+      "error": null,
+      "examples": [
+        {
+          "before": "Own the invoicing and collections product line (ARR $38M); manage a squad of 7 engineers, 1 designer and 1 data analyst.",
+          "after": "Owned the invoicing and collections product line (ARR $38M) and managed a squad of 7 engineers, 1 designer, and 1 data analyst."
+        }
+      ],
+      "summary": "Senior product manager with 7 years of experience, working with A/B Testing and Figma. Owned the invoicing and collections product line and managed a squad of 7 engineers, 1 designer, and 1 data analyst."
+    },
+    {
+      "profile": "product_manager",
+      "kind": "middle",
+      "job": "OP Labs - Sr. Product Manager, Fintechs & Exchanges @ Decircletalentpartner",
+      "fit": 0.684,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 2
+      },
+      "readability": {
+        "strongOriginal": 3,
+        "strongKept": 3,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 5,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 18.9,
+      "wordsPerRewritten": 22,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific but lacks direct relevance to the blockchain and crypto exchange focus of the job posting.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.010894999999999877,
+      "judgeUsd": 0.0048080000000001455,
+      "error": null,
+      "examples": [
+        {
+          "before": "Own the invoicing and collections product line (ARR $38M); manage a squad of 7 engineers, 1 designer and 1 data analyst.",
+          "after": "Owned the invoicing and collections product line (ARR $38M) and managed a squad of 7 engineers, 1 designer and 1 data analyst."
+        }
+      ],
+      "summary": "Senior product manager with 7 years of experience, working with Figma. Owned the invoicing and collections product line and managed a squad of 7 engineers, 1 designer and 1 data analyst."
+    },
+    {
+      "profile": "product_designer",
+      "kind": "top",
+      "job": "Staff Product Designer @ F2 Ai",
+      "fit": 0.784,
+      "coverage": {
+        "before": 80,
+        "selected": 80,
+        "after": 80,
+        "exactBefore": 80,
+        "exactAfter": 80,
+        "phraseBefore": 60,
+        "phraseAfter": 80,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 4,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Strong portfolio demonstrating design thinking and problem solving"
+      ],
+      "gaps": [
+        "5+ years of experience in product design or UX/UI (lacks UI)",
+        "Experience leading end-to-end design across features",
+        "Experience with SaaS products and/or AI-driven tools (lacks SaaS, AI)",
+        "product design (lacks product design)",
+        "UX/UI design (lacks UX/UI design, UI design)"
+      ],
+      "rewritten": 2,
+      "offered": 6,
+      "reverted": 4,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.3,
+      "wordsPerRewritten": 21,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume aligns well with the job posting by emphasizing relevant skills and experience in product design, UX research, and design systems, with concrete metrics and tools; it remains truthful to the original and reads naturally, though it could highlight AI or B2B SaaS experience more explicitly.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.014738999999999836,
+      "judgeUsd": 0.005249000000000059,
+      "error": null,
+      "examples": [
+        {
+          "before": "Partner with research to run quarterly diary studies; synthesised findings into 3 roadmap bets.",
+          "after": "Synthesized findings from quarterly diary studies with business stakeholders and research partners into 3 roadmap bets reflecting design thinking."
+        },
+        {
+          "before": "Designed patient scheduling and messaging flows for a telehealth app with 250,000 patients; reduced no-shows by 14%. Ran 30+ usability sessions and wrote design critiques for a team of 4 designers.",
+          "after": "Designed patient scheduling and messaging flows for a telehealth app with 250,000 patients, reducing no-shows by 14% through UX research and usability testing."
+        }
+      ],
+      "summary": "Senior product designer with 8 years of experience, working with UX, design systems and usability testing. Built and maintain a Figma component library of 140 components with design tokens, now used by 6 product teams."
+    },
+    {
+      "profile": "product_designer",
+      "kind": "middle",
+      "job": "Sr. Designer, Multidisciplinary @ Gmrmarketing",
+      "fit": 0.585,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 1
+      },
+      "readability": {
+        "strongOriginal": 5,
+        "strongKept": 5,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 4,
+      "offered": 6,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 15.8,
+      "wordsPerRewritten": 17.3,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume truthfully reflects the original experience and skills but lacks emphasis on multidisciplinary design, motion graphics, 3D, and experiential media specifically requested by the posting, limiting relevance.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.010828999999999978,
+      "judgeUsd": 0.0007390000000000452,
+      "error": null,
+      "examples": [
+        {
+          "before": "Built and maintain a Figma component library of 140 components with design tokens, now used by 6 product teams.",
+          "after": "Built and maintained a Figma component library of 140 components with design tokens, now used by 6 product teams."
+        },
+        {
+          "before": "Partner with research to run quarterly diary studies; synthesised findings into 3 roadmap bets.",
+          "after": "Partnered with research to run quarterly diary studies and synthesised findings into 3 roadmap bets."
+        },
+        {
+          "before": "Designed patient scheduling and messaging flows for a telehealth app with 250,000 patients; reduced no-shows by 14%. Ran 30+ usability sessions and wrote design critiques for a team of 4 designers.",
+          "after": "Designed patient scheduling and messaging flows for a telehealth app with 250,000 patients, reducing no-shows by 14%."
+        }
+      ],
+      "summary": "Senior product designer with 8 years of experience, working with Figma. Built and maintained a Figma component library of 140 components with design tokens, now used by 6 product teams."
+    },
+    {
+      "profile": "devops_sre",
+      "kind": "top",
+      "job": "DevOps Engineer @ Merge",
+      "fit": 0.884,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 80,
+        "phraseAfter": 80,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 5,
+        "strongKept": 5,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Deep experience with AWS/GCP cloud infrastructure (lacks GCP)"
+      ],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.4,
+      "wordsPerRewritten": 18,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 5,
+        "truthfulness": 5,
+        "specificity": 5,
+        "tone": 5,
+        "fabrications": [],
+        "comment": "The tailored resume accurately reflects the original resume's content with strong relevance to the job posting, detailed specifics, and a professional tone.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.014367999999999936,
+      "judgeUsd": 0.000756000000000201,
+      "error": null,
+      "examples": [
+        {
+          "before": "Operate a multi-region EKS platform with 300+ services; maintain 99.95% availability for tier-1 APIs against a 99.9% SLO.",
+          "after": "Operated a multi-region EKS platform with 300+ services, maintaining 99.95% availability for tier-1 APIs against a 99.9% SLO."
+        }
+      ],
+      "summary": "Senior site reliability engineer with 7 years of experience, working with DevOps, AWS, Terraform and Kubernetes. Cut AWS spend by $1.1M a year through rightsizing, Savings Plans and Karpenter autoscaling."
+    },
+    {
+      "profile": "devops_sre",
+      "kind": "middle",
+      "job": "Senior Infrastructure Engineer @ Axion",
+      "fit": 0.594,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 5,
+        "strongKept": 5,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 3,
+      "offered": 6,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 18.1,
+      "wordsPerRewritten": 19.7,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 5,
+        "truthfulness": 5,
+        "specificity": 5,
+        "tone": 5,
+        "fabrications": [],
+        "comment": "The tailored resume accurately reflects the candidate's original experience and skills, emphasizing relevant infrastructure, CI/CD, Kubernetes, Terraform, and observability expertise with concrete achievements and metrics, all presented in a clear, professional tone.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.01167399999999974,
+      "judgeUsd": 0.0007760000000001099,
+      "error": null,
+      "examples": [
+        {
+          "before": "Built observability with Prometheus, Grafana, OpenTelemetry and PagerDuty.",
+          "after": "Built observability with Prometheus and Grafana, implementing OpenTelemetry and PagerDuty to enhance monitoring and alerting for production systems."
+        },
+        {
+          "before": "Operate a multi-region EKS platform with 300+ services; maintain 99.95% availability for tier-1 APIs against a 99.9% SLO.",
+          "after": "Operated a multi-region EKS platform with 300+ services and maintained 99.95% availability for tier-1 APIs against a 99.9% SLO."
+        },
+        {
+          "before": "Migrated 40 services from EC2 to Docker and Kubernetes; wrote Helm charts and Jenkins and GitHub Actions pipelines. Automated PostgreSQL backup and restore tests with Ansible and Python.",
+          "after": "Migrated 40 services from EC2 to Docker and Kubernetes and wrote Helm charts and Jenkins and GitHub Actions pipelines to improve CI/CD."
+        }
+      ],
+      "summary": "Senior site reliability engineer with 7 years of experience, working with CI/CD, Kubernetes, Terraform and Prometheus. Wrote Terraform modules and an ArgoCD GitOps pipeline that cut deployment time from 40 minutes to 8 and enabled 150+ deploys a day."
+    },
+    {
+      "profile": "account_executive",
+      "kind": "top",
+      "job": "Enterprise Account Executive, Higher Ed @ Boxinc",
+      "fit": 0.753,
+      "coverage": {
+        "before": 50,
+        "selected": 50,
+        "after": 50,
+        "exactBefore": 50,
+        "exactAfter": 50,
+        "phraseBefore": 0,
+        "phraseAfter": 0,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Ability to close complex deals",
+        "Experience in Higher Education vertical sales"
+      ],
+      "gaps": [
+        "Proven success selling SaaS (lacks SaaS)",
+        "SaaS sales (lacks SaaS sales, SaaS)",
+        "Sales process management (lacks Sales process management)",
+        "Experience with ECM, Cloud, or SaaS sales (lacks SaaS)"
+      ],
+      "rewritten": 5,
+      "offered": 5,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 15.8,
+      "wordsPerRewritten": 15.8,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume accurately reflects the original experience and skills but lacks direct references to AI, content management, or higher education sectors emphasized in the posting, limiting its relevance.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.013862000000000041,
+      "judgeUsd": 0.000716000000000161,
+      "error": null,
+      "examples": [
+        {
+          "before": "Carry a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts (1,000 to 10,000 employees).",
+          "after": "Carried a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts with 1,000 to 10,000 employees."
+        },
+        {
+          "before": "President's Club 2024 and 2025.",
+          "after": "Achieved President's Club recognition in 2024 and 2025."
+        },
+        {
+          "before": "Run discovery, demos with a sales engineer, security questionnaires and procurement negotiation; forecast weekly in Salesforce.",
+          "after": "Ran discovery, demos with a sales engineer, security questionnaires, procurement negotiation, and forecasted weekly in Salesforce."
+        }
+      ],
+      "summary": "Senior account executive in the enterprise account executive field with 7 years of experience, carrying a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts. Earned President's Club in 2024 and 2025 and exceeded quota 7 of 10 quarters."
+    },
+    {
+      "profile": "account_executive",
+      "kind": "middle",
+      "job": "Enterprise Sales Development Representative @ Smartlyio",
+      "fit": 0.675,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 1
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 4,
+        "summaryShapeOk": false,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 1,
+      "offered": 5,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 14.8,
+      "wordsPerRewritten": 17,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume aligns well with the job posting by emphasizing sales development experience and relevant skills, maintaining truthfulness with the original resume, and providing specific metrics and tools, though it could better highlight personalized outreach and collaboration aspects mentioned in the posting.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.00950300000000004,
+      "judgeUsd": 0.0007109999999999062,
+      "error": null,
+      "examples": [
+        {
+          "before": "Run discovery, demos with a sales engineer, security questionnaires and procurement negotiation; forecast weekly in Salesforce.",
+          "after": "Forecasted weekly in Salesforce while running discovery, demos with a sales engineer, security questionnaires, and procurement negotiation."
+        }
+      ],
+      "summary": "Sales development representative, working with Salesforce. Carry a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts."
+    },
+    {
+      "profile": "marketing_manager",
+      "kind": "top",
+      "job": "Director, Demand Generation @ Kpaonline",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 3
+      },
+      "readability": {
+        "strongOriginal": 6,
+        "strongKept": 6,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 2,
+      "offered": 5,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.8,
+      "wordsPerRewritten": 25.5,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 5,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume closely matches the job posting's demand generation focus with strong specifics and truthful content, though it could emphasize strategic leadership aspects more to fully align with the Director role.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.010599000000000025,
+      "judgeUsd": 0.0007489999999998886,
+      "error": null,
+      "examples": [
+        {
+          "before": "Own a $1.4M annual program budget across paid search, paid social, events and webinars; sourced $9.8M in pipeline in 2025 at a blended CAC 22% below target.",
+          "after": "Owned a $1.4M annual program budget across paid search, paid social, events and webinars, sourcing $9.8M in pipeline in 2025 at a blended CAC 22% below target."
+        },
+        {
+          "before": "Grew organic blog traffic from 40K to 160K monthly visits through SEO and content refresh; wrote the monthly newsletter (28% open rate). Ran email lifecycle campaigns for 60,000 subscribers in Marketo.",
+          "after": "Grew organic blog traffic from 40K to 160K monthly visits through SEO and content refresh; wrote the monthly newsletter with a 28% open rate."
+        }
+      ],
+      "summary": "Marketing manager targeting demand generation director roles, bringing skills in HubSpot, Salesforce, and SEO. Rebuilt the lead scoring and nurture flows in HubSpot and grew organic blog traffic from 40K to 160K monthly visits through SEO and content refresh."
+    },
+    {
+      "profile": "marketing_manager",
+      "kind": "middle",
+      "job": "Senior Growth Analyst @ Roo",
+      "fit": 0.627,
+      "coverage": {
+        "before": null,
+        "selected": null,
+        "after": null,
+        "exactBefore": null,
+        "exactAfter": null,
+        "phraseBefore": null,
+        "phraseAfter": null,
+        "total": 0
+      },
+      "readability": {
+        "strongOriginal": 6,
+        "strongKept": 6,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 2,
+        "summaryShapeOk": false,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "SQL (lacks SQL)"
+      ],
+      "rewritten": 1,
+      "offered": 5,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 19,
+      "wordsPerRewritten": 27,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 2,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume truthfully reflects the original but is only somewhat relevant to the Senior Growth Analyst role, focusing on marketing rather than data analysis or SQL skills emphasized in the posting.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.010421000000000014,
+      "judgeUsd": 0.0007289999999997576,
+      "error": null,
+      "examples": [
+        {
+          "before": "Own a $1.4M annual program budget across paid search, paid social, events and webinars; sourced $9.8M in pipeline in 2025 at a blended CAC 22% below target.",
+          "after": "Owned a $1.4M annual program budget across paid search, paid social, events, and webinars; sourced $9.8M in pipeline in 2025 at a blended CAC 22% below target."
+        }
+      ],
+      "summary": "Communications graduate targeting growth analyst roles. Owned a $1.4M annual program budget across paid search, paid social, events, and webinars."
+    },
+    {
+      "profile": "financial_analyst",
+      "kind": "top",
+      "job": "Senior Financial Analyst, Category Finance – Away from Home & Ingredients @ US Kraft Heinz",
+      "fit": 0.811,
+      "coverage": {
+        "before": 75,
+        "selected": 75,
+        "after": 75,
+        "exactBefore": 75,
+        "exactAfter": 75,
+        "phraseBefore": 50,
+        "phraseAfter": 50,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "BS in Finance, Accounting, Economics, or related field"
+      ],
+      "gaps": [],
+      "rewritten": 3,
+      "offered": 6,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 16.5,
+      "wordsPerRewritten": 20.3,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume closely matches the job posting's requirements with relevant skills and experience, maintains truthfulness with no fabrications, includes specific achievements and tools, and reads naturally without keyword stuffing.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.010789000000000382,
+      "judgeUsd": 0.0007269999999999222,
+      "error": null,
+      "examples": [
+        {
+          "before": "Own the monthly forecast and variance reporting for a $320M business unit; present to the VP of Finance and the business unit GM.",
+          "after": "Owned the monthly forecast and variance reporting for a $320M business unit and presented to the VP of Finance and the business unit GM."
+        },
+        {
+          "before": "Partner with supply chain on margin bridges and standard cost updates; support SOX controls for revenue accruals.",
+          "after": "Collaborated with supply chain on margin bridges and standard cost updates and supported SOX controls for revenue accruals."
+        },
+        {
+          "before": "Rebuilt the annual operating plan model in Excel and Power BI, cutting the budget cycle from 6 weeks to 4.",
+          "after": "Rebuilt the annual operating plan model in Excel and PowerBI, cutting the budget cycle from 6 weeks to 4."
+        }
+      ],
+      "summary": "Financial analyst with 4 years of experience, working with Excel, SAP and PowerBI. Rebuilt the annual operating plan model in Excel and PowerBI, cutting the budget cycle from 6 weeks to 4."
+    },
+    {
+      "profile": "financial_analyst",
+      "kind": "middle",
+      "job": "Senior Financial Analyst (Hybrid) @ Rewardsnetwork",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 1
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 3,
+      "offered": 6,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 16.8,
+      "wordsPerRewritten": 21,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume aligns well with the job posting's requirements, emphasizing relevant skills and experience without fabrications, though it could improve by explicitly linking experience to marketing and partnerships finance.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.010194999999999954,
+      "judgeUsd": 0.0007009999999998406,
+      "error": null,
+      "examples": [
+        {
+          "before": "Rebuilt the annual operating plan model in Excel and Power BI, cutting the budget cycle from 6 weeks to 4.",
+          "after": "Rebuilt the annual operating plan model using Power BI and Excel, cutting the budget cycle from 6 weeks to 4."
+        },
+        {
+          "before": "Own the monthly forecast and variance reporting for a $320M business unit; present to the VP of Finance and the business unit GM.",
+          "after": "Owned the monthly forecast and variance reporting for a $320M business unit and presented findings to the VP of Finance and the business unit GM."
+        },
+        {
+          "before": "Partner with supply chain on margin bridges and standard cost updates; support SOX controls for revenue accruals.",
+          "after": "Partnered with supply chain on margin bridges and standard cost updates and supported SOX controls for revenue accruals."
+        }
+      ],
+      "summary": "Financial analyst with 4 years of experience, working with Financial Modeling, SQL and Power BI. Rebuilt the annual operating plan model using Power BI and Excel, cutting the budget cycle from 6 weeks to 4."
+    },
+    {
+      "profile": "registered_nurse",
+      "kind": "top",
+      "job": "Registered Nurse | Chemo Infusion @ Elyb",
+      "fit": 0,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 75,
+        "phraseAfter": 75,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 0,
+        "strongKept": 0,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Current American Heart Association BLS Healthcare Provider card (lacks BLS)",
+        "Obtain Oncology Nurse Society Chemotherapy provider card within 6 months of hire",
+        "Maintain current Oncology Nurse Society provider card at all times",
+        "chemotherapy administration (lacks chemotherapy administration)",
+        "biotherapy administration (lacks biotherapy administration)",
+        "central venous access management (lacks central venous access management)"
+      ],
+      "rewritten": 1,
+      "offered": 4,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 24,
+      "wordsPerRewritten": 25,
+      "verbDiversity": 0.75,
+      "repeatedOpeners": 1,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume truthfully reflects the original experience but lacks specific oncology or chemotherapy infusion experience and certifications required by the posting, limiting relevance.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.011621000000000326,
+      "judgeUsd": 0.0007219999999996674,
+      "error": null,
+      "examples": [
+        {
+          "before": "Provide care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpret rhythms, titrate cardiac drips per protocol, and coordinate with cardiology.",
+          "after": "Cared for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit, interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+        }
+      ],
+      "summary": "Registered nurse with 6 years of experience, working with patient assessment and patient education. Cared for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit, interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+    },
+    {
+      "profile": "registered_nurse",
+      "kind": "middle",
+      "job": "Registered Nurse | Orthopedics @ Elyb",
+      "fit": 0,
+      "coverage": {
+        "before": 75,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 75,
+        "exactAfter": 100,
+        "phraseBefore": 50,
+        "phraseAfter": 75,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 0,
+        "strongKept": 0,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 2,
+        "summaryShapeOk": false,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Current American Heart Association BLS Healthcare Provider card (lacks BLS)",
+        "Registered Nurse license (lacks Registered Nurse license)",
+        "Basic Life Support (BLS) (lacks Basic Life Support (BLS), Basic Life Support)"
+      ],
+      "rewritten": 1,
+      "offered": 4,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 24.3,
+      "wordsPerRewritten": 26,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific with relevant orthopedic experience, but could emphasize orthopedic nursing more explicitly to better match the posting.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.011093000000000242,
+      "judgeUsd": 0.0007429999999999382,
+      "error": null,
+      "examples": [
+        {
+          "before": "Provide care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpret rhythms, titrate cardiac drips per protocol, and coordinate with cardiology.",
+          "after": "Provided care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+        }
+      ],
+      "summary": "Registered nurse with 6 years of experience. Provided care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit."
+    },
+    {
+      "profile": "bootcamp_frontend",
+      "kind": "top",
+      "job": "Design Engineer @ Method",
+      "fit": 0.75,
+      "coverage": {
+        "before": 50,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 50,
+        "exactAfter": 100,
+        "phraseBefore": 50,
+        "phraseAfter": 100,
+        "total": 2
+      },
+      "readability": {
+        "strongOriginal": 0,
+        "strongKept": 0,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": false,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 0,
+      "offered": 4,
+      "reverted": 0,
+      "rounds": 0,
+      "stopReason": "model unavailable",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 24.5,
+      "wordsPerRewritten": null,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume accurately reflects the candidate's original experience and skills, but it lacks direct mention of design engineering or visual/motion design skills critical for the posting, limiting relevance.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.007665999999999951,
+      "judgeUsd": 0.0007419999999997984,
+      "error": "UNKNOWN: unknown error, open 'C:\\dev\\norinote-clean\\scripts\\eval\\results\\tailor-spend-ledger.json'",
+      "examples": [],
+      "summary": "Software engineering immersive graduate, working with JavaScript and React. Taught Algebra II, Statistics and AP Calculus to 150 students a year."
+    },
+    {
+      "profile": "bootcamp_frontend",
+      "kind": "middle",
+      "job": "Program Engineer @ Designedconveyorsystems",
+      "fit": 0.574,
+      "coverage": {
+        "before": null,
+        "selected": null,
+        "after": null,
+        "exactBefore": null,
+        "exactAfter": null,
+        "phraseBefore": null,
+        "phraseAfter": null,
+        "total": 0
+      },
+      "readability": {
+        "strongOriginal": 0,
+        "strongKept": 0,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Project Management (lacks Project Management)",
+        "System Design (lacks System Design)"
+      ],
+      "rewritten": 1,
+      "offered": 2,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "no open gaps, no gate failures, nothing unreviewed",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 18.5,
+      "wordsPerRewritten": 29,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 2,
+        "truthfulness": 5,
+        "specificity": 3,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume truthfully reflects the original but is only loosely relevant to the Program Engineer role, focusing on teaching and basic scripting rather than engineering program management or technical integration.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.007713000000000303,
+      "judgeUsd": 0.0006729999999999237,
+      "error": null,
+      "examples": [
+        {
+          "before": "Taught Algebra II, Statistics and AP Calculus to 150 students a year; designed hybrid curriculum and built spreadsheets and Python scripts to automate grading and track progress; led department technology committee and trained 12 teachers on new LMS.",
+          "after": "Built spreadsheets and Python scripts to automate grading and track progress for Algebra II, Statistics and AP Calculus students, and trained 12 teachers on a new learning management system."
+        }
+      ],
+      "summary": "Software engineering immersive graduate. Built spreadsheets and Python scripts to automate grading and track progress for Algebra II, Statistics and AP Calculus students, and trained 12 teachers on a new learning management system."
+    },
+    {
+      "profile": "registered_nurse",
+      "kind": "adversarial",
+      "job": "Senior Software Engineer, ML Platform @ Dailypay",
+      "fit": 0.842,
+      "coverage": {
+        "before": null,
+        "selected": null,
+        "after": null,
+        "exactBefore": null,
+        "exactAfter": null,
+        "phraseBefore": null,
+        "phraseAfter": null,
+        "total": 0
+      },
+      "readability": {
+        "strongOriginal": 0,
+        "strongKept": 0,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 2,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "5+ years professional software engineering experience",
+        "Proficiency in Python (lacks Python)",
+        "Experience building and operating production services",
+        "Strong cloud platform proficiency (AWS preferred) (lacks AWS)",
+        "Experience with distributed systems and service-oriented architecture (lacks distributed systems)",
+        "Experience with infrastructure-as-code (Terraform or CloudFormation) (lacks infrastructure-as-code, Terraform)",
+        "Experience with CI/CD pipelines (GitHub Actions or equivalent) (lacks CI/CD pipelines, GitHub Actions)",
+        "Experience with containerization and orchestration (Docker, Kubernetes or ECS) (lacks Docker, Kubernetes, ECS)"
+      ],
+      "rewritten": 2,
+      "offered": 4,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 24.5,
+      "wordsPerRewritten": 25,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 1,
+        "truthfulness": 5,
+        "specificity": 3,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific about nursing experience but completely irrelevant to the ML platform software engineer role, showing no software engineering skills or experience.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.008236999999999828,
+      "judgeUsd": 0.000716000000000161,
+      "error": null,
+      "examples": [
+        {
+          "before": "Provide care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpret rhythms, titrate cardiac drips per protocol, and coordinate with cardiology.",
+          "after": "Provided care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit, interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+        },
+        {
+          "before": "Precept new graduate nurses (5 in 2025); led a unit project that reduced falls by 28% with hourly rounding. Epic and Pyxis proficiency.",
+          "after": "Precepted new graduate nurses (5 in 2025) and led a unit project that reduced falls by 28% with hourly rounding; Epic and Pyxis proficiency."
+        }
+      ],
+      "summary": "Nursing graduate targeting software engineer roles. Provided care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit, interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+    },
+    {
+      "profile": "financial_analyst",
+      "kind": "adversarial",
+      "job": "Staff Product Designer @ F2 Ai",
+      "fit": 0.784,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 0,
+        "phraseAfter": 100,
+        "total": 1
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 4,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "5+ years of experience in product design or UX/UI (lacks UX, UI)",
+        "Strong portfolio demonstrating design thinking and problem solving",
+        "Experience leading end-to-end design across features",
+        "Experience with SaaS products and/or AI-driven tools (lacks SaaS, AI)",
+        "product design (lacks product design)",
+        "UX/UI design (lacks UX/UI design, UX, UI design)",
+        "design systems (lacks design systems)"
+      ],
+      "rewritten": 2,
+      "offered": 6,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.3,
+      "wordsPerRewritten": 23,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 1,
+        "truthfulness": 5,
+        "specificity": 3,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific about financial analyst experience but is largely irrelevant to the Staff Product Designer role, lacking any design or UX/UI skills or experience.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.010543000000000191,
+      "judgeUsd": 0.0007209999999999717,
+      "error": null,
+      "examples": [
+        {
+          "before": "Partner with supply chain on margin bridges and standard cost updates; support SOX controls for revenue accruals.",
+          "after": "Partnered with supply chain and business stakeholders on margin bridges and standard cost updates, and supported SOX controls for revenue accruals."
+        },
+        {
+          "before": "Own the monthly forecast and variance reporting for a $320M business unit; present to the VP of Finance and the business unit GM.",
+          "after": "Owned the monthly forecast and variance reporting for a $320M business unit and presented results to the VP of Finance and the business unit GM."
+        }
+      ],
+      "summary": "Financial analyst targeting product designer roles. Owned the monthly forecast and variance reporting for a $320M business unit and presented results to the VP of Finance and the business unit GM."
+    },
+    {
+      "profile": "senior_frontend",
+      "kind": "adversarial",
+      "job": "Registered Nurse | Chemo Infusion @ Elyb",
+      "fit": 0,
+      "coverage": {
+        "before": null,
+        "selected": null,
+        "after": null,
+        "exactBefore": null,
+        "exactAfter": null,
+        "phraseBefore": null,
+        "phraseAfter": null,
+        "total": 0
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 3,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": false,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Graduate from a nursing program",
+        "Current licensure as a registered nurse in Minnesota (lacks registered nurse)",
+        "Current American Heart Association BLS Healthcare Provider card (lacks BLS)",
+        "Obtain Oncology Nurse Society Chemotherapy provider card within 6 months of hire",
+        "Maintain current Oncology Nurse Society provider card at all times",
+        "nursing (lacks nursing)",
+        "chemotherapy administration (lacks chemotherapy administration)",
+        "biotherapy administration (lacks biotherapy administration)",
+        "central venous access management (lacks central venous access management)",
+        "patient assessment (lacks patient assessment)"
+      ],
+      "rewritten": 2,
+      "offered": 5,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 16.8,
+      "wordsPerRewritten": 19.5,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 1,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific but completely irrelevant to the nursing job posting, focusing solely on software engineering experience with no nursing skills or qualifications.",
+        "model": "gpt-4.1-mini"
+      },
+      "tailorUsd": 0.008467999999999698,
+      "judgeUsd": 0.0007390000000002672,
+      "error": null,
+      "examples": [
+        {
+          "before": "Tech lead for the merchant dashboard (React, TypeScript, GraphQL, Next.js) used by 120,000 merchants; led a team of 5.",
+          "after": "Led the merchant dashboard (React, TypeScript, GraphQL, Next.js) used by 120,000 merchants as tech lead for a team of 5."
+        },
+        {
+          "before": "Built interactive charting for a business intelligence product with D3 and React; handled tables of 1M+ rows with virtualization.",
+          "after": "Created interactive charting for a business intelligence product with D3 and React, handling tables of 1M+ rows using virtualization."
+        }
+      ],
+      "summary": "Cognitive science graduate targeting registered nurse roles. Led the merchant dashboard used by 120,000 merchants as tech lead for a team of 5."
+    }
+  ]
+}

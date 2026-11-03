@@ -15,6 +15,7 @@
     "@norinote/answers": "*",
     "@norinote/apply": "*",
     "@norinote/inbox": "*",
+    "@norinote/telegram": "*",
     "hono": "^4.6.0",
     "@hono/node-server": "^1.13.0",
     "drizzle-orm": "^0.45.4",

@@ -1,0 +1,497 @@
+{
+ "at": "2026-11-03T07:36:58.104Z",
+ "results": [
+  {
+   "id": "greenhouse-discord-88407560",
+   "url": "https://job-boards.greenhouse.io/discord/jobs/8840756002",
+   "prepare": {
+    "outcome": "needs_user",
+    "reason": "The form asks 4 questions only you can answer.",
+    "source": "api",
+    "recipeHit": true,
+    "pending": [
+     "Why do you want to work at Discord?",
+     "Are you currently based in or willing to relocate to the Bay Area for this position?",
+     "Tell us about a time a metric or result moved in a way you didn't expect - in a job, internship, research project, or personal project. How did you figure out what was going on, and what did you do about it?",
+     "I consent to the collection and storage of my demographic data"
+    ],
+    "ms": 3035
+   },
+   "fill": {
+    "status": "needs_user",
+    "needsUser": {
+     "kind": "questions",
+     "reason": "The form asks 4 required questions Norinote has no answer for."
+    },
+    "filled": 17,
+    "files": 1,
+    "pending": [
+     "Why do you want to work at Discord?",
+     "Are you currently based in or willing to relocate to the Bay Area for this position?",
+     "Tell us about a time a metric or result moved in a way you didn't expect - in a job, internship, research project, or personal project. How did you figure out what was going on, and what did you do about it?",
+     "By checking this box, I consent to Discord collecting, storing, and processing my responses to the demographic data surveys above."
+    ],
+    "timings": {
+     "openMs": 741,
+     "discoverMs": 15,
+     "filesMs": 422,
+     "textMs": 110,
+     "choicesMs": 4903,
+     "validateMs": 201,
+     "readyMs": 6426
+    },
+    "ms": 7010
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=…&co=aHR0cHM6Ly9qb2ItYm9hcmRzLmdyZWVuaG91c2UuaW86"
+    ]
+   },
+   "costUsd": 0.0023040000000000005,
+   "screenshot": "data\\samples\\apply\\greenhouse-discord-88407560.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-greenhouse-discord-88407560-trace-1793691338894.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Location (City): 1693 ms (location)",
+    "Country: 1671 ms (combobox)",
+    "Disability Status: 285 ms (combobox)",
+    "Race and Ethnicity: 269 ms (combobox)"
+   ]
+  },
+  {
+   "id": "greenhouse-gitlab-86382320",
+   "url": "https://job-boards.greenhouse.io/gitlab/jobs/8638232002",
+   "prepare": {
+    "outcome": "needs_user",
+    "reason": "The form asks 2 questions only you can answer.",
+    "source": "api",
+    "recipeHit": true,
+    "pending": [
+     "Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?",
+     "Have you previously worked at or consulted for GitLab?"
+    ],
+    "ms": 2055
+   },
+   "fill": {
+    "status": "needs_user",
+    "needsUser": {
+     "kind": "questions",
+     "reason": "The form asks 2 required questions Norinote has no answer for."
+    },
+    "filled": 10,
+    "files": 1,
+    "pending": [
+     "Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?",
+     "Have you previously worked at or consulted for GitLab?"
+    ],
+    "timings": {
+     "openMs": 565,
+     "discoverMs": 13,
+     "filesMs": 395,
+     "textMs": 77,
+     "choicesMs": 3549,
+     "validateMs": 279,
+     "readyMs": 4895
+    },
+    "ms": 5505
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=…&co=aHR0cHM6Ly9qb2ItYm9hcmRzLmdyZWVuaG91c2UuaW86"
+    ]
+   },
+   "costUsd": 0.00032999999999999696,
+   "screenshot": "data\\samples\\apply\\greenhouse-gitlab-86382320.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-greenhouse-gitlab-86382320-trace-1793691348490.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Country: 1562 ms (combobox)",
+    "Please choose the country in which you a: 721 ms (combobox)",
+    "What is your current country of residenc: 682 ms (combobox)",
+    "Will you now or in the future require sp: 584 ms (combobox)"
+   ]
+  },
+  {
+   "id": "greenhouse-reddit-8153017",
+   "url": "https://job-boards.greenhouse.io/reddit/jobs/8153017",
+   "prepare": {
+    "outcome": "needs_user",
+    "reason": "The form asks 2 questions only you can answer.",
+    "source": "api",
+    "recipeHit": true,
+    "pending": [
+     "The person in this role is required to live within 50 miles (80 km) commuting distance of the office where the role is listed. Are you currently based within 50 miles of the job location, or able to relocate there before your start date?",
+     "By selecting \"I agree,\" I understand that the information I have provided as part of this job application will be processed in accordance with Reddit's Candidate Privacy Policy."
+    ],
+    "ms": 447
+   },
+   "fill": {
+    "status": "needs_user",
+    "needsUser": {
+     "kind": "questions",
+     "reason": "The form asks 2 required questions Norinote has no answer for (1 could not be set on the page)."
+    },
+    "filled": 14,
+    "files": 1,
+    "pending": [
+     "By selecting \"I agree,\" I understand that the information I have provided as part of this job application will be processed in accordance with Reddit's Candidate Privacy Policy.",
+     "The person in this role is required to live within 50 miles (80 km) commuting distance of the office where the role is listed. Are you currently based within 50 miles of the job location, or able to relocate there before your start date?"
+    ],
+    "timings": {
+     "openMs": 557,
+     "discoverMs": 12,
+     "filesMs": 424,
+     "textMs": 95,
+     "choicesMs": 8156,
+     "validateMs": 317,
+     "readyMs": 9577
+    },
+    "ms": 10109
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=…&co=aHR0cHM6Ly9qb2ItYm9hcmRzLmdyZWVuaG91c2UuaW86"
+    ]
+   },
+   "costUsd": 0.000001000000000001,
+   "screenshot": "data\\samples\\apply\\greenhouse-reddit-8153017.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-greenhouse-reddit-8153017-trace-1793691361051.zip",
+   "submitClicked": false,
+   "problems": [
+    "Could not fill \"The person in this role is required to live within 50 miles (80 km) commuting distance of the office where the role is listed. Are you currently based within 50 miles of the job locati"
+   ],
+   "slowest": [
+    "Location (City): 1719 ms (location)",
+    "Country: 1581 ms (combobox)",
+    "Do you now, or will you in the future, r: 233 ms (combobox)",
+    "Are you currently authorized to work in : 218 ms (combobox)"
+   ]
+  },
+  {
+   "id": "lever-leverdemo-ad208490",
+   "url": "https://jobs.lever.co/leverdemo/ad208490-4052-4f91-a57e-433f2d1e484b/apply",
+   "prepare": {
+    "outcome": "prepared",
+    "source": "dom",
+    "recipeHit": true,
+    "pending": [],
+    "ms": 5420
+   },
+   "fill": {
+    "status": "filled",
+    "filled": 13,
+    "files": 1,
+    "pending": [],
+    "timings": {
+     "openMs": 1299,
+     "discoverMs": 20,
+     "filesMs": 63,
+     "textMs": 15,
+     "choicesMs": 1988,
+     "validateMs": 132,
+     "readyMs": 3662
+    },
+    "ms": 4515
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha-enclave.htm",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha-enclave.htm",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame="
+    ]
+   },
+   "costUsd": 0.0005350000000000077,
+   "screenshot": "data\\samples\\apply\\lever-leverdemo-ad208490.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-lever-leverdemo-ad208490-trace-1793691373004.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Current location: 1603 ms (location)",
+    "Are you eligible to work in the United S: 167 ms (checkbox-label)",
+    "Race: 143 ms (radio-label)",
+    "Gender: 38 ms (native-select)"
+   ]
+  },
+  {
+   "id": "lever-leverdemo-7e10ea46",
+   "url": "https://jobs.lever.co/leverdemo/7e10ea46-98be-4bd1-a3ca-57d153b25c61/apply",
+   "prepare": {
+    "outcome": "prepared",
+    "source": "dom",
+    "recipeHit": true,
+    "pending": [],
+    "ms": 1697
+   },
+   "fill": {
+    "status": "filled",
+    "filled": 12,
+    "files": 1,
+    "pending": [],
+    "timings": {
+     "openMs": 1483,
+     "discoverMs": 21,
+     "filesMs": 59,
+     "textMs": 16,
+     "choicesMs": 1837,
+     "validateMs": 116,
+     "readyMs": 3690
+    },
+    "ms": 4554
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha-enclave.htm",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha-enclave.htm",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame="
+    ]
+   },
+   "costUsd": 0.0005350000000000077,
+   "screenshot": "data\\samples\\apply\\lever-leverdemo-7e10ea46.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-lever-leverdemo-7e10ea46-trace-1793691381269.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Current location: 1613 ms (location)",
+    "Race: 145 ms (radio-label)",
+    "Gender: 40 ms (native-select)",
+    "Veteran status: 39 ms (native-select)"
+   ]
+  },
+  {
+   "id": "lever-zoox-e8a190f0",
+   "url": "https://jobs.lever.co/zoox/e8a190f0-7a89-4c11-a6a0-452ff6234749/apply",
+   "prepare": {
+    "outcome": "needs_user",
+    "reason": "The form asks 1 question only you can answer.",
+    "source": "dom",
+    "recipeHit": true,
+    "pending": [
+     "Export Control and Compliance: For the sole purpose of determining export licensing requirements, please list any countries of which you are a citizen or legal permanent resident, and when you obtained such status."
+    ],
+    "ms": 2181
+   },
+   "fill": {
+    "status": "needs_user",
+    "needsUser": {
+     "kind": "questions",
+     "reason": "The form asks 1 required question Norinote has no answer for."
+    },
+    "filled": 14,
+    "files": 1,
+    "pending": [
+     "Export Control and Compliance: For the sole purpose of determining export licensing requirements, please list any countries of which you are a citizen or legal permanent resident, and when you obtained such status."
+    ],
+    "timings": {
+     "openMs": 374,
+     "discoverMs": 42,
+     "filesMs": 823,
+     "textMs": 19,
+     "choicesMs": 2509,
+     "validateMs": 110,
+     "readyMs": 3957
+    },
+    "ms": 4592
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha-enclave.htm",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha-enclave.htm",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame=",
+     "https://newassets.hcaptcha.com/captcha/v1/10dd112850fe5c29df1e51ddc05fdfb8b5f6dbae/static/hcaptcha.html#frame="
+    ]
+   },
+   "costUsd": 0.0024419999999999997,
+   "screenshot": "data\\samples\\apply\\lever-zoox-e8a190f0.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-lever-zoox-e8a190f0-trace-1793691390065.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Current location: 2218 ms (location)",
+    "How did you hear about us?: 141 ms (checkbox-label)",
+    "Veteran status: 41 ms (native-select)",
+    "Sponsorship: Do you require sponsorship,: 38 ms (native-select)"
+   ]
+  },
+  {
+   "id": "ashby-ramp-34413f8d",
+   "url": "https://jobs.ashbyhq.com/ramp/34413f8d-26bf-4bbc-8ade-eb309a0e2245/application",
+   "prepare": {
+    "outcome": "needs_user",
+    "reason": "The form asks 4 questions only you can answer.",
+    "source": "dom",
+    "recipeHit": true,
+    "pending": [
+     "Do you have a minimum of 5 years of experience building in AWS (with Terraform)?",
+     "Please elaborate on your experience building software in AWS (with Terraform)",
+     "Here's some text encoded in a common format. Figure out the correct secret and submit it in the field below. IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoKJycnCktlZXAgdXMgb3V0IG9mIGdvb2dsZSBzZWFyY2ggcmVzdWx0cy4uCgokIG9kIC1kIC9kZXYvdXJhbmRvbSB8IGhlYWQKMDAwMDAwMCAgICAgNjAyMTUgICAyODc3OCAgIDI5MjI3ICAgMjg1NDggICA2MjY4NiAgIDQ1MTcxICAgIDc4MjYgICA0ODc2NgowMDAwMDIwICAgICAxNzExOCAgIDE1MjI1ICAgMTI4NTIgICAzNDc4MSAgIDMxOTU1ICAgMTkwODcgICAzOTU2MyAgIDQzNjE0CjAwMDAwNDAgICAgICA2NzEwICAgMzg1MTUgICAxNDU3MyAgIDY0MDg3ICAgMTcwMjYgICAyNTU5OCAgIDQyOTEzICAgMTQyMDkKMDAwMDA2MCAgICAgMTA3MjMgICAzMTMwNyAgIDE5MDcxICAgMTQ3OTggICAgMjQ2MiAgIDQ2MjUzICAgMzU2MjYgICAzMjQzNgowMDAwMTAwICAgICAgMTczOSAgIDI3NzEyICAgIDU2NjcgICAxMjIxMiAgIDQ3MDc3ICAgNDE3MjIgICA1NDQ1MiAgIDM4NDYxCjAwMDAxMjAgICAgICA0ODE2ICAgMTUwMTQgICAyODYyMyAgIDEwOTI4ICAgNTQwMjggICA2NDUyMyAgIDU0NjMyICAgNTQxODcKMDAwMDE0MCAgICAgNjE2MzEgICA1NDQ5OSAgIDE4MzA3ICAgIDU1MTQgICA1MDc0MyAgIDUwNTkxICAgMjUxNzIgICA1NDAxOAowMDAwMTYwICAgICAzMTk5MCAgIDI2MjQ4ICAgIDQzODMgICA0NjQ1MiAgIDQyMTU2ICAgNjIzMjAgICA1MTA1MiAgIDI4NjIxCjAwMDAyMDAgICAgIDI3MjI2ICAgNjUyOTYgICA1NjMwNSAgIDMzMzc1ICAgIDQ4MTMgICA0MjI4MyAgIDE5OTgwICAgIDE5MjIKMDAwMDIyMCAgICAgNTcwNjEgICAyOTMyMiAgIDI3MDczICAgNjQ5ODYgICAxNTIxOSAgIDI2MjM0ICAgMjQxMDAgICAyMTIwNAonJycKCicnJwpDb3B5IHRoaXMgZmlsZSBhbmQgcnVuIGBwYnBhc3RlIHwgYmFzZTY0YCB0byBnZW5lcmF0ZSBjaGFsbGVuZ2UgdGV4dC4gQ29waW91cwp3aGl0ZSBzcGFjZSBpcyBhdCB0aGUgYm90dG9tIG9mIHRoZSBmaWxlIHRvIGVuc3VyZSB0cmFpbGluZyBgPT1gIGFuZCBoaW50IGF0CmJhc2U2NC4KJycnCgppbXBvcnQgY29kZWNzCmltcG9ydCBzdHJpbmcKaW1wb3J0IHN5cwppbXBvcnQgdGltZQoKZnJvbSBjcnlwdG9ncmFwaHkuaGF6bWF0LmJhY2tlbmRzIGltcG9ydCBkZWZhdWx0X2JhY2tlbmQKZnJvbSBjcnlwdG9ncmFwaHkuaGF6bWF0LnByaW1pdGl2ZXMuaGFzaGVzIGltcG9ydCBTSEExCmZyb20gY3J5cHRvZ3JhcGh5Lmhhem1hdC5wcmltaXRpdmVzLnR3b2ZhY3Rvci50b3RwIGltcG9ydCBUT1RQCgoKT05FX1dFRUtfSU5fU0VDT05EUyA9IDYwNF84MDAKCgpkZWYgZ2VuZXJhdGVfc2VjcmV0KCk6CiAgICB0b3RwID0gVE9UUCgKICAgICAgICBrZXk9Y29kZWNzLmVuY29kZShzdHJpbmcuYXNjaWlfbGV0dGVycywgZW5jb2Rpbmc9InV0Zi04IiksCiAgICAgICAgbGVuZ3RoPTgsCiAgICAgICAgYWxnb3JpdGhtPVNIQTEoKSwKICAgICAgICB0aW1lX3N0ZXA9T05FX1dFRUtfSU5fU0VDT05EUywKICAgICAgICBiYWNrZW5kPWRlZmF1bHRfYmFja2VuZCgpLAogICAgKQogICAgc2VlZCA9IGludCh0aW1lLnRpbWUoKSkKICAgIHRva2VuID0gY29kZWNzLmRlY29kZSh0b3RwLmdlbmVyYXRlKHNlZWQpLCBlbmNvZGluZz0idXRmLTgiKQogICAgcmV0dXJuIGYie3Rva2VufS17c2VlZH0iCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHN5cy5zdGRvdXQud3JpdGUoCiAgICAgICAgZiJQbGVhc2UgaGVhZCB0byBodHRwczovL3JhbXAuY29tL2NhcmVlcnMgYW5kIHVzZSB0aGlzIHNlY3JldCB3aGVuICIKICAgICAgICBmInlvdSBhcHBseToge2dlbmVyYXRlX3NlY3JldCgpfVxuIgogICAgKQoKCg==",
+     "In the above question, we ask you to figure out a secret to prove two things: (1) that you are not a bot auto-applying to the role and (2) that you are able to read and interact with code. With those goals in mind, what are the security properties (if any) of the resulting secret? Do we achieve our goals? How could we do so more effectively?"
+    ],
+    "ms": 3919
+   },
+   "fill": {
+    "status": "needs_user",
+    "needsUser": {
+     "kind": "questions",
+     "reason": "The form asks 4 required questions Norinote has no answer for."
+    },
+    "filled": 8,
+    "files": 1,
+    "pending": [
+     "Do you have a minimum of 5 years of experience building in AWS (with Terraform)?",
+     "Please elaborate on your experience building software in AWS (with Terraform)",
+     "Here's some text encoded in a common format. Figure out the correct secret and submit it in the field below. IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoKJycnCktlZXAgdXMgb3V0IG9mIGdvb2dsZSBzZWFyY2ggcmVzdWx0cy4uCgokIG9kIC1kIC9kZXYvdXJhbmRvbSB8IGhlYWQKMDAwMDAwMCAgICAgNjAyMTUgICAyODc3OCAgIDI5MjI3ICAgMjg1NDggICA2MjY4NiAgIDQ1MTcxICAgIDc4MjYgICA0ODc2NgowMDAwMDIwICAgICAxNzExOCAgIDE1MjI1ICAgMTI4NTIgICAzNDc4MSAgIDMxOTU1ICAgMTkwODcgICAzOTU2MyAgIDQzNjE0CjAwMDAwNDAgICAgICA2NzEwICAgMzg1MTUgICAxNDU3MyAgIDY0MDg3ICAgMTcwMjYgICAyNTU5OCAgIDQyOTEzICAgMTQyMDkKMDAwMDA2MCAgICAgMTA3MjMgICAzMTMwNyAgIDE5MDcxICAgMTQ3OTggICAgMjQ2MiAgIDQ2MjUzICAgMzU2MjYgICAzMjQzNgowMDAwMTAwICAgICAgMTczOSAgIDI3NzEyICAgIDU2NjcgICAxMjIxMiAgIDQ3MDc3ICAgNDE3MjIgICA1NDQ1MiAgIDM4NDYxCjAwMDAxMjAgICAgICA0ODE2ICAgMTUwMTQgICAyODYyMyAgIDEwOTI4ICAgNTQwMjggICA2NDUyMyAgIDU0NjMyICAgNTQxODcKMDAwMDE0MCAgICAgNjE2MzEgICA1NDQ5OSAgIDE4MzA3ICAgIDU1MTQgICA1MDc0MyAgIDUwNTkxICAgMjUxNzIgICA1NDAxOAowMDAwMTYwICAgICAzMTk5MCAgIDI2MjQ4ICAgIDQzODMgICA0NjQ1MiAgIDQyMTU2ICAgNjIzMjAgICA1MTA1MiAgIDI4NjIxCjAwMDAyMDAgICAgIDI3MjI2ICAgNjUyOTYgICA1NjMwNSAgIDMzMzc1ICAgIDQ4MTMgICA0MjI4MyAgIDE5OTgwICAgIDE5MjIKMDAwMDIyMCAgICAgNTcwNjEgICAyOTMyMiAgIDI3MDczICAgNjQ5ODYgICAxNTIxOSAgIDI2MjM0ICAgMjQxMDAgICAyMTIwNAonJycKCicnJwpDb3B5IHRoaXMgZmlsZSBhbmQgcnVuIGBwYnBhc3RlIHwgYmFzZTY0YCB0byBnZW5lcmF0ZSBjaGFsbGVuZ2UgdGV4dC4gQ29waW91cwp3aGl0ZSBzcGFjZSBpcyBhdCB0aGUgYm90dG9tIG9mIHRoZSBmaWxlIHRvIGVuc3VyZSB0cmFpbGluZyBgPT1gIGFuZCBoaW50IGF0CmJhc2U2NC4KJycnCgppbXBvcnQgY29kZWNzCmltcG9ydCBzdHJpbmcKaW1wb3J0IHN5cwppbXBvcnQgdGltZQoKZnJvbSBjcnlwdG9ncmFwaHkuaGF6bWF0LmJhY2tlbmRzIGltcG9ydCBkZWZhdWx0X2JhY2tlbmQKZnJvbSBjcnlwdG9ncmFwaHkuaGF6bWF0LnByaW1pdGl2ZXMuaGFzaGVzIGltcG9ydCBTSEExCmZyb20gY3J5cHRvZ3JhcGh5Lmhhem1hdC5wcmltaXRpdmVzLnR3b2ZhY3Rvci50b3RwIGltcG9ydCBUT1RQCgoKT05FX1dFRUtfSU5fU0VDT05EUyA9IDYwNF84MDAKCgpkZWYgZ2VuZXJhdGVfc2VjcmV0KCk6CiAgICB0b3RwID0gVE9UUCgKICAgICAgICBrZXk9Y29kZWNzLmVuY29kZShzdHJpbmcuYXNjaWlfbGV0dGVycywgZW5jb2Rpbmc9InV0Zi04IiksCiAgICAgICAgbGVuZ3RoPTgsCiAgICAgICAgYWxnb3JpdGhtPVNIQTEoKSwKICAgICAgICB0aW1lX3N0ZXA9T05FX1dFRUtfSU5fU0VDT05EUywKICAgICAgICBiYWNrZW5kPWRlZmF1bHRfYmFja2VuZCgpLAogICAgKQogICAgc2VlZCA9IGludCh0aW1lLnRpbWUoKSkKICAgIHRva2VuID0gY29kZWNzLmRlY29kZSh0b3RwLmdlbmVyYXRlKHNlZWQpLCBlbmNvZGluZz0idXRmLTgiKQogICAgcmV0dXJuIGYie3Rva2VufS17c2VlZH0iCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHN5cy5zdGRvdXQud3JpdGUoCiAgICAgICAgZiJQbGVhc2UgaGVhZCB0byBodHRwczovL3JhbXAuY29tL2NhcmVlcnMgYW5kIHVzZSB0aGlzIHNlY3JldCB3aGVuICIKICAgICAgICBmInlvdSBhcHBseToge2dlbmVyYXRlX3NlY3JldCgpfVxuIgogICAgKQoKCg==",
+     "In the above question, we ask you to figure out a secret to prove two things: (1) that you are not a bot auto-applying to the role and (2) that you are able to read and interact with code. With those goals in mind, what are the security properties (if any) of the resulting secret? Do we achieve our goals? How could we do so more effectively?"
+    ],
+    "timings": {
+     "openMs": 1188,
+     "discoverMs": 11,
+     "filesMs": 37,
+     "textMs": 38,
+     "choicesMs": 1803,
+     "validateMs": 46,
+     "readyMs": 3130
+    },
+    "ms": 3752
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=…&co=aHR0cHM6Ly9qb2JzLmFzaGJ5aHEuY29tOjQ0Mw..&hl=",
+     "https://www.recaptcha.net/recaptcha/enterprise/bframe?hl=en&v=bSuJ2xBC8cHT21-c68JXN31m&k=…&bft=0dAFcWeA6lAZAj4"
+    ]
+   },
+   "costUsd": 0.002786999999999984,
+   "screenshot": "data\\samples\\apply\\ashby-ramp-34413f8d.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-ashby-ramp-34413f8d-trace-1793691399727.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Where do you plan on working from (for p: 1741 ms (location)",
+    "Do you have a minimum of 7 years of expe: 62 ms (yesno)"
+   ]
+  },
+  {
+   "id": "ashby-notion-1fc309c8",
+   "url": "https://jobs.ashbyhq.com/notion/1fc309c8-da20-4ff2-84c7-8b863ece2b0a/application",
+   "prepare": {
+    "outcome": "needs_user",
+    "reason": "The form asks 1 question only you can answer.",
+    "source": "dom",
+    "recipeHit": true,
+    "pending": [
+     "We work from our offices on Mondays, Tuesdays, and Thursdays (Anchor Days). If you need an accommodation, we’ll partner with you and explore reasonable options consistent with applicable law. Are you able to commit to working from one of our offices on Anchor Days each week?"
+    ],
+    "ms": 2422
+   },
+   "fill": {
+    "status": "needs_user",
+    "needsUser": {
+     "kind": "questions",
+     "reason": "The form asks 1 required question Norinote has no answer for."
+    },
+    "filled": 8,
+    "files": 1,
+    "pending": [
+     "We work from our offices on Mondays, Tuesdays, and Thursdays (Anchor Days). If you need an accommodation, we’ll partner with you and explore reasonable options consistent with applicable law. Are you able to commit to working from one of our offices on Anchor Days each week?"
+    ],
+    "timings": {
+     "openMs": 1234,
+     "discoverMs": 11,
+     "filesMs": 41,
+     "textMs": 23,
+     "choicesMs": 1441,
+     "validateMs": 48,
+     "readyMs": 2807
+    },
+    "ms": 3482
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": [
+     "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=…&co=aHR0cHM6Ly9qb2JzLmFzaGJ5aHEuY29tOjQ0Mw..&hl="
+    ]
+   },
+   "costUsd": 0.0005450000000000177,
+   "screenshot": "data\\samples\\apply\\ashby-notion-1fc309c8.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-ashby-notion-1fc309c8-trace-1793691407634.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Location: 1254 ms (location)",
+    "How did you hear about this opportunity?: 112 ms (checkbox-label)",
+    "Will you now or in the future require No: 75 ms (yesno)"
+   ]
+  },
+  {
+   "id": "ashby-linear-d3bc1ced",
+   "url": "https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff/application",
+   "prepare": {
+    "outcome": "needs_user",
+    "reason": "The form asks 4 questions only you can answer.",
+    "source": "dom",
+    "recipeHit": true,
+    "pending": [
+     "Cover letter",
+     "What would you want to work on? Tell us about the features you would want to implement in your first month.",
+     "Tell us of a time you had to put your PM hat on to solve a complex product problem.",
+     "What are you extremely good at? What could you teach the team?"
+    ],
+    "ms": 4038
+   },
+   "fill": {
+    "status": "needs_user",
+    "needsUser": {
+     "kind": "questions",
+     "reason": "The form asks 4 required questions Norinote has no answer for."
+    },
+    "filled": 8,
+    "files": 1,
+    "pending": [
+     "Cover letter",
+     "What would you want to work on? Tell us about the features you would want to implement in your first month.",
+     "Tell us of a time you had to put your PM hat on to solve a complex product problem.",
+     "What are you extremely good at? What could you teach the team?"
+    ],
+    "timings": {
+     "openMs": 1540,
+     "discoverMs": 11,
+     "filesMs": 34,
+     "textMs": 35,
+     "choicesMs": 72,
+     "validateMs": 38,
+     "readyMs": 1739
+    },
+    "ms": 2165
+   },
+   "captcha": {
+    "challenge": null,
+    "frames": []
+   },
+   "costUsd": 0.004153999999999991,
+   "screenshot": "data\\samples\\apply\\ashby-linear-d3bc1ced.png",
+   "trace": "C:\\Users\\SRIVAR~1\\AppData\\Local\\Temp\\norinote-apply-live-artifacts\\live-ashby-linear-d3bc1ced-trace-1793691415912.zip",
+   "submitClicked": false,
+   "problems": [],
+   "slowest": [
+    "Are you based in a EU or equivalent time: 72 ms (yesno)"
+   ]
+  }
+ ],
+ "ledgerUsd": 0.188918
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CareerPoint, FitMapEntry } from "@norinote/shared";
 import { SPEC } from "./test-fixtures.js";
-import { baselineContent, bulletCount, entryWeight, functionWords, orderSkills, selectContent, splitBullets, targetYears, yearsOfExperience } from "./select.js";
+import { baselineContent, bulletCount, certificationLines, entryWeight, functionWords, orderSkills, selectContent, splitBullets, targetYears, yearsOfExperience } from "./select.js";
 
 const pt = (id: string, p: Partial<CareerPoint> & Pick<CareerPoint, "kind" | "title">): CareerPoint => ({
   id, org: null, startDate: null, endDate: null, text: "", skills: [], scope: {}, metrics: {}, sourceQuote: null, ...p,
@@ -37,9 +37,9 @@ describe("selectContent", () => {
   it("orders bullets in a role by the requirements their own text supports, must-haves first, ties in written order", () => {
     const { content } = selectContent({ points, fitMap, spec: SPEC, contact, now: NOW });
     const acme = content.experience.find((r) => r.careerPointId === "acme")!;
-    // The two lines that show must-haves (TypeScript REST APIs, PostgreSQL) lead; the Redis achievement shows a nice-to-have;
-    // the onboarding line supports nothing and the role already has its three bullets.
-    expect(acme.bullets.map((b) => b.id)).toEqual(["acme#0", "acme#1", "redis"]);
+    // The two lines that show must-haves (TypeScript REST APIs, PostgreSQL) lead; the Redis achievement shows a
+    // nice-to-have; the onboarding line supports nothing but still shows: the latest role shows every bullet (up to 5).
+    expect(acme.bullets.map((b) => b.id)).toEqual(["acme#0", "acme#1", "redis", "acme#2"]);
     expect(acme.bullets[2]!.careerPointIds).toEqual(["redis", "acme"]);
     expect(acme.bullets[0]!.weight).toBeGreaterThan(acme.bullets[2]!.weight);
   });
@@ -216,5 +216,60 @@ describe("job mirroring in selection", () => {
     expect(targetYears(roles, "Machine Learning Scientist", NOW)).toBe(4);
     expect(targetYears(roles, "Registered Nurse", NOW)).toBeNull();
     expect(targetYears([pt("n", { kind: "role", title: "Software Engineer", startDate: "2025-09", text: "x" })], "Software Engineer", NOW)).toBeNull();
+  });
+});
+
+describe("duplicate lines", () => {
+  it("shows a line once when a role and an achievement repeat the same words", () => {
+    const pts: CareerPoint[] = [
+      pt("r", { kind: "role", title: "Engineer", org: "Acme", startDate: "2022-01", text: "Built a TypeScript endpoint for exports\nWrote TypeScript docs" }),
+      pt("a", { kind: "achievement", title: "Exports", org: "Acme", startDate: "2023-01", text: "Built a TypeScript endpoint for exports" }),
+    ];
+    const { content } = selectContent({ points: pts, fitMap: [], spec: SPEC, contact, now: NOW });
+    const texts = content.experience[0]!.bullets.map((b) => b.text);
+    expect(texts.filter((t) => t === "Built a TypeScript endpoint for exports")).toHaveLength(1);
+  });
+});
+
+describe("round 4 selection rules", () => {
+  it("shows every bullet of the two most recent roles (up to 5) when there is room", () => {
+    const pts: CareerPoint[] = [
+      pt("a", { kind: "role", title: "Frontend Engineer", org: "A", startDate: "2022-01", text: ["Built TypeScript UI", "Drove WCAG 2.1 AA conformance across 40 screens", "Wrote docs", "Ran demos", "Hosted lunches", "Fixed bugs"].join("\n") }),
+      pt("b", { kind: "role", title: "Frontend Engineer", org: "B", startDate: "2019-01", endDate: "2021-12", text: ["Built React pages", "Planned sprints"].join("\n") }),
+    ];
+    const { content } = selectContent({ points: pts, fitMap: [], spec: SPEC, contact, now: NOW });
+    expect(content.experience[0]!.bullets).toHaveLength(5);
+    expect(content.experience[0]!.bullets.map((b) => b.text)).toContain("Drove WCAG 2.1 AA conformance across 40 screens");
+    expect(content.experience[1]!.bullets).toHaveLength(2);
+  });
+
+  it("shows no bullets for a role whose only line is parser filler", () => {
+    const pts: CareerPoint[] = [
+      pt("rn", { kind: "role", title: "Registered Nurse", org: "Valley Medical Center", startDate: "2023-01", text: "Provided care for 4 to 5 patients per shift on a telemetry unit" }),
+      pt("cna", { kind: "role", title: "Nursing Assistant (CNA)", org: "Lakeshore Regional Hospital", startDate: "2018-01", endDate: "2020-01", text: "Provided nursing assistant support at Lakeshore Regional Hospital." }),
+    ];
+    const { content } = selectContent({ points: pts, fitMap: [], spec: SPEC, contact, now: NOW });
+    expect(content.experience[1]!.company).toBe("Lakeshore Regional Hospital");
+    expect(content.experience[1]!.bullets).toEqual([]);
+  });
+
+  it("does not repeat a fact in two bullets", () => {
+    const pts: CareerPoint[] = [
+      pt("rn", { kind: "role", title: "Registered Nurse", org: "Valley", startDate: "2023-01", text: "Precept new graduate nurses; led a unit project that reduced falls by 28% with hourly rounding\nInterpret rhythms and titrate drips" }),
+      pt("ach", { kind: "achievement", title: "Falls project", org: "Valley", startDate: "2024-01", text: "Led a unit project that reduced patient falls by 28%" }),
+    ];
+    const { content } = selectContent({ points: pts, fitMap: [], spec: SPEC, contact, now: NOW });
+    const texts = content.experience[0]!.bullets.map((b) => b.text);
+    expect(texts.filter((t) => /28%/.test(t))).toHaveLength(1);
+  });
+
+  it("drops category headings and degrees from skills, and capitalises lower-case names", () => {
+    const groups = orderSkills([pt("s", { kind: "role", title: "x", skills: ["Build and Test Tools", "Frontend Frameworks and Libraries", "Patient Care Skills", "BSN", "nursing", "React", "ios"] })], ["nursing", "BSN"]);
+    expect(groups.flatMap((g) => g.items)).toEqual(["Nursing", "iOS", "React"]);
+  });
+
+  it("lists certification points in the Certifications section", () => {
+    const pts = [pt("c", { kind: "certification" as CareerPoint["kind"], title: "Registered Nurse (RN), Minnesota", org: "Minnesota Board of Nursing", startDate: "2020", endDate: "2027" })];
+    expect(certificationLines(pts)).toEqual(["Registered Nurse (RN), Minnesota, Minnesota Board of Nursing, 2020 to 2027"]);
   });
 });

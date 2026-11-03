@@ -1,6 +1,7 @@
 import type { CareerPoint, FitMapEntry, JobSpec } from "@norinote/shared";
 import { canonicalTerm } from "./aliases.js";
 import { containsPhrase, keyPhraseOf, softOf, SOFT_BEHAVIOURS } from "./key-phrases.js";
+import { verbLemma } from "./phrases.js";
 import { findTerms, mentionsName, mentionsSkill, norm } from "./text.js";
 import type { CoverageScore, ResumeContent } from "./types.js";
 
@@ -88,7 +89,8 @@ export function requirementWords(text: string): string[] {
   return [...new Set(out)];
 }
 
-const stem = (w: string) => w.replace(/(ing|ed|es|s)$/, "");
+/** "closed" ~ "close", "built" ~ "building", "services" ~ "service" (the verb lemma works for these nouns too). */
+const stem = (w: string) => verbLemma(w);
 
 /** Share (0 to 1) of the requirement's word weight found in the text, and the matched weight. */
 export function wordShare(words: readonly string[], text: string): { share: number; matched: number } {

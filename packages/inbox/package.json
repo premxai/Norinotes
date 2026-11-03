@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@norinote/ai": "*",
     "@norinote/db": "*",
     "@norinote/shared": "*",
     "drizzle-orm": "^0.45.4",

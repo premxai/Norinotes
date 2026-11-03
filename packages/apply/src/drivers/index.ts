@@ -3,12 +3,15 @@ import type { Driver, DriverContext, FillResult, UnknownFormHandler } from "../t
 import { ashbyDriver } from "./ashby.js";
 import { greenhouseDriver } from "./greenhouse.js";
 import { leverDriver } from "./lever.js";
+import { icimsDriver, smartRecruitersDriver, workableDriver, workdayDriver } from "./stubs.js";
 
 export { greenhouseDriver, greenhouseFormUrl } from "./greenhouse.js";
 export { leverDriver, leverFormUrl } from "./lever.js";
 export { ashbyDriver, ashbyFormUrl } from "./ashby.js";
+export { workdayDriver, smartRecruitersDriver, workableDriver, icimsDriver, WORKDAY_REASON, NOT_YET_REASON } from "./stubs.js";
 
-export const DRIVERS: readonly Driver[] = [greenhouseDriver, leverDriver, ashbyDriver];
+/** Drivers that fill forms, then the typed stubs that park their systems with a clear reason. */
+export const DRIVERS: readonly Driver[] = [greenhouseDriver, leverDriver, ashbyDriver, workdayDriver, smartRecruitersDriver, workableDriver, icimsDriver];
 
 /** The driver for an apply URL, or null when no driver recognises it. */
 export function detectDriver(url: string, drivers: readonly Driver[] = DRIVERS): Driver | null {
@@ -17,7 +20,7 @@ export function detectDriver(url: string, drivers: readonly Driver[] = DRIVERS):
 
 export const UNSUPPORTED_FORM_REASON = "This form type is not supported yet";
 
-/** Default fallback: parks the application with the person. A future AI browser agent replaces it. */
+/** Default fallback: parks the application with the person. A future AI browser agent replaces it (AiBrowserFallback). */
 export const defaultUnknownFormHandler: UnknownFormHandler = {
   async handle(_page: Page, ctx: DriverContext): Promise<FillResult> {
     ctx.onEvent("unsupported_form", UNSUPPORTED_FORM_REASON, { url: ctx.applyUrl }, "warn");

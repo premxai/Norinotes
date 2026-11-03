@@ -4,9 +4,9 @@ import type { Db } from "@norinote/db";
 import type { CareerPoint, JobSpec, PendingQuestion } from "@norinote/shared";
 
 /** Questions that are facts only the person can give, or that are never ours to answer. */
-const NEVER_DRAFT = /\b(ssn|social security|social insurance|passport|date of birth|birth ?date|national (id|insurance)|driver'?s licen[cs]e|tax (id|identification)|itin|aadhaar)\b|\breferences?\b|\breferee|referr|\bsalary history\b|current (salary|compensation)|previous (salary|compensation)/;
+export const NEVER_DRAFT = /\b(ssn|social security|social insurance|passport|date of birth|birth ?date|national (id|insurance)|driver'?s licen[cs]e|tax (id|identification)|itin|aadhaar)\b|\breferences?\b|\breferee|referr|\bsalary history\b|current (salary|compensation)|previous (salary|compensation)|encoded|decode|figure out the (correct )?(secret|answer|code)|in the above question|not a bot|prove (that )?you|captcha/;
 /** A text box that asks for prose, as opposed to a short fact. */
-const PROSE = /\b(why|describe|tell us|tell me|explain|what (excites|interests|motivates|draws|attracts)|how (do|would|did|have) you|share|walk us through|in your own words|proud|challenge|accomplish|passion|interested in|about yourself)\b/;
+export const PROSE = /\b(why|describe|tell us|tell me|explain|what (excites|interests|motivates|draws|attracts)|how (do|would|did|have) you|share|walk us through|in your own words|proud|challenge|accomplish|passion|interested in|about yourself)\b/;
 
 /** True for a question the model may draft: free text, no options, and not something only the person can answer. */
 export function isOpenEnded(q: PendingQuestion): boolean {

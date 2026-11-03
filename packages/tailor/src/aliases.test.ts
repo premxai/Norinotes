@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ALIAS_GROUPS, acronymPair, aliasGroupOf, canonicalTerm, parseAliasTable } from "./aliases.js";
 import { countTerm, findTerms, mentionsSkill, sameSkill } from "./text.js";
-import { BANNED_PHRASES, bannedIn, bannedPhraseExamples, openerTense } from "./phrases.js";
+import { BANNED_PHRASES, bannedIn, bannedPhraseExamples, boilerplateIn, isStrongVerb, isWeakVerb, openerTense, sameVerb, tackedOnPhrases, verbLemma } from "./phrases.js";
 import { releaseYearOf } from "./release-years.js";
 
 describe("alias table", () => {
@@ -81,7 +81,9 @@ describe("style lists", () => {
     expect(bannedIn("Responsible for the API and worked on billing")).toEqual(["responsible for", "worked on"]);
     expect(bannedIn("Built the billing API in Go")).toEqual([]);
     expect(bannedIn("Managed 3 paid media specialists")).toEqual([]);
-    expect(bannedIn("Demonstrated strong proficiency in TypeScript as tech lead")).toEqual(["demonstrated strong proficiency"]);
+    expect(boilerplateIn("Demonstrated strong proficiency in TypeScript as tech lead")).toEqual(["demonstrated", "proficiency in"]);
+    expect(boilerplateIn("Experience with Kafka and familiarity with Terraform")).toEqual(["experience with", "familiarity with"]);
+    expect(boilerplateIn("Backend engineer with 5 years of experience building APIs", { forSummary: true })).toEqual([]);
     expect(bannedPhraseExamples()).toContain("leverag");
     expect(bannedPhraseExamples()).toContain("results-driven");
   });
@@ -98,5 +100,24 @@ describe("style lists", () => {
     expect(releaseYearOf("kubernetes")).toBe(2014);
     expect(releaseYearOf("langchain")).toBe(2022);
     expect(releaseYearOf("cobol")).toBeNull();
+  });
+});
+
+describe("readability helpers", () => {
+  it("compares verbs across tenses and knows strong from weak", () => {
+    expect(sameVerb("Own", "Owned")).toBe(true);
+    expect(sameVerb("Built", "builds")).toBe(true);
+    expect(sameVerb("Led", "Lead")).toBe(true);
+    expect(sameVerb("Built", "Developed")).toBe(false);
+    expect(verbLemma("shipped")).toBe(verbLemma("ship"));
+    expect(isStrongVerb("Migrated")).toBe(true);
+    expect(isWeakVerb("Developed")).toBe(true);
+    expect(isWeakVerb("Built")).toBe(false);
+  });
+
+  it("finds a key phrase tacked on after the result, not one that describes the work", () => {
+    expect(tackedOnPhrases("Built a deployment CLI used by 9 teams, cutting setup from 3 days to 2 hours for production services", ["production services"])).toEqual(["production services"]);
+    expect(tackedOnPhrases("Built production services in Go that process 18 million events per day", ["production services"])).toEqual([]);
+    expect(tackedOnPhrases("Coordinated rollouts with business stakeholders", ["business stakeholders"])).toEqual([]);
   });
 });

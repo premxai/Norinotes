@@ -53,10 +53,21 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   submitted, needs_user, reply, interview.
 
 ## Inbox and channels
-- GET `/api/inbox` returning `[{ id, applicationId, fromAddress, subject, bodyText, receivedAt, kind, code, read? }]`
-- POST `/api/inbound/email` (provider webhook, secret-checked, no session)
-- GET `/api/channels/telegram` returning `{ configured, botUsername, linked }`; POST `/api/channels/telegram/link`
-  returning `{ code, expiresAt, botUsername, link }`
+- GET `/api/inbox` (newest first) returning `[{ id, applicationId, application: { id, status, companyName, jobTitle } | null,
+  fromAddress, fromName, subject, bodyText, receivedAt, kind, code, verificationLink, links, attachments: [{ filename, contentType,
+  size }], spam }]`; GET `/api/inbox/:id` adds `classifiedBy`, `forwardedAt` (404 for another user's message)
+- GET `/api/inbox/address` returning `{ address, configured, settings: { forwardTo, forwardEnabled, retentionDays } }` (creates
+  the address on first call); PUT `/api/inbox/settings` with any of those three settings
+- POST `/api/inbox/webhook/:provider` (`cloudflare`, `raw`, `generic`: HMAC headers `x-norinote-timestamp` and
+  `x-norinote-signature: v1=<hex>`; `postmark`: basic auth). No session. 200 `{ stored, duplicate }` or `{ stored: false, reason }`,
+  401 bad signature, 413 too large. See docs/inbox.md
+- POST `/api/inbound/email` (older webhook, shared secret, any shape; kept for compatibility)
+- GET `/api/channels/telegram` returning `{ configured, botUsername, linked, linkedAt, settings: { dailyTime, timezone, count,
+  summaryTime, quietHours: { enabled, start, end }, events: { digest, questions, submitted, needsUser, inbox, summary } } }`;
+  PUT `/api/channels/telegram` with any subset of `settings` (same response; 400 on a bad time or zone); DELETE
+  `/api/channels/telegram` returning `{ ok, linked: false }`; POST `/api/channels/telegram/link` (optional `{ timezone }`, the
+  browser's zone) returning `{ code, expiresAt, botUsername, link }` (`link` is `https://t.me/<bot>?start=<code>`, single use,
+  15 minutes); POST `/api/channels/telegram/webhook` (Telegram only, header `x-telegram-bot-api-secret-token`). See docs/telegram.md
 
 ## Health
 - GET `/api/health`

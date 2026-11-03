@@ -29,6 +29,34 @@
       "when": 1793663790856,
       "tag": "0003_registry_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793685063650,
+      "tag": "0004_inbox_meta",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793685070048,
+      "tag": "0005_apply_recipes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793687568337,
+      "tag": "0006_outcomes_loop",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793691189322,
+      "tag": "0007_telegram_channel",
+      "breakpoints": true
     }
   ]
 }

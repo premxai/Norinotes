@@ -1,5 +1,5 @@
 import { applications, eq, type Db } from "@norinote/db";
-import { saveAnswers, questionId, type PrepareResult, type Preparer } from "@norinote/apply";
+import { prepareForm, saveAnswers, questionId, type BrowserPool, type PrepareFormDeps, type PrepareResult, type Preparer } from "@norinote/apply";
 import { answerQuestions } from "@norinote/answers";
 import { tailorResume } from "@norinote/tailor";
 import type { PendingQuestion } from "@norinote/shared";
@@ -23,6 +23,10 @@ export type PreparerDeps = {
   tailor?: typeof tailorResume;
   answer?: typeof answerQuestions;
   artifactsDir?: string;
+  /** Warm browser pool, to read Lever and Ashby forms ahead of the click. */
+  pool?: BrowserPool;
+  /** Reads the form and plans its answers (apply package); tests replace it. */
+  form?: (db: Db, applicationId: string, deps: PrepareFormDeps) => ReturnType<typeof prepareForm>;
 };
 
 /**
@@ -35,15 +39,18 @@ export function createPreparer(db: Db, deps: PreparerDeps = {}): Preparer {
   const answer = deps.answer ?? answerQuestions;
   return {
     async prepare(applicationId): Promise<PrepareResult> {
-      const [app] = await db.select({ userId: applications.userId, jobId: applications.jobId }).from(applications).where(eq(applications.id, applicationId)).limit(1);
+      const [app] = await db.select({ userId: applications.userId, jobId: applications.jobId, resumeId: applications.resumeId }).from(applications).where(eq(applications.id, applicationId)).limit(1);
       if (!app) return { outcome: "failed", error: "application not found" };
 
-      try {
-        await tailor(db, { userId: app.userId, jobId: app.jobId, applicationId, ...(deps.artifactsDir ? { artifactsDir: deps.artifactsDir } : {}) });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (/no career points/i.test(message)) return { outcome: "needs_user", reason: "Upload your resume first: there is nothing to build an application from yet." };
-        throw err;
+      // Preparing again after the person answered questions: the tailored resume is already there.
+      if (!app.resumeId) {
+        try {
+          await tailor(db, { userId: app.userId, jobId: app.jobId, applicationId, ...(deps.artifactsDir ? { artifactsDir: deps.artifactsDir } : {}) });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (/no career points/i.test(message)) return { outcome: "needs_user", reason: "Upload your resume first: there is nothing to build an application from yet." };
+          throw err;
+        }
       }
 
       const res = await answer(db, { userId: app.userId, jobId: app.jobId, questions: [...STANDARD_QUESTIONS] });
@@ -54,6 +61,12 @@ export function createPreparer(db: Db, deps: PreparerDeps = {}): Preparer {
         if (a) keyed[questionId(q.text)] = a;
       }
       if (Object.keys(keyed).length > 0) await saveAnswers(db, applicationId, keyed);
+
+      // The real form: its schema, the recipe cache, the answer plan. Questions only the person can answer park it now,
+      // batched with their other pending questions, so the click itself never waits on them.
+      const form = await (deps.form ?? prepareForm)(db, applicationId, { ...(deps.pool ? { pool: deps.pool } : {}) });
+      if (form.outcome === "needs_user") return { outcome: "needs_user", reason: form.reason ?? "Needs your input", pending: form.pending };
+      if (form.outcome === "failed") return { outcome: "failed", error: form.reason ?? "Could not prepare the form" };
       return { outcome: "prepared" };
     },
   };

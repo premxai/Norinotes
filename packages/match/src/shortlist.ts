@@ -10,6 +10,7 @@ import { checkGates } from "./gates.js";
 import { heuristicSpec } from "./heuristic-spec.js";
 import { inlineLanesFitSql, laneFitsSql, matchingLanes } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
+import { applyOutcomeLearning } from "./outcome-learning.js";
 import { placeFactor } from "./location.js";
 import { loadMatchProfile, meanProfileEmbedding, type MatchProfile } from "./profile.js";
 import { rolePool } from "./roles.js";
@@ -344,6 +345,8 @@ async function scoreCandidates(db: Db, profile: MatchProfile, candidates: Candid
       rankScore: rankScore(result.fit, result.confidence, c.recency, opts.now),
     });
   }
+  // Outcome learning (outcome-learning.ts): a capped per-user nudge from the user's replies, after the gates and the lane minimum.
+  await applyOutcomeLearning(db, profile.userId, out.scored, (jobId) => specs.get(jobId)?.spec.seniority, opts.now);
   out.scored.sort(byRank);
   return out;
 }

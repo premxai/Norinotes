@@ -1,7 +1,21 @@
 import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Page, type Route } from "playwright";
+
+/** Sent with every page request: the project's polite identifier, appended to the browser's own user agent. */
+export const POLITE_UA_SUFFIX = "NorinoteJobAgent/1.0 (+https://norinote.xyz)";
+
+/** Requests a form never needs. Captcha scripts are never blocked (a blocked captcha would only fail the application). */
+const BLOCKED_TYPES = new Set(["image", "font", "media"]);
+const ANALYTICS = /google-analytics\.com|googletagmanager\.com|doubleclick\.net|segment\.(io|com)|hotjar|fullstory|mixpanel|amplitude|browser-intake-datadoghq|datadoghq-browser|intercom|facebook\.(net|com)\/tr|connect\.facebook|linkedin\.com\/(px|li)|snap\.licdn|recruitics|clarity\.ms|sentry\.io|bat\.bing|quantserve|tiktok|onetrust|cookielaw/i;
+
+/** Route handler for a context: block images, fonts, media and analytics; everything else passes. */
+export async function blockHeavy(route: Route): Promise<void> {
+  const r = route.request();
+  if (BLOCKED_TYPES.has(r.resourceType()) || ANALYTICS.test(r.url())) return route.abort().catch(() => {});
+  return route.continue().catch(() => {});
+}
 
 export type PoolArtifacts = { screenshotPath?: string; tracePath?: string };
 
@@ -39,6 +53,10 @@ export type BrowserPoolOptions = {
   viewport?: { width: number; height: number };
   /** Test seam: how to launch the browser. */
   launch?: () => Promise<Browser>;
+  /** Block images, fonts, media and analytics (default true). */
+  blockResources?: boolean;
+  /** Keep this many fresh contexts ready so a run does not wait for one (default 1; 0 turns it off). */
+  spareContexts?: number;
 };
 
 export type PoolStats = { size: number; active: number; waiting: number; browserLaunched: boolean; launches: number };
@@ -67,6 +85,41 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
   const defaultTimeout = options.timeoutMs ?? 180_000;
   const viewport = options.viewport ?? { width: 1280, height: 900 };
   const launch = options.launch ?? (() => chromium.launch({ headless }));
+  const blockResources = options.blockResources ?? true;
+  const spareTarget = Math.max(0, Math.min(2, options.spareContexts ?? 1));
+  let userAgent: string | null = null;
+  const spares: Promise<BrowserContext>[] = [];
+
+  /** A fresh, never-used context with the polite user agent and the resource filter installed. */
+  async function newContext(browser: Browser): Promise<BrowserContext> {
+    if (!userAgent) {
+      const probe = await browser.newContext();
+      const p = await probe.newPage();
+      const real = String(await p.evaluate("navigator.userAgent").catch(() => ""));
+      await probe.close().catch(() => {});
+      userAgent = real ? `${real} ${POLITE_UA_SUFFIX}` : POLITE_UA_SUFFIX;
+    }
+    const ctx = await browser.newContext({ viewport, userAgent });
+    if (blockResources) await ctx.route("**/*", blockHeavy);
+    return ctx;
+  }
+  function refillSpares(browser: Browser): void {
+    while (!closed && spares.length < spareTarget) {
+      const p = newContext(browser);
+      p.catch(() => {});
+      spares.push(p);
+    }
+  }
+  /** A spare context when one is ready (never reused: each is handed out once), else a new one. */
+  async function takeContext(browser: Browser): Promise<BrowserContext> {
+    const spare = spares.shift();
+    refillSpares(browser);
+    if (spare) {
+      const ctx = await spare.catch(() => null);
+      if (ctx && ctx.browser()?.isConnected()) return ctx;
+    }
+    return newContext(browser);
+  }
 
   let browserPromise: Promise<Browser> | null = null;
   let launches = 0;
@@ -143,9 +196,10 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
 
     try {
       const browser = await ensureBrowser();
-      context = await browser.newContext({ viewport });
+      context = await takeContext(browser);
       try {
-        await context.tracing.start({ screenshots: true, snapshots: true });
+        // DOM snapshots, no screenshots: a trace that is cheap enough to record on every run.
+        await context.tracing.start({ screenshots: false, snapshots: true });
         tracing = true;
       } catch {
         tracing = false;
@@ -196,12 +250,14 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
     artifactsDir,
     run,
     async warmUp() {
-      await ensureBrowser();
+      refillSpares(await ensureBrowser());
+      await Promise.all(spares.map((p) => p.catch(() => null)));
     },
     stats: () => ({ size, active, waiting: waiters.length, browserLaunched: browserPromise !== null, launches }),
     async close() {
       closed = true;
       for (const w of waiters.splice(0)) w.reject(new Error("Browser pool is closed"));
+      for (const sp of spares.splice(0)) void sp.then((c) => c.close()).catch(() => {});
       const p = browserPromise;
       browserPromise = null;
       if (p) await (await p.catch(() => null))?.close().catch(() => {});

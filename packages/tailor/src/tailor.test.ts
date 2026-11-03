@@ -43,7 +43,7 @@ function scriptModel(script: { rewrite: (offered: Offered[]) => Reply; retry?: (
   return provider;
 }
 
-const GOOD_SUMMARY = "Backend Engineer with 5 years of experience building TypeScript REST APIs on PostgreSQL. Cut latency with Redis caching.";
+const GOOD_SUMMARY = "Backend Engineer with 5 years of experience building REST APIs in TypeScript on PostgreSQL for billing and payments. Reduced p95 latency from 800ms to 200ms by adding Redis caching in front of slow queries.";
 const find = (offered: Offered[], needle: string) => offered.find((o) => o.text.includes(needle))!;
 const keep = (offered: Offered[], rewrites: Record<string, string>, summary = GOOD_SUMMARY): Reply => ({
   summary, bullets: offered.map((o) => ({ id: o.id, sourceId: o.sourceId, text: rewrites[o.id] ?? o.text })),
@@ -88,9 +88,12 @@ describe("tailorResume", () => {
     expect(r.report.coverage.after.pct).toBe(100);
     expect(r.report.coverage.before.total).toBe(2);
     expect(r.report.gaps.map((g) => g.requirement)).toContain("Kubernetes");
-    const reverted = r.report.bullets.filter((b) => b.reverted);
-    expect(reverted).toHaveLength(2);
-    for (const b of reverted) expect(b.gate.failures.length).toBeGreaterThan(0);
+    // The fabricated tool and number add nothing the posting asks for, so the originals stay ("kept", no retry), and the
+    // rejected list still says what was wrong with them.
+    const kept = r.report.bullets.filter((b) => b.kept);
+    expect(kept.length).toBeGreaterThanOrEqual(2);
+    // A bullet that still needed a fix (here a repeated opening verb) and came back unchanged twice is reverted, with reasons.
+    for (const b of r.report.bullets.filter((x) => x.reverted)) expect(b.gate.failures.length).toBeGreaterThan(0);
     expect(r.report.bullets.every((b) => b.sourceIds.length > 0)).toBe(true);
     expect(r.report.costMicros).toBeGreaterThan(0);
 
@@ -118,7 +121,8 @@ describe("tailorResume", () => {
     const acme = r.content.experience[0]!;
     expect(acme.bullets[0]!.text).toBe("Built REST APIs in TypeScript serving 2M requests per day");
     expect(r.content.skills[0]!.items.slice(0, 4)).toEqual(["REST APIs", "TypeScript", "PostgreSQL", "Redis"]);
-    expect(r.content.summary).toBe("Backend Engineer with 5 years of experience, working with REST APIs, TypeScript and PostgreSQL.");
+    // A role noun (not a raw title), the years in the function, 2 to 4 of the posting's skills, one concrete result.
+    expect(r.content.summary).toBe("Backend engineer with 5 years of experience, working with REST APIs, TypeScript, PostgreSQL and Redis. Built REST APIs in TypeScript serving 2M requests per day.");
     expect(r.changes.find((c) => c.kind === "summary")!.reason).toMatch(/model unavailable/);
     expect(r.report.coverage.after.pct).toBe(100);
   });
@@ -129,7 +133,8 @@ describe("tailorResume", () => {
     await t.db.update(jobSpecs).set({ spec: { ...SPEC_NURSE } }).where(eq(jobSpecs.jobId, w.jobId));
     setProvider(createFakeProvider({ chat: () => { throw Object.assign(new Error("upstream down"), { status: 503 }); } }));
     const r = await run(w);
-    expect(r.content.summary).toBe("Backend Engineer with 5 years of experience.");
+    expect(r.content.summary).toMatch(/^Backend engineer with 5 years of experience\. /);
+    for (const s of ["RN", "BLS", "Epic", "Patient Education"]) expect(r.content.summary).not.toContain(s);
     expect(r.content.skills.find((g) => g.group === "Core")).toBeUndefined();
     expect(r.report.gaps.map((g) => g.requirement)).toEqual(expect.arrayContaining(["Current RN license", "BLS certification"]));
     expect(r.report.coverage.after.pct).toBeNull();
@@ -144,7 +149,7 @@ describe("tailorResume", () => {
       const w = await seedWorld(t.db, `badsum-${i}`);
       scriptModel({ rewrite: (offered) => keep(offered, {}, bad), retry: (offered) => keep(offered, {}, bad) });
       const r = await run(w);
-      expect(r.content.summary, bad).toMatch(/^Backend Engineer with 5 years of experience/);
+      expect(r.content.summary, bad).toMatch(/^Backend engineer with 5 years of experience/);
       expect(r.changes.find((c) => c.kind === "summary")!.reason).toMatch(/model summary rejected/);
       expect(r.report.summary.source).toBe("facts");
     }

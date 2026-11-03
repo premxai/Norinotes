@@ -5,7 +5,7 @@ import { pointCorpus } from "./evidence.js";
 import { MAX_REWRITES, gateSummary, nextRound, optimise, pickRewrites, styleStats } from "./rewrite.js";
 import { selectContent } from "./select.js";
 import { SPEC } from "./test-fixtures.js";
-import { buildVocab, supportOf } from "./validate.js";
+import { buildVocab, gateBullet, supportOf } from "./validate.js";
 
 afterEach(() => setProvider(null));
 
@@ -29,12 +29,12 @@ function setup() {
 }
 
 const GOOD: Record<string, string> = {
-  "acme#0": "Developed REST APIs in TypeScript that served 2M requests per day for the billing and account services at Acme",
-  "acme#1": "Moved the billing service onto PostgreSQL and cut its query time by 40%, keeping billing records in one relational store",
+  "acme#0": "Engineered REST APIs in TypeScript that served 2M requests per day for the billing and account services at Acme",
+  "acme#1": "Migrated the billing service onto PostgreSQL and cut its query time by 40%, keeping billing records in one relational store",
   "acme#2": "Wrote onboarding docs for new engineers that cover their first week, the team's conventions and where to ask for help",
   "globex#0": "Delivered internal dashboards in React that gave the support team one place to follow customer tickets and requests",
 };
-const SUMMARY = "Backend Engineer building REST APIs in TypeScript and PostgreSQL services, with 8 years of experience on billing systems.";
+const SUMMARY = "Backend Engineer with 8 years of experience building REST APIs in TypeScript and PostgreSQL services for billing systems. Built REST APIs serving 2M requests per day and cut billing query time by 40%.";
 type Req = { mode?: string; bullets: { id: string; sourceId: string; failures?: string[]; instructions?: string[] }[]; requirements?: { id: string; candidates: string[] }[] };
 const body = (req: ChatRequest) => JSON.parse(req.messages.at(-1)!.content) as Req;
 const reply = (bs: Req["bullets"], text: (id: string) => string, summary = "") => ({ summary, bullets: bs.map((b) => ({ id: b.id, sourceId: b.sourceId, text: text(b.id) })) });
@@ -217,5 +217,73 @@ describe("helpers", () => {
     expect(s.bullets).toBeGreaterThan(0);
     expect(s.verbDiversity).toBeGreaterThan(0);
     expect(s.banned).toBe(0);
+  });
+});
+
+describe("no-op rewrites and summary shape", () => {
+  it("keeps the original when the rewrite adds no supported term or phrase and fixes nothing", async () => {
+    const pts: CareerPoint[] = [pt("r", { kind: "role", title: "Backend Engineer", org: "Acme", startDate: "2020-01",
+      text: "Built REST APIs in TypeScript and PostgreSQL that serve 2M requests per day for the billing team at Acme\nWrote onboarding docs for new engineers joining the billing team and the platform group at Acme" })];
+    const selection = selectContent({ points: pts, fitMap: [], spec, contact: { name: "Ada" }, now: NOW });
+    const vocab = buildVocab({ userSkills: ["TypeScript", "PostgreSQL"], specSkills: [], orgs: ["Acme"], titles: ["Backend Engineer"] });
+    const input = { selection, points: pts, job: { title: "Backend Engineer", company: "Initech" }, vocab, corpus: supportOf(pts.map(pointCorpus)), now: NOW };
+    script({
+      rewrite: (r) => reply(r.bullets, (id) => (id === "r#0" ? "Built REST APIs with TypeScript and PostgreSQL that served 2M requests per day for the billing team at Acme" : "Produced onboarding docs for new engineers who joined the billing team and the platform group at Acme"), SUMMARY),
+      critique: noGaps,
+    });
+    const r = await optimise(input, selection.content);
+    // The latest role's first bullet is always rewritten; the other one added nothing, so the original stays ("kept").
+    expect(r.changes.filter((c) => c.kind === "bullet").map((c) => c.bulletId)).toEqual(["r#0"]);
+    expect(r.bullets.find((b) => b.bulletId === "r#1")).toMatchObject({ kept: true, reverted: false });
+  });
+
+  it("rejects a summary that opens with a raw title, has the wrong shape, or names no skills", () => {
+    const { input } = setup();
+    const shape = { supportedTerms: ["REST APIs", "TypeScript", "PostgreSQL"], strengthHasNumber: true };
+    const g = (s: string) => gateSummary(s, { corpus: input.corpus, vocab: input.vocab, years: 8, jobTitle: "Backend Engineer", personTitles: ["Backend Engineer"], shape }).failures.map((f) => f.rule);
+    expect(g(SUMMARY)).toEqual([]);
+    expect(g("Teaching Assistant, Data Structures (CS 112), working with REST APIs, TypeScript and PostgreSQL.")).toEqual(expect.arrayContaining(["length", "title"]));
+    expect(g("Backend engineer in the backend engineer field, building REST APIs in TypeScript and PostgreSQL services for billing. Built REST APIs serving 2M requests per day and cut query time by 40%.")).toContain("title");
+    expect(g("Backend Engineer with 8 years of experience on billing systems for payments and invoices. Built services serving 2M requests per day and cut billing query time by 40% for reports.")).toContain("source");
+  });
+});
+
+describe("unchanged returns", () => {
+  it("does not accept an unchanged bullet that still needs a fix, and tells the retry what to fix", async () => {
+    const pts: CareerPoint[] = [pt("r", { kind: "role", title: "Backend Engineer", org: "Acme", startDate: "2020-01",
+      text: "Own the TypeScript billing service and its PostgreSQL schema, serving 2M requests per day for the finance team at Acme" })];
+    const selection = selectContent({ points: pts, fitMap: [], spec, contact: { name: "Ada" }, now: NOW });
+    const vocab = buildVocab({ userSkills: ["TypeScript", "PostgreSQL"], specSkills: [], orgs: ["Acme"], titles: ["Backend Engineer"] });
+    const input = { selection, points: pts, job: { title: "Backend Engineer", company: "Initech" }, vocab, corpus: supportOf(pts.map(pointCorpus)), now: NOW };
+    let retried: Req | null = null;
+    script({
+      rewrite: (r) => reply(r.bullets, () => "Own the TypeScript billing service and its PostgreSQL schema, serving 2M requests per day for the finance team at Acme", SUMMARY),
+      retry: (r) => { retried = r; return reply(r.bullets, () => "Owned the TypeScript billing service and its PostgreSQL schema, serving 2M requests per day for the finance team at Acme"); },
+      critique: noGaps,
+    });
+    const r = await optimise(input, selection.content);
+    expect((retried as unknown as Req).bullets[0]!.failures!.join(" ")).toMatch(/past tense/);
+    expect(selection.content.experience[0]!.bullets[0]!.text).toMatch(/^Owned the TypeScript billing service/);
+    expect(r.bullets[0]).toMatchObject({ rewritten: true, kept: false, attempts: 2 });
+  });
+});
+
+describe("round 4 rewrite rules", () => {
+  it("rejects a rewrite that repeats a fact another bullet shows", () => {
+    const original = "Precepted new graduate nurses on the cardiac telemetry unit during night shifts and weekends";
+    const v = buildVocab({ userSkills: [], specSkills: [], orgs: [], titles: [] });
+    const g = gateBullet("Precepted new graduate nurses on the telemetry unit and led a project that reduced falls by 28% with hourly rounding",
+      { source: supportOf([original, "led a unit project that reduced falls by 28%"]), original, vocab: v, otherBullets: ["Led a unit project that reduced patient falls by 28%"] });
+    expect(g.failures.map((f) => f.rule)).toContain("duplicate_fact");
+  });
+
+  it("tells the model the lead bullet and missing must-have phrases need work", async () => {
+    const { input, content } = setup();
+    let sent: Req | null = null;
+    script({ rewrite: (r) => { sent = r; return reply(r.bullets, (id) => GOOD[id]!, SUMMARY); }, critique: noGaps });
+    await optimise(input, content);
+    const bullets = (sent as unknown as { bullets: { id: string; fix: string[] }[] }).bullets;
+    expect(bullets[0]!.fix.join(" ")).toMatch(/lead bullet of the latest role/);
+    expect(bullets.some((b) => b.fix.join(" ").includes("high-volume transaction systems"))).toBe(true);
   });
 });

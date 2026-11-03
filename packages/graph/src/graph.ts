@@ -42,7 +42,8 @@ export function summarizeSkills(points: CareerPoint[], now = new Date()): SkillS
   for (const p of points) {
     const start = p.startDate ? monthIndex(p.startDate, "start") : null;
     const end = p.endDate ? monthIndex(p.endDate, "end") : start !== null ? nowIdx : null;
-    const interval: [number, number] | null = start !== null && end !== null && end >= start ? [start, Math.min(end, nowIdx)] : null;
+    // A licence's dates are when it was issued and expires, not time spent using its skills (an AWS certificate is not years of AWS).
+    const interval: [number, number] | null = p.kind !== "certification" && start !== null && end !== null && end >= start ? [start, Math.min(end, nowIdx)] : null;
     for (const name of p.skills) {
       const k = name.toLowerCase();
       const e = by.get(k) ?? { name, intervals: [], ids: [], last: null, current: false };

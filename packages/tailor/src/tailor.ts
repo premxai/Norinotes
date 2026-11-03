@@ -14,7 +14,9 @@ import { buildEvidence, buildRequirements, coverageScore, pointCorpus, type Evid
 import { renderResumePdf, type PdfRenderer } from "./pdf.js";
 import { MAX_REWRITES, optimise, type OptimiseResult, type RejectedRewrite } from "./rewrite.js";
 import { baselineContent, selectContent, type Selection } from "./select.js";
-import { joinList } from "./text.js";
+import { joinList, numbersIn, wordCount } from "./text.js";
+import { cleanStrength, roleFamily, roleHead, roleNoun, summarySkills } from "./summary.js";
+import { openerTense } from "./phrases.js";
 import type { AtsReport, FontId, PageSize, ResumeBullet, ResumeChange, ResumeContact, ResumeContent, ResumeTemplate, TailoringReport } from "./types.js";
 import { buildVocab, supportOf, validateBullet, type Support, type Vocab } from "./validate.js";
 
@@ -71,19 +73,30 @@ function toCareerPoints(rows: (typeof careerPoints.$inferSelect)[]): CareerPoint
 const TITLE_LIKE = new Set(["registered nurse", "account executive", "charge nurse", "api"]);
 
 /** A summary built from facts only, used when the model's is missing or rejected. */
-export function factsSummary(points: CareerPointT[], selection: Selection, spec: JobSpec | null): string | undefined {
-  const latest = selection.content.experience[0];
-  const fromEvidence = selection.evidence.supportedJobTerms.filter((t) => !TITLE_LIKE.has(aliasGroupOf(t.jobString)?.key ?? "")).map((t) => t.jobString);
-  // Only skills the career points really show; never the posting's list when the person has none of it.
-  const skills = fromEvidence.slice(0, 3);
-  void points;
+export function factsSummary(points: CareerPointT[], selection: Selection, spec: JobSpec | null, jobTitle: string | null = null): string | undefined {
   void spec;
-  const title = latest?.title;
+  if (points.length === 0) return undefined;
+  const fromEvidence = selection.evidence.supportedJobTerms.filter((t) => !TITLE_LIKE.has(aliasGroupOf(t.jobString)?.key ?? "")).map((t) => t.jobString);
+  // A role noun the person truthfully is (never a raw title with course codes), the target role family when it differs.
+  const noun = roleNoun(points, jobTitle);
+  // Only skills the career points really show; never the posting's list when the person has none of it.
+  const skills = summarySkills(fromEvidence, noun);
+  const family = jobTitle ? roleFamily(jobTitle) : null;
+  const head = jobTitle ? roleHead(jobTitle) : null;
   const years = selection.years;
-  if (!title && skills.length === 0) return undefined;
-  // Years only as selection computed them: whole years in the target function, and none below 2.
-  const lead = title ? `${title}${years !== null && years >= 2 ? ` with ${years} years of experience` : ""}` : "Candidate";
-  return `${lead}${skills.length ? `, working with ${joinList(skills)}` : ""}.`;
+  const targeting = family && head && !noun.toLowerCase().includes(head) ? ` targeting ${family} roles` : "";
+  const first = `${noun}${years !== null && years >= 2 ? ` with ${years} years of experience` : ""}${targeting}${skills.length ? `, working with ${joinList(skills)}` : ""}.`;
+  // One concrete strength: the heaviest shown bullet with a number that keeps the summary within 45 words.
+  const bullets = selection.content.experience.flatMap((r) => r.bullets).filter((b) => b.weight > 0)
+    .sort((a, b) => Number(numbersIn(b.text).length > 0) - Number(numbersIn(a.text).length > 0) || b.weight - a.weight);
+  for (const b of bullets) {
+    const clean = cleanStrength(b.text);
+    // A finished result reads as one past-tense sentence; skip present-tense lines ("Carry a quota...") and fragments.
+    if (wordCount(clean) < 6 || openerTense(clean) === "present") continue;
+    const second = `${clean}.`;
+    if (wordCount(first) + wordCount(second) <= 45) return `${first} ${second}`;
+  }
+  return first;
 }
 
 /**
@@ -185,6 +198,7 @@ function buildReport(evidence: EvidenceIndex, before: ResumeContent, selected: R
     gaps: evidence.entries.filter((e) => !e.supported || e.lackedTerms.length > 0).map((e) => ({
       requirement: e.text, mustHave: e.mustHave, lacking: e.lackedTerms.map((k) => display(k, e)), related: e.related,
     })),
+    keyPhrases: [...new Set(evidence.entries.filter((e) => e.supported && e.mirror && e.keyPhrase).map((e) => e.keyPhrase!))],
     bullets: opt.bullets,
     summary: { source: summarySource, failures: opt.summary.failures },
     rounds: opt.rounds,
@@ -261,7 +275,7 @@ export async function tailorResume(db: Db, input: TailorInput): Promise<TailorRe
     summarySource = "model";
     changes.push({ kind: "summary", before: null, after: content.summary, reason: "Written around the top supported requirements of the posting", careerPointIds: topIds });
   } else {
-    const fallback = factsSummary(points, selection, spec);
+    const fallback = factsSummary(points, selection, spec, jobRow.title);
     if (fallback) {
       content.summary = fallback;
       summarySource = "facts";

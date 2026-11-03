@@ -34,7 +34,11 @@ packages/
               critique and revise, one-page render to PDF, coverage report.
   answers/    Answer bank: profile defaults plus previously given answers, matched by meaning; batches new questions.
   apply/      Application state machine, per-system Playwright drivers, warm browser pool, AI fallback hook, receipts.
-  inbox/      Owned inbound email: parse verification codes, confirmations, replies; link them to applications.
+  inbox/      Owned inbound email: provider adapters (Cloudflare Email Worker raw MIME, generic JSON, Postmark), HMAC
+              webhook checks, rules-first classification (small model only when unsure), linking to applications,
+              `awaitVerification` for apply, forwarding (stub), retention. Details in docs/inbox.md.
+  telegram/   Telegram channel: typed Bot API client (fetch), per-chat send queue (429 retry_after), signed button data,
+              deep-link linking, daily shortlist, batched questions, events, quiet hours. Details in docs/telegram.md.
   shared/     Types and zod contracts shared by api, worker and web.
 ```
 
@@ -52,16 +56,25 @@ Per user:
 - `users`, `sessions`, `auth_tokens` (email verification, password reset)
 - `profiles` (contact, location, work authorisation, salary expectation, start date, EEO defaults, preferences)
 - `lanes` (user_id, name, titles[], locations[], remote, min_fit, enabled), one shared daily cap on the profile
-- `career_points` (user_id, kind: role/project/achievement/education/skill, title, org, start, end, text, skills[], scope jsonb, metrics jsonb, source_quote) and `career_point_embeddings`
+- `career_points` (user_id, kind: role/project/achievement/education/certification/skill, title, org, start, end, text, skills[], scope jsonb, metrics jsonb, source_quote) and `career_point_embeddings`
 - `shortlist` (user_id, job_id, fit numeric, fit_map jsonb, reasons[], status: new/dismissed/applied, created_at)
-- `applications` (user_id, job_id, status, resume_id, answers jsonb, pending_questions jsonb, receipt jsonb, error, attempts, prepared_at, approved_at, submitted_at)
+- `applications` (user_id, job_id, canonical_url, status, resume_id, answers jsonb, pending_questions jsonb, receipt jsonb, error, attempts, prepared_at, approved_at, submitted_at); unique per (user, job) and (user, canonical_url)
 - `resumes` (application_id, content jsonb, changes jsonb, pdf_path, pages, ats_checks jsonb)
 - `answer_bank` (user_id, question_text, question_embedding, answer, source: default/user/model, last_used_at)
 - `run_events` (application_id, ts, step, level, message, data)
-- `inbox_addresses` (user_id, address) and `inbox_messages` (user_id, application_id, kind, code, from, subject, body, received_at)
-- `channels` (user_id, kind: telegram, address)
+- `form_recipes` (shared: fingerprint, ats_type, company_token, fields jsonb of question -> slot and widget strategy, never values; hits, heals)
+- `inbox_addresses` (user_id, address) and `inbox_messages` (user_id, application_id, kind, code, from_address, message_id,
+  links, subject, body as text, meta jsonb: attachment metadata, spam verdict, verification link, trust, forwarding; received_at).
+  Forwarding and retention settings live in `profiles.preferences.inbox`. No HTML and no attachment content are stored.
+- `channels` (user_id, kind: telegram, address = chat id) and `channel_messages` (outbox and log: user_id, kind, dedupe_key,
+  payload, status, not_before for quiet hours, chat_id, telegram_message_id). Link tokens are `auth_tokens` of kind
+  `telegram_link` (hashed, single use, 15 minutes); settings live in `profiles.preferences.telegram`. See docs/telegram.md.
 - `llm_usage` (user_id, day, prompt_tokens, completion_tokens, cost_micros)
-- `outcomes` (application_id, kind: reply/interview/rejection/offer, at)
+- `outcomes` (application_id, kind: reply/interview/rejection/offer, at, source: inbox/manual, message_id, deleted_at): one row per
+  classified, linked, trusted inbox message for a submitted application, or added by the user; removal is soft so a re-read
+  never brings it back. "No response" (30 days, no outcome) is derived, not stored. A confirmation sets
+  `applications.confirmed_at`; `applications.tailoring_version` records which tailoring produced the submitted resume.
+  The per-user outcome nudge lives in `profiles.preferences.outcomeLearning`. Details in docs/outcomes.md.
 
 ## Queues (packages/queue, pg-boss)
 
@@ -73,7 +86,10 @@ Per user:
 | `match.user` | profile, graph or lanes change | queue `understand` for the user's unspecced lane-fitting jobs, then rebuild the shortlist from the stored index (jobs without an embedding are ranked by skill overlap) |
 | `prepare.application` | job reaches the top of a shortlist, or user queues it | tailor resume, draft answers from the answer bank, mark prepared |
 | `apply.run` | user click (counts as approval) or autopilot within the daily cap | fill and submit with the warm browser pool |
-| `inbox.receive` | inbound email webhook | parse, store, link to the application, wake a waiting `apply.run` |
+| `inbox.receive` | inbound email webhook (`/api/inbox/webhook/:provider` stores first) | settle ambiguous mail with the small model, relink, record outcomes, wake `awaitVerification`, forward if enabled; a 6-hourly retention sweep deletes mail older than `INBOX_RETENTION_DAYS` (90) |
+
+The Telegram notifier is not a queue: a 30-second timer in the worker (with `TELEGRAM_BOT_TOKEN`) queues and sends the daily
+shortlist, questions and events, and starts applications approved from Telegram once they are prepared.
 
 Per-host concurrency and rate limits live in the queue config. Workers are idempotent and retry with backoff.
 
@@ -88,6 +104,9 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    Gates also drop remote jobs limited to countries or regions the user cannot work in. Order: lane matches, then widened
    rows; well-specified jobs first, then fit x confidence plus a small recency bonus.
 4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring.
+5. Outcome nudge (`outcome-learning.ts`): after 10 resolved applications, fit moves by at most 0.05 toward role families,
+   seniority, job systems and board sizes that got the user replies and away from repeated silence or rejection (age-decayed),
+   after gates and the lane minimum; the row says why ("From your replies: ... (+0.02 fit)"). See docs/outcomes.md.
 
 ## Tailoring (packages/tailor)
 
@@ -100,28 +119,55 @@ Details in docs/tailoring.md.
    embedding similarity only for descriptive requirements; soft ones (ownership, end-to-end, startup pace, stakeholder
    work) only where a point shows the behaviour. Each descriptive requirement keeps the posting's key phrase. No support is a gap.
 2. Deterministic selection: bullets weighted by the requirements their own text supports (must-haves double); the latest
-   and recent or relevant roles get 3 to 5 bullets, older ones 1 to 2; the latest role's first three bullets each lead
+   and recent or relevant roles get 3 to 5 bullets (the two most recent show every bullet up to 5; the one-page fitter
+   trims only a full page), older ones 1 to 2; lines that are parser filler, repeated facts, category-label skills and
+   degrees are left out; certification points fill the Certifications section; the latest role's first three bullets each lead
    with a different supported must-have; a role's best bullet is never cut. Skills: every
    skill the job names that the person really has, in the job's spelling, then the rest.
 3. One large-model call (temperature 0.2, JSON) rewrites up to 6 bullets (the top role's, then the heaviest) and writes
    the summary; each bullet cites its source point and carries the posting's own key phrases where its source supports
    them. A deterministic gate checks every bullet (numbers, tools, employers, titles against the cited source; lacked
-   requirements and phrases; tools newer than the role; length; banned phrases; repeated verbs; past tense; term overuse).
-   The summary may state years only as the exact whole years in the target function (none below 2, never tied to a skill). Failures are retried once on the small model; failing twice reverts to the original.
+   requirements and phrases; tools newer than the role; length; banned phrases; job-ad boilerplate; phrases tacked on
+   after the result; strong original verbs kept; repeated verbs; past tense; term and phrase overuse). A rewrite that
+   adds nothing is not applied (the original is "kept").
+   The summary: 2 sentences, 25 to 45 words, a truthful role noun, the target role family, 2 to 4 posting skills and one
+   concrete strength; years only as the exact whole years in the target function (none below 2, never tied to a skill). Failures are retried once on the small model; failing twice reverts to the original.
 4. Critique and revise, at most 2 rounds (small model): only coverage gaps or faithfulness fixes; stops when nothing is
    open, coverage stops improving, or after round 2.
 5. One-page render; `resumes.ats_checks.tailoring` stores the report (coverage before and after, gaps, per-bullet source
    ids and gate results, rounds, cost). Without the AI service steps 3 and 4 are skipped and the selection stands.
 
-Cost about 1 cent per resume (eval run 2: $0.0100 mean, $0.0139 max; docs/eval/tailor-run2.md).
+Cost about 1 cent per resume (eval run 3: $0.0107 mean, $0.0163 max; docs/eval/tailor-run3.md).
 
 ## Applying (packages/apply)
 
-- State machine: `queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | failed`.
-- A user click on a prepared application approves and submits. Autopilot uses the same path within the daily cap.
-- Drivers per job system (Greenhouse, Lever, Ashby first). A warm Playwright pool on the worker, 3 to 4 parallel pages.
-- Unknown forms: a fallback hook for an AI browser agent (not wired tonight). Captcha or bot check: park as `needs_user`.
-- Real submission only when `ALLOW_REAL_SUBMIT=true`; otherwise dry run that fills and stops before submit.
+Click to submitted in 12 to 30 seconds, under 2 cents, no invented answers. Details in docs/applying.md.
+
+- No job system has a keyless submit API (Greenhouse and Lever need employer keys, SmartRecruiters and Workable partner
+  tokens, Ashby's /api/ is disallowed by robots.txt), so the browser submits; everything readable without a key is read
+  before the click.
+- State machine: `queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | failed`. A user
+  click on a prepared application approves and submits; autopilot uses the same path within the daily cap.
+- **Prepare** (`prepare.application`, `prepareForm`): form schema (Greenhouse's public questions API; Lever and Ashby read
+  from the page in a warm context), form recipe cache (`form_recipes`: fingerprint of system, company and sorted
+  label|type|options -> slot and widget strategy, never values), then the answer plan (packages/answers `planForm`): the
+  person's answers, deterministic profile slots, the answer bank (text, then embeddings), at most one batched small-model
+  call for short unknowns (it may answer "unsure"), at most one large-model call for required long free text with a
+  sentence-by-sentence grounding check. Legal questions only from the profile; EEO the profile's choice or "decline".
+  What nobody can answer parks the application as `needs_user` with pending questions before the click.
+- **Fill** (drivers for Greenhouse on both hosts, Lever, Ashby; typed stubs park Workday, SmartRecruiters, Workable,
+  iCIMS): warm pool, fresh context per run, images/fonts/media/analytics blocked, first field instead of network idle,
+  files first, text in one round trip, comboboxes and choice groups one at a time with read-back, validation scan with
+  one fix, revealed follow-up fields, multi-page loop. Per-step timings in `run_events`.
+- **Stops**: a visible captcha challenge, an emailed-code prompt (the owned inbox's `awaitVerification` supplies codes;
+  links and timeouts park), account walls, unanswerable questions: `needs_user` with the reason. Never solved or evaded.
+- **Submit** only when `ALLOW_REAL_SUBMIT=true` (dry run otherwise: fill, stop before submit); races success signals
+  (2xx on the submit request, confirmation text, form detached, URL change) against failure signals.
+- Safety: one application per user and canonical job URL, one at a time per company plus a cooldown, the submit click
+  recorded before anything else, receipts with screenshot, trace path and confirmation text. AI browser fallback: a
+  typed hook only (`AiBrowserFallback`); unknown forms go to `needs_user`.
+- Eval: 26 saved real forms replayed locally, plus live dry runs (docs/eval/apply-run1.md); about 0.2 cents per form in
+  model spend.
 
 ## API surface (apps/api)
 
@@ -131,7 +177,9 @@ Keeps the shapes the current web app uses for the core flows, so it keeps workin
 `/api/graph` (GET), `/api/graph/facts` (POST), `/api/graph/nodes/:id` (DELETE), `/api/lanes` (GET, PUT),
 `/api/jobs` (GET with view/sort/maxAgeDays/clearance), `/api/jobs/summary`, `/api/jobs/:id`, `/api/jobs/url` (POST),
 `/api/shortlist` (GET, new), `/api/applications` (GET, POST), `/api/applications/:id` (GET) and its actions,
-`/api/resumes/:id`, `/api/agent/status`, `/api/agent/activity`, `/api/inbox` (GET), `/api/channels/telegram*`,
+`/api/applications/:id/outcomes` (GET, POST, DELETE `/:outcomeId` or `?kind=`), `/api/outcomes/summary`,
+`/api/resumes/:id`, `/api/agent/status`, `/api/agent/activity`, `/api/inbox` (GET, `/:id`, `/address`, PUT `/settings`), `/api/inbox/webhook/:provider` (POST), `/api/channels/telegram` (GET, PUT, DELETE), `/api/channels/telegram/link` (POST),
+`/api/channels/telegram/webhook` (POST, Telegram's secret_token),
 `/api/auth/account` (DELETE).
 
 Dropped on purpose: model settings and bring-your-own keys, Composio integrations, Google Sheets tracker sync,
@@ -151,7 +199,7 @@ scoring every job for every user, the 16 overlapping docs.
 
 `DATABASE_URL`, `OPENAI_API_KEY`, `AI_SMALL_MODEL` (default gpt-4.1-mini), `AI_LARGE_MODEL` (default gpt-4.1),
 `EMBEDDING_MODEL` (default text-embedding-3-small), `ALLOW_REAL_SUBMIT`, `INBOUND_EMAIL_DOMAIN`,
-`INBOUND_WEBHOOK_SECRET`, `TELEGRAM_BOT_TOKEN`, `WEB_URL`, `API_URL`, `SESSION_SECRET`.
+`INBOUND_WEBHOOK_SECRET`, `INBOX_RETENTION_DAYS`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `WEB_URL`, `API_URL`, `SESSION_SECRET`.
 Hosting decisions (Vercel, Neon, Fly region) are made tomorrow; nothing here assumes a provider beyond Postgres.
 
 ## Quality gate

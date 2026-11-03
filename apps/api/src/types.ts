@@ -20,10 +20,14 @@ export type ApiDeps = {
   addJob?: typeof addJobByUrl;
   log?: (line: string) => void;
   limiter?: RateLimiter;
+  /** Telegram transport overrides (tests: a fake Bot API through `fetch`, no per-chat delay). */
+  telegram?: TelegramOverrides;
 };
 
+export type TelegramOverrides = { fetch?: typeof fetch; perChatIntervalMs?: number };
+
 /** `ApiDeps` with every default filled in; what route modules receive. */
-export type Ctx = Required<Omit<ApiDeps, "limiter">> & { limiter: RateLimiter };
+export type Ctx = Required<Omit<ApiDeps, "limiter" | "telegram">> & { limiter: RateLimiter; telegram?: TelegramOverrides };
 
 export type SessionUser = { id: string; email: string; emailVerifiedAt: Date | null; createdAt: Date };
 

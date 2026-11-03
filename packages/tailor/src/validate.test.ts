@@ -128,7 +128,7 @@ describe("gateBullet", () => {
 
   it("rejects bad length, banned phrases, first person and raised ownership", () => {
     expect(rules("Built REST APIs in Node.js")).toEqual(["length"]);
-    expect(rules("Leveraged Node.js and PostgreSQL to build REST APIs serving 2M requests per day for the billing team's payment flows")).toEqual(["banned_phrase"]);
+    expect(rules("Leveraged Node.js and PostgreSQL to build REST APIs serving 2M requests per day for the billing team's payment flows")).toContain("banned_phrase");
     expect(rules("Built REST APIs in Node.js and PostgreSQL that serve 2M requests per day for my billing team and its payment flows")).toEqual(["pronoun"]);
     expect(rules("Led the team building REST APIs in Node.js and PostgreSQL that serve 2M requests per day for billing flows")).toContain("inflation");
   });
@@ -182,6 +182,10 @@ describe("summary years", () => {
     expect(yearsVerdict("New engineer with a year of experience.", null)).toMatchObject({ ok: false });
     expect(yearsVerdict("Backend engineer building APIs.", null)).toEqual({ ok: true });
     expect(yearClaims("6 years in ops, 3-year plan, many years")).toEqual([6, 3]);
+    // Rates are not year counts (e2e run 1: "$1.1M a year" made the summary gate read "claims 1 years").
+    expect(yearClaims("Cut AWS spend by $1.1M a year, shipped 150 deploys a year and reviewed it twice a year.")).toEqual([]);
+    expect(yearsVerdict("Site reliability engineer with 7 years on AWS who cut spend by $1.1M a year.", 7)).toEqual({ ok: true });
+    expect(yearClaims("Engineer for a year, then lead for an year")).toEqual([1, 1]);
   });
 });
 
@@ -192,5 +196,67 @@ describe("lacked soft requirements", () => {
     const g = gateBullet("Built REST APIs in Node.js at high-growth startup pace, serving 2M requests per day for the billing team's flows",
       { source: src, original: "Built REST APIs in Node.js serving 2M requests per day", vocab: v, lackedPatterns: [/\bstart-?ups?\b|\bhigh[- ]growth\b/i] });
     expect(g.failures.map((f) => f.rule)).toEqual(["lacked_requirement"]);
+  });
+});
+
+describe("readability rules in the gate", () => {
+  const original = "Built REST APIs in Node.js and Postgres serving 2M requests per day for the billing team";
+  const src = supportOf([original, "Backend Engineer\nAcme"]);
+  const v = buildVocab({ userSkills: ["Node.js", "PostgreSQL"], specSkills: [], orgs: ["Acme"], titles: ["Backend Engineer"] });
+  const rules = (text: string, extra: Partial<GateContext> = {}) => gateBullet(text, { source: src, original, vocab: v, ...extra }).failures.map((f) => f.rule);
+
+  it("rejects job-ad boilerplate at the start or as filler", () => {
+    expect(rules("Demonstrated strong proficiency in Node.js by building REST APIs on PostgreSQL serving 2M requests per day for billing")).toEqual(expect.arrayContaining(["boilerplate"]));
+    expect(rules("Built REST APIs in Node.js and PostgreSQL with strong understanding of billing, serving 2M requests per day for the team")).toEqual(["boilerplate"]);
+    expect(rules("Built REST APIs with experience in Node.js and PostgreSQL, serving 2M requests per day for the billing team's flows")).toEqual(["boilerplate"]);
+  });
+
+  it("rejects a key phrase tacked on after the result", () => {
+    const tail = "Built REST APIs in Node.js and PostgreSQL serving 2M requests per day for the billing team across production services";
+    expect(rules(tail, { mirrorPhrases: ["production services"] })).toEqual(["tacked_on"]);
+    expect(rules("Built production services and REST APIs in Node.js and PostgreSQL serving 2M requests per day for the billing team", { mirrorPhrases: ["production services"] })).toEqual([]);
+  });
+
+  it("keeps a strong original verb and never trades down to a generic one", () => {
+    expect(rules("Developed REST APIs in Node.js and PostgreSQL serving 2M requests per day for the billing team's payment flows")).toEqual(["verb"]);
+    expect(rules("Engineered REST APIs in Node.js and PostgreSQL serving 2M requests per day for the billing team's payment flows")).toEqual(["verb"]);
+    // When another bullet already opens with "Built", another strong verb is fine; a weak one is not.
+    expect(rules("Engineered REST APIs in Node.js and PostgreSQL serving 2M requests per day for the billing team's payment flows", { usedOpeners: new Set(["built"]) })).toEqual([]);
+    expect(rules("Developed REST APIs in Node.js and PostgreSQL serving 2M requests per day for the billing team's payment flows", { usedOpeners: new Set(["built"]) })).toEqual(["verb"]);
+    const weakSrc = "Tech lead for the merchant dashboard used by 120,000 merchants";
+    expect(gateBullet("Supported the merchant dashboard as tech lead for 120,000 merchants across every region the team served daily",
+      { source: supportOf([weakSrc]), original: weakSrc, vocab: v }).failures.map((f) => f.rule)).toEqual(["verb"]);
+  });
+
+  it("keeps numbers exactly: units may be spelled out, values never change", () => {
+    const o = "Rebuilt the dashboard, cutting median page load from 4.1 s to 1.6 s and Largest Contentful Paint by 52%";
+    const s2 = supportOf([o]);
+    const g = (t: string) => gateBullet(t, { source: s2, original: o, vocab: v }).failures.map((f) => f.rule);
+    expect(g("Rebuilt the dashboard on a shared component library, cutting median page load from 4.1 seconds to 1.6 seconds and LCP by 52%")).not.toContain("number");
+    expect(g("Rebuilt the dashboard on a shared component library, cutting median page load from 4.0 seconds to 1.6 seconds and LCP by 52%")).toContain("number");
+  });
+});
+
+describe("one posting phrase per bullet, short bullets stay short", () => {
+  const original = "Served the product-ranking model on Kubernetes at 40 ms p95 latency, lifting conversion by 2.3%";
+  const v = buildVocab({ userSkills: ["Kubernetes"], specSkills: [], orgs: [], titles: [] });
+  it("rejects a key phrase already carried by another bullet", () => {
+    const g = gateBullet("Served the product-ranking model on Kubernetes over large, heterogeneous datasets at 40 ms p95 latency, lifting conversion by 2.3%",
+      { source: supportOf([original]), original, vocab: v, phraseUses: { phrases: ["large, heterogeneous datasets"], others: ["Built forecasting on large, heterogeneous datasets"] } });
+    expect(g.failures.map((f) => f.rule)).toEqual(["overuse"]);
+  });
+  it("lets a short original stay short instead of padding it", () => {
+    const short = "Won President's Club 2024 and 2025";
+    expect(gateBullet("Won President's Club in 2024 and 2025", { source: supportOf([short]), original: short, vocab: v, minWords: 6 }).failures).toEqual([]);
+  });
+});
+
+describe("verb openers", () => {
+  it("requires a rewrite to open with a past-tense action verb", () => {
+    const original = "Tech lead for the merchant dashboard (React, TypeScript) used by 120,000 merchants; led a team of 5";
+    const v = buildVocab({ userSkills: ["React", "TypeScript"], specSkills: [], orgs: [], titles: [] });
+    const rules = (t: string) => gateBullet(t, { source: supportOf([original]), original, vocab: v }).failures.map((f) => f.rule);
+    expect(rules("TypeScript delivered the merchant dashboard in React used by 120,000 merchants as tech lead, guiding a team of 5")).toEqual(["tense"]);
+    expect(rules("Led the merchant dashboard in React and TypeScript as tech lead for 120,000 merchants, guiding a team of 5 engineers")).toEqual([]);
   });
 });

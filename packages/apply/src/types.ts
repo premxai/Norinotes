@@ -1,5 +1,6 @@
 import type { Page } from "playwright";
 import type { PendingQuestion } from "@norinote/shared";
+import type { WidgetStrategy } from "./recipes.js";
 
 export type { PendingQuestion };
 
@@ -46,8 +47,13 @@ export type DriverContext = {
   answers: Record<string, string>;
   /** When true the driver fills everything and never clicks submit. A real submit also needs ALLOW_REAL_SUBMIT=true. */
   dryRun: boolean;
-  /** Called when the site emails a verification code. Resolves with the code, or null on timeout. */
-  waitForCode: (hint: string) => Promise<string | null>;
+  /**
+   * Called when the site emails a verification code. Resolves with the code, or null on timeout. Absent (the default
+   * until the owned inbox is wired): the application is parked as needs_user with the reason.
+   */
+  waitForCode?: (hint: string) => Promise<string | null>;
+  /** Widget strategies remembered by the form recipe cache, by normalised label. */
+  strategyHints?: Record<string, WidgetStrategy>;
   onEvent: OnEvent;
 };
 
@@ -69,6 +75,12 @@ export type FillResult = {
   needsUser?: { kind: NeedsUserKind; reason: string };
   error?: string;
   durationMs: number;
+  /** Strategy that filled each field, by normalised label (for the recipe cache). */
+  strategies?: Record<string, WidgetStrategy>;
+  /** A widget needed its fallback strategy (a stale recipe or selector healed once). */
+  healed?: boolean;
+  /** Per-step timings in ms: openMs, discoverMs, filesMs, textMs, choicesMs, validateMs, readyMs. */
+  timings?: Record<string, number>;
 };
 
 export type SubmitResult = {
@@ -86,7 +98,7 @@ export type SubmitResult = {
 
 /** A job-system driver. `fill` opens the form and `submit` sends it, on the same page, in the same run. */
 export interface Driver {
-  readonly name: "greenhouse" | "lever" | "ashby";
+  readonly name: DriverName;
   /** True when this driver handles the URL (decided by host and path, never by the query alone except gh_jid). */
   detect(url: string): boolean;
   /** The application form's own address when it can be derived from the posting URL, else null. */
@@ -97,10 +109,29 @@ export interface Driver {
   submit(page: Page, ctx: DriverContext): Promise<SubmitResult>;
 }
 
+export type DriverName = "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "workable" | "icims";
+
 /** Fallback for a form no driver recognises: a future AI browser agent plugs in here. */
 export interface UnknownFormHandler {
   handle(page: Page, ctx: DriverContext): Promise<FillResult>;
 }
+
+/**
+ * Hook for a future AI browser agent (no browser-use or Stagehand dependency today). Called for an unknown job system or
+ * when a field failed read-back after one heal. Resolve false (or leave the hook unset) and the application goes to
+ * needs_user as it does now.
+ */
+export interface AiBrowserFallback {
+  assist(page: Page, request: { applicationId: string; reason: "unknown_form" | "read_back_failed"; fields: { label: string; reason: string }[] }): Promise<boolean>;
+}
+
+/**
+ * The owned-inbox verification hook (packages/inbox, later): resolves with the emailed code or link sent since `since`,
+ * or null after `timeoutMs`. Plugged into the runner through `ApplyDeps.verification`. Norinote asks for a code; a
+ * verification link parks the application as needs_user (opening links automatically is a later decision).
+ */
+export type AwaitVerification = (args: { applicationId: string; since: Date; timeoutMs: number; accept?: "code" | "link" | "any" }) =>
+  Promise<{ type: "code"; code: string } | { type: "link"; link: string } | null>;
 
 /** Resolves with the emailed verification code for an application, or null when none arrived in time. */
 export interface CodeWaiter {

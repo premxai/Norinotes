@@ -18,7 +18,7 @@ type Rec = Record<string, unknown>;
 const rec = (v: unknown): Rec => (v && typeof v === "object" && !Array.isArray(v) ? (v as Rec) : {});
 
 /** Keys of `preferences` that are not user-facing preferences. */
-const EXTRA_KEYS = ["onboarding", "pronouns", "remotePreference", "noticePeriodWeeks", "securityClearance", "over18", "willingToRelocate", "heardAbout"] as const;
+const EXTRA_KEYS = ["onboarding", "inbox", "telegram", "pronouns", "remotePreference", "noticePeriodWeeks", "securityClearance", "over18", "willingToRelocate", "heardAbout"] as const;
 
 // ---- input ------------------------------------------------------------------------------------------------------------
 

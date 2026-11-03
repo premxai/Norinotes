@@ -31,16 +31,30 @@ person lacks is a gap in the report, never a line on the resume.
    organisation and dates), the requirements that source truly supports, the posting terms and key phrases it may carry
    (`mirror`: only for evidence that is a term match, shared words, the behaviour itself, or fit-map or semantic evidence of
    0.6 or more), its `focus`, and the terms and phrases the person lacks. Output: each bullet with its source id, and a 2 to
-   3 sentence summary. Style: verb, what, how, result; 18 to 28 words; a different opening verb per bullet; past tense for
-   every bullet, the current role included; the posting's exact term and key phrase where true, never a near synonym; each
-   key term at most 3 times on the resume; no generic phrases or requirement boilerplate (`phrases.ts`).
+   3 sentence summary. Each bullet also carries `add` (supported posting terms and phrases the text lacks) and `fix`
+   (tense, too long, generic wording, a repeated opening verb); with both empty the model returns it as written. Style:
+   verb, what, how, result; 18 to 28 words, but a short original may stay short (never padded); keep a strong original
+   verb (built, led, migrated...) in the past tense and never trade any verb for a generic one (developed, helped,
+   supported...); past tense for every bullet, the current role included; the posting's key noun phrase woven into the
+   work, never tacked on after the result and never as job-ad wording ("proficiency in", "ability to"); each phrase on one
+   bullet only, each key term at most 3 times; numbers exactly as written (units may be spelled out); no generic phrases
+   (`phrases.ts`). The latest role's first bullet is always rewritten, and a bullet whose source shows a supported
+   must-have not yet on the page is told to work it in; otherwise a bullet with nothing to add or fix is kept.
 4. **Gate** (`gateBullet` in validate.ts), per bullet, all failures reported: every number (digits or words), tool or
    skill term, employer and title must be in the cited source (alias aware); no term of a requirement the person lacks;
    no key phrase of an unsupported requirement, no wording of an unshown soft requirement; no tool released after the role
-   ended (`release-years.ts`); 16 to 30 words; no banned phrase; opening verb unused elsewhere; past tense; no term past 3
-   uses; no first person; no raised ownership. Failing bullets are retried once in one
+   ended (`release-years.ts`); 16 to 30 words (or the original's own length when shorter); no banned phrase; no job-ad
+   boilerplate; no key phrase in the last 4 words after a number or result; a strong original verb kept (another strong
+   verb only when another bullet already uses it) and no downgrade to a generic verb; opening verb unused elsewhere; past
+   tense with a past-tense action verb first; no phrase already on another bullet; no fact (a number with its nearby
+   words) already shown in another bullet; no term past 3 uses; no first person; no raised ownership. A rewrite that
+   adds no supported term or phrase and fixes nothing is not applied: the original stays and counts as "kept", not
+   reverted, with no retry. Failing bullets are retried once in one
    small-model call with the reasons; failing twice reverts to the person's words. The summary has its own gate: provenance
-   against all career points; a year count only if it equals the target-function years (2 or more), and never tied to a
+   against all career points; exactly 2 sentences of 25 to 45 words; opens with a role noun the person truthfully is or
+   their field as a graduate (`summary.ts`: never a raw title with course codes or parentheses), names the target role
+   family once, 2 to 4 of the posting's skills in its spelling and one concrete strength with its number; no job-ad
+   wording; a year count only if it equals the target-function years (2 or more), and never tied to a
    skill or field ("9 years of experience in HubSpot" fails); every alias-table term in the career points; no title the person has
    not held (except "for X roles"), banned phrases, overuse. A rejected summary falls back to one built from facts.
 5. **Critique and revise**, at most 2 rounds. A small-model reviewer sees the open gaps (supported requirements not shown,
@@ -59,7 +73,7 @@ ordering, skills and a facts-only summary still produce a complete resume, and t
 ## Cost
 
 One gpt-4.1 call (about 1,700 tokens in, 350 out) is about 0.6 cents; retries, critique and revisions run on gpt-4.1-mini.
-Eval run 2: $0.0100 mean, $0.0139 max per resume.
+Eval run 3: $0.0107 mean, $0.0163 max per resume (runs 3b and 3c: about 1.2 to 1.4 cents on top pairs).
 
 ## Eval
 
@@ -69,4 +83,7 @@ spelling, verbatim key phrase), unsupported entities (independent check, must be
 bullet, verb diversity, a gpt-4o judge (relevance, truthfulness, specificity, tone), and cost, compared with the previous run.
 Run 1 (docs/eval/tailor-run1.md): coverage 80.5% -> 90.5%, judge truthfulness 4.7. Run 2 (docs/eval/tailor-run2.md, 26 of
 27 pairs before the cap): coverage 83.4% -> 96.2%, exact spelling 82.7% -> 95.5%, verbatim key phrase 74.6% -> 86.6%,
-0 unsupported entities, judge 3.0 / 4.8 / 3.8 / 3.8.
+0 unsupported entities, judge 3.0 / 4.8 / 3.8 / 3.8. Run 3 (docs/eval/tailor-run3.md) adds readability checks (strong
+verbs kept, tacked-on phrases, boilerplate, no-op rewrites, summary shape) and sample PDFs in data/samples; its
+follow-up runs 3b and 3c on top pairs reached judge truthfulness 4.8 and 5.0 with 0 fabrications and every summary in
+shape, but on 3c's pairs the stricter keep-the-original rule gained no coverage (an open tuning point).

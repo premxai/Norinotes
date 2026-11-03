@@ -1,0 +1,1 @@
+ALTER TABLE "inbox_messages" ADD COLUMN "meta" jsonb DEFAULT '{}'::jsonb NOT NULL;

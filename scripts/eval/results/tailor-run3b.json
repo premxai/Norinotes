@@ -1,0 +1,459 @@
+{
+  "generatedAt": "2026-11-03T05:27:16.617Z",
+  "overall": {
+    "pairs": 6,
+    "coverageBefore": 78.8,
+    "coverageSelected": 83.5,
+    "coverageAfter": 88.3,
+    "exactBefore": 76.5,
+    "exactAfter": 86,
+    "phraseBefore": 64,
+    "phraseAfter": 71,
+    "presentOpeners": 1,
+    "yearsOnSkills": 0,
+    "strongVerbKept": 77,
+    "tackedOn": 0,
+    "boilerplate": 0,
+    "noOpKept": 8,
+    "summaryShapeOk": 100,
+    "unsupported": 0,
+    "banned": 0,
+    "wordsPerBullet": 21.3,
+    "wordsPerRewritten": 22.4,
+    "verbDiversity": 1,
+    "rewritten": 20,
+    "offered": 34,
+    "reverted": 6,
+    "judge": {
+      "model": "gpt-4o",
+      "relevance": 3.5,
+      "truthfulness": 4.8,
+      "specificity": 4,
+      "tone": 4,
+      "fabrications": 0
+    },
+    "tailorUsdPerResume": 0.013463333333333308,
+    "tailorUsdMax": 0.01687799999999995,
+    "totalUsd": 1.720415
+  },
+  "rows": [
+    {
+      "profile": "new_grad_swe",
+      "kind": "top",
+      "job": "Software Engineer, Product @ Prelim",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 3
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 0,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 3,
+      "offered": 5,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "no open gaps, no gate failures, nothing unreviewed",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 26.6,
+      "wordsPerRewritten": 26,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 4,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant skills and projects, but lacks direct experience with financial institutions or large-scale systems.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.011963999999999864,
+      "judgeUsd": 0.004750000000000032,
+      "error": null,
+      "examples": [
+        {
+          "before": "Ran weekly recitations for 40 students, wrote autograder scripts in Python, held office hours.",
+          "after": "Ran weekly recitations for 40 students, wrote autograder scripts in Python, and held office hours to assist students with coursework."
+        },
+        {
+          "before": "Built a REST endpoint in Python (FastAPI) and PostgreSQL that lets clinic staff export appointment reports; cut manual report requests to the data team by about 30 per week.",
+          "after": "Implemented a REST endpoint in Python (FastAPI) and PostgreSQL for clinic staff to export appointment reports, cutting manual report requests to the data team by about 30 per week."
+        },
+        {
+          "before": "Built a REST endpoint in Python (FastAPI) and PostgreSQL that lets clinic staff export appointment reports; cut manual report requests to the data team by about 30 per week.",
+          "after": "Created a REST endpoint in Python (FastAPI) and PostgreSQL that lets clinic staff export appointment reports, cutting manual report requests to the data team by about 30 per week."
+        }
+      ],
+      "summary": "Computer science graduate targeting software engineer roles, working with React, Node.js and PostgreSQL. Created a REST endpoint in Python and PostgreSQL that lets clinic staff export appointment reports, cutting manual report requests to the data team by about 30 per week."
+    },
+    {
+      "profile": "senior_frontend",
+      "kind": "top",
+      "job": "Senior Frontend Software Engineer, Consumer Engineering @ Reddit",
+      "fit": 0.825,
+      "coverage": {
+        "before": 80,
+        "selected": 80,
+        "after": 80,
+        "exactBefore": 80,
+        "exactAfter": 80,
+        "phraseBefore": 80,
+        "phraseAfter": 80,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 3,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 4,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Bachelor’s degree in Computer Science or related field or equivalent experience"
+      ],
+      "gaps": [
+        "Experience designing and building robust APIs (lacks APIs)",
+        "API design (lacks API design, API)"
+      ],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "no open gaps, no gate failures, nothing unreviewed",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 20.5,
+      "wordsPerRewritten": 21,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant experience and skills for the Reddit position, maintaining truthfulness and specificity.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.012509000000000103,
+      "judgeUsd": 0.004704999999999959,
+      "error": null,
+      "examples": [
+        {
+          "before": "Built marketing sites and a CMS-driven web app in JavaScript, Sass and Node.",
+          "after": "Created marketing sites and a CMS-driven web app using JavaScript, Sass, and Node, implementing frontend features and styles for web applications."
+        }
+      ],
+      "summary": "Senior frontend engineer with 9 years of experience, working with JavaScript, TypeScript, React and Next.js. Tech lead for the merchant dashboard used by 120,000 merchants."
+    },
+    {
+      "profile": "data_scientist_ml",
+      "kind": "top",
+      "job": "Data Scientist ll - RiskOS @ Socure",
+      "fit": 0.8,
+      "coverage": {
+        "before": 43,
+        "selected": 71,
+        "after": 100,
+        "exactBefore": 29,
+        "exactAfter": 86,
+        "phraseBefore": 29,
+        "phraseAfter": 71,
+        "total": 7
+      },
+      "readability": {
+        "strongOriginal": 3,
+        "strongKept": 3,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Experience owning end-to-end analytics and model development projects",
+        "Experience with data science and ML libraries like pandas, scikit-learn, XGBoost, PySpark (lacks pandas)",
+        "Experience with Generative AI or LLM-based products (lacks Generative AI, AI, LLM)"
+      ],
+      "rewritten": 4,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 2,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 22,
+      "wordsPerRewritten": 23,
+      "verbDiversity": 0.86,
+      "repeatedOpeners": 1,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume aligns well with the job posting, emphasizing relevant skills and experience, but could better highlight specific fraud and risk experience.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.01687799999999995,
+      "judgeUsd": 0.005128000000000021,
+      "error": null,
+      "examples": [
+        {
+          "before": "Built demand-forecasting system for 8,000 SKUs using LightGBM and temporal fusion transformer in PyTorch; led A/B testing program with 25 experiments per quarter; productionised product-ranking model served via Python microservice on Kubernetes; mentored 2 junior data scientists; presented results to VP-level stakeholders.",
+          "after": "Built demand-forecasting system for 8,000 SKUs using Python with LightGBM and temporal fusion transformer, analyzing large, heterogeneous datasets to support A/B testing and production model deployment."
+        },
+        {
+          "before": "Served product-ranking model via Python microservice on Kubernetes at 40 ms p95 latency; lifted conversion by 2.3%.",
+          "after": "Served product-ranking model on Kubernetes via Python microservice processing large, heterogeneous datasets at 40 ms p95 latency, lifting conversion by 2.3%."
+        },
+        {
+          "before": "Reduced forecast error (WAPE) by 19% and stockouts by 11% for demand-forecasting system of 8,000 SKUs.",
+          "after": "Reduced forecast error (WAPE) by 19% and stockouts by 11% for demand-forecasting system processing large, heterogeneous datasets of 8,000 SKUs."
+        }
+      ],
+      "summary": "Senior data scientist targeting data scientist roles, skilled in machine learning, Python, SQL, and scikit-learn. Built NLP models extracting variants from 200,000 clinical notes with 0.91 F1 and developed demand-forecasting and product-ranking systems."
+    },
+    {
+      "profile": "product_manager",
+      "kind": "top",
+      "job": "Senior Product Manager @ Versapay",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 2,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 4,
+      "offered": 6,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 19.9,
+      "wordsPerRewritten": 23.8,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant experience and skills for the Senior Product Manager role, maintaining truthfulness and specificity.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.011560999999999932,
+      "judgeUsd": 0.005075000000000163,
+      "error": null,
+      "examples": [
+        {
+          "before": "Own the invoicing and collections product line (ARR $38M); manage a squad of 7 engineers, 1 designer and 1 data analyst.",
+          "after": "Owned the invoicing and collections product line (ARR $38M) and managed a squad of 7 engineers, 1 designer, and 1 data analyst."
+        },
+        {
+          "before": "Managed the reporting module for an HR platform with 900 enterprise customers; shipped a custom report builder used by 62% of accounts within 6 months.",
+          "after": "Delivered Product Management for the reporting module of an HR platform with 900 enterprise customers, launching a custom report builder used by 62% of accounts within 6 months."
+        },
+        {
+          "before": "Ran user research, triaged 300+ feature requests and ran sprint ceremonies.",
+          "after": "Conducted user research, triaged over 300 feature requests, and facilitated sprint ceremonies to support product development and Agile processes."
+        }
+      ],
+      "summary": "Senior product manager targeting product manager roles, skilled in A/B Testing and Figma, who launched automated payment reminders after 20 customer interviews and a 6-week experiment. Owns the invoicing and collections product line and wrote the strategy and PRDs for a self-serve onboarding flow."
+    },
+    {
+      "profile": "account_executive",
+      "kind": "top",
+      "job": "Enterprise Account Executive, Higher Ed @ Boxinc",
+      "fit": 0.753,
+      "coverage": {
+        "before": 50,
+        "selected": 50,
+        "after": 50,
+        "exactBefore": 50,
+        "exactAfter": 50,
+        "phraseBefore": 0,
+        "phraseAfter": 0,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Ability to close complex deals",
+        "Experience in Higher Education vertical sales"
+      ],
+      "gaps": [
+        "Proven success selling SaaS (lacks SaaS)",
+        "SaaS sales (lacks SaaS sales, SaaS)",
+        "Sales process management (lacks Sales process management)",
+        "Experience with ECM, Cloud, or SaaS sales (lacks SaaS)"
+      ],
+      "rewritten": 5,
+      "offered": 5,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.8,
+      "wordsPerRewritten": 17.8,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant experience and skills for the Enterprise Account Executive role, maintaining truthfulness and specificity.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.013535999999999992,
+      "judgeUsd": 0.0045479999999999965,
+      "error": null,
+      "examples": [
+        {
+          "before": "Carry a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts (1,000 to 10,000 employees).",
+          "after": "Carried a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts with 1,000 to 10,000 employees."
+        },
+        {
+          "before": "President's Club 2024 and 2025.",
+          "after": "Achieved President's Club 2024 and 2025 awards by consistently exceeding performance targets in a senior account executive role."
+        },
+        {
+          "before": "Run discovery, demos with a sales engineer, security questionnaires and procurement negotiation; forecast weekly in Salesforce.",
+          "after": "Conducted discovery, demos with a sales engineer, security questionnaires, and procurement negotiation; forecasted weekly in Salesforce."
+        }
+      ],
+      "summary": "Senior account executive targeting enterprise account executive roles, carrying a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts. Recognized with President's Club 2024 and 2025 and exceeded quota 7 of 10 quarters."
+    },
+    {
+      "profile": "registered_nurse",
+      "kind": "top",
+      "job": "Registered Nurse | Chemo Infusion @ Elyb",
+      "fit": 0,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 75,
+        "phraseAfter": 75,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Current American Heart Association BLS Healthcare Provider card (lacks BLS)",
+        "Obtain Oncology Nurse Society Chemotherapy provider card within 6 months of hire",
+        "Maintain current Oncology Nurse Society provider card at all times",
+        "chemotherapy administration (lacks chemotherapy administration)",
+        "biotherapy administration (lacks biotherapy administration)",
+        "central venous access management (lacks central venous access management)"
+      ],
+      "rewritten": 3,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 21,
+      "wordsPerRewritten": 23,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific but lacks direct experience in oncology or infusion, which affects its relevance to the job posting.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.014332000000000011,
+      "judgeUsd": 0.0045999999999999375,
+      "error": null,
+      "examples": [
+        {
+          "before": "Provided nursing assistant support at Lakeshore Regional Hospital.",
+          "after": "Supported nursing care by assisting patients with daily living activities and collaborating with the healthcare team at Lakeshore Regional Hospital."
+        },
+        {
+          "before": "Provide care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpret rhythms, titrate cardiac drips per protocol, and coordinate with cardiology.",
+          "after": "Provided care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+        },
+        {
+          "before": "Cared for post-operative adult patients (orthopedics and general surgery); wound care, pain management, IV therapy, discharge teaching. Float pool volunteer to ICU step-down during 2021 surge.",
+          "after": "Cared for post-operative adult patients in orthopedics and general surgery, providing wound care, pain management, IV therapy, and patient education including discharge teaching."
+        }
+      ],
+      "summary": "Registered nurse targeting registered nurse roles, skilled in patient assessment and patient education. Precepted new graduate nurses and cared for post-operative adult patients while providing care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit."
+    }
+  ]
+}

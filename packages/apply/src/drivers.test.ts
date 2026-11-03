@@ -26,7 +26,6 @@ describe("driver detection by URL", () => {
 
   it("returns null for anything else", () => {
     expect(detectDriver("https://acme.com/careers/42")).toBeNull();
-    expect(detectDriver("https://jobs.smartrecruiters.com/Acme/743999-engineer")).toBeNull();
     expect(detectDriver("mailto:jobs@acme.com")).toBeNull();
     expect(detectDriver("not a url")).toBeNull();
   });
@@ -34,9 +33,10 @@ describe("driver detection by URL", () => {
 
 describe("straight to the form", () => {
   it("derives each system's form address from the posting", () => {
-    expect(greenhouseFormUrl("https://boards.greenhouse.io/acme/jobs/4012345?gh_src=x")).toBe("https://boards.greenhouse.io/embed/job_app?for=acme&token=4012345");
-    expect(greenhouseFormUrl("https://job-boards.greenhouse.io/acme/jobs/9")).toBe("https://job-boards.greenhouse.io/embed/job_app?for=acme&token=9");
-    expect(greenhouseFormUrl("https://boards.greenhouse.io/embed/job_app?for=acme&token=9")).toBe("https://boards.greenhouse.io/embed/job_app?for=acme&token=9");
+    expect(greenhouseFormUrl("https://boards.greenhouse.io/acme/jobs/4012345?gh_src=x")).toBe("https://job-boards.greenhouse.io/acme/jobs/4012345");
+    expect(greenhouseFormUrl("https://job-boards.greenhouse.io/acme/jobs/9")).toBe("https://job-boards.greenhouse.io/acme/jobs/9");
+    expect(greenhouseFormUrl("https://boards.greenhouse.io/embed/job_app?for=acme&token=9")).toBe("https://job-boards.greenhouse.io/acme/jobs/9"); // never the /embed/ page (robots.txt)
+    expect(greenhouseFormUrl("https://boards.eu.greenhouse.io/acme/jobs/7")).toBe("https://job-boards.eu.greenhouse.io/acme/jobs/7");
     expect(greenhouseFormUrl("https://acme.com/careers?gh_jid=1")).toBeNull();
     expect(leverFormUrl(`https://jobs.lever.co/acme/${ID}`)).toBe(`https://jobs.lever.co/acme/${ID}/apply`);
     expect(leverFormUrl(`https://jobs.lever.co/acme/${ID}/apply?lever-source=X#y`)).toBe(`https://jobs.lever.co/acme/${ID}/apply?lever-source=X`);

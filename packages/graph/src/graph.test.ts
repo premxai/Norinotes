@@ -22,7 +22,7 @@ async function newUser(): Promise<string> {
 const cosine = (a: number[], b: number[]) => a.reduce((s, x, i) => s + x * b[i]!, 0);
 const noScope = { team_size: null, users: null, budget: null, ownership: null };
 const pt = (over: Record<string, unknown>) => ({ title: "", org: null, start: null, end: null, text: "", skills: [], scope: noScope, metrics: [], source_quote: "", ...over });
-const empty = { roles: [], projects: [], achievements: [], education: [], skills: [] };
+const empty = { roles: [], projects: [], achievements: [], education: [], certifications: [], skills: [] };
 
 /** Scripts the resume call (schema "career_graph") and the fact call (schema "career_fact"); anything else gets the default fake reply. */
 function script(handlers: { resume?: (req: ChatRequest) => unknown; fact?: (req: ChatRequest) => unknown }) {

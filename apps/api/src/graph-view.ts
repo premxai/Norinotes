@@ -14,7 +14,7 @@ export type GraphNode = {
 };
 export type GraphEdge = { id: string; src: string; dst: string; type: string };
 
-const NODE_TYPE: Record<string, string | null> = { role: "role", project: "project", achievement: "metric", education: "education", skill: null };
+const NODE_TYPE: Record<string, string | null> = { role: "role", project: "project", achievement: "metric", education: "education", certification: "certification", skill: null };
 
 /** Skill nodes are keyed by the lower-cased skill name, base64url-encoded so the id is safe in a URL path. */
 export const skillNodeId = (name: string) => `skill_${Buffer.from(name.trim().toLowerCase()).toString("base64url")}`;
@@ -25,7 +25,7 @@ export function skillFromNodeId(id: string): string | null {
 }
 
 /**
- * Career points become nodes (a role, project, achievement as `metric`, education), every distinct skill becomes a skill
+ * Career points become nodes (a role, project, achievement as `metric`, education, certification), every distinct skill becomes a skill
  * node, and each point links to the skills it names. Skill-list points (the resume's "Skills" section) add no node of their
  * own: their skills are the skill nodes.
  */

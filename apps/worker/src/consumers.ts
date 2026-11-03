@@ -8,7 +8,7 @@ import {
 import { AiUnavailableError } from "@norinote/ai";
 import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
 import { feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, type DueBoard } from "@norinote/ingest";
-import { reprocessMessage } from "@norinote/inbox";
+import { createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
 import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
 import { JOBS, type Handler, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
 import { boostCompaniesForUser } from "./boost.js";
@@ -277,12 +277,10 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return { status: after?.status ?? "missing", autoAnswered: auto.answered, resumed: auto.resumed };
   }));
 
-  // inbox.receive: a stored inbound message: classify again, link, record outcomes. A waiting apply.run polls for its code.
-  await queue.work(JOBS.inboxReceive, instrument(log, JOBS.inboxReceive, async ({ messageId }) => {
-    const r = await reprocessMessage(db, messageId);
-    if (!r.stored) return { stored: false, reason: r.reason };
-    return { kind: r.kind, linked: r.applicationId !== null, wake: r.wake?.reason ?? null, outcome: r.outcome };
-  }));
+  // inbox.receive: a stored inbound message: settle ambiguous ones with the small model, link, record outcomes, forward
+  // (stub until an outbound provider is configured). A waiting apply.run is woken through awaitVerification.
+  const forwarder = createStubForwarder((line) => log.info("inbox.forward", { line }));
+  await queue.work(JOBS.inboxReceive, instrument(log, JOBS.inboxReceive, async ({ messageId }) => handleInboxReceive(db, messageId, { model: smallModel, forwarder })));
 
   return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush() };
 }

@@ -18,7 +18,8 @@ export type { EvidenceIndex, EvidenceEntry, EvidenceHit, Requirement, Requiremen
 export { optimise, nextRound, gateSummary, pickRewrites, styleStats, MAX_REVISE_ROUNDS } from "./rewrite.js";
 export type { OptimiseResult, BulletReport, RoundReport } from "./rewrite.js";
 export { ALIAS_GROUPS, aliasGroupOf, canonicalTerm, acronymPair } from "./aliases.js";
-export { BANNED_PHRASES, bannedIn } from "./phrases.js";
+export { BANNED_PHRASES, STRONG_VERBS, WEAK_VERBS, bannedIn, boilerplateIn, tackedOnPhrases, sameVerb, isStrongVerb, isWeakVerb } from "./phrases.js";
+export { cleanTitle, roleFamily, roleHead, roleNoun, summarySkills, cleanStrength } from "./summary.js";
 export { RELEASE_YEARS, releaseYearOf } from "./release-years.js";
 export { SOFT_BEHAVIOURS, keyPhraseOf, softOf, containsPhrase } from "./key-phrases.js";
 export { closeSharedBrowser, chromiumInstalled } from "./browser.js";

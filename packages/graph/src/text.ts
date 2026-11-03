@@ -11,7 +11,7 @@ const HEADINGS: [Section, RegExp][] = [
   ["education", /^education(?:al)?(?:\s+(?:background|history|qualifications))?(?:\s*(?:&|and)\s*(?:training|certifications?|awards|credentials|qualifications))?$|^academic(?:s| background| qualifications| history)?$|^qualifications$/],
   ["skills", /^(?:(?:technical|core|key|relevant|professional|hard|soft|computer|it|programming)\s+)?(?:skills?|competenc(?:ies|e)|expertise|technologies|tech(?:nical)?\s+stack|toolkit|tools)(?:\s*(?:&|and|\/)\s*(?:skills|tools|technologies|competencies|interests|languages|expertise|certifications))?$|^skills?\s+(?:summary|set|profile)$|^areas\s+of\s+expertise$|^programming\s+languages$|^tools\s*(?:&|and)\s*technologies$/],
   ["projects", /^(?:(?:personal|selected|side|key|notable|open[ -]source|technical|academic|relevant|research|major|independent)\s+)?projects?(?:\s*(?:&|and)\s*(?:publications|research|open source))?$|^portfolio$/],
-  ["certifications", /^(?:licenses?\s*(?:&|and|\/)\s*)?certifications?(?:\s*(?:&|and|\/)\s*(?:licenses?|training|courses))?$|^licenses?$|^certificates?$|^credentials$|^professional\s+(?:certifications?|development|licenses?)$|^courses?(?:\s*(?:&|and)\s*certifications?)?$/],
+  ["certifications", /^(?:licenses?\s*(?:&|and|\/)\s*)?certifications?(?:\s*(?:&|and|\/)\s*(?:licenses?|training|courses))?$|^licenses?$|^certificates?$|^credentials$|^professional\s+(?:certifications?|development|licenses?)$|^courses?(?:\s*(?:&|and)\s*certifications?)?$|^(?:(?:professional|clinical|relevant|technical|additional|active|current)\s+)?(?:licen[sc]es?|licensure|certifications?|certificates?|credentials?|registrations?)(?:\s*(?:&|and|\/|,)\s*(?:(?:professional\s+)?(?:licen[sc]es?|licensure|certifications?|certificates?|credentials?|registrations?|training|courses)))*$/],
   ["summary", /^(?:professional\s+|career\s+|executive\s+|personal\s+)?(?:summary|profile|objective|statement|overview)$|^about(?:\s+me)?$|^summary\s+of\s+qualifications$|^highlights$|^career\s+highlights$/],
   ["contact", /^(?:contact|contact\s+(?:info(?:rmation)?|details|me)|personal\s+(?:details|information|info)|details|links|find\s+me\s+online|online)$/],
   ["publications", /^(?:selected\s+)?(?:publications?|papers|research\s+papers|patents|talks|presentations|speaking)(?:\s*(?:&|and)\s*(?:patents|talks|presentations))?$/],
@@ -44,6 +44,8 @@ const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "
 const MONTH = "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?";
 const SEASON = "(?:spring|summer|fall|autumn|winter)";
 const DATE = `(?:${MONTH}[,\\s]+\\d{4}|${SEASON}\\s+\\d{4}|\\d{1,2}[/.]\\d{4}|\\d{4}[-/.](?:0[1-9]|1[0-2])(?!\\d)|(?:19|20)\\d{2})`;
+/** One date as regex source (no capture group), for parsers that look for a date after a keyword ("expires 03/2026"). */
+export const DATE_SOURCE = DATE;
 const PRESENT = "present|current|now|ongoing|today|till date|to date";
 /** "Jan 2022 - Present", "2019 to 2021", "03/2020 – 08/2022". Group 1 is the start, group 2 the end. */
 export const DATE_RANGE = new RegExp(`\\(?\\b(${DATE})\\s*(?:-|\\u2013|\\u2014|\\u2012|~|to|until|through|thru)\\s*(${DATE}|${PRESENT})\\b\\)?`, "i");

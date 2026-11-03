@@ -16,12 +16,9 @@ export function ashbyFormUrl(url: string): string | null {
 
 const flow: FlowOptions = {
   name: "ashby",
-  preferredForms: ["form[class*='application' i]", "form:has(input[name='_systemfield_email'])"],
+  preferredForms: [".ashby-application-form-container", "form[class*='application' i]", "form:has(input[name='_systemfield_email'])"],
+  firstField: "input[name='_systemfield_email'], input[name='_systemfield_name'], .ashby-application-form-container input",
   formUrl: ashbyFormUrl,
-  // The form renders client-side; wait for the first field before discovery looks.
-  beforeDiscover: async (page) => {
-    await page.locator("input[name='_systemfield_email'], input[type=email]").first().waitFor({ timeout: 15_000 }).catch(() => {});
-  },
 };
 
 export const ashbyDriver: Driver = {

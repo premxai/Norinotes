@@ -2,6 +2,7 @@ import type { CareerPoint, FitMapEntry, JobSpec } from "@norinote/shared";
 import { acronymPair, aliasGroupOf } from "./aliases.js";
 import { buildEvidence, bulletSupports, pointCorpus, type EvidenceEntry, type EvidenceIndex, type RequirementTerm } from "./evidence.js";
 import { mentionsSkill, norm, numbersIn, sameSkill, uniq, wordCount } from "./text.js";
+import { displaySkill, isCategoryLabel, isDegree, isFillerLine, sharesFact } from "./facts.js";
 import type { ResumeBullet, ResumeContact, ResumeContent } from "./types.js";
 
 /** Weight of one fit-map requirement: must-haves count double, scaled by how well the user covers it. */
@@ -117,6 +118,9 @@ export type SelectInput = {
   jobTitle?: string;
 };
 
+/** The most recent roles that show all their bullets (up to 5) when the page has room. */
+export const FULL_ROLES = 2;
+
 /** The minimum years a summary may state; fewer are left out. */
 export const MIN_SUMMARY_YEARS = 2;
 /** The latest role's first bullets that each address a different supported must-have. */
@@ -169,7 +173,9 @@ export function selectContent(input: SelectInput): Selection {
   // Every bullet a container could show, heaviest first; equal weights keep the written order.
   const candidatesOf = (c: CareerPoint): Candidate[] => {
     const lines = splitBullets(c.text);
-    const out: Candidate[] = lines.map((text, i) => {
+    // A line that says nothing beyond the role's own title and organisation is parser filler, not the person's words.
+    const kept = lines.map((text, i) => ({ text, i })).filter((x) => !(c.kind === "role" && isFillerLine(x.text, c.title, c.org)));
+    const out: Candidate[] = kept.map(({ text, i }) => {
       const id = `${c.id}#${i}`;
       const { covers, weight } = weigh(text, [c.id]);
       // A one-line point owns its skills list too; a line of a longer point only owns its own words.
@@ -195,8 +201,20 @@ export function selectContent(input: SelectInput): Selection {
   };
 
   const covers = new Map<string, string[]>();
+  // The same line can reach the resume twice (a role line and an achievement or project with the same words): show it once.
+  // A fact (a number with the words around it) shown in one bullet is not shown again in another.
+  const shown = new Set<string>();
+  const shownTexts: string[] = [];
   const take = (cands: Candidate[], n: number): ResumeBullet[] => {
-    const chosen = cands.slice(0, n);
+    const chosen: Candidate[] = [];
+    for (const c of cands) {
+      if (chosen.length >= n) break;
+      const k = norm(c.bullet.text);
+      if (shown.has(k) || shownTexts.some((t) => sharesFact(c.bullet.text, t))) continue;
+      shown.add(k);
+      shownTexts.push(c.bullet.text);
+      chosen.push(c);
+    }
     for (const c of chosen) covers.set(c.bullet.id, c.covers);
     return chosen.map((c) => c.bullet);
   };
@@ -214,7 +232,9 @@ export function selectContent(input: SelectInput): Selection {
     const ended = roleYears(r).end;
     const recent = i === 0 || isCurrent(r, now) || (ended !== null && nowYear - ended <= RECENT_YEARS);
     const relevant = cov > 0 && cov >= RELEVANT_SHARE * maxCov;
-    const n = bulletCount(cands.map((c) => c.bullet.weight), recent || relevant);
+    // The two most recent roles show every bullet the person has (up to 5), most relevant first; the one-page fitter
+    // trims only when the page is full. Older roles follow the relevance rule.
+    const n = i < FULL_ROLES ? Math.min(RECENT_BULLETS.max, cands.length) : bulletCount(cands.map((c) => c.bullet.weight), recent || relevant);
     let ordered = cands;
     if (i === 0) ({ ordered, focus } = distinctFirst(cands, byText));
     return {
@@ -237,9 +257,11 @@ export function selectContent(input: SelectInput): Selection {
 
   const { name, ...contact } = input.contact;
   const jobTerms = evidence.jobTerms.length ? evidence.jobTerms : (spec?.skills ?? []).map((s) => ({ key: norm(s.name), jobString: s.name }));
+  const certifications = certificationLines(points);
   const content: ResumeContent = {
     name, contact, experience, education, projects: projectSection,
     skills: orderSkills(points, jobTerms.map((t) => t.jobString)),
+    ...(certifications.length ? { certifications } : {}),
   };
 
   const ranked: RankedRequirement[] = evidence.entries.filter((e) => e.supported)
@@ -342,6 +364,8 @@ export function orderSkills(points: CareerPoint[], jobOrder: string[]): ResumeCo
     if (p.kind === "skill") add(p.title);
     for (const s of p.skills) add(s);
   }
+  // Category headings parsed as skills ("Build and Test Tools") and degrees ("BSN") are not skills.
+  for (const [k, v] of count) if (isCategoryLabel(v.name) || isDegree(v.name)) count.delete(k);
   const all = [...count.values()];
   const corpus = points.map((p) => [p.title, p.text, p.skills.join(", ")].join("\n")).join("\n");
   const matched: { label: string; covers: string[] }[] = [];
@@ -352,9 +376,10 @@ export function orderSkills(points: CareerPoint[], jobOrder: string[]): ResumeCo
     if (isMatched(want)) continue;
     const own = all.find((s) => sameSkill(s.name, want));
     if (!own && !mentionsSkill(corpus, want)) continue;
-    matched.push({ label: skillLabel(want, own?.name ?? null), covers: [want, ...(own ? [own.name] : [])] });
+    if (isCategoryLabel(want) || isDegree(want)) continue;
+    matched.push({ label: displaySkill(skillLabel(want, own?.name ?? null)), covers: [want, ...(own ? [own.name] : [])] });
   }
-  const others = all.filter((s) => !isMatched(s.name)).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).map((s) => s.name);
+  const others = all.filter((s) => !isMatched(s.name)).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).map((s) => displaySkill(s.name));
   const core = uniq(matched.map((m) => m.label)).slice(0, MAX_SKILLS);
   const room = Math.max(0, MAX_SKILLS - core.length);
   const groups: ResumeContent["skills"] = [];
@@ -375,7 +400,8 @@ export function baselineContent(points: CareerPoint[], contact: ResumeContact & 
     name, contact: rest,
     experience: roles.map((r, i) => ({
       careerPointId: r.id, title: r.title, company: r.org ?? r.title,
-      bullets: splitBullets(r.text).slice(0, i === 0 ? RECENT_BULLETS.max : RECENT_BULLETS.min).map((text, j) => ({ id: `${r.id}#${j}`, text, careerPointIds: [r.id], weight: 0 })),
+      bullets: splitBullets(r.text).filter((l) => !isFillerLine(l, r.title, r.org)).slice(0, i === 0 ? RECENT_BULLETS.max : RECENT_BULLETS.min)
+        .map((text, j) => ({ id: `${r.id}#${j}`, text, careerPointIds: [r.id], weight: 0 })),
     })),
     education: [], projects: [],
     skills: skills.length ? [{ group: "Skills", items: skills }] : [],
@@ -383,3 +409,16 @@ export function baselineContent(points: CareerPoint[], contact: ResumeContact & 
 }
 
 export type { RequirementTerm };
+
+/**
+ * Licences and certifications (career points of kind "certification": title such as "Registered Nurse (RN), Minnesota",
+ * org the issuer, dates) as lines for the Certifications section: "Title, Issuer, 2020 to 2027".
+ */
+export function certificationLines(points: readonly CareerPoint[]): string[] {
+  const year = (d: string | null | undefined) => /^(\d{4})/.exec((d ?? "").trim())?.[1] ?? null;
+  return points.filter((p) => (p.kind as string) === "certification").sort(recency).map((p) => {
+    const from = year(p.startDate), to = year(p.endDate);
+    const dates = from && to ? (from === to ? from : `${from} to ${to}`) : from ? `since ${from}` : to ? `valid through ${to}` : "";
+    return [p.title.trim(), p.org?.trim() && !p.title.includes(p.org.trim()) ? p.org.trim() : "", dates].filter(Boolean).join(", ");
+  }).filter(Boolean);
+}

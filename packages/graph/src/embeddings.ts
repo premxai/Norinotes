@@ -49,7 +49,7 @@ export async function embedCareerPoints(db: Db, userId: string, ids?: string[]):
 
 // ---- profile embedding ----------------------------------------------------------------------------------------------
 
-const KIND_WEIGHT: Record<Row["kind"], number> = { role: 1, project: 0.9, achievement: 0.9, education: 0.4, skill: 0.5 };
+const KIND_WEIGHT: Record<Row["kind"], number> = { role: 1, project: 0.9, achievement: 0.9, education: 0.4, certification: 0.4, skill: 0.5 };
 /** Only this many of the heaviest points go into the profile vector, so one long career does not wash out the recent work. */
 const TOP_POINTS = 12;
 const HALF_LIFE_YEARS = 4;

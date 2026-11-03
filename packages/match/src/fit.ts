@@ -3,7 +3,7 @@ import type { StoredJobSpec } from "./understand.js";
 import { familyYears, seniorityFit, titleAlignment, type MatchTarget, type SeniorityFit } from "./alignment.js";
 import { pointInterval, unionYears, type EvidencePoint } from "./profile.js";
 import {
-  DEFAULT_SKILL_MAP, bestRelation, canonicalSkill, findSkillsInText, skillDisplayName, skillRelation, type SkillMap,
+  DEFAULT_SKILL_MAP, bestRelation, canonicalSkill, canonicalSkills, findSkillsInText, skillDisplayName, skillRelation, type SkillMap,
 } from "./skills.js";
 
 /**
@@ -234,6 +234,55 @@ export function scopeFactor(p: Pick<EvidencePoint, "scope" | "metrics">): number
   return 0.92 + 0.08 * Math.min(1, signals / 3);
 }
 
+// ---- certification points -----------------------------------------------------------------------------------------------
+//
+// Points of kind "certification" (licences, certifications, clinical cards) are first-class evidence for licence and
+// certification requirements: matched on their skills (canonical, so aliases count) and on their title. An expired one
+// (end date before today) is missing; a candidate or in-progress one ("(candidate)", "(in progress)") is ignored. A
+// requirement any certification point speaks to is not also searched in the resume text: that word evidence is only the
+// fallback for profiles parsed before certification points existed.
+
+export type CertificationStatus = "active" | "expired" | "pending";
+
+const PENDING_TITLE = /\(\s*(?:candidate|in[ -]progress)\s*\)\s*$/i;
+
+/** The last day an `endDate` covers, as `YYYY-MM-DD`; null for "present" or anything unreadable. */
+function lastDayOf(endDate: string | null): string | null {
+  const m = /^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?/.exec((endDate ?? "").trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = m[2] ? Number(m[2]) : 12;
+  const day = m[3] ? Number(m[3]) : new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${m[1]}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function certificationStatus(p: Pick<EvidencePoint, "title" | "endDate">, now: Date): CertificationStatus {
+  if (PENDING_TITLE.test(p.title.trim())) return "pending";
+  const last = lastDayOf(p.endDate);
+  return last != null && last < now.toISOString().slice(0, 10) ? "expired" : "active";
+}
+
+/** Relevance of a certification point by its canonical skills (1 same, 0.8 a vendor certification of the wanted vendor: "AWS Solutions Architect" for "AWS") and by the skills named in the requirement text. */
+function certificationSkillRelevance(req: Requirement, p: EvidencePoint, skills: SkillMap): { relevance: number; viaSkill: string | null } {
+  const haves = canonicalSkills(p.skills, skills);
+  const lower = req.text.toLowerCase();
+  let relevance = 0;
+  let viaSkill: string | null = null;
+  const take = (r: number, k: string) => { if (r > relevance) { relevance = r; viaSkill = k; } };
+  for (const want of req.skills) {
+    for (const have of haves) {
+      if (have === want) take(1, have);
+      else if (have.startsWith(`${want} `)) take(0.8, have);
+    }
+  }
+  for (const have of haves) {
+    if (have.length < 2) continue;
+    const re = new RegExp(`(?<![a-z0-9])${have.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+")}(?![a-z0-9])`, "i");
+    if (re.test(lower)) take(1, have);
+  }
+  return { relevance, viaSkill };
+}
+
 type PointMatch = { point: EvidencePoint; relevance: number; via: FitEvidence; viaSkill: string | null };
 
 function matchPoint(req: Requirement, p: EvidencePoint, vector: number[] | undefined, skills: SkillMap): PointMatch {
@@ -245,6 +294,10 @@ function matchPoint(req: Requirement, p: EvidencePoint, vector: number[] | undef
       relation = r;
       viaSkill = r === 1 ? want : (p.skills.find((h) => skillRelation(want, h, skills) === r) ?? null);
     }
+  }
+  if (p.kind === "certification") {
+    const c = certificationSkillRelevance(req, p, skills);
+    if (c.relevance > relation) { relation = c.relevance; viaSkill = c.viaSkill; }
   }
   const semantic = vector && p.embedding ? similarityToRelevance(cosine(vector, p.embedding)) : 0;
   const byWords = relation < 1 ? wordRelevance(requirementWords(req.text), p, req.text) : 0;
@@ -266,11 +319,21 @@ export function scoreRequirement(req: Requirement, points: readonly EvidencePoin
   let best: PointMatch | null = null;
   let bestStrength = 0;
   const relevant: PointMatch[] = [];
+  // Certification points that speak to this requirement (even expired or pending ones) outrank the resume-text fallback.
+  const certified = points.some((p) => {
+    if (p.kind !== "certification") return false;
+    const m = matchPoint(req, p, undefined, skills);
+    return m.relevance > 0 && m.via !== "semantic";
+  });
   for (const p of points) {
+    if (p.kind === "certification" && certificationStatus(p, opts.now) !== "active") continue;
+    if (p.kind === "resume" && certified) continue;
     const m = matchPoint(req, p, vector, skills);
     if (m.relevance <= 0) continue;
     if (m.relevance >= 0.5) relevant.push(m);
-    const strength = m.relevance * recencyFactor(p, opts.now) * scopeFactor(p);
+    // A certification does not age by its issue date: it counts while it is valid.
+    const recency = p.kind === "certification" ? 1 : recencyFactor(p, opts.now);
+    const strength = m.relevance * recency * scopeFactor(p);
     if (strength > bestStrength) { bestStrength = strength; best = m; }
   }
   if (!best) return { score: 0, best: null, yearsOfEvidence: 0 };
@@ -279,7 +342,7 @@ export function scoreRequirement(req: Requirement, points: readonly EvidencePoin
   const statedYears = relevant.map((m) => Number(m.point.scope.years ?? m.point.metrics.years)).filter((n) => Number.isFinite(n) && n > 0);
   const yearsOfEvidence = Math.max(unionYears(intervals), ...statedYears, 0);
   // Licences and certifications found by their words have no length to measure.
-  const depth = req.years != null && req.years > 0 && best.via !== "words" ? 0.55 + 0.45 * Math.min(1, yearsOfEvidence / req.years) : 1;
+  const depth = req.years != null && req.years > 0 && best.via !== "words" && best.point.kind !== "certification" ? 0.55 + 0.45 * Math.min(1, yearsOfEvidence / req.years) : 1;
   return { score: clamp(bestStrength * depth), best, yearsOfEvidence };
 }
 

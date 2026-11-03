@@ -1,4 +1,5 @@
-import { applications, companies, eq, jobs, profiles, resumes, users } from "@norinote/db";
+import { applications, asc, companies, eq, inboxAddresses, jobs, profiles, resumes, users } from "@norinote/db";
+import { loadRecipe, type WidgetStrategy } from "./recipes.js";
 import type { Db } from "@norinote/db";
 import { parseWorkAuthMap } from "@norinote/shared";
 import type { ApplicantProfile } from "./types.js";
@@ -11,6 +12,11 @@ export type ApplyInputs = {
   profile: ApplicantProfile;
   resumePdfPath: string;
   answers: Record<string, string>;
+  /** Company id: the key of the one-at-a-time gate. */
+  companyKey?: string;
+  /** The prepared form's recipe fingerprint, and the widget strategies it remembers by label. */
+  fingerprint?: string;
+  strategyHints?: Record<string, WidgetStrategy>;
 };
 
 type Rec = Record<string, unknown>;
@@ -64,7 +70,7 @@ export class MissingInputError extends Error {}
 
 export async function loadApplyInputs(db: Db, applicationId: string): Promise<ApplyInputs> {
   const [row] = await db.select({
-    app: applications, applyUrl: jobs.applyUrl, title: jobs.title, companyName: companies.name,
+    app: applications, applyUrl: jobs.applyUrl, title: jobs.title, companyName: companies.name, companyId: companies.id,
   }).from(applications)
     .innerJoin(jobs, eq(jobs.id, applications.jobId))
     .innerJoin(companies, eq(companies.id, jobs.companyId))
@@ -74,16 +80,26 @@ export async function loadApplyInputs(db: Db, applicationId: string): Promise<Ap
   const [user] = await db.select().from(users).where(eq(users.id, row.app.userId)).limit(1);
   if (!user) throw new MissingInputError("user not found");
   const [profile] = await db.select().from(profiles).where(eq(profiles.userId, row.app.userId)).limit(1);
+  // The owned inbox address is the email on applications (docs/inbox.md), so the emailed code reaches awaitVerification.
+  const [inbox] = await db.select({ address: inboxAddresses.address }).from(inboxAddresses).where(eq(inboxAddresses.userId, row.app.userId)).orderBy(asc(inboxAddresses.createdAt)).limit(1);
 
   if (!row.app.resumeId) throw new MissingInputError("no tailored resume is attached to this application");
   const [resume] = await db.select().from(resumes).where(eq(resumes.id, row.app.resumeId)).limit(1);
   if (!resume?.pdfPath) throw new MissingInputError("the tailored resume has no PDF yet");
 
+  const fingerprint = typeof (row.app.receipt?.prepared as { fingerprint?: unknown } | undefined)?.fingerprint === "string"
+    ? (row.app.receipt!.prepared as { fingerprint: string }).fingerprint : undefined;
+  const recipe = fingerprint ? await loadRecipe(db, fingerprint).catch(() => null) : null;
+  const strategyHints: Record<string, WidgetStrategy> = {};
+  for (const f of recipe?.fields ?? []) if (f.strategy) strategyHints[f.labelKey] = f.strategy;
   return {
+    companyKey: row.companyId,
+    ...(fingerprint ? { fingerprint } : {}),
+    ...(Object.keys(strategyHints).length ? { strategyHints } : {}),
     applyUrl: row.applyUrl,
     jobTitle: row.title,
     companyName: row.companyName,
-    profile: profileFromRows(user, profile ?? null),
+    profile: { ...profileFromRows(user, profile ?? null), ...(inbox ? { email: inbox.address } : {}) },
     resumePdfPath: resume.pdfPath,
     answers: row.app.answers,
   };

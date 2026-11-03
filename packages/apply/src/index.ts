@@ -17,3 +17,17 @@ export type { ApplicationReceipt, ReceiptField, ReceiptSection, ReceiptSectionNa
 export { loadApplyInputs, profileFromRows, MissingInputError } from "./inputs.js";
 export type { ApplyInputs } from "./inputs.js";
 export { questionId, classifyField, cleanLabel, phoneCountryValue } from "./form.js";
+export { workdayDriver, smartRecruitersDriver, workableDriver, icimsDriver, WORKDAY_REASON, NOT_YET_REASON } from "./drivers/index.js";
+export { fillFields, pickOption } from "./fill.js";
+export type { FillOutcome, FillTimings } from "./fill.js";
+export { discoverFields, detectCaptcha, findSubmitButton } from "./form.js";
+export type { DiscoveredField } from "./form.js";
+export { CAPTCHA_REASON, EMAIL_CODE_REASON, ACCOUNT_REASON, BLOCKED_REASON } from "./flow.js";
+export { prepareForm, loadFormSchema, readFormFromPage } from "./prepare.js";
+export type { PrepareFormDeps, PrepareFormResult } from "./prepare.js";
+export { parseJobUrl, canonicalJobUrl, greenhouseSchemaFromJson, fetchGreenhouseSchema, schemaFieldsFromDom, formFingerprint } from "./schema.js";
+export type { AtsName, FormSchema, SchemaField, ParsedJobUrl, GreenhouseJobJson } from "./schema.js";
+export { loadRecipe, saveRecipe, touchRecipe, recordStrategies, labelKey } from "./recipes.js";
+export type { FormRecipe, RecipeField, WidgetStrategy } from "./recipes.js";
+export { CompanyGate, sharedCompanyGate, defaultCooldownMs } from "./gate.js";
+export { blockHeavy, POLITE_UA_SUFFIX } from "./pool.js";

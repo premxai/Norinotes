@@ -1,7 +1,8 @@
 import type { ApplicationStatus } from "@norinote/shared";
-import { and, applications, companies, eq, gte, jobs, runEvents } from "@norinote/db";
+import { and, applications, companies, eq, gte, jobs, or, runEvents } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import { checkTransition, transitionPatch, type AppSnapshot, type TransitionOptions } from "./state.js";
+import { canonicalJobUrl } from "./schema.js";
 
 export type ApplicationRow = typeof applications.$inferSelect;
 
@@ -112,9 +113,13 @@ export async function createApplication(db: Db, userId: string, jobId: string, o
   const [existing] = await db.select().from(applications).where(and(eq(applications.userId, userId), eq(applications.jobId, jobId))).limit(1);
   if (existing) return { created: false, reason: "already_exists", application: existing };
 
-  const [job] = await db.select({ id: jobs.id, title: jobs.title, companyId: jobs.companyId, companyName: companies.name })
+  const [job] = await db.select({ id: jobs.id, title: jobs.title, companyId: jobs.companyId, companyName: companies.name, applyUrl: jobs.applyUrl })
     .from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, jobId)).limit(1);
   if (!job) return { created: false, reason: "job_not_found", application: null };
+  // The same posting reached through another job row (another board, a tracking link): one application per URL.
+  const canonicalUrl = canonicalJobUrl(job.applyUrl);
+  const [sameUrl] = await db.select().from(applications).where(and(eq(applications.userId, userId), eq(applications.canonicalUrl, canonicalUrl))).limit(1);
+  if (sameUrl) return { created: false, reason: "already_exists", application: sameUrl };
 
   const cutoff = new Date(now.getTime() - DUPLICATE_WINDOW_DAYS * 86_400_000);
   const recent = await db.select({ app: applications, title: jobs.title, companyId: jobs.companyId, companyName: companies.name })
@@ -129,12 +134,12 @@ export async function createApplication(db: Db, userId: string, jobId: string, o
   if (duplicate) return { created: false, reason: "duplicate_recent", application: duplicate.app };
 
   try {
-    const [row] = await db.insert(applications).values({ userId, jobId, status: "queued", createdAt: now, updatedAt: now }).returning();
+    const [row] = await db.insert(applications).values({ userId, jobId, canonicalUrl, status: "queued", createdAt: now, updatedAt: now }).returning();
     await logEvent(db, row!.id, "created", `Queued ${job.title} at ${job.companyName}`);
     return { created: true, application: row! };
   } catch (err) {
-    // Two clicks at once: the unique (user, job) index let one through.
-    const [again] = await db.select().from(applications).where(and(eq(applications.userId, userId), eq(applications.jobId, jobId))).limit(1);
+    // Two clicks at once: the unique (user, job) and (user, canonical URL) indexes let one through.
+    const [again] = await db.select().from(applications).where(and(eq(applications.userId, userId), or(eq(applications.jobId, jobId), eq(applications.canonicalUrl, canonicalUrl)))).limit(1);
     if (again) return { created: false, reason: "already_exists", application: again };
     throw err;
   }
@@ -183,7 +188,7 @@ export async function retryApplication(db: Db, applicationId: string): Promise<T
   if (!row) return { ok: false, reason: "application not found", application: null };
   if (row.status === "failed") return transitionApplication(db, applicationId, "queued", { by: "user", message: "Retry requested by the user" });
   if (row.status === "needs_user") {
-    const to = row.resumeId ? "applying" : "preparing";
+    const to = row.resumeId && row.approvedAt ? "applying" : "preparing";
     return transitionApplication(db, applicationId, to, { by: "user", message: "Resumed by the user" });
   }
   return { ok: false, reason: `nothing to retry in ${row.status}`, application: row };

@@ -1,0 +1,262 @@
+[
+ {
+  "ats": "greenhouse",
+  "company": "discord",
+  "jobId": "8840756002",
+  "url": "https://job-boards.greenhouse.io/discord/jobs/8840756002",
+  "title": "Data Scientist - Client Platform",
+  "id": "greenhouse-discord-88407560",
+  "fetchedAt": "2026-11-03T05:55:23.714Z",
+  "fields": 36
+ },
+ {
+  "ats": "greenhouse",
+  "company": "gitlab",
+  "jobId": "8638232002",
+  "url": "https://job-boards.greenhouse.io/gitlab/jobs/8638232002",
+  "title": "AI Transformation Owner, CRO",
+  "id": "greenhouse-gitlab-86382320",
+  "fetchedAt": "2026-11-03T05:55:28.384Z",
+  "fields": 24
+ },
+ {
+  "ats": "greenhouse",
+  "company": "figma",
+  "jobId": "5426468004",
+  "url": "https://job-boards.greenhouse.io/figma/jobs/5426468004",
+  "title": "Account Executive, Enterprise",
+  "id": "greenhouse-figma-54264680",
+  "fetchedAt": "2026-11-03T05:55:33.014Z",
+  "fields": 25
+ },
+ {
+  "ats": "greenhouse",
+  "company": "robinhood",
+  "jobId": "8319304",
+  "url": "https://job-boards.greenhouse.io/robinhood/jobs/8319304",
+  "title": "Account Servicing Associate",
+  "id": "greenhouse-robinhood-8319304",
+  "fetchedAt": "2026-11-03T05:55:37.878Z",
+  "fields": 41
+ },
+ {
+  "ats": "greenhouse",
+  "company": "cloudflare",
+  "jobId": "7695702",
+  "url": "https://job-boards.greenhouse.io/cloudflare/jobs/7695702",
+  "title": "Account Executive, FedCiv",
+  "id": "greenhouse-cloudflare-7695702",
+  "fetchedAt": "2026-11-03T05:55:43.043Z",
+  "fields": 21
+ },
+ {
+  "ats": "greenhouse",
+  "company": "anthropic",
+  "jobId": "5456619008",
+  "url": "https://job-boards.greenhouse.io/anthropic/jobs/5456619008",
+  "title": "3P Revenue Accounting & Reporting",
+  "id": "greenhouse-anthropic-54566190",
+  "fetchedAt": "2026-11-03T05:55:48.005Z",
+  "fields": 36
+ },
+ {
+  "ats": "greenhouse",
+  "company": "reddit",
+  "jobId": "8153017",
+  "url": "https://job-boards.greenhouse.io/reddit/jobs/8153017",
+  "title": "Account Executive, Mid-Market (DACH)",
+  "id": "greenhouse-reddit-8153017",
+  "fetchedAt": "2026-11-03T05:55:52.674Z",
+  "fields": 25
+ },
+ {
+  "ats": "greenhouse",
+  "company": "airtable",
+  "jobId": "8403107002",
+  "url": "https://job-boards.greenhouse.io/airtable/jobs/8403107002",
+  "title": "Account Executive, Corporate",
+  "id": "greenhouse-airtable-84031070",
+  "fetchedAt": "2026-11-03T05:55:57.244Z",
+  "fields": 23
+ },
+ {
+  "ats": "greenhouse",
+  "company": "twilio",
+  "jobId": "8249615",
+  "url": "https://job-boards.greenhouse.io/twilio/jobs/8249615",
+  "title": "Account Executive 4",
+  "id": "greenhouse-twilio-8249615",
+  "fetchedAt": "2026-11-03T05:56:02.036Z",
+  "fields": 40
+ },
+ {
+  "ats": "lever",
+  "company": "leverdemo",
+  "jobId": "ad208490-4052-4f91-a57e-433f2d1e484b",
+  "url": "https://jobs.lever.co/leverdemo/ad208490-4052-4f91-a57e-433f2d1e484b/apply",
+  "title": "Customer Success Manager",
+  "id": "lever-leverdemo-ad208490",
+  "fetchedAt": "2026-11-03T05:56:07.573Z",
+  "fields": 55
+ },
+ {
+  "ats": "lever",
+  "company": "palantir",
+  "jobId": "6ed76ce8-4156-4b60-b120-403538bd66cd",
+  "url": "https://jobs.lever.co/palantir/6ed76ce8-4156-4b60-b120-403538bd66cd/apply",
+  "title": "Administrative Business Partner",
+  "id": "lever-palantir-6ed76ce8",
+  "fetchedAt": "2026-11-03T05:56:12.288Z",
+  "fields": 59
+ },
+ {
+  "ats": "lever",
+  "company": "spotify",
+  "jobId": "2a55d6c9-c564-443a-be3e-a3851db5a93b",
+  "url": "https://jobs.lever.co/spotify/2a55d6c9-c564-443a-be3e-a3851db5a93b/apply",
+  "title": "Account Executive - Commercial, Spotify Technology",
+  "id": "lever-spotify-2a55d6c9",
+  "fetchedAt": "2026-11-03T05:56:16.351Z",
+  "fields": 75
+ },
+ {
+  "ats": "lever",
+  "company": "shieldai",
+  "jobId": "ba945088-38ec-4e58-8f66-01c0497a3bd3",
+  "url": "https://jobs.lever.co/shieldai/ba945088-38ec-4e58-8f66-01c0497a3bd3/apply",
+  "title": "Administrative Assistant (6189)",
+  "id": "lever-shieldai-ba945088",
+  "fetchedAt": "2026-11-03T05:56:21.578Z",
+  "fields": 60
+ },
+ {
+  "ats": "lever",
+  "company": "zoox",
+  "jobId": "e8a190f0-7a89-4c11-a6a0-452ff6234749",
+  "url": "https://jobs.lever.co/zoox/e8a190f0-7a89-4c11-a6a0-452ff6234749/apply",
+  "title": "Administrative Business Partner, Floater",
+  "id": "lever-zoox-e8a190f0",
+  "fetchedAt": "2026-11-03T05:56:26.095Z",
+  "fields": 35
+ },
+ {
+  "ats": "lever",
+  "company": "leverdemo",
+  "jobId": "7e10ea46-98be-4bd1-a3ca-57d153b25c61",
+  "url": "https://jobs.lever.co/leverdemo/7e10ea46-98be-4bd1-a3ca-57d153b25c61/apply",
+  "title": "Sales Engineer",
+  "id": "lever-leverdemo-7e10ea46",
+  "fetchedAt": "2026-11-03T05:56:29.965Z",
+  "fields": 55
+ },
+ {
+  "ats": "lever",
+  "company": "palantir",
+  "jobId": "0ccbe620-a3ef-41d1-a5c4-68e56b3c91d0",
+  "url": "https://jobs.lever.co/palantir/0ccbe620-a3ef-41d1-a5c4-68e56b3c91d0/apply",
+  "title": "American Tech Fellowship",
+  "id": "lever-palantir-0ccbe620",
+  "fetchedAt": "2026-11-03T05:56:34.205Z",
+  "fields": 52
+ },
+ {
+  "ats": "lever",
+  "company": "shieldai",
+  "jobId": "66ab9907-83b7-4b5a-bf16-520d54d42fa7",
+  "url": "https://jobs.lever.co/shieldai/66ab9907-83b7-4b5a-bf16-520d54d42fa7/apply",
+  "title": "Air Vehicle Lead, Chief Engineer",
+  "id": "lever-shieldai-66ab9907",
+  "fetchedAt": "2026-11-03T05:56:38.242Z",
+  "fields": 71
+ },
+ {
+  "ats": "lever",
+  "company": "zoox",
+  "jobId": "5569d46e-0af8-4f07-93ea-b635c7403f7d",
+  "url": "https://jobs.lever.co/zoox/5569d46e-0af8-4f07-93ea-b635c7403f7d/apply",
+  "title": "CAE Engineer - Safety occupant",
+  "id": "lever-zoox-5569d46e",
+  "fetchedAt": "2026-11-03T05:56:42.022Z",
+  "fields": 35
+ },
+ {
+  "ats": "ashby",
+  "company": "ramp",
+  "jobId": "34413f8d-26bf-4bbc-8ade-eb309a0e2245",
+  "url": "https://jobs.ashbyhq.com/ramp/34413f8d-26bf-4bbc-8ade-eb309a0e2245/application",
+  "title": "Security Engineer, Cloud",
+  "id": "ashby-ramp-34413f8d",
+  "fetchedAt": "2026-11-03T05:56:47.269Z",
+  "fields": 19
+ },
+ {
+  "ats": "ashby",
+  "company": "notion",
+  "jobId": "1fc309c8-da20-4ff2-84c7-8b863ece2b0a",
+  "url": "https://jobs.ashbyhq.com/notion/1fc309c8-da20-4ff2-84c7-8b863ece2b0a/application",
+  "title": "Software Engineer, AI Connections (Developer Platform)",
+  "id": "ashby-notion-1fc309c8",
+  "fetchedAt": "2026-11-03T05:56:52.526Z",
+  "fields": 36
+ },
+ {
+  "ats": "ashby",
+  "company": "linear",
+  "jobId": "d3bc1ced-3ce4-4086-a050-555055dbb1ff",
+  "url": "https://jobs.ashbyhq.com/linear/d3bc1ced-3ce4-4086-a050-555055dbb1ff/application",
+  "title": "Senior / Staff Fullstack Engineer",
+  "id": "ashby-linear-d3bc1ced",
+  "fetchedAt": "2026-11-03T05:56:57.816Z",
+  "fields": 16
+ },
+ {
+  "ats": "ashby",
+  "company": "openai",
+  "jobId": "240d459b-696d-43eb-8497-fab3e56ecd9b",
+  "url": "https://jobs.ashbyhq.com/openai/240d459b-696d-43eb-8497-fab3e56ecd9b/application",
+  "title": "Research Engineer",
+  "id": "ashby-openai-240d459b",
+  "fetchedAt": "2026-11-03T05:57:03.165Z",
+  "fields": 64
+ },
+ {
+  "ats": "ashby",
+  "company": "vanta",
+  "jobId": "7e8b02ec-cf23-41de-87c7-3910459f34a2",
+  "url": "https://jobs.ashbyhq.com/vanta/7e8b02ec-cf23-41de-87c7-3910459f34a2/application",
+  "title": "Account Executive, Early Stage - UK&I",
+  "id": "ashby-vanta-7e8b02ec",
+  "fetchedAt": "2026-11-03T05:57:09.241Z",
+  "fields": 15
+ },
+ {
+  "ats": "ashby",
+  "company": "replit",
+  "jobId": "659a8e1e-69ba-44c0-a632-96665051a3e8",
+  "url": "https://jobs.ashbyhq.com/replit/659a8e1e-69ba-44c0-a632-96665051a3e8/application",
+  "title": "Senior Software Engineer, Compute Platform",
+  "id": "ashby-replit-659a8e1e",
+  "fetchedAt": "2026-11-03T05:57:15.425Z",
+  "fields": 37
+ },
+ {
+  "ats": "ashby",
+  "company": "cohere",
+  "jobId": "7133d205-5421-4336-a8e2-6037b5f55073",
+  "url": "https://jobs.ashbyhq.com/cohere/7133d205-5421-4336-a8e2-6037b5f55073/application",
+  "title": "Senior Full-Stack Engineer, Internal Applications",
+  "id": "ashby-cohere-7133d205",
+  "fetchedAt": "2026-11-03T05:57:42.526Z",
+  "fields": 13
+ },
+ {
+  "ats": "ashby",
+  "company": "ramp",
+  "jobId": "4859cd5e-f2a9-44d7-81f7-8bfc0e62369f",
+  "url": "https://jobs.ashbyhq.com/ramp/4859cd5e-f2a9-44d7-81f7-8bfc0e62369f/application",
+  "title": "Mobile Engineer, iOS",
+  "id": "ashby-ramp-4859cd5e",
+  "fetchedAt": "2026-11-03T05:57:47.890Z",
+  "fields": 14
+ }
+]

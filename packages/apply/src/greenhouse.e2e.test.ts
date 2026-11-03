@@ -14,6 +14,7 @@ import {
   approveAndSubmit, createApplication, createBrowserPool, greenhouseDriver, runApplication, type BrowserPool, type Driver, type DriverContext,
 } from "./index.js";
 import { chromiumInstalled, startFixtureServer, type FixtureServer } from "./test-helpers.js";
+import { CompanyGate } from "./gate.js";
 
 const run = chromiumInstalled();
 const TIMEOUT = 90_000;
@@ -146,18 +147,20 @@ describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
     const fill = await withPage((page) => greenhouseDriver.fill(page, ctx));
     expect(fill.status).toBe("needs_user");
     expect(fill.needsUser).toMatchObject({ kind: "questions" });
-    expect(fill.pending.map((p) => p.id).sort()).toEqual([
-      "how-did-you-hear-about-us",
-      "i-acknowledge-that-the-information-i-have-provided-is-accurate",
-      "which-office-would-you-like-to-work-from",
-      "why-do-you-want-to-work-here",
+    // Pending ids are field:<name or id>, so the person's answer lands exactly where the filler looks.
+    expect(fill.pending.map((p) => p.text).sort()).toEqual([
+      "How did you hear about us?",
+      "I acknowledge that the information I have provided is accurate.",
+      "Which office would you like to work from?",
+      "Why do you want to work here?",
     ]);
-    const hear = fill.pending.find((p) => p.id === "how-did-you-hear-about-us")!;
+    expect(fill.pending.every((p) => p.id.startsWith("field:"))).toBe(true);
+    const hear = fill.pending.find((p) => p.text === "How did you hear about us?")!;
     expect(hear).toMatchObject({ type: "select", required: true });
     expect(hear.options).toEqual(expect.arrayContaining(["LinkedIn", "Employee referral", "Company website", "Other"]));
-    expect(fill.pending.find((p) => p.id === "why-do-you-want-to-work-here")).toMatchObject({ type: "textarea", text: "Why do you want to work here?" });
-    expect(fill.pending.find((p) => /acknowledge/.test(p.id))).toMatchObject({ type: "boolean" });
-    expect(fill.pending.find((p) => p.id.startsWith("which-office"))?.options).toEqual(["San Francisco", "New York", "Remote (US)"]);
+    expect(fill.pending.find((p) => p.text === "Why do you want to work here?")).toMatchObject({ type: "textarea", text: "Why do you want to work here?" });
+    expect(fill.pending.find((p) => /acknowledge/i.test(p.text))).toMatchObject({ type: "boolean" });
+    expect(fill.pending.find((p) => /which office/i.test(p.text))?.options).toEqual(["San Francisco", "New York", "Remote (US)"]);
     // What it did know was still filled.
     expect(fill.fields.find((f) => /first name/i.test(f.label))?.value).toBe("Ada");
     expect(events.filter((e) => e.step === "field_pending")).toHaveLength(4);
@@ -249,6 +252,7 @@ describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
       pool,
       preparer: { prepare: async () => ({ outcome: "prepared" as const }) },
       codes: { waitForCode: async () => null },
+      companyGate: new CompanyGate(0),
       drivers: [localGreenhouse],
       loadInputs: async (_db: unknown, applicationId: string) => ({
         applyUrl: FORM(), jobTitle: "Senior Software Engineer", companyName: "Acme Robotics", resumePdfPath: resumePath,
@@ -283,7 +287,7 @@ describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
       const step = await runApplication(t.db, id, deps());
       expect(step).toMatchObject({ status: "needs_user", waiting: "user" });
       const [row] = await t.db.select().from(applications).where(eq(applications.id, id));
-      expect((row!.pendingQuestions as { id: string }[]).map((q) => q.id)).toContain("why-do-you-want-to-work-here");
+      expect((row!.pendingQuestions as { text: string }[]).map((q) => q.text)).toContain("Why do you want to work here?");
       expect(row!.submittedAt).toBeNull();
     }, TIMEOUT);
 

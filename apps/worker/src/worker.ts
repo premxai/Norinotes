@@ -3,13 +3,14 @@ import { connect, migrate, type Db, type DbHandle } from "@norinote/db";
 import { createBrowserPool, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
 import { setAiLogger } from "@norinote/ai";
 import { seedCompanies } from "@norinote/ingest";
-import { createCodeWaiter } from "@norinote/inbox";
+import { awaitVerification, startInboxRetention } from "@norinote/inbox";
 import { createQueue, type QueueAdapter } from "@norinote/queue";
 import { closeSharedBrowser } from "@norinote/tailor";
 import { loadConfig, type WorkerConfig } from "./config.js";
 import { registerConsumers, type Consumers } from "./consumers.js";
 import { createLogger, type Logger } from "./log.js";
 import { createPreparer } from "./preparer.js";
+import { startTelegram } from "./telegram.js";
 
 export type WorkerOptions = {
   config?: WorkerConfig;
@@ -65,8 +66,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
 
   const apply: ApplyDeps = {
     pool,
-    preparer: opts.preparer ?? createPreparer(db, { artifactsDir: config.artifactsDir }),
-    codes: createCodeWaiter(db),
+    preparer: opts.preparer ?? createPreparer(db, { artifactsDir: config.artifactsDir, pool }),
+    // Emailed codes come from the owned inbox; a verification link (or no code in time) parks the application.
+    verification: (args) => awaitVerification({ ...args, db }),
     now,
     ...opts.applyOverrides,
   };
@@ -93,11 +95,18 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     timer.unref();
   }
 
+  // Inbox retention: delete messages past INBOX_RETENTION_DAYS (default 90) or the user's own setting, every 6 hours.
+  const stopRetention = opts.scheduler !== false ? startInboxRetention(db, { log: (event, fields) => log.info(event, fields) }) : () => undefined;
+  // Telegram: daily shortlist, questions and events for linked chats (only with TELEGRAM_BOT_TOKEN). See docs/telegram.md.
+  const stopTelegram = opts.scheduler !== false ? startTelegram(db, queue, log) : () => undefined;
+
   log.info("worker.started", { queue: queue.kind, database: handle ? handle.kind : "injected", poolSize: config.browserPoolSize });
 
   let stopped: Promise<void> | null = null;
   const stop = () => (stopped ??= (async () => {
     if (timer) clearInterval(timer);
+    stopRetention();
+    stopTelegram();
     await consumers.flushMatchBatch().catch(() => {});
     await queue.stop();
     if (ownsPool) await pool.close().catch(() => {});

@@ -1,0 +1,300 @@
+{
+  "generatedAt": "2026-11-03T05:31:48.389Z",
+  "overall": {
+    "pairs": 4,
+    "coverageBefore": 82.5,
+    "coverageSelected": 82.5,
+    "coverageAfter": 82.5,
+    "exactBefore": 82.5,
+    "exactAfter": 82.5,
+    "phraseBefore": 63.8,
+    "phraseAfter": 63.8,
+    "presentOpeners": 1,
+    "yearsOnSkills": 0,
+    "strongVerbKept": 88,
+    "tackedOn": 0,
+    "boilerplate": 0,
+    "noOpKept": 12,
+    "summaryShapeOk": 100,
+    "unsupported": 0,
+    "banned": 0,
+    "wordsPerBullet": 19.1,
+    "wordsPerRewritten": 19.8,
+    "verbDiversity": 1,
+    "rewritten": 6,
+    "offered": 22,
+    "reverted": 4,
+    "judge": {
+      "model": "gpt-4o",
+      "relevance": 3.5,
+      "truthfulness": 5,
+      "specificity": 4,
+      "tone": 4,
+      "fabrications": 0
+    },
+    "tailorUsdPerResume": 0.01216549999999994,
+    "tailorUsdMax": 0.013879999999999892,
+    "totalUsd": 1.787508
+  },
+  "rows": [
+    {
+      "profile": "new_grad_swe",
+      "kind": "top",
+      "job": "Software Engineer, Product @ Prelim",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 3
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 4,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 0,
+      "offered": 5,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 22.4,
+      "wordsPerRewritten": null,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant skills and experience, but could better emphasize system design and scalability expertise.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.010081999999999924,
+      "judgeUsd": 0.0046280000000000765,
+      "error": null,
+      "examples": [],
+      "summary": "Computer science graduate targeting software engineer roles, working with React, Node.js and PostgreSQL. Built a REST endpoint in Python and PostgreSQL that lets clinic staff export appointment reports."
+    },
+    {
+      "profile": "senior_frontend",
+      "kind": "top",
+      "job": "Senior Frontend Software Engineer, Consumer Engineering @ Reddit",
+      "fit": 0.825,
+      "coverage": {
+        "before": 80,
+        "selected": 80,
+        "after": 80,
+        "exactBefore": 80,
+        "exactAfter": 80,
+        "phraseBefore": 80,
+        "phraseAfter": 80,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 3,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 4,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Bachelor’s degree in Computer Science or related field or equivalent experience"
+      ],
+      "gaps": [
+        "Experience designing and building robust APIs (lacks APIs)",
+        "API design (lacks API design, API)"
+      ],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 19.2,
+      "wordsPerRewritten": 19,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant experience and skills for the Reddit position, maintaining truthfulness and specificity.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.011463999999999919,
+      "judgeUsd": 0.0046800000000000175,
+      "error": null,
+      "examples": [
+        {
+          "before": "Built interactive charting for a business intelligence product with D3 and React; handled tables of 1M+ rows with virtualization.",
+          "after": "Created interactive charting for a business intelligence product with D3 and React; handled tables of 1M+ rows with virtualization."
+        }
+      ],
+      "summary": "Senior frontend engineer with 9 years of experience, working with JavaScript, TypeScript, React and Next.js. Tech lead for the merchant dashboard used by 120,000 merchants."
+    },
+    {
+      "profile": "account_executive",
+      "kind": "top",
+      "job": "Enterprise Account Executive, Higher Ed @ Boxinc",
+      "fit": 0.753,
+      "coverage": {
+        "before": 50,
+        "selected": 50,
+        "after": 50,
+        "exactBefore": 50,
+        "exactAfter": 50,
+        "phraseBefore": 0,
+        "phraseAfter": 0,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Ability to close complex deals",
+        "Experience in Higher Education vertical sales"
+      ],
+      "gaps": [
+        "Proven success selling SaaS (lacks SaaS)",
+        "SaaS sales (lacks SaaS sales, SaaS)",
+        "Sales process management (lacks Sales process management)",
+        "Experience with ECM, Cloud, or SaaS sales (lacks SaaS)"
+      ],
+      "rewritten": 4,
+      "offered": 5,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 15.4,
+      "wordsPerRewritten": 15.5,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 4,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume effectively highlights relevant experience and skills for the Enterprise Account Executive role, maintaining truthfulness and specificity.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.013236000000000026,
+      "judgeUsd": 0.0045200000000000795,
+      "error": null,
+      "examples": [
+        {
+          "before": "Carry a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts (1,000 to 10,000 employees).",
+          "after": "Carried a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts with 1,000 to 10,000 employees."
+        },
+        {
+          "before": "President's Club 2024 and 2025.",
+          "after": "Achieved President's Club 2024 and 2025 awards."
+        },
+        {
+          "before": "Run discovery, demos with a sales engineer, security questionnaires and procurement negotiation; forecast weekly in Salesforce.",
+          "after": "Ran discovery, demos with a sales engineer, security questionnaires, procurement negotiation, and forecasted weekly in Salesforce."
+        }
+      ],
+      "summary": "Senior account executive targeting enterprise account executive roles with a record of carrying a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts. Recognized for President's Club 2024 and 2025 and exceeding quota 7 of 10 quarters."
+    },
+    {
+      "profile": "registered_nurse",
+      "kind": "top",
+      "job": "Registered Nurse | Chemo Infusion @ Elyb",
+      "fit": 0,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 75,
+        "phraseAfter": 75,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Current American Heart Association BLS Healthcare Provider card (lacks BLS)",
+        "Obtain Oncology Nurse Society Chemotherapy provider card within 6 months of hire",
+        "Maintain current Oncology Nurse Society provider card at all times",
+        "chemotherapy administration (lacks chemotherapy administration)",
+        "biotherapy administration (lacks biotherapy administration)",
+        "central venous access management (lacks central venous access management)"
+      ],
+      "rewritten": 1,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 19.3,
+      "wordsPerRewritten": 25,
+      "verbDiversity": 0.83,
+      "repeatedOpeners": 1,
+      "summarySource": "model",
+      "judge": {
+        "relevance": 3,
+        "truthfulness": 5,
+        "specificity": 4,
+        "tone": 4,
+        "fabrications": [],
+        "comment": "The tailored resume is truthful and specific, but lacks direct experience in oncology or infusion, which affects its relevance to the job posting.",
+        "model": "gpt-4o"
+      },
+      "tailorUsd": 0.013879999999999892,
+      "judgeUsd": 0.004603000000000135,
+      "error": null,
+      "examples": [
+        {
+          "before": "Provide care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpret rhythms, titrate cardiac drips per protocol, and coordinate with cardiology.",
+          "after": "Cared for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit, interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+        }
+      ],
+      "summary": "Registered nurse in the registered nurse field with patient assessment and patient education skills, precepted new graduate nurses, and cared for post-operative adult patients. Provided care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit."
+    }
+  ]
+}

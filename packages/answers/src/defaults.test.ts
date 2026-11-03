@@ -49,6 +49,10 @@ describe("profile defaults", () => {
     expect(ans("When can you start?")).toBe("2 weeks after an offer");
     expect(ans("Earliest start date", "select", ["Immediately", "2 weeks after an offer", "1 month"])).toBe("2 weeks after an offer");
     expect(ans("Are you willing to relocate?", "select", ["Yes", "No"])).toBe("Yes");
+    // Needing relocation is about where the person lives, not willingness (e2e run 1 answered "No" from willingToRelocate=false).
+    expect(ans("Do you require relocation to work in a hybrid schedule in our SF office?", "select", ["Yes", "No"])).toBeNull();
+    expect(ans("Will you need relocation assistance?", "select", ["Yes", "No"])).toBeNull();
+    expect(ans("Are you open to relocation?", "select", ["Yes", "No"])).toBe("Yes");
     expect(ans("Current location")).toBe("Austin, TX");
     expect(ans("City")).toBe("Austin");
     expect(ans("LinkedIn Profile")).toBe("linkedin.com/in/ada");

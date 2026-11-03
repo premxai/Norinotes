@@ -211,6 +211,25 @@ describe("applications", () => {
     expect((await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: {} })).status).toBe(400);
   });
 
+  it("does not submit an application parked before the click: answering sends it back through prepare", async () => {
+    const { job } = await seedJob(api.db, { company: "Unclicked Co" });
+    const app = await seedApplication(api.db, userId, job.id, {
+      status: "needs_user", approvedAt: null, preparedAt: null, resumeId: null,
+      pendingQuestions: [QUESTION("q-why", "Why do you want to work here?"), QUESTION("q-visa", "Do you need a visa?")],
+    });
+
+    const partial = await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: { "q-why": "I like the product." } } });
+    expect(partial.json).toMatchObject({ status: "needs_user", resumed: false });
+
+    const full = await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: { "q-visa": "No" } } });
+    expect(full.json).toMatchObject({ status: "preparing", resumed: true });
+    expect(api.queuedOf("apply.run").some((q) => q.payload.applicationId === app.id)).toBe(false);
+    expect(api.queuedOf("prepare.application").some((q) => q.payload.applicationId === app.id)).toBe(true);
+    const [row] = await api.db.select().from(applications).where(eq(applications.id, app.id));
+    expect(row?.status).toBe("preparing");
+    expect(row?.approvedAt).toBeNull();
+  });
+
   it("retries a failed application back into the queue", async () => {
     const { job } = await seedJob(api.db, { company: "Retry Co" });
     const app = await seedApplication(api.db, userId, job.id, { status: "failed", error: "Browser step failed" });

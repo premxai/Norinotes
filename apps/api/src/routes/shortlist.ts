@@ -78,31 +78,35 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   }
 
   r.post("/:jobId/dismiss", auth, async (c) => {
-    const jobId = uuidParam(c, "jobId");
-    const userId = c.get("user").id;
-    const done = await db.update(shortlist).set({ status: "dismissed" })
-      .where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId), eq(shortlist.status, "new"))).returning({ id: shortlist.id });
-    if (done.length > 0) {
-      // Dismissing a role dismisses its postings in other cities too, so the same role does not come straight back.
-      const [job] = await db.select({ title: jobs.title, companyId: jobs.companyId }).from(jobs).where(eq(jobs.id, jobId)).limit(1);
-      if (job?.companyId) {
-        const siblings = await db.select({ id: jobs.id, title: jobs.title }).from(jobs).where(and(eq(jobs.companyId, job.companyId), isNull(jobs.closedAt)));
-        const ids = siblings.filter((s) => s.id !== jobId && normTitle(s.title) === normTitle(job.title)).map((s) => s.id);
-        if (ids.length) {
-          await db.update(shortlist).set({ status: "dismissed" })
-            .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, ids)));
-        }
-      }
-    }
-    if (done.length === 0) {
-      // Already dismissed or applied: nothing to do. Not on the list at all: 404.
-      const [row] = await db.select({ id: shortlist.id }).from(shortlist).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId))).limit(1);
-      if (!row) throw notFound("That job is not on your shortlist");
-    }
+    await dismissShortlistJob(ctx, c.get("user").id, uuidParam(c, "jobId"));
     return c.json({ ok: true });
   });
 
   return r;
+}
+
+/** Skip a job (the web's dismiss, or Telegram's Skip). Its postings in other cities go too. 404 when it is not on the list. */
+export async function dismissShortlistJob(ctx: Ctx, userId: string, jobId: string): Promise<void> {
+  const { db } = ctx;
+  const done = await db.update(shortlist).set({ status: "dismissed" })
+    .where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId), eq(shortlist.status, "new"))).returning({ id: shortlist.id });
+  if (done.length > 0) {
+    // Dismissing a role dismisses its postings in other cities too, so the same role does not come straight back.
+    const [job] = await db.select({ title: jobs.title, companyId: jobs.companyId }).from(jobs).where(eq(jobs.id, jobId)).limit(1);
+    if (job?.companyId) {
+      const siblings = await db.select({ id: jobs.id, title: jobs.title }).from(jobs).where(and(eq(jobs.companyId, job.companyId), isNull(jobs.closedAt)));
+      const ids = siblings.filter((s) => s.id !== jobId && normTitle(s.title) === normTitle(job.title)).map((s) => s.id);
+      if (ids.length) {
+        await db.update(shortlist).set({ status: "dismissed" })
+          .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, ids)));
+      }
+    }
+  }
+  if (done.length === 0) {
+    // Already dismissed or applied: nothing to do. Not on the list at all: 404.
+    const [row] = await db.select({ id: shortlist.id }).from(shortlist).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId))).limit(1);
+    if (!row) throw notFound("That job is not on your shortlist");
+  }
 }
 
 const WIDENED_LIKE = "widened:%";

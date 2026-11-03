@@ -1,5 +1,130 @@
-import { and, applications, desc, eq, gte, inboxMessages, isNull, type Db } from "@norinote/db";
-import { fromAts, senderBase } from "./link.js";
+import { and, applications, desc, eq, getDb, gte, inArray, inboxMessages, isNull, jobs, type Db } from "@norinote/db";
+import { atsOfSender } from "./link.js";
+import { onInbox } from "./notify.js";
+import type { InboxMeta } from "./receive.js";
+
+/** What `awaitVerification` hands back: a code to type, or a link to open, from one stored message. */
+export type VerificationResult =
+  | { type: "code"; code: string; messageId: string; receivedAt: Date; from: string }
+  | { type: "link"; link: string; messageId: string; receivedAt: Date; from: string };
+
+export type AwaitVerificationArgs = {
+  applicationId: string;
+  /** Only mail that arrived at or after this moment counts. Pass the time just before the form asked for the code. */
+  since: Date;
+  /** Give up after this long and resolve null. */
+  timeoutMs: number;
+  /** Which kinds of verification the caller can use. Default `any` (a code is preferred when both arrived). */
+  accept?: "code" | "link" | "any";
+  /** Message ids already used (a code is good once). The waiter adds what it returns. */
+  exclude?: Set<string>;
+  /** Stops waiting early (resolves null). */
+  signal?: AbortSignal;
+  /** Database. Default: the shared one (`getDb()`). */
+  db?: Db;
+  /** Database poll interval. Default 1500 ms. In-process stores wake the waiter at once. */
+  pollMs?: number;
+  /** Test hooks. */
+  now?: () => Date;
+};
+
+type Row = { id: string; code: string | null; links: string[]; meta: unknown; receivedAt: Date; from: string; applicationId: string | null };
+
+function toResult(r: Row, accept: "code" | "link" | "any"): VerificationResult | null {
+  const meta = (r.meta ?? {}) as InboxMeta;
+  if (meta.spam) return null;
+  if (r.code && accept !== "link") return { type: "code", code: r.code, messageId: r.id, receivedAt: r.receivedAt, from: r.from };
+  const link = meta.verificationLink ?? null;
+  if (link && accept !== "code") return { type: "link", link, messageId: r.id, receivedAt: r.receivedAt, from: r.from };
+  return null;
+}
+
+/**
+ * One look at the table: the newest unused verification for this application since `since`. Linked messages count when
+ * their sender may speak for the company (its domain, or the job's ATS). An unlinked message counts only when the job
+ * system that sent it is this job's system and this is the user's only application waiting for mail on it, so a code
+ * meant for another application, or a stranger's mail, is never typed into a form.
+ */
+export async function findVerification(db: Db, args: Pick<AwaitVerificationArgs, "applicationId" | "since" | "accept" | "exclude">): Promise<VerificationResult | null> {
+  const accept = args.accept ?? "any";
+  const [app] = await db.select({ userId: applications.userId, jobId: applications.jobId }).from(applications).where(eq(applications.id, args.applicationId)).limit(1);
+  if (!app) return null;
+  const cols = { id: inboxMessages.id, code: inboxMessages.code, links: inboxMessages.links, meta: inboxMessages.meta, receivedAt: inboxMessages.receivedAt, from: inboxMessages.fromAddress, applicationId: inboxMessages.applicationId };
+
+  const linked = await db.select(cols).from(inboxMessages)
+    .where(and(eq(inboxMessages.applicationId, args.applicationId), eq(inboxMessages.kind, "verification_code"), gte(inboxMessages.receivedAt, args.since)))
+    .orderBy(desc(inboxMessages.receivedAt));
+  const pick = (rows: Row[], ok: (r: Row) => boolean): VerificationResult | null => {
+    // A code beats a link when both arrived.
+    const usable = rows.filter((r) => !args.exclude?.has(r.id) && ok(r));
+    for (const want of accept === "any" ? (["code", "link"] as const) : [accept]) {
+      for (const r of usable) {
+        const res = toResult(r, want);
+        if (res) return res;
+      }
+    }
+    return null;
+  };
+  const hit = pick(linked, (r) => (r.meta as InboxMeta).trusted !== false);
+  if (hit) return hit;
+
+  const [job] = await db.select({ atsType: jobs.atsType }).from(jobs).where(eq(jobs.id, app.jobId)).limit(1);
+  if (!job) return null;
+  const waiting = await db.select({ id: applications.id, jobId: applications.jobId }).from(applications)
+    .where(and(eq(applications.userId, app.userId), inArray(applications.status, ["applying", "awaiting_code"])));
+  const others = waiting.filter((w) => w.id !== args.applicationId);
+  if (others.length) {
+    const otherJobs = await db.select({ atsType: jobs.atsType }).from(jobs).where(inArray(jobs.id, others.map((o) => o.jobId)));
+    if (otherJobs.some((j) => j.atsType === job.atsType)) return null;
+  }
+  const loose = await db.select(cols).from(inboxMessages)
+    .where(and(eq(inboxMessages.userId, app.userId), isNull(inboxMessages.applicationId), eq(inboxMessages.kind, "verification_code"), gte(inboxMessages.receivedAt, args.since)))
+    .orderBy(desc(inboxMessages.receivedAt));
+  return pick(loose, (r) => atsOfSender(r.from) === job.atsType);
+}
+
+/**
+ * Waits for the verification code or link an employer's job system emails during an application, and resolves with it,
+ * or with null after `timeoutMs` (or when `signal` aborts). It polls `inbox_messages` (works across processes: the API
+ * stores, the worker waits) and is woken at once by a store in the same process. The returned message id is added to
+ * `exclude`, so passing the same set to a retry never returns the same code twice.
+ *
+ *   const v = await awaitVerification({ applicationId, since: clickedAt, timeoutMs: 120_000 });
+ *   if (v?.type === "code") await page.fill(codeInput, v.code);
+ *   else if (v?.type === "link") await page.goto(v.link);
+ */
+export async function awaitVerification(args: AwaitVerificationArgs): Promise<VerificationResult | null> {
+  const db = args.db ?? (await getDb());
+  const now = args.now ?? (() => new Date());
+  const pollMs = Math.max(10, args.pollMs ?? 1500);
+  const deadline = now().getTime() + Math.max(0, args.timeoutMs);
+  const [app] = await db.select({ userId: applications.userId }).from(applications).where(eq(applications.id, args.applicationId)).limit(1);
+  if (!app || args.signal?.aborted) return null;
+
+  let wake: (() => void) | null = null;
+  const unsubscribe = onInbox(app.userId, () => wake?.());
+  const onAbort = () => wake?.();
+  args.signal?.addEventListener("abort", onAbort);
+  try {
+    for (;;) {
+      const hit = await findVerification(db, args);
+      if (hit) {
+        args.exclude?.add(hit.messageId);
+        return hit;
+      }
+      const remaining = deadline - now().getTime();
+      if (remaining <= 0 || args.signal?.aborted) return null;
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => { wake = null; resolve(); }, Math.min(pollMs, remaining));
+        wake = () => { clearTimeout(timer); wake = null; resolve(); };
+      });
+      if (args.signal?.aborted) return null;
+    }
+  } finally {
+    unsubscribe();
+    args.signal?.removeEventListener("abort", onAbort);
+  }
+}
 
 /** The same shape as `CodeWaiter` in @norinote/apply (inbox does not import apply). */
 export interface CodeWaiterLike {
@@ -12,60 +137,20 @@ export type CodeWaiterOptions = {
   /** How far before the wait began a code may have arrived (the site often mails it the moment the button is clicked). Default 2 min. */
   lookbackMs?: number;
   now?: () => Date;
-  sleep?: (ms: number) => Promise<void>;
 };
 
-const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 /**
- * Implements apply's `CodeWaiter` by polling `inbox_messages`: the newest verification code linked to this application
- * that arrived after the wait began (less the look-back), returned once. A code mail that could not be linked to any
- * application is accepted only when a job system sent it (Greenhouse, Lever, ...) and `hint` (the driver name) matches the
- * sender, so a stranger's mail never gets typed into a form. Returns null on timeout.
+ * apply's current `CodeWaiter` on top of `awaitVerification`: codes only, each used once, `since` = now less the look-back.
+ * `hint` (the driver name) is no longer needed: the job's own ATS decides which unlinked mail may be used.
  */
 export function createCodeWaiter(db: Db, options: CodeWaiterOptions = {}): CodeWaiterLike {
-  const interval = options.intervalMs ?? 1000;
-  const lookback = options.lookbackMs ?? 2 * 60_000;
-  const now = options.now ?? (() => new Date());
-  const sleep = options.sleep ?? defaultSleep;
-  /** Messages already handed out by this waiter: a code is used once. */
   const used = new Set<string>();
-
-  async function findCode(applicationId: string, userId: string, hint: string, since: Date): Promise<{ id: string; code: string } | null> {
-    const linked = await db.select({ id: inboxMessages.id, code: inboxMessages.code }).from(inboxMessages)
-      .where(and(eq(inboxMessages.applicationId, applicationId), eq(inboxMessages.kind, "verification_code"), gte(inboxMessages.receivedAt, since)))
-      .orderBy(desc(inboxMessages.receivedAt));
-    for (const r of linked) if (r.code && !used.has(r.id)) return { id: r.id, code: r.code };
-
-    const needle = hint.trim().toLowerCase();
-    const loose = await db.select({ id: inboxMessages.id, code: inboxMessages.code, from: inboxMessages.fromAddress }).from(inboxMessages)
-      .where(and(eq(inboxMessages.userId, userId), isNull(inboxMessages.applicationId), eq(inboxMessages.kind, "verification_code"), gte(inboxMessages.receivedAt, since)))
-      .orderBy(desc(inboxMessages.receivedAt));
-    for (const r of loose) {
-      if (!r.code || used.has(r.id) || !fromAts(r.from)) continue;
-      if (needle && !senderBase(r.from).includes(needle) && !needle.includes(senderBase(r.from).split("-")[0] ?? "")) continue;
-      return { id: r.id, code: r.code };
-    }
-    return null;
-  }
-
+  const now = options.now ?? (() => new Date());
   return {
     async waitForCode(applicationId, opts) {
-      const started = now().getTime();
-      const deadline = started + Math.max(0, opts.timeoutMs);
-      const since = new Date(started - lookback);
-      const [app] = await db.select({ userId: applications.userId }).from(applications).where(eq(applications.id, applicationId)).limit(1);
-      if (!app) return null;
-      for (;;) {
-        const hit = await findCode(applicationId, app.userId, opts.hint, since);
-        if (hit) {
-          used.add(hit.id);
-          return hit.code;
-        }
-        const remaining = deadline - now().getTime();
-        if (remaining <= 0) return null;
-        await sleep(Math.min(interval, remaining));
-      }
+      const since = new Date(now().getTime() - (options.lookbackMs ?? 2 * 60_000));
+      const v = await awaitVerification({ db, applicationId, since, timeoutMs: opts.timeoutMs, accept: "code", exclude: used, pollMs: options.intervalMs ?? 1000, now });
+      return v?.type === "code" ? v.code : null;
     },
   };
 }

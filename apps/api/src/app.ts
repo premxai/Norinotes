@@ -17,6 +17,7 @@ import { inboundRoutes, inboxRoutes } from "./routes/inbox.js";
 import { jobRoutes } from "./routes/jobs.js";
 import { laneRoutes } from "./routes/lanes.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
+import { applicationOutcomeRoutes, outcomeRoutes } from "./routes/outcomes.js";
 import { profileRoutes } from "./routes/profile.js";
 import { shortlistRoutes } from "./routes/shortlist.js";
 
@@ -25,7 +26,7 @@ const MB = 1024 * 1024;
 /** Request body size by path: a resume upload and an inbound email may be large, everything else is small JSON. */
 function maxBody(path: string, resumeBytes: number): number {
   if (path === "/api/profile/resume-file") return resumeBytes + MB;
-  if (path === "/api/inbound/email") return 25 * MB;
+  if (path === "/api/inbound/email" || path.startsWith("/api/inbox/webhook/")) return 25 * MB;
   if (path === "/api/profile/resume") return MB;
   return MB / 2;
 }
@@ -42,6 +43,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
     addJob: deps.addJob ?? addJobByUrl,
     log: deps.log ?? ((line) => console.log(line)),
     limiter: deps.limiter ?? new RateLimiter(),
+    ...(deps.telegram ? { telegram: deps.telegram } : {}),
   };
 
   const app = new Hono<AppEnv>();
@@ -62,6 +64,8 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
   app.route("/api/jobs", jobRoutes(ctx));
   app.route("/api/shortlist", shortlistRoutes(ctx));
   app.route("/api/applications", applicationRoutes(ctx));
+  app.route("/api/applications", applicationOutcomeRoutes(ctx));
+  app.route("/api/outcomes", outcomeRoutes(ctx));
   app.route("/api/resumes", resumeRoutes(ctx));
   app.route("/api/artifacts", artifactRoutes(ctx));
   app.route("/api/agent", agentRoutes(ctx));

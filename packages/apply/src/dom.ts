@@ -12,10 +12,17 @@ export async function runScript<T>(page: Page, script: string, arg: unknown = nu
 /** Shared helpers, inlined into scripts that need them. */
 const HELPERS = String.raw`
   function clean(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
+  // Visible text only: status messages a page hides with CSS ("Analyzing resume...", "No location found") are not the label.
   function textOf(el) {
-    var c = el.cloneNode(true);
-    c.querySelectorAll('input,select,textarea,script,style,option,button').forEach(function (n) { n.remove(); });
-    return clean(c.textContent);
+    var parts = [];
+    function walk(n) {
+      if (n.nodeType === 3) { parts.push(n.nodeValue); return; }
+      if (n.nodeType !== 1 || /^(input|select|textarea|script|style|option|button|svg|template)$/i.test(n.tagName)) return;
+      if (n !== el && n.isConnected) { var st = getComputedStyle(n); if (st.display === 'none' || st.visibility === 'hidden') return; }
+      for (var ch = n.firstChild; ch; ch = ch.nextSibling) walk(ch);
+    }
+    walk(el);
+    return clean(parts.join(''));
   }
   function visible(el) {
     if (!el || !el.isConnected) return false;
@@ -32,7 +39,7 @@ const HELPERS = String.raw`
     var parts = [];
     var node = el;
     while (node && node.nodeType === 1 && node !== document.documentElement) {
-      if (node !== el && node.id && count('#' + CSS.escape(node.id)) === 1) {
+      if (node !== el && node.id && !generatedId(node.id) && count('#' + CSS.escape(node.id)) === 1) {
         parts.unshift('#' + CSS.escape(node.id));
         return parts.join(' > ');
       }
@@ -44,9 +51,10 @@ const HELPERS = String.raw`
     parts.unshift('html');
     return parts.join(' > ');
   }
+  function generatedId(id) { return /^react-select-|^:r[0-9a-z]*:|^mui-|^downshift-|^headlessui-|^radix-|^iti-\d|^rc_select_|^ember\d/i.test(id || ''); }
   function uniq(el) {
     var tag = el.tagName.toLowerCase();
-    if (el.id) { var s1 = '#' + CSS.escape(el.id); if (count(s1) === 1) return s1; }
+    if (el.id && !generatedId(el.id)) { var s1 = '#' + CSS.escape(el.id); if (count(s1) === 1) return s1; }
     var n = el.getAttribute('name');
     if (n) { var s2 = tag + '[name=' + cssStr(n) + ']'; if (count(s2) === 1) return s2; }
     return path(el);
@@ -127,8 +135,10 @@ export const DISCOVER_SCRIPT = String.raw`function (preferred) {
     return t;
   }
   function optionLabel(el) {
-    var t = '';
-    if (el.labels) { for (var i = 0; i < el.labels.length && !t; i++) t = textOf(el.labels[i]); }
+    // The innermost wrapping label is the option; an outer label can wrap the whole group (Lever race).
+    var inner = el.closest('label');
+    var t = inner ? textOf(inner) : '';
+    if (!t && el.labels) { for (var i = 0; i < el.labels.length && !t; i++) t = textOf(el.labels[i]); }
     if (!t && el.getAttribute('aria-label')) t = clean(el.getAttribute('aria-label'));
     if (!t && el.nextSibling) t = clean(el.nextSibling.textContent);
     return t || el.value || '';
@@ -173,19 +183,68 @@ export const DISCOVER_SCRIPT = String.raw`function (preferred) {
     }
     return false;
   }
-  function finish(raw, required, kind, options, selector) {
-    var req = !!required || /\*/.test(raw);
-    var out = { label: clean(String(raw || '').replace(/\*/g, '')), kind: kind, required: req, selector: selector };
+  // An Ashby field entry, when this control is the entry's own field (a consent radio nested in the phone entry is not).
+  function entryOf(el) {
+    var entry = el.closest('[data-field-path]');
+    if (!entry) return null;
+    var path = entry.getAttribute('data-field-path');
+    var own = el.getAttribute('name') || el.id || '';
+    if (!own || own.indexOf(path) >= 0) return entry;
+    // The entry holds only this control (or this one group): it is the entry's field whatever its name.
+    var controls = Array.prototype.slice.call(entry.querySelectorAll('input:not([type=hidden]),textarea,select'));
+    var name = el.getAttribute('name');
+    return controls.every(function (c) { return c === el || (name && c.getAttribute('name') === name); }) ? entry : null;
+  }
+  function entryTitleEl(el) {
+    var entry = entryOf(el);
+    return entry ? entry.querySelector('.ashby-application-form-question-title, label') : null;
+  }
+  function entryRequired(el) {
+    var title = entryTitleEl(el);
+    return !!(title && /_required/.test(typeof title.className === 'string' ? title.className : ''));
+  }
+  function entryTitle(el) { var t = entryTitleEl(el); return t ? textOf(t) : ''; }
+  function keyOf(el) {
+    var n = el.getAttribute('name');
+    if (n) return n;
+    if (el.id && !generatedId(el.id)) return el.id;
+    var entry = entryOf(el);
+    return entry ? entry.getAttribute('data-field-path') : null;
+  }
+  function finish(raw, required, kind, options, selector, el) {
+    var req = !!required || /[*✱]/.test(raw) || (el ? entryRequired(el) : false);
+    var out = { label: clean(String(raw || '').replace(/[*✱]/g, '')), kind: kind, required: req, selector: selector };
     if (options) out.options = options;
+    if (el) {
+      out.key = keyOf(el);
+      if (el.getAttribute('name')) out.name = el.getAttribute('name');
+      if (el.id && !generatedId(el.id)) out.id = el.id;
+      var ac = el.getAttribute('autocomplete'); if (ac && ac !== 'off' && ac !== 'on') out.autocomplete = ac;
+      var ph = el.getAttribute('placeholder'); if (ph) out.placeholder = clean(ph).slice(0, 120);
+    }
     return out;
   }
 
   var fields = [];
   var seenGroups = {};
+  var handled = [];
+  // Ashby asks yes/no questions with two buttons over a hidden checkbox.
+  Array.prototype.slice.call(root.querySelectorAll('[data-field-path]')).forEach(function (entry) {
+    var buttons = Array.prototype.slice.call(entry.querySelectorAll('button')).filter(visible);
+    var texts = buttons.map(function (b) { return clean(b.textContent).toLowerCase(); });
+    if (buttons.length !== 2 || texts.indexOf('yes') < 0 || texts.indexOf('no') < 0) return;
+    var path = entry.getAttribute('data-field-path');
+    var title = entry.querySelector('.ashby-application-form-question-title, label');
+    var req = !!(title && /_required/.test(typeof title.className === 'string' ? title.className : ''));
+    fields.push({ label: clean((title ? textOf(title) : '').replace(/[*✱]/g, '')), kind: 'radio', required: req, options: ['Yes', 'No'],
+      selector: '[data-field-path=' + cssStr(path) + ']', key: path, widget: 'yesno' });
+    handled.push(entry);
+  });
   Array.prototype.slice.call(root.querySelectorAll(FIELD_SEL)).forEach(function (el) {
     var ty = (el.getAttribute('type') || '').toLowerCase();
     if (['submit', 'button', 'reset', 'image', 'password'].indexOf(ty) >= 0) return;
     if (el.disabled || isHoneypot(el)) return;
+    if (handled.some(function (h) { return h.contains(el); })) return;
     var kind = kindOf(el);
     if (kind === 'file') {
       // File inputs are routinely hidden behind an "Attach" button; keep them unless their whole field block is hidden.
@@ -201,18 +260,31 @@ export const DISCOVER_SCRIPT = String.raw`function (preferred) {
     if (kind === 'radio' || kind === 'checkbox') {
       var name = el.getAttribute('name');
       var group = name ? Array.prototype.slice.call(root.querySelectorAll('input[type=' + kind + '][name=' + cssStr(name) + ']')) : [el];
+      var gEntry = el.closest('[data-field-path]');
+      var entryBoxes = gEntry ? Array.prototype.slice.call(gEntry.querySelectorAll('input[type=' + kind + ']')) : [];
+      // Ashby multi-selects give every checkbox its own name: the field entry is the group.
+      var byEntry = entryBoxes.length > 1 && group.length <= 1;
+      if (byEntry) group = entryBoxes;
       if (kind === 'radio' || group.length > 1) {
-        var gkey = kind + ':' + (name || uniq(el));
+        var gkey = kind + ':' + (byEntry ? 'entry:' + gEntry.getAttribute('data-field-path') : (name || uniq(el)));
         if (seenGroups[gkey]) return;
         seenGroups[gkey] = true;
         var container = el.closest('fieldset,[role=radiogroup],[role=group]') || (group.length > 1 ? commonAncestor(group) : null);
         var required = group.some(function (g) { return g.required || g.getAttribute('aria-required') === 'true'; }) ||
           (!!container && container.getAttribute('aria-required') === 'true');
-        var selector = name ? 'input[type="' + kind + '"][name=' + cssStr(name) + ']' : uniq(el);
-        fields.push(finish(groupLabel(container, el), required, kind, group.map(optionLabel), selector));
+        var selector = byEntry ? '[data-field-path=' + cssStr(gEntry.getAttribute('data-field-path')) + '] input[type="' + kind + '"]'
+          : name ? 'input[type="' + kind + '"][name=' + cssStr(name) + ']' : uniq(el);
+        var gTitle = byEntry ? gEntry.querySelector('.ashby-application-form-question-title, label') : null;
+        var gReq = !!(byEntry && gTitle && /_required/.test(typeof gTitle.className === 'string' ? gTitle.className : ''));
+        var gf = finish((gTitle ? textOf(gTitle) : '') || entryTitle(el) || groupLabel(container, el), required || gReq, kind, group.map(optionLabel), selector, el);
+        if (byEntry) { gf.key = gEntry.getAttribute('data-field-path'); delete gf.name; }
+        gf.widget = kind === 'radio' ? 'radio-label' : 'checkbox-label';
+        fields.push(gf);
         return;
       }
-      fields.push(finish(labelFor(el), el.required || el.getAttribute('aria-required') === 'true', 'checkbox', ['Yes'], uniq(el)));
+      var cf = finish(labelFor(el), el.required || el.getAttribute('aria-required') === 'true', 'checkbox', ['Yes'], uniq(el), el);
+      cf.widget = 'checkbox';
+      fields.push(cf);
       return;
     }
 
@@ -223,9 +295,24 @@ export const DISCOVER_SCRIPT = String.raw`function (preferred) {
         .map(function (o) { return clean(o.textContent); });
     }
     var rawLabel = labelFor(el);
-    var f = finish(rawLabel, el.required || el.getAttribute('aria-required') === 'true', kind, options, uniq(el));
-    if (combo) f.combobox = true;
-    if (kind === 'select' && isPhoneCountry(el, rawLabel)) { f.group = 'phone_country'; f.label = 'Phone country code'; }
+    // Ashby: the question title is the label even when the input has none of its own (location, uploads).
+    if (entryOf(el) && entryTitle(el) && !(el.labels && el.labels.length && textOf(el.labels[0]))) rawLabel = entryTitle(el);
+    var groupReq = false;
+    // Upload widgets label the hidden input "Attach"; the field's name is on its group (Greenhouse: role=group aria-labelledby).
+    if (kind === 'file' && (!rawLabel || /^(attach|upload|choose( a)? file|browse|select file)\b/i.test(rawLabel))) {
+      var grp = el.closest('[role=group][aria-labelledby], [aria-labelledby].file-upload');
+      if (grp) { rawLabel = byIds(grp.getAttribute('aria-labelledby')) || rawLabel; groupReq = grp.getAttribute('aria-required') === 'true'; }
+    }
+    var f = finish(rawLabel, el.required || groupReq || el.getAttribute('aria-required') === 'true', kind, options, uniq(el), el);
+    if (combo) { f.combobox = true; f.widget = 'combobox'; }
+    else if (kind === 'select') { f.widget = 'native-select'; if (el.multiple) f.multiple = true; }
+    else if (kind === 'file') f.widget = 'file';
+    else f.widget = 'text';
+    var where = [rawLabel, el.getAttribute('name') || '', el.id || '', (entryOf(el) && entryOf(el).getAttribute('data-field-path')) || ''].join(' ');
+    var autocompleting = combo || !!el.getAttribute('aria-autocomplete') || /location/i.test(el.getAttribute('name') || '');
+    if (autocompleting && /location|(^|\W)city\b/i.test(where) && !(combo && el.closest('.select__container'))) f.widget = 'location';
+    if (/candidate-location/.test(el.id || '')) f.widget = 'location';
+    if (kind === 'select' && isPhoneCountry(el, rawLabel)) { f.group = 'phone_country'; f.label = 'Phone country code'; f.widget = 'phone-country'; }
     fields.push(f);
   });
   return fields;
@@ -242,8 +329,10 @@ export const SELECT_OPTIONS_SCRIPT = String.raw`function (sel) {
 export const CHOICE_LABELS_SCRIPT = String.raw`function (sel) {
   ${HELPERS}
   return Array.prototype.slice.call(document.querySelectorAll(sel)).map(function (el) {
-    var t = '';
-    if (el.labels) { for (var i = 0; i < el.labels.length && !t; i++) t = textOf(el.labels[i]); }
+    // The innermost wrapping label is the option; an outer label can wrap the whole group (Lever race).
+    var inner = el.closest('label');
+    var t = inner ? textOf(inner) : '';
+    if (!t && el.labels) { for (var i = 0; i < el.labels.length && !t; i++) t = textOf(el.labels[i]); }
     if (!t && el.getAttribute('aria-label')) t = clean(el.getAttribute('aria-label'));
     if (!t && el.nextSibling) t = clean(el.nextSibling.textContent);
     return { label: t, value: el.value || '' };
@@ -391,4 +480,65 @@ export const FIELD_ERROR_SCRIPT = String.raw`function (sel) {
   var next = el.nextElementSibling;
   if (next && visible(next) && /please (enter|select)|required|invalid/i.test(clean(next.textContent))) return clean(next.textContent).slice(0, 200);
   return null;
+}`;
+
+/**
+ * Set many text values in one round trip: native setter plus input/change/blur, which React-controlled inputs accept.
+ * Arg: [[selector, value], ...]. Returns, per entry, the value the field holds afterwards (null when not found).
+ */
+export const BATCH_SET_SCRIPT = String.raw`function (pairs) {
+  return pairs.map(function (p) {
+    var el = document.querySelector(p[0]);
+    if (!el) return null;
+    var proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+    try { el.focus({ preventScroll: true }); } catch (e) {}
+    if (desc && desc.set) desc.set.call(el, p[1]); else el.value = p[1];
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new FocusEvent('blur', { bubbles: false }));
+    el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    return el.value;
+  });
+}`;
+
+/** Fields inside the form that show an error now: [{ selector, error }]. Arg: list of field selectors to check. */
+export const VALIDATION_SCRIPT = String.raw`function (sels) {
+  ${HELPERS}
+  var out = [];
+  sels.forEach(function (sel) {
+    var el; try { el = document.querySelector(sel); } catch (e) { el = null; }
+    if (!el) return;
+    if (el.getAttribute('aria-invalid') === 'true') { out.push({ selector: sel, error: 'aria-invalid' }); return; }
+    var block = el.closest('.field, .field-wrapper, .form-group, .form-field, fieldset, li, [data-field-path], .application-question') || el.parentElement;
+    if (!block) return;
+    var errs = Array.prototype.slice.call(block.querySelectorAll('.error, .field-error, .invalid-feedback, [role=alert], [id$=-error], [class*=error i]'))
+      .filter(function (e) { return visible(e) && clean(e.textContent) && !e.contains(el); });
+    if (errs.length) out.push({ selector: sel, error: clean(errs[0].textContent).slice(0, 200) });
+  });
+  return out;
+}`;
+
+/** Text of the block around a field (the filename chip of an upload, the chosen value of a combobox). Arg: selector. */
+export const FIELD_BLOCK_TEXT_SCRIPT = String.raw`function (sel) {
+  ${HELPERS}
+  var el = document.querySelector(sel);
+  if (!el) return '';
+  var block = el.closest('.field, .field-wrapper, .form-group, .form-field, fieldset, li, [data-field-path], .application-question, .select__container, .file-upload, .resume') || el.parentElement;
+  for (var i = 0; i < 2 && block && clean(block.innerText || '').length < 3; i++) block = block.parentElement;
+  return block ? clean(block.innerText || block.textContent || '').slice(0, 2000) : '';
+}`;
+
+/** An emailed-code prompt (Greenhouse sends one when the risk score is low). Returns its text or null. */
+export const EMAIL_CODE_SCRIPT = String.raw`function () {
+  ${HELPERS}
+  var text = (document.body && document.body.innerText) || '';
+  var re = /(enter|type) the (\d+[- ]digit |verification |security )?code|we (just )?(sent|emailed) (you )?(a|an|the) (\d+[- ]digit |verification |security )?code|verification code|check your (email|inbox)/i;
+  var m = re.exec(text);
+  if (!m) return null;
+  var inputs = Array.prototype.slice.call(document.querySelectorAll('input')).filter(function (el) {
+    var s = [el.id, el.getAttribute('name'), el.getAttribute('autocomplete'), el.getAttribute('aria-label'), el.getAttribute('placeholder')].join(' ');
+    return visible(el) && (/code|otp|one-time|verification|security/i.test(s) || el.getAttribute('maxlength') === '1');
+  });
+  return inputs.length ? m[0] : null;
 }`;

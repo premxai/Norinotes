@@ -2,9 +2,10 @@ import { z } from "zod";
 import type { Db } from "@norinote/db";
 import { AiUnavailableError, BudgetExceededError, complete } from "@norinote/ai";
 import type { CareerPoint } from "@norinote/shared";
+import { catalogCertifications, certificationIds, issuersIn } from "./certifications.js";
 import { parseContact, type Contact } from "./contact.js";
 import { embedCareerPoints } from "./embeddings.js";
-import { heuristicPoints, type DraftPoint, type PointKind } from "./heuristic.js";
+import { certificationSections, heuristicPoints, type DraftPoint, type PointKind } from "./heuristic.js";
 import { findSkills, normalizeSkills } from "./skills.js";
 import { insertUserPoints, replaceResumePoints } from "./store.js";
 import { extractMetrics, extractScope, normalizeDate, type Metric } from "./text.js";
@@ -37,11 +38,12 @@ export const ResumeGraphSchema = z.object({
   projects: z.array(ModelPoint),
   achievements: z.array(ModelPoint),
   education: z.array(ModelPoint),
+  certifications: z.array(ModelPoint),
   skills: z.array(ModelPoint),
 });
 type ModelPointT = z.infer<typeof ModelPoint>;
 
-const FactPoint = ModelPoint.omit({ source_quote: true }).extend({ kind: z.enum(["role", "project", "achievement", "education", "skill"]) });
+const FactPoint = ModelPoint.omit({ source_quote: true }).extend({ kind: z.enum(["role", "project", "achievement", "education", "skill", "certification"]) });
 export const FactSchema = z.object({ points: z.array(FactPoint) });
 
 /** Stable instructions: identical on every call so the vendor's prompt cache applies. */
@@ -51,13 +53,15 @@ Groups:
 - roles: each job or internship held (title, employer, dates). text = what they did, in the resume's own words, condensed.
 - projects: named projects (personal, open source, academic, or inside a job).
 - achievements: single bullets that state a concrete result (a number, a launch, an award). One per bullet.
-- education: degrees, schools, certifications.
+- education: degrees and the schools that granted them. Not licences or certifications.
+- certifications: every licence, professional certification and clinical card the resume states: RN, LPN or NP licences (with the state), BLS, ACLS, PALS, TNCC, CPR, PMP, CPA, CFA, AWS, Google Cloud or Azure certifications, CKA, CKAD, Security+, CISSP, Scrum or CSM, SHRM, Six Sigma, and the like. One point per credential, also when several share a line ("BLS; ACLS; PALS" is three points). A job title is not a licence: list "Registered Nurse" here only where the resume gives it as a licence or credential.
 - skills: skill lists, one point per category line ("Languages: ..."). title = the category.
 
 Rules for every point:
 - Use only what the resume says. Never invent employers, dates, numbers, tools or claims.
 - source_quote: copy the exact resume line (or the header line for a role) the point came from, character for character.
 - start and end: "YYYY-MM" or "YYYY"; end is null when the role is current ("Present").
+- certifications: title = the credential with its state when stated ("Registered Nurse (RN), Minnesota", "Basic Life Support (BLS)", "AWS Certified Solutions Architect - Associate"); org = the issuer only when the resume names it ("AHA" is "American Heart Association"), else null; start = the issue date when stated, else null; end = the expiry date when stated ("active through 2027", "expires 06/2026"), also when it has passed, else null; text = the resume line the credential is on; skills = its canonical short names (BLS, ACLS, RN, PMP, CKA) plus the platform it names (AWS, Kubernetes); scope null and metrics empty. A credential still being pursued ("candidate", "in progress") is listed as such in the title.
 - skills: canonical names of technologies and competencies named in or clearly implied by the point (Kubernetes, not k8s; JavaScript, not JS). No soft-skill filler.
 - scope: team_size, users (how many people use or were served), budget (as written, e.g. "$2M"), ownership ("lead", "owner", "contributor") when stated; otherwise null.
 - metrics: every number that proves impact, with value, unit ("%", "USD", "x", "users", "ms"...) and measures (a few words: what the number measures).
@@ -67,7 +71,7 @@ const FACT_SYSTEM = `You turn one free-text fact a person tells about their own 
 
 - Use only what the person wrote. Never add employers, dates, numbers, tools or claims they did not state.
 - One point per distinct thing (a role, a project, a result, a degree, a skill group). Most facts are one point.
-- kind is role, project, achievement, education or skill.
+- kind is role, project, achievement, education, skill or certification (a licence, professional certification or clinical card; start = issued, end = expiry when stated, org = issuer only when stated).
 - title: a short noun phrase. text: the fact, tidied, in the first person dropped ("Led a team of 5" not "I led a team of 5").
 - start and end: "YYYY-MM" or "YYYY", null when not stated; end null when it is current.
 - skills: canonical technology and competency names (Kubernetes, not k8s). scope: team_size, users, budget, ownership when stated, else null.
@@ -131,12 +135,23 @@ function verifiedQuote(quote: string, fullSquashed: string, lines: { raw: string
   return best && best.score >= 0.6 ? best.raw : null;
 }
 
+/**
+ * A certification must not claim more than the resume states: the issuer has to be named in the text (or be the full name
+ * of an abbreviation it uses, "AHA"), and a date has to be a year the text shows. Anything else is dropped to null.
+ */
+function groundCertification(d: DraftPoint, fullSquashed: string, resumeText: string): DraftPoint {
+  const stated = (year: string | null) => (year && new RegExp(`\\b${year.slice(0, 4)}\\b`).test(resumeText) ? year : null);
+  const org = d.org && (fullSquashed.includes(squash(d.org)) || issuersIn(resumeText).includes(d.org)) ? d.org : null;
+  return { ...d, org, startDate: stated(d.startDate), endDate: stated(d.endDate) };
+}
+
 /** Model output to drafts: quotes verified, skills canonical, dates normalised, duplicates dropped. */
 export function draftsFromModel(out: z.infer<typeof ResumeGraphSchema>, resumeText: string): DraftPoint[] {
   const fullSquashed = squash(resumeText);
   const lines = resumeText.split("\n").map((l) => l.trim()).filter(Boolean).map((raw) => ({ raw, tokens: tokens(raw) }));
   const groups: [PointKind, ModelPointT[]][] = [
-    ["role", out.roles], ["project", out.projects], ["achievement", out.achievements], ["education", out.education], ["skill", out.skills],
+    ["role", out.roles], ["project", out.projects], ["achievement", out.achievements], ["education", out.education],
+    ["certification", out.certifications], ["skill", out.skills],
   ];
   const seen = new Set<string>();
   const drafts: DraftPoint[] = [];
@@ -144,15 +159,30 @@ export function draftsFromModel(out: z.infer<typeof ResumeGraphSchema>, resumeTe
     for (const p of list) {
       const quote = verifiedQuote(p.source_quote, fullSquashed, lines);
       if (!quote) continue;
-      const d = toDraft(kind, p, quote);
-      if (!d) continue;
+      const made = toDraft(kind, p, quote);
+      if (!made) continue;
+      const d = kind === "certification" ? groundCertification(made, fullSquashed, resumeText) : made;
       const key = `${kind}|${squash(d.title)}|${squash(d.org ?? "")}|${d.startDate ?? ""}`;
       if (seen.has(key)) continue;
       seen.add(key);
       drafts.push(d);
     }
   }
-  return drafts.slice(0, MAX_POINTS);
+  // A model reply with nothing usable stays empty so the caller falls back to the heuristic parser.
+  return (drafts.length ? withCertificationBackfill(drafts, resumeText) : drafts).slice(0, MAX_POINTS);
+}
+
+/**
+ * The model sometimes skips a credential in a long list. The resume's named licences and certifications (the same finder
+ * the fallback parser uses, so only what the text states) that the model's certification points do not cover are added
+ * before the skills.
+ */
+function withCertificationBackfill(drafts: DraftPoint[], resumeText: string): DraftPoint[] {
+  const covered = new Set(drafts.filter((d) => d.kind === "certification").flatMap((d) => certificationIds(`${d.title}; ${d.skills.join(", ")}`)));
+  const missing = catalogCertifications(certificationSections(resumeText)).filter((c) => !covered.has(c.id)).map((c) => c.draft);
+  if (!missing.length) return drafts;
+  const at = drafts.findIndex((d) => d.kind === "skill");
+  return at < 0 ? [...drafts, ...missing] : [...drafts.slice(0, at), ...missing, ...drafts.slice(at)];
 }
 
 // ---- public API -----------------------------------------------------------------------------------------------------

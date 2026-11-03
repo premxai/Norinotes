@@ -7,18 +7,31 @@ import { submitAllowed } from "./flow.js";
 import { loadApplyInputs, type ApplyInputs } from "./inputs.js";
 import { PoolRunError, type BrowserPool, type PoolArtifacts } from "./pool.js";
 import { buildReceipt } from "./receipt.js";
+import { sharedCompanyGate, type CompanyGate } from "./gate.js";
+import { recordStrategies } from "./recipes.js";
 import { isTerminal, MAX_ATTEMPTS, submitMayHaveHappened } from "./state.js";
 import { approveAndSubmit, loadApplication, logEvent, transitionApplication, type ApplicationRow } from "./store.js";
 import type {
-  CodeWaiter, Driver, DriverContext, EventLevel, FillResult, NeedsUserKind, Preparer, SubmitResult, UnknownFormHandler,
+  AiBrowserFallback, AwaitVerification, CodeWaiter, Driver, DriverContext, EventLevel, FillResult, NeedsUserKind, Preparer, SubmitResult, UnknownFormHandler,
 } from "./types.js";
 
 export type ApplyDeps = {
   pool: BrowserPool;
   /** Tailors the resume and drafts answers (tailor + answers packages, wired by the worker). */
   preparer: Preparer;
-  /** Delivers the emailed verification code (inbox package, wired by the worker). */
-  codes: CodeWaiter;
+  /**
+   * Delivers the emailed verification code. Optional: without it (or `verification`) an email-code prompt parks the
+   * application as needs_user with the reason. The owned-inbox flow plugs in here later.
+   */
+  codes?: CodeWaiter;
+  /** The owned inbox's awaitVerification({ applicationId, since, timeoutMs }), when wired. Takes precedence over `codes`. */
+  verification?: AwaitVerification;
+  /** Hook for a future AI browser agent; unset = needs_user (today's behaviour). */
+  aiFallback?: AiBrowserFallback;
+  /** One application per company at a time, plus a cooldown. Default: the process-wide gate (APPLY_COMPANY_COOLDOWN_MS). */
+  companyGate?: CompanyGate;
+  /** Longest wait for the company gate before the step is retried later (default 120 s). */
+  companyWaitMs?: number;
   /** Fallback for forms no driver recognises. Default: park as needs_user "This form type is not supported yet". */
   unknownForm?: UnknownFormHandler;
   drivers?: readonly Driver[];
@@ -94,7 +107,7 @@ export async function runApplication(db: Db, applicationId: string, deps: ApplyD
       // Parked with questions: resume when they are answered. Parked without any (captcha, blocked site, unsupported form,
       // missing code): nothing the user can type, so only an explicit retryApplication moves it.
       if (row.pendingQuestions.length === 0) return result(applicationId, "needs_user", { waiting: "user", message: row.error ?? undefined });
-      const to = row.resumeId ? "applying" : "preparing";
+      const to = row.resumeId && row.approvedAt ? "applying" : "preparing";
       const r = await transitionApplication(db, applicationId, to, { from: "needs_user", message: "The user answered; resuming" });
       if (r.ok) return result(applicationId, r.application.status, { advanced: !r.noop });
       return result(applicationId, "needs_user", { waiting: "user", message: r.reason });
@@ -213,21 +226,46 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     answers: inputs.answers,
     dryRun,
     onEvent,
-    waitForCode: async (hint) => {
-      await flush();
-      await transitionApplication(db, id, "awaiting_code", { from: "applying", receipt: { submitClicked: true, awaitingCode: true }, message: "Waiting for the emailed verification code" });
-      const code = await deps.codes.waitForCode(id, { hint, timeoutMs: deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS });
-      await transitionApplication(db, id, "applying", { from: "awaiting_code", receipt: { submitClicked: true, awaitingCode: false }, message: code ? "Code received" : "No code arrived" });
-      return code;
-    },
+    ...(inputs.strategyHints ? { strategyHints: inputs.strategyHints } : {}),
+    ...(deps.codes || deps.verification ? {
+      waitForCode: async (hint: string) => {
+        await flush();
+        const since = now();
+        await transitionApplication(db, id, "awaiting_code", { from: "applying", receipt: { submitClicked: true, awaitingCode: true }, message: "Waiting for the emailed verification code" });
+        const timeoutMs = deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS;
+        let code: string | null = null;
+        if (deps.verification) {
+          const got = await deps.verification({ applicationId: id, since, timeoutMs, accept: "code" }).catch(() => null);
+          code = got?.type === "code" ? got.code : null;
+        } else if (deps.codes) {
+          code = await deps.codes.waitForCode(id, { hint, timeoutMs });
+        }
+        await transitionApplication(db, id, "applying", { from: "awaiting_code", receipt: { submitClicked: true, awaitingCode: false }, message: code ? "Code received" : "No code arrived" });
+        return code;
+      },
+    } : {}),
   };
   await logEvent(db, id, "apply_start", `Applying through ${driverName}${dryRun ? " (dry run)" : ""}`, { data: { url: inputs.applyUrl, attempt: row.attempts, dryRun } });
+
+  // One application per company at a time, and a cooldown between two.
+  const gate = deps.companyGate ?? sharedCompanyGate();
+  const release = await gate.acquire(inputs.companyKey ?? inputs.companyName, deps.companyWaitMs ?? 120_000);
+  if (!release) {
+    await logEvent(db, id, "company_busy", "Another application to this company is running or cooling down; will retry", { level: "warn" });
+    return result(id, "applying", { retry: true, message: "company busy" });
+  }
 
   let outcome: BrowserOutcome;
   let artifacts: PoolArtifacts = {};
   try {
     const run = await deps.pool.run(id, async (page, handle) => {
-      const fill = driver ? await driver.fill(page, ctx) : await unknownForm.handle(page, ctx);
+      let fill = driver ? await driver.fill(page, ctx) : await unknownForm.handle(page, ctx);
+      // A future AI browser agent may take over an unknown form or fields that failed read-back; unset, nothing changes.
+      if (deps.aiFallback && fill.status === "needs_user" && (fill.needsUser?.kind === "unsupported" || (fill.needsUser?.kind === "questions" && fill.pending.length > 0 && !driver))) {
+        const helped = await deps.aiFallback.assist(page, { applicationId: id, reason: driver ? "read_back_failed" : "unknown_form", fields: fill.pending.map((p) => ({ label: p.text, reason: "pending" })) }).catch(() => false);
+        if (helped) ctx.onEvent("ai_fallback", "The AI browser fallback reported success; re-reading the form");
+        if (helped && driver) fill = await driver.fill(page, ctx);
+      }
       if (fill.status === "failed" || (fill.needsUser && fill.needsUser.kind !== "questions")) handle.keepArtifacts();
       if (fill.status !== "filled") return { fill, driverName } satisfies BrowserOutcome;
 
@@ -242,6 +280,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     outcome = run.value;
     artifacts = run.artifacts;
   } catch (err) {
+    release();
     await flush();
     artifacts = err instanceof PoolRunError ? err.artifacts : {};
     const message = err instanceof Error ? err.message : String(err);
@@ -259,12 +298,20 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     }
     return done("failed", await transitionApplication(db, id, "failed", { from: "applying", error: message, receipt, message: `Failed after ${latest.attempts} attempts: ${message}` }));
   }
+  release();
   await flush();
 
   const { fill, submit } = outcome;
+  if (inputs.fingerprint && fill.strategies && Object.keys(fill.strategies).length) {
+    await recordStrategies(db, inputs.fingerprint, fill.strategies, fill.healed === true).catch(() => {});
+  }
   const latest = (await loadApplication(db, id)) ?? row;
-  const receiptFor = (extra: Partial<Parameters<typeof buildReceipt>[0]> = {}): Record<string, unknown> =>
-    buildReceipt({ driver: driverName, dryRun, fill, submit, screenshotPath: outcome.screenshotPath, ...artifactPaths(artifacts), now: now(), ...extra }) as unknown as Record<string, unknown>;
+  const prepared = latest.receipt?.prepared;
+  const receiptFor = (extra: Partial<Parameters<typeof buildReceipt>[0]> = {}): Record<string, unknown> => ({
+    ...(buildReceipt({ driver: driverName, dryRun, fill, submit, screenshotPath: outcome.screenshotPath, ...artifactPaths(artifacts), now: now(), ...extra }) as unknown as Record<string, unknown>),
+    ...(prepared ? { prepared } : {}),
+    ...(fill.timings ? { timings: { ...fill.timings, ...(submit ? { submitMs: submit.durationMs } : {}) } } : {}),
+  });
 
   // Filling stopped: something is for the person.
   if (fill.status === "needs_user") {

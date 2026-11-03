@@ -1,0 +1,602 @@
+{
+ "absolute_url": "https://boards.greenhouse.io/robinhood/jobs/8319304?t=gh_src=&gh_jid=8319304",
+ "data_compliance": [
+  {
+   "type": "gdpr",
+   "requires_consent": false,
+   "requires_processing_consent": false,
+   "requires_retention_consent": false,
+   "retention_period": null,
+   "demographic_data_consent_applies": true
+  }
+ ],
+ "internal_job_id": 3596541,
+ "location": {
+  "name": "Denver, CO; Westlake, TX"
+ },
+ "id": 8319304,
+ "updated_at": "2026-10-27T12:28:50-04:00",
+ "requisition_id": "1956",
+ "title": "Account Servicing Associate",
+ "company_name": "Robinhood",
+ "first_published": "2026-10-23T17:15:05-04:00",
+ "language": "en",
+ "application_deadline": "2026-12-27T17:15:05-05:00",
+ "departments": [
+  {
+   "id": 89160,
+   "name": "Customer Care",
+   "child_ids": [],
+   "parent_id": null
+  }
+ ],
+ "offices": [
+  {
+   "id": 66322,
+   "name": "Denver, CO",
+   "location": null,
+   "child_ids": [],
+   "parent_id": null
+  },
+  {
+   "id": 74104,
+   "name": "Westlake, TX",
+   "location": null,
+   "child_ids": [],
+   "parent_id": null
+  }
+ ],
+ "include_ai_disclaimer": false,
+ "ai_opt_out_request_url": "http://app.greenhouse.io/ai_opt_out_request/job_post/8319304/ai_opt_out",
+ "compliance": null,
+ "demographic_questions": {
+  "header": "Equal Employment Opportunity Information",
+  "description": "<p><span style=\"font-weight: 400;\">At Robinhood, we care deeply about diverse representation in our workforce as it supports our mission to democratize finance for all. In support of this goal, we encourage applicants to voluntarily identify demographic information. This information helps us to continue building a more inclusive workplace and to ensure effective recruiting programs that are inclusive of individuals across all backgrounds.&nbsp;</span></p>\n<p><span style=\"font-weight: 400;\">Self-identifying in this section is completely voluntary and if you choose not to provide any information, please select the &ldquo;I don't wish to answer&rdquo; option under that question. Whatever your decision, data that you provide in this section will not be considered in the hiring process or thereafter.&nbsp; Individuals seeking employment at Robinhood are considered without regard to race, color, religion, national origin, age, sex, sexual orientation, marital status, ancestry, physical or mental disability, neurodivergence, veteran status, gender identity or expression, or any other characteristic protected by law.&nbsp;&nbsp;</span></p>\n<p><span style=\"font-weight: 400;\">You are being given the opportunity to provide the following information in order to help us comply with federal and state Equal Employment Opportunity recordkeeping, reporting, and other legal requirements, and to be used in our efforts to recruit a diverse workforce. Any information that you do provide will be recorded and maintained in a confidential manner. For more information on EEOC definitions, please reference this </span><a href=\"https://app.box.com/s/knoqz6vo1gvroxq3ftawo6c94hjkqckb\"><span style=\"font-weight: 400;\">document</span></a><span style=\"font-weight: 400;\">.</span></p>",
+  "questions": [
+   {
+    "id": 1258,
+    "label": "What is your race or ethnicity?",
+    "required": true,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 7053,
+      "label": "American Indian or Alaskan Native",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7057,
+      "label": "Black or African American",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7054,
+      "label": "East Asian",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7058,
+      "label": "Hispanic or Latino",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7061,
+      "label": "Middle Eastern or North African",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7060,
+      "label": "Native Hawaiian or Other Pacific Islander",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7055,
+      "label": "South Asian",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7056,
+      "label": "Southeast Asian",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7059,
+      "label": "White",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7062,
+      "label": "Two or More Races",
+      "free_form": true,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7063,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": true
+     }
+    ]
+   },
+   {
+    "id": 1259,
+    "label": "What is your military status?",
+    "required": true,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 7065,
+      "label": "I am on active duty",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7066,
+      "label": "I am part of the national guard or on reserve",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7064,
+      "label": "I have never served in the military",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 8288,
+      "label": "I identify as a protected veteran",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 8289,
+      "label": "I identify as a non-protected veteran",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 8290,
+      "label": "I identify in multiple military status categories",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7067,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": true
+     }
+    ]
+   },
+   {
+    "id": 1261,
+    "label": "What is your disability status?",
+    "required": true,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 7071,
+      "label": "Yes, I have a disability",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7072,
+      "label": "No, I don't have a disability",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 7073,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": true
+     }
+    ]
+   },
+   {
+    "id": 1465,
+    "label": "Do you identify as part of the LGBTQ+ community?",
+    "required": false,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 8291,
+      "label": "Yes",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 8292,
+      "label": "No",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 8293,
+      "label": "Questioning",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 8294,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": false
+     }
+    ]
+   }
+  ]
+ },
+ "questions": [
+  {
+   "description": null,
+   "label": "First Name",
+   "required": true,
+   "fields": [
+    {
+     "name": "first_name",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Last Name",
+   "required": true,
+   "fields": [
+    {
+     "name": "last_name",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Email",
+   "required": true,
+   "fields": [
+    {
+     "name": "email",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Phone",
+   "required": true,
+   "fields": [
+    {
+     "name": "phone",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Resume/CV",
+   "required": true,
+   "fields": [
+    {
+     "name": "resume",
+     "type": "input_file",
+     "values": []
+    },
+    {
+     "name": "resume_text",
+     "type": "textarea",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Cover Letter",
+   "required": false,
+   "fields": [
+    {
+     "name": "cover_letter",
+     "type": "input_file",
+     "values": []
+    },
+    {
+     "name": "cover_letter_text",
+     "type": "textarea",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "LinkedIn Profile",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_70139008",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Website",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_70139009",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "How did you hear about this job?",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_70139010",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Are you legally work authorized to work in the US?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139012",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Will you now (or in the future) require visa sponsorship in order to work in the US?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139013",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Have you ever worked for Robinhood as an employee, intern or contractor? Note that providing false or misleading information may result in disqualification from the hiring process.",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139014",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "I currently work at Robinhood as a full-time employee or intern",
+       "value": 757776477
+      },
+      {
+       "label": "I have previously worked at Robinhood as a full-time employee or intern (Hoodie Alumni)",
+       "value": 757776478
+      },
+      {
+       "label": "I currently work at Robinhood in a contractor role",
+       "value": 757776479
+      },
+      {
+       "label": "I have previously worked at Robinhood in a contractor role",
+       "value": 757776480
+      },
+      {
+       "label": "I have never worked at Robinhood",
+       "value": 757776481
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Are you willing to work from the office(s) listed on the job description?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139015",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Do you have:\na) any Personal/Familial Relationships (current Robinhood employees or employees of Robinhood’s vendors); \nb) any Outside Business Activities that you wish to continue; \nc) any investment that is greater than 5% of the outstanding shares of a publicly-traded company;\nd) any investment in a private company that has a business relationship or that is a current competitor of Robinhood; or \ne) any Intellectual Property Ownership (patents, trademarks, copyrights) that you wish to retain and/or create/develop while at Robinhood?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139017",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 757776482
+      },
+      {
+       "label": "No",
+       "value": 757776483
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "If you answered \"Yes\" to the above question, please provide additional information here:",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_70139018",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Robinhood adheres to applicable laws and regulations in relation to government officials given inherent bribery and/or corruption risk. A government official is any person that performs a public function on any level or acts in any official capacity on behalf of a government or government owned entity. \na)  Do you currently hold or have you held, within the last 5 years, a position as a government official?\nb)  Have you been referred or recommended for this position by a government official?\nc)  Are you related to or have a close personal relationship with a government official?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139019",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 757776484
+      },
+      {
+       "label": "No",
+       "value": 757776485
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "If you answered \"Yes\" to the above question, please provide additional information here:",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_70139020",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "After onboarding, in-person attendance is required at least 3 days per week.",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139022",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes, I can meet these requirements.",
+       "value": 757776488
+      },
+      {
+       "label": "No, I cannot meet these requirements.",
+       "value": 757776489
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "This role requires in-person attendance at either our Denver, CO or Westlake, TX office.",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_70139024",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes, I can meet these requirements.",
+       "value": 757776492
+      },
+      {
+       "label": "No, I cannot meet these requirements.",
+       "value": 757776493
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "location_questions": [
+  {
+   "description": null,
+   "label": "Longitude",
+   "required": true,
+   "fields": [
+    {
+     "name": "longitude",
+     "type": "input_hidden",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Latitude",
+   "required": true,
+   "fields": [
+    {
+     "name": "latitude",
+     "type": "input_hidden",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Location",
+   "required": true,
+   "fields": [
+    {
+     "name": "location",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  }
+ ]
+}

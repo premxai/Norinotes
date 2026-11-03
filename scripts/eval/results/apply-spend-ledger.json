@@ -1,0 +1,47 @@
+{
+  "entries": {
+    "eval|gpt-4.1-mini": {
+      "calls": 72,
+      "promptTokens": 83314,
+      "cachedTokens": 13184,
+      "completionTokens": 10882,
+      "micros": 46813
+    },
+    "eval|gpt-4.1": {
+      "calls": 38,
+      "promptTokens": 27514,
+      "cachedTokens": 1024,
+      "completionTokens": 4504,
+      "micros": 89524
+    },
+    "eval|text-embedding-3-small": {
+      "calls": 81,
+      "promptTokens": 9378,
+      "cachedTokens": 0,
+      "completionTokens": 0,
+      "micros": 231
+    },
+    "live|text-embedding-3-small": {
+      "calls": 34,
+      "promptTokens": 1420,
+      "cachedTokens": 0,
+      "completionTokens": 0,
+      "micros": 50
+    },
+    "live|gpt-4.1-mini": {
+      "calls": 26,
+      "promptTokens": 29043,
+      "cachedTokens": 7168,
+      "completionTokens": 2226,
+      "micros": 13036
+    },
+    "live|gpt-4.1": {
+      "calls": 17,
+      "promptTokens": 12528,
+      "cachedTokens": 0,
+      "completionTokens": 1776,
+      "micros": 39264
+    }
+  },
+  "startedAt": "2026-11-03T06:28:22.115Z"
+}

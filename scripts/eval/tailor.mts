@@ -8,28 +8,32 @@
  *   and cost.
  *
  *   npx tsx scripts/eval/tailor.mts [--db <pglite dir>] [--plan] [--only id,id] [--budget 1]
- *                                   [--out docs/eval/tailor-run2.md] [--json scripts/eval/results/tailor-run2.json]
- *                                   [--compare scripts/eval/results/tailor-run1.json]
+ *                                   [--out docs/eval/tailor-run4.md] [--json scripts/eval/results/tailor-run4.json]
+ *                                   [--compare scripts/eval/results/tailor-run1.json,scripts/eval/results/tailor-run2.json]
+ *                                   [--samples senior_frontend,registered_nurse]
+ *                                   [--kinds top,middle,adversarial] [--label "run 3b"]
  *
  * The db must be a copy (cp -r $TEMP/norinote-eval3 $TEMP/norinote-tailor-eval); the script refuses the originals. The spend
- * cap is $1.21 in total across runs (run 1 had $1, run 2 an extra $0.40) and cannot be raised: every model call is checked against scripts/eval/results/tailor-spend-ledger.json before it
+ * cap is $2.26 in total across runs (run 1 $1, run 2 +$0.40, run 3 +$0.60, run 4 +$0.45) and cannot be raised: every model call is checked against scripts/eval/results/tailor-spend-ledger.json before it
  * is sent. The OpenAI key is read from .env and never printed.
  */
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { PRICES_USD_PER_MILLION, getProvider, modelFor, setProvider } from "@norinote/ai";
-import { and, careerPoints, companies, connect, desc, eq, isNull, jobSpecs, jobs, loadDotEnv, migrate, or, shortlist, sql, users, type Db } from "@norinote/db";
+import { and, careerPoints, companies, connect, desc, eq, isNull, jobSpecs, jobs, loadDotEnv, migrate, or, profiles as profilesTable, shortlist, sql, users, type Db } from "@norinote/db";
 import { CareerPoint as CareerPointSchema, type CareerPoint } from "@norinote/shared";
 import {
-  chromiumInstalled, closeSharedBrowser, renderResumeText, tailorResume, type ResumeContent, type TailorResult,
+  chromiumInstalled, closeSharedBrowser, renderResumePdf, renderResumeText, tailorResume, type ResumeContent, type TailorResult,
 } from "@norinote/tailor";
 import { BudgetStopError, Ledger, instrumentProvider } from "./lib/spend.js";
 import { aliasGroupOf } from "../../packages/tailor/src/aliases.js";
 import { pointCorpus } from "../../packages/tailor/src/evidence.js";
-import { bannedIn, openerTense, openingWord } from "../../packages/tailor/src/phrases.js";
+import { bannedIn, boilerplateIn, isStrongVerb, openerTense, openingWord, sameVerb, tackedOnPhrases } from "../../packages/tailor/src/phrases.js";
+import { baselineContent, certificationLines } from "../../packages/tailor/src/select.js";
+import { isCategoryLabel, isDegree, sharesFact } from "../../packages/tailor/src/facts.js";
 import { styleStats } from "../../packages/tailor/src/rewrite.js";
 import { findTerms, mentionsSkill, numbersIn, tokensOf, wordCount } from "../../packages/tailor/src/text.js";
 
@@ -41,19 +45,24 @@ const args = process.argv.slice(2);
 const flag = (n: string) => args.includes(`--${n}`);
 const opt = (n: string, d?: string) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };
 
-const HARD_CAP_USD = 1.21;
+const HARD_CAP_USD = 2.26;
 const budgetUsd = Math.min(HARD_CAP_USD, Number(opt("budget", String(HARD_CAP_USD))));
 const dbDir = path.resolve(opt("db", path.join(os.tmpdir(), "norinote-tailor-eval"))!);
 const planOnly = flag("plan");
 const only = opt("only")?.split(",").map((s) => s.trim()).filter(Boolean);
-const outMd = path.resolve(root, opt("out", "docs/eval/tailor-run2.md")!);
-const outJson = path.resolve(root, opt("json", "scripts/eval/results/tailor-run2.json")!);
-const comparePath = path.resolve(root, opt("compare", "scripts/eval/results/tailor-run1.json")!);
-const RUN_LABEL = opt("label", "run 2")!;
+const outMd = path.resolve(root, opt("out", "docs/eval/tailor-run4.md")!);
+const outJson = path.resolve(root, opt("json", "scripts/eval/results/tailor-run4.json")!);
+const comparePaths = opt("compare", "scripts/eval/results/tailor-run1.json,scripts/eval/results/tailor-run2.json,scripts/eval/results/tailor-run3.json")!
+  .split(",").filter(Boolean).map((p) => path.resolve(root, p));
+const RUN_LABEL = opt("label", "run 4")!;
+const SAMPLES = new Set(opt("samples", "senior_frontend,registered_nurse")!.split(",").filter(Boolean));
+const samplesDir = path.join(root, "data", "samples");
+const EXAMPLE_PROFILES = ["senior_frontend", "data_scientist_ml", "product_manager", "account_executive", "registered_nurse", "new_grad_swe"];
 const JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? "gpt-4o";
 const FALLBACK_JUDGE = "gpt-4.1-mini";
 /** Most a single pair may cost (tailoring plus judge) before it starts; keeps the run well inside the cap. */
 const PAIR_RESERVE_USD = 0.025;
+const skipJudge = flag("skip-judge");
 
 if (/norinote-(cov|eval3?|eval2)$/.test(path.basename(dbDir))) throw new Error(`Refusing to run on an original index (${path.basename(dbDir)}). Copy it first.`);
 process.env.AI_DAILY_TOKEN_BUDGET = "0"; // the ledger is the budget for this run
@@ -111,12 +120,29 @@ async function laneJobs(p: ProfileSpec): Promise<JobRow[]> {
   return rows.filter((r) => r.description.length > 400).map((r) => ({ ...r, fit: 0 }));
 }
 
+/**
+ * The resume header: run.mts created the eval users with only an email, so tailored resumes had no name. Read the name
+ * (first line) and phone and LinkedIn (second line) from the fictional resume and store them on the profile copy.
+ */
+async function ensureContact(p: ProfileSpec, userId: string): Promise<void> {
+  const lines = resumeOf(p).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const name = (lines[0] ?? "").replace(/,.*$/, "").trim();
+  const second = lines[1] ?? "";
+  const phone = /\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/.exec(second)?.[0];
+  const linkedin = /linkedin\.com\/in\/[\w-]+/i.exec(second)?.[0];
+  const email = /[\w.+-]+@[\w.-]+\.\w+/.exec(second)?.[0];
+  const [row] = await db.select({ contact: profilesTable.contact }).from(profilesTable).where(eq(profilesTable.userId, userId)).limit(1);
+  const contact = { ...(row?.contact ?? {}), name, ...(phone ? { phone } : {}), ...(linkedin ? { linkedin } : {}), ...(email ? { email } : {}) };
+  await db.update(profilesTable).set({ contact }).where(eq(profilesTable.userId, userId));
+}
+
 type Pair = { profile: ProfileSpec; userId: string; job: JobRow; kind: "top" | "middle" | "adversarial" };
 const pairs: Pair[] = [];
 const firstJobOf = new Map<string, JobRow>();
 for (const p of JSON.parse(readFileSync(path.join(here, "profiles.json"), "utf8")) as ProfileSpec[]) {
   const uid = await userIdOf(p.id);
   if (!uid) continue;
+  if (!planOnly) await ensureContact(p, uid);
   let js = await shortlistJobs(uid);
   if (js.length === 0) js = await laneJobs(p);
   if (js[0]) firstJobOf.set(p.id, js[0]);
@@ -131,6 +157,9 @@ for (const a of ADVERSARIAL) {
   const uid = p ? await userIdOf(p.id) : null;
   if (p && job && uid) pairs.push({ profile: p, userId: uid, job, kind: "adversarial" });
 }
+
+const kinds = opt("kinds")?.split(",").map((k) => k.trim()).filter(Boolean);
+if (kinds) for (let i = pairs.length - 1; i >= 0; i--) if (!kinds.includes(pairs[i]!.kind)) pairs.splice(i, 1);
 
 if (planOnly) {
   for (const pr of pairs) console.log(`${pr.profile.id.padEnd(26)} ${pr.kind.padEnd(12)} fit=${pr.job.fit.toFixed(2)}  ${pr.job.title} @ ${pr.job.company}`);
@@ -186,12 +215,12 @@ const JUDGE_SYSTEM = `You are a strict senior recruiter and resume reviewer. You
 - tone: reads like a strong human-written resume, not keyword stuffing or AI boilerplate.
 List every fabrication you find (empty list when none). comment: one sentence. Reply as JSON.`;
 
-let judgeModel = JUDGE_MODEL;
+/** One judge per call: the main model, retried once, then the fallback for that call only (run 4 switched for good). */
 async function judge(pr: Pair, tailored: string): Promise<Judgment | null> {
-  const input = JSON.stringify({ posting: { title: pr.job.title, company: pr.job.company, description: pr.job.description.slice(0, 3000) }, originalResume: resumeOf(pr.profile), tailoredResume: tailored });
+  const input = JSON.stringify({ posting: { title: pr.job.title, company: pr.job.company, description: pr.job.description.slice(0, 2500) }, originalResume: resumeOf(pr.profile), tailoredResume: tailored });
   const schema = z.toJSONSchema(JudgeOut, { target: "draft-7" }) as Record<string, unknown>;
   delete schema.$schema;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (const judgeModel of [JUDGE_MODEL, JUDGE_MODEL, FALLBACK_JUDGE]) {
     try {
       const res = await getProvider().chat({
         model: judgeModel, temperature: 0, maxOutputTokens: 300,
@@ -201,9 +230,7 @@ async function judge(pr: Pair, tailored: string): Promise<Judgment | null> {
       return { ...JudgeOut.parse(JSON.parse(res.text)), model: judgeModel };
     } catch (e) {
       if (e instanceof BudgetStopError) throw e;
-      if (judgeModel !== FALLBACK_JUDGE) { console.warn(`judge ${judgeModel} failed (${e instanceof Error ? e.name : "error"}); falling back to ${FALLBACK_JUDGE}`); judgeModel = FALLBACK_JUDGE; continue; }
-      console.warn(`judge failed: ${e instanceof Error ? e.message.slice(0, 120) : e}`);
-      return null;
+      console.warn(`judge ${judgeModel} failed (${e instanceof Error ? e.name : "error"})`);
     }
   }
   return null;
@@ -218,6 +245,10 @@ type Row = {
     phraseBefore: number | null; phraseAfter: number | null; total: number;
   };
   presentOpeners: number; yearsOnSkills: number;
+  readability: {
+    strongOriginal: number; strongKept: number; tackedOn: string[]; boilerplate: string[]; kept: number; summaryShapeOk: boolean;
+    repeatedFacts: string[]; junkSkills: string[]; named: boolean;
+  };
   gaps: string[]; missing: string[]; rewritten: number; offered: number; reverted: number; rounds: number; stopReason: string;
   unsupported: string[]; banned: string[]; wordsPerBullet: number; wordsPerRewritten: number | null; verbDiversity: number; repeatedOpeners: number;
   summarySource: string; judge: Judgment | null; tailorUsd: number; judgeUsd: number; error: string | null;
@@ -244,6 +275,17 @@ try {
     }
     const tailorUsd = ledger.totalUsd() - t0;
     const points = await pointsOf(pr.userId);
+    if (pr.kind === "top" && SAMPLES.has(pr.profile.id) && !renderer) {
+      // Before: the career points as the person wrote them (no tailoring, no summary). After: the tailored PDF.
+      const { name, ...contact } = { name: r.content.name, ...r.content.contact };
+      const certs = certificationLines(points);
+      const before: ResumeContent = { ...baselineContent(points, { name, ...contact }), education: r.content.education, ...(certs.length ? { certifications: certs } : {}) };
+      mkdirSync(samplesDir, { recursive: true });
+      const rendered = await renderResumePdf(before, {});
+      writeFileSync(path.join(samplesDir, `tailored-${pr.profile.id}-before.pdf`), rendered.pdf);
+      copyFileSync(r.pdfPath, path.join(samplesDir, `tailored-${pr.profile.id}-after.pdf`));
+      log(`${pr.profile.id}: wrote sample PDFs to ${path.relative(root, samplesDir)}`);
+    }
     const byId = new Map(points.map((p) => [p.id, p]));
     const orgs = [...new Set(points.flatMap((p) => (p.org ? [p.org] : [])))];
     const content: ResumeContent = r.content;
@@ -264,7 +306,7 @@ try {
     const tailoredText = renderResumeText(content);
     ledger.phase = "judge";
     const j0 = ledger.totalUsd();
-    const verdict = await judge(pr, tailoredText);
+    const verdict = skipJudge ? null : await judge(pr, tailoredText);
     const judgeUsd = ledger.totalUsd() - j0;
     const cov = r.report.coverage;
     const row: Row = {
@@ -273,6 +315,28 @@ try {
         before: cov.before.pct, selected: cov.selected.pct, after: cov.after.pct, exactBefore: cov.exactBefore.pct, exactAfter: cov.exactAfter.pct,
         phraseBefore: cov.phraseBefore?.pct ?? null, phraseAfter: cov.phraseAfter?.pct ?? null, total: cov.after.total,
       },
+      readability: (() => {
+        const before = new Map(r.changes.filter((c) => c.kind === "bullet" && c.bulletId).map((c) => [c.bulletId!, c.before ?? ""]));
+        const originals = finalBullets.map((b) => ({ now: b.text, was: before.get(b.id) ?? b.text }));
+        const strong = originals.filter((x) => isStrongVerb(openingWord(x.was)));
+        const phrases = r.report.keyPhrases ?? [];
+        const sum = content.summary ?? "";
+        const summarySentences = sum.trim().split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
+        return {
+          strongOriginal: strong.length,
+          strongKept: strong.filter((x) => sameVerb(openingWord(x.now), openingWord(x.was))).length,
+          tackedOn: finalBullets.filter((b) => rewrittenIds.has(b.id)).flatMap((b) => tackedOnPhrases(b.text, phrases).map((p) => `${b.id}: ${p}`)),
+          boilerplate: [
+            ...finalBullets.filter((b) => rewrittenIds.has(b.id)).flatMap((b) => boilerplateIn(b.text).map((p) => `${b.id}: ${p}`)),
+            ...(r.report.summary.source === "model" ? boilerplateIn(sum, { forSummary: true }).map((p) => `summary: ${p}`) : []),
+          ],
+          kept: r.report.bullets.filter((b) => b.kept).length,
+          summaryShapeOk: summarySentences === 2 && wordCount(sum) >= 25 && wordCount(sum) <= 45 && !/[()]/.test(sum),
+          repeatedFacts: finalBullets.flatMap((b, i) => finalBullets.slice(i + 1).filter((o) => sharesFact(b.text, o.text)).map((o) => `${b.id} ~ ${o.id}`)),
+          junkSkills: content.skills.flatMap((g) => g.items).filter((x) => isCategoryLabel(x) || isDegree(x)),
+          named: !!content.name.trim(),
+        };
+      })(),
       presentOpeners: finalBullets.filter((b) => openerTense(b.text) === "present").length,
       yearsOnSkills: /\b\d+\+?\s+years?(?:\s+of)?(?:\s+[a-z-]+)?\s+(?:experience\s+)?(?:in|with|using)\s+[A-Z]/.test(content.summary ?? "") ? 1 : 0,
       missing: cov.after.missing,
@@ -284,7 +348,7 @@ try {
       wordsPerRewritten: rewrittenTexts.length ? Math.round((rewrittenTexts.reduce((n, t) => n + wordCount(t), 0) / rewrittenTexts.length) * 10) / 10 : null,
       verbDiversity: stats.verbDiversity, repeatedOpeners: openers.length - new Set(openers).size,
       summarySource: r.report.summary.source, judge: verdict, tailorUsd, judgeUsd, error: r.modelError,
-      examples: r.changes.filter((c) => c.kind === "bullet").slice(0, 2).map((c) => ({ before: c.before ?? "", after: c.after ?? "" })),
+      examples: r.changes.filter((c) => c.kind === "bullet").slice(0, 3).map((c) => ({ before: c.before ?? "", after: c.after ?? "" })),
       summary: content.summary ?? null,
     };
     rows.push(row);
@@ -310,6 +374,14 @@ const overall = {
   exactBefore: mean(fair.map((r) => r.coverage.exactBefore)), exactAfter: mean(fair.map((r) => r.coverage.exactAfter)),
   phraseBefore: mean(fair.map((r) => r.coverage.phraseBefore)), phraseAfter: mean(fair.map((r) => r.coverage.phraseAfter)),
   presentOpeners: rows.reduce((n, r) => n + r.presentOpeners, 0), yearsOnSkills: rows.reduce((n, r) => n + r.yearsOnSkills, 0),
+  strongVerbKept: (() => { const a = rows.reduce((n, r) => n + r.readability.strongOriginal, 0); return a ? Math.round((rows.reduce((n, r) => n + r.readability.strongKept, 0) / a) * 100) : null; })(),
+  tackedOn: rows.reduce((n, r) => n + r.readability.tackedOn.length, 0),
+  boilerplate: rows.reduce((n, r) => n + r.readability.boilerplate.length, 0),
+  noOpKept: rows.reduce((n, r) => n + r.readability.kept, 0),
+  summaryShapeOk: rows.length ? Math.round((rows.filter((r) => r.readability.summaryShapeOk).length / rows.length) * 100) : null,
+  repeatedFacts: rows.reduce((n, r) => n + r.readability.repeatedFacts.length, 0),
+  junkSkills: rows.reduce((n, r) => n + r.readability.junkSkills.length, 0),
+  unnamed: rows.filter((r) => !r.readability.named).length,
   unsupported: rows.reduce((n, r) => n + r.unsupported.length, 0),
   banned: rows.reduce((n, r) => n + r.banned.length, 0),
   wordsPerBullet: mean(rows.map((r) => r.wordsPerBullet)), wordsPerRewritten: mean(rows.map((r) => r.wordsPerRewritten)),
@@ -328,23 +400,34 @@ const overall = {
 
 const pct = (n: number | null | undefined) => (n === null || n === undefined ? "n/a" : `${n}%`);
 type Overall = typeof overall;
-let prev: Partial<Overall> | null = null;
-try { prev = (JSON.parse(readFileSync(comparePath, "utf8")) as { overall: Partial<Overall> }).overall; } catch { prev = null; }
-const cmp = (label: string, a: string, b: string) => `| ${label} | ${a} | ${b} |`;
+const prevRuns: { label: string; o: Partial<Overall> }[] = [];
+comparePaths.forEach((p, i) => {
+  const name = /tailor-run(\w+)\.json$/.exec(p)?.[1] ?? String(i + 1);
+  try { prevRuns.push({ label: `Run ${name}`, o: (JSON.parse(readFileSync(p, "utf8")) as { overall: Partial<Overall> }).overall }); } catch { /* not there */ }
+});
 const usd = (n: number | undefined) => (typeof n === "number" ? `$${n.toFixed(4)}` : "n/a");
-const comparison: string[] = prev ? [
-  ``, `## Compared with run 1`, ``, `| Metric | Run 1 | ${RUN_LABEL[0]!.toUpperCase()}${RUN_LABEL.slice(1)} |`, `|---|---|---|`,
-  cmp("Supported must-have coverage, as written -> tailored", `${pct(prev.coverageBefore)} -> ${pct(prev.coverageAfter)}`, `${pct(overall.coverageBefore)} -> ${pct(overall.coverageAfter)}`),
-  cmp("Same, posting's exact spelling", `${pct(prev.exactBefore)} -> ${pct(prev.exactAfter)}`, `${pct(overall.exactBefore)} -> ${pct(overall.exactAfter)}`),
-  cmp("Key phrase verbatim, as written -> tailored", "not measured", `${pct(overall.phraseBefore)} -> ${pct(overall.phraseAfter)}`),
-  cmp("Unsupported entities", String(prev.unsupported ?? "n/a"), String(overall.unsupported)),
-  cmp("Banned phrases", String(prev.banned ?? "n/a"), String(overall.banned)),
-  cmp("Words per bullet (all / rewritten)", `${prev.wordsPerBullet ?? "n/a"} / ${prev.wordsPerRewritten ?? "n/a"}`, `${overall.wordsPerBullet} / ${overall.wordsPerRewritten}`),
-  cmp("Bullets rewritten / offered / reverted", `${prev.rewritten ?? "n/a"} / ${prev.offered ?? "n/a"} / ${prev.reverted ?? "n/a"}`, `${overall.rewritten} / ${overall.offered} / ${overall.reverted}`),
-  cmp("Judge relevance / truthfulness / specificity / tone", prev.judge ? `${prev.judge.relevance} / ${prev.judge.truthfulness} / ${prev.judge.specificity} / ${prev.judge.tone}` : "n/a",
-    `${overall.judge.relevance} / ${overall.judge.truthfulness} / ${overall.judge.specificity} / ${overall.judge.tone}`),
-  cmp("Fabrications the judge listed", String(prev.judge?.fabrications ?? "n/a"), String(overall.judge.fabrications)),
-  cmp("Tailoring cost per resume, mean / max", `${usd(prev.tailorUsdPerResume)} / ${usd(prev.tailorUsdMax)}`, `${usd(overall.tailorUsdPerResume)} / ${usd(overall.tailorUsdMax)}`),
+const runs: { label: string; o: Partial<Overall> }[] = [...prevRuns, { label: `${RUN_LABEL[0]!.toUpperCase()}${RUN_LABEL.slice(1)}`, o: overall }];
+const row = (label: string, f: (o: Partial<Overall>) => string) => `| ${label} | ${runs.map((r) => f(r.o)).join(" | ")} |`;
+const nm = (v: unknown) => (v === undefined || v === null ? "n/a" : String(v));
+const comparison: string[] = prevRuns.length ? [
+  ``, `## Compared with earlier runs`, ``, `| Metric | ${runs.map((r) => r.label).join(" | ")} |`, `|---|${runs.map(() => "---").join("|")}|`,
+  row("Supported must-have coverage, as written -> tailored", (o) => `${pct(o.coverageBefore)} -> ${pct(o.coverageAfter)}`),
+  row("Same, posting's exact spelling", (o) => `${pct(o.exactBefore)} -> ${pct(o.exactAfter)}`),
+  row("Key phrase verbatim, as written -> tailored", (o) => (o.phraseAfter === undefined ? "not measured" : `${pct(o.phraseBefore)} -> ${pct(o.phraseAfter)}`)),
+  row("Unsupported entities", (o) => nm(o.unsupported)),
+  row("Banned phrases", (o) => nm(o.banned)),
+  row("Strong original verbs kept", (o) => (o.strongVerbKept === undefined ? "not measured" : pct(o.strongVerbKept))),
+  row("Tacked-on key phrases (must be 0)", (o) => nm(o.tackedOn)),
+  row("Job-ad boilerplate fragments (must be 0)", (o) => nm(o.boilerplate)),
+  row("No-op rewrites skipped (kept as written)", (o) => nm(o.noOpKept)),
+  row("Summaries in shape (2 sentences, 25 to 45 words, no parentheses)", (o) => (o.summaryShapeOk === undefined ? "not measured" : pct(o.summaryShapeOk))),
+  row("Facts repeated across bullets / junk skills / resumes without a name", (o) => (o.repeatedFacts === undefined ? "not measured" : `${o.repeatedFacts} / ${o.junkSkills} / ${o.unnamed}`)),
+  row("Words per bullet (all / rewritten)", (o) => `${nm(o.wordsPerBullet)} / ${nm(o.wordsPerRewritten)}`),
+  row("Bullets rewritten / offered / reverted", (o) => `${nm(o.rewritten)} / ${nm(o.offered)} / ${nm(o.reverted)}`),
+  row("Judge relevance / truthfulness / specificity / tone", (o) => (o.judge ? `${o.judge.relevance} / ${o.judge.truthfulness} / ${o.judge.specificity} / ${o.judge.tone}` : "n/a")),
+  row("Fabrications the judge listed", (o) => nm(o.judge?.fabrications)),
+  row("Pairs", (o) => nm(o.pairs)),
+  row("Tailoring cost per resume, mean / max", (o) => `${usd(o.tailorUsdPerResume)} / ${usd(o.tailorUsdMax)}`),
 ] : [];
 const md: string[] = [
   `# Tailoring eval, ${RUN_LABEL}`, ``,
@@ -356,6 +439,11 @@ const md: string[] = [
   `| Same, counting only the posting's exact spelling | ${pct(overall.exactBefore)} -> ${pct(overall.exactAfter)} |`,
   `| Supported must-haves whose key phrase appears verbatim, as written -> tailored | ${pct(overall.phraseBefore)} -> ${pct(overall.phraseAfter)} |`,
   `| Bullets opening in the present tense / summaries attaching years to a skill | ${overall.presentOpeners} / ${overall.yearsOnSkills} |`,
+  `| Strong original opening verbs kept | ${pct(overall.strongVerbKept)} |`,
+  `| Tacked-on key phrases / job-ad boilerplate fragments (both must be 0) | ${overall.tackedOn} / ${overall.boilerplate} |`,
+  `| No-op rewrites skipped (kept as written) / offered | ${overall.noOpKept} / ${overall.offered} |`,
+  `| Summaries in shape (2 sentences, 25 to 45 words, no parentheses) | ${pct(overall.summaryShapeOk)} |`,
+  `| Facts repeated across bullets / junk skills (category labels, degrees) / resumes without a name | ${overall.repeatedFacts} / ${overall.junkSkills} / ${overall.unnamed} |`,
   `| Unsupported entities in rewritten bullets and model summaries (must be 0) | ${overall.unsupported} |`,
   `| Banned phrases on the final resumes | ${overall.banned} |`,
   `| Words per bullet, all final bullets / rewritten ones | ${overall.wordsPerBullet} / ${overall.wordsPerRewritten} |`,
@@ -377,7 +465,12 @@ const md: string[] = [
   ``, `## Unsupported entities found by the independent check`, ``,
   ...(rows.some((r) => r.unsupported.length) ? rows.flatMap((r) => r.unsupported.map((u) => `- ${r.profile} (${r.kind}) ${u}`)) : ["None."]),
   ``, `## Examples`, ``,
-  ...rows.filter((r) => r.kind === "top").slice(0, 6).flatMap((r) => [`**${r.profile}**, ${r.job}`, ``, ...(r.summary ? [`- Summary: ${r.summary}`] : []), ...r.examples.flatMap((e) => [`- Before: ${e.before}`, `  After: ${e.after}`]), ``]),
+  ...EXAMPLE_PROFILES.map((id) => rows.find((r) => r.profile === id && r.kind === "top")).filter((r): r is Row => !!r)
+    .flatMap((r) => [`**${r.profile}**, ${r.job}`, ``, ...(r.summary ? [`- Summary: ${r.summary}`] : []), ...r.examples.flatMap((e) => [`- Before: ${e.before}`, `  After: ${e.after}`]), ``]),
+  ``, `## Readability issues found`, ``,
+  ...(rows.some((r) => r.readability.tackedOn.length || r.readability.boilerplate.length)
+    ? rows.flatMap((r) => [...r.readability.tackedOn.map((x) => `- ${r.profile} (${r.kind}) tacked on: ${x}`), ...r.readability.boilerplate.map((x) => `- ${r.profile} (${r.kind}) boilerplate: ${x}`)])
+    : ["None."]),
 ];
 mkdirSync(path.dirname(outJson), { recursive: true });
 writeFileSync(outJson, JSON.stringify({ generatedAt: new Date().toISOString(), overall, rows }, null, 2));

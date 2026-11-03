@@ -67,7 +67,7 @@ export function originGuard(config: Pick<ApiConfig, "webUrl" | "apiUrl">): Middl
   return async (c, next) => {
     if (c.req.method !== "GET" && c.req.method !== "HEAD" && c.req.method !== "OPTIONS") {
       const origin = c.req.header("origin");
-      if (origin && !allowed.has(origin.replace(/\/+$/, "")) && c.req.path !== "/api/inbound/email") throw new HttpError(403, "Request origin not allowed");
+      if (origin && !allowed.has(origin.replace(/\/+$/, "")) && c.req.path !== "/api/inbound/email" && !c.req.path.startsWith("/api/inbox/webhook/")) throw new HttpError(403, "Request origin not allowed");
     }
     await next();
   };

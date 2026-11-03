@@ -7,6 +7,7 @@ import {
   PoolRunError, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
 } from "./index.js";
 import type { ApplyInputs } from "./inputs.js";
+import { CompanyGate } from "./gate.js";
 
 let t: TestDb;
 beforeAll(async () => { t = await createTestDb(); });
@@ -201,6 +202,7 @@ function deps(over: Partial<ApplyDeps> & { driver?: Driver } = {}): ApplyDeps & 
   return {
     pool: fakePool().pool,
     codes: { waitForCode: async () => null },
+    companyGate: new CompanyGate(0),
     drivers: [over.driver ?? fakeDriver().driver],
     loadInputs: async () => inputs(),
     ...over,
@@ -396,7 +398,7 @@ describe("applying", () => {
     const { driver } = fakeDriver({
       submit: async (ctx) => {
         ctx.onEvent("submit", "Clicking Submit");
-        const code = await ctx.waitForCode("greenhouse");
+        const code = await ctx.waitForCode!("greenhouse");
         return code ? { ...submitted(), usedCode: true } : { status: "needs_user", submitClicked: true, durationMs: 1, needsUser: { kind: "verification_code", reason: "No code" } };
       },
     });
@@ -416,7 +418,7 @@ describe("applying", () => {
     const { driver, calls } = fakeDriver({
       submit: async (ctx) => {
         ctx.onEvent("submit", "Clicking Submit");
-        await ctx.waitForCode("greenhouse");
+        await ctx.waitForCode!("greenhouse");
         return { status: "needs_user", submitClicked: true, durationMs: 1, needsUser: { kind: "verification_code", reason: "The site emailed a verification code and none arrived in time." } };
       },
     });

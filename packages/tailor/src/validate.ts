@@ -1,5 +1,7 @@
-import { bannedIn, openerTense, openingWord } from "./phrases.js";
+import { bannedIn, boilerplateIn, isStrongVerb, isWeakVerb, openerTense, openingWord, sameVerb, tackedOnPhrases } from "./phrases.js";
 import { releaseYearOf } from "./release-years.js";
+import { containsPhrase } from "./key-phrases.js";
+import { sharesFact } from "./facts.js";
 import { COMMON_TECH_TERMS, TITLE_WORDS, containsTerm, countTerm, findTerms, mentionsSkill, numbersIn, sameSkill, tokensOf, uniq, wordCount } from "./text.js";
 
 /**
@@ -134,11 +136,16 @@ const YEAR_WORDS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20,
 };
 
-/** Every year count a text states ("5 years", "5+ years", "five years", "a year"). */
+/** A quantity (with an optional unit and one counted noun) or a frequency word just before "a year". */
+const RATE_BEFORE = /(?:\d[\d.,]*\s*(?:[kmb]|bn|million|billion|thousand|%|\+)?\s*(?:[a-z-]+\s+)?|\b(?:once|twice|thrice|times)\s+)$/i;
+
+/** Every year count a text states ("5 years", "5+ years", "five years", "a year"); rates such as "$1.1M a year" are not. */
 export function yearClaims(text: string): number[] {
   const out: number[] = [];
   for (const m of text.matchAll(/\b(\d+|[a-z]+|a|an)\s*\+?\s*(?:-\s*)?(?:years?|yrs?)\b/gi)) {
     const w = m[1]!.toLowerCase();
+    // "$1.1M a year", "150 deploys a year", "twice a year" are rates, not time in a job.
+    if ((w === "a" || w === "an") && RATE_BEFORE.test(text.slice(0, m.index))) continue;
     const n = /^\d+$/.test(w) ? Number(w) : w === "a" || w === "an" ? 1 : YEAR_WORDS[w];
     if (n !== undefined) out.push(n);
   }
@@ -179,7 +186,8 @@ export function validateSummary(summary: string, support: Support, vocab: Vocab,
 
 export type GateRule =
   | "empty" | "unchanged" | "length" | "number" | "tool" | "employer" | "title" | "proper_noun" | "lacked_requirement"
-  | "anachronism" | "banned_phrase" | "repeated_verb" | "tense" | "overuse" | "pronoun" | "inflation" | "source";
+  | "anachronism" | "banned_phrase" | "repeated_verb" | "tense" | "overuse" | "pronoun" | "inflation" | "source"
+  | "boilerplate" | "tacked_on" | "verb" | "duplicate_fact";
 export type GateFailure = { rule: GateRule; detail: string };
 export type GateResult = { ok: boolean; failures: GateFailure[] };
 
@@ -198,6 +206,12 @@ export type GateContext = {
   lackedTerms?: readonly string[];
   /** Soft requirements no career point shows (startup pace, ownership...): the wording must not appear unless the source has it. */
   lackedPatterns?: readonly RegExp[];
+  /** The posting's key phrases this bullet may carry: each must describe the work, not trail after the result. */
+  mirrorPhrases?: readonly string[];
+  /** The other bullets on the resume: a fact (a number with its nearby words) shown there may not be repeated here. */
+  otherBullets?: readonly string[];
+  /** Every key phrase of the posting and the other bullets' texts: a phrase goes on one bullet only, not on every bullet. */
+  phraseUses?: { phrases: readonly string[]; others: readonly string[] };
   /** The role's years; a tool released after `end` (or after this year when current) is anachronistic. */
   roleYears?: { start: number | null; end: number | null };
   /** Check that the bullet opens in the past tense (every accomplishment, the current role included). Default true. */
@@ -276,14 +290,36 @@ export function gateBullet(candidate: string, ctx: GateContext): GateResult {
 
   const banned = bannedIn(text);
   if (banned.length) fail("banned_phrase", `generic phrase(s): ${banned.join(", ")}`);
+  const boiler = boilerplateIn(text).filter((b) => !boilerplateIn(ctx.original).includes(b));
+  if (boiler.length) fail("boilerplate", `job-ad wording "${boiler.join('", "')}": say what was done and weave in the posting's noun phrase`);
+  const tacked = tackedOnPhrases(text, ctx.mirrorPhrases ?? []);
+  if (tacked.length) fail("tacked_on", `"${tacked.join('", "')}" is tacked on after the result; use it to describe the work itself`);
 
   const opener = openingWord(text);
+  const origOpener = openingWord(ctx.original);
+  // Keep a strong original verb (in the past tense); trade it only for another strong verb when another bullet uses it.
+  if (isStrongVerb(origOpener) && !sameVerb(opener, origOpener)) {
+    const taken = [...(ctx.usedOpeners ?? [])].some((u) => sameVerb(u, origOpener));
+    if (!taken || !isStrongVerb(opener)) fail("verb", `keep the strong opening verb "${origOpener}" (in the past tense) instead of "${opener}"`);
+  } else if (isWeakVerb(opener) && !isWeakVerb(origOpener)) {
+    fail("verb", `"${opener}" is weaker than the original "${origOpener || "opening"}"; use a specific verb`);
+  }
   if (opener && ctx.usedOpeners?.has(opener)) fail("repeated_verb", `opening verb "${opener}" is already used by another bullet`);
 
-  if (ctx.tense !== false && openerTense(text) === "present") fail("tense", `start with a past-tense verb, not "${opener}"`);
+  // A rewrite opens with a past-tense action verb ("TypeScript delivered the dashboard" and "Tech lead for" do not).
+  if (ctx.tense !== false && openerTense(text) !== "past") fail("tense", `start with a past-tense action verb, not "${opener}"`);
 
   const lackedHit = (ctx.lackedPatterns ?? []).find((re) => re.test(text) && !re.test(`${src}\n${ctx.original}`));
   if (lackedHit) fail("lacked_requirement", `claims "${text.match(lackedHit)![0]}", a requirement the person's history does not show`);
+
+  const dup = (ctx.otherBullets ?? []).find((t) => sharesFact(text, t) && !sharesFact(ctx.original, t));
+  if (dup) fail("duplicate_fact", `repeats a fact already shown in another bullet ("${dup.slice(0, 60)}"); one source, one bullet`);
+
+  if (ctx.phraseUses) {
+    const uses = ctx.phraseUses;
+    const repeated = uses.phrases.filter((p) => containsPhrase(text, p) && !containsPhrase(ctx.original, p) && uses.others.some((t) => containsPhrase(t, p)));
+    if (repeated.length) fail("overuse", `"${repeated.join('", "')}" is already on another bullet; use each posting phrase once`);
+  }
 
   if (ctx.termUses) {
     const uses = ctx.termUses;

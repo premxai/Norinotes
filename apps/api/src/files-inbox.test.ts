@@ -131,6 +131,7 @@ describe("inbound email webhook", () => {
     expect(inbox.json[0]).toEqual({
       id: row!.id, applicationId: null, fromAddress: "jobs@greenhouse.io", subject: "Your verification code", bodyText: "Your security code is 482913.",
       receivedAt: expect.any(String), kind: "verification_code", code: "482913",
+      application: null, fromName: null, verificationLink: null, links: [], attachments: [], spam: false,
     });
     expect((await api.call("GET", "/api/inbox", { cookie: b.cookie })).json).toEqual([]);
     expect((await api.call("GET", "/api/inbox")).status).toBe(401);
@@ -149,7 +150,7 @@ describe("inbound email webhook", () => {
 
 describe("telegram", () => {
   it("reports it is not configured and refuses to make a code", async () => {
-    expect((await api.call("GET", "/api/channels/telegram", { cookie: a.cookie })).json).toEqual({ configured: false, botUsername: null, linked: false });
+    expect((await api.call("GET", "/api/channels/telegram", { cookie: a.cookie })).json).toMatchObject({ configured: false, botUsername: null, linked: false });
     expect((await api.call("POST", "/api/channels/telegram/link", { cookie: a.cookie, body: {} })).status).toBe(503);
   });
 
@@ -158,7 +159,7 @@ describe("telegram", () => {
     const s = await bot.signup("tg@example.com");
     const res = await bot.call("POST", "/api/channels/telegram/link", { cookie: s.cookie, body: {} });
     expect(res.status).toBe(200);
-    expect(res.json.code).toMatch(/^[A-Z2-9]{8}$/);
+    expect(res.json.code).toMatch(/^[A-Z2-9]{16}$/);
     expect(res.json.botUsername).toBe("NorinoteBot");
     expect(res.json.link).toBe(`https://t.me/NorinoteBot?start=${res.json.code}`);
     const ttl = new Date(res.json.expiresAt).getTime() - Date.now();
@@ -167,7 +168,7 @@ describe("telegram", () => {
     const again = await bot.call("POST", "/api/channels/telegram/link", { cookie: s.cookie, body: {} });
     expect(again.json.code).not.toBe(res.json.code);
 
-    expect((await bot.call("GET", "/api/channels/telegram", { cookie: s.cookie })).json).toEqual({ configured: true, botUsername: "NorinoteBot", linked: false });
+    expect((await bot.call("GET", "/api/channels/telegram", { cookie: s.cookie })).json).toMatchObject({ configured: true, botUsername: "NorinoteBot", linked: false });
     await bot.db.insert(channels).values({ userId: s.user.id, kind: "telegram", address: "42" });
     expect((await bot.call("GET", "/api/channels/telegram", { cookie: s.cookie })).json.linked).toBe(true);
     await bot.close();

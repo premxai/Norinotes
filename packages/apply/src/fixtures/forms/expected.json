@@ -1,0 +1,2434 @@
+{
+ "greenhouse-discord-88407560": {
+  "4033064002": {
+   "slot": "eeo_gender",
+   "required": true,
+   "label": "Gender"
+  },
+  "4033065002": {
+   "slot": "eeo_race",
+   "required": true,
+   "label": "Race and Ethnicity"
+  },
+  "4033066002": {
+   "slot": "eeo_veteran",
+   "required": true,
+   "label": "Veteran Status"
+  },
+  "4033067002": {
+   "slot": "eeo_disability",
+   "required": true,
+   "label": "Disability Status"
+  },
+  "4033068002": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender Identity (optional)"
+  },
+  "4033069002": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race or Ethnicity (optional)"
+  },
+  "4033070002": {
+   "slot": "eeo_orientation",
+   "required": false,
+   "label": "I consider myself a member of the LGBTQ+ community. (optional)"
+  },
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "preferred_name": {
+   "slot": "preferred_name",
+   "required": false,
+   "label": "Preferred First Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_38503738002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Why do you want to work at Discord?"
+  },
+  "question_38503739002": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_38503740002": {
+   "slot": "website",
+   "required": false,
+   "label": "Website"
+  },
+  "question_38503741002": {
+   "slot": "hear_about",
+   "required": false,
+   "label": "How did you hear about this job?"
+  },
+  "question_38503742002": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you legally authorized to work in the United States for our Company?"
+  },
+  "question_38503743002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you currently located in the US?"
+  },
+  "question_38503744002": {
+   "slot": "relocation",
+   "required": true,
+   "label": "Are you currently based in or willing to relocate to the Bay Area for this position?"
+  },
+  "question_38521719002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Tell us about a time a metric or result moved in a way you didn't expect - in a job, inter"
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "gdpr_demographic_data_consent_given": {
+   "slot": "consent",
+   "required": true,
+   "label": "I consent to the collection and storage of my demographic data"
+  }
+ },
+ "greenhouse-gitlab-86382320": {
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": false,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_37369956002": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_37369957002": {
+   "slot": "preferred_name",
+   "required": false,
+   "label": "What's the name you'd prefer us to use throughout the interview process?"
+  },
+  "question_37369958002": {
+   "slot": "country",
+   "required": false,
+   "label": "Please choose the country in which you are located."
+  },
+  "question_37369959002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you subject to any employment agreements and/or post-employment restrictions with your"
+  },
+  "question_37369960002": {
+   "slot": "custom",
+   "required": false,
+   "label": "It is important to us to create an accessible and inclusive interview experience. Please l"
+  },
+  "question_37369961002": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you now or in the future require sponsorship for a visa to remain in your current loc"
+  },
+  "question_37369962002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Have you previously worked at or consulted for GitLab?"
+  },
+  "question_37369963002": {
+   "slot": "country",
+   "required": true,
+   "label": "What is your current country of residence?"
+  },
+  "veteran_status": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "VeteranStatus"
+  },
+  "race": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "gender": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  }
+ },
+ "greenhouse-figma-54264680": {
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "question_12497118004": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_12497119004": {
+   "slot": "website",
+   "required": false,
+   "label": "Other Website"
+  },
+  "question_12497120004": {
+   "slot": "custom",
+   "required": true,
+   "label": "Why do you want to join Figma?"
+  },
+  "question_12497121004": {
+   "slot": "pronouns",
+   "required": false,
+   "label": "Pronouns"
+  },
+  "question_12497122004": {
+   "slot": "custom",
+   "required": false,
+   "label": "Additional Information"
+  },
+  "question_12497123004": {
+   "slot": "location",
+   "required": true,
+   "label": "From where do you intend to work?"
+  },
+  "question_12497124004": {
+   "slot": "preferred_name",
+   "required": false,
+   "label": "Preferred First Name"
+  },
+  "question_12497125004": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you authorized to work in the country for which you applied?"
+  },
+  "question_12497126004": {
+   "slot": "custom",
+   "required": true,
+   "label": "Have you ever worked for Figma before, as an employee or a contractor/consultant?"
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "veteran_status": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "VeteranStatus"
+  },
+  "race": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "gender": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  }
+ },
+ "greenhouse-robinhood-8319304": {
+  "1258": {
+   "slot": "eeo_race",
+   "required": true,
+   "label": "What is your race or ethnicity?"
+  },
+  "1259": {
+   "slot": "eeo_veteran",
+   "required": true,
+   "label": "What is your military status?"
+  },
+  "1261": {
+   "slot": "eeo_disability",
+   "required": true,
+   "label": "What is your disability status?"
+  },
+  "1465": {
+   "slot": "eeo_orientation",
+   "required": false,
+   "label": "Do you identify as part of the LGBTQ+ community?"
+  },
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_70139008": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_70139009": {
+   "slot": "website",
+   "required": false,
+   "label": "Website"
+  },
+  "question_70139010": {
+   "slot": "hear_about",
+   "required": false,
+   "label": "How did you hear about this job?"
+  },
+  "question_70139012": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you legally work authorized to work in the US?"
+  },
+  "question_70139013": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you now (or in the future) require visa sponsorship in order to work in the US?"
+  },
+  "question_70139014": {
+   "slot": "custom",
+   "required": true,
+   "label": "Have you ever worked for Robinhood as an employee, intern or contractor? Note that providi"
+  },
+  "question_70139015": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you willing to work from the office(s) listed on the job description?"
+  },
+  "question_70139017": {
+   "slot": "custom",
+   "required": true,
+   "label": "Do you have: a) any Personal/Familial Relationships (current Robinhood employees or employ"
+  },
+  "question_70139018": {
+   "slot": "custom",
+   "required": false,
+   "label": "If you answered \"Yes\" to the above question, please provide additional information here:"
+  },
+  "question_70139019": {
+   "slot": "custom",
+   "required": true,
+   "label": "Robinhood adheres to applicable laws and regulations in relation to government officials g"
+  },
+  "question_70139020": {
+   "slot": "custom",
+   "required": false,
+   "label": "If you answered \"Yes\" to the above question, please provide additional information here:"
+  },
+  "question_70139022": {
+   "slot": "custom",
+   "required": true,
+   "label": "After onboarding, in-person attendance is required at least 3 days per week."
+  },
+  "question_70139024": {
+   "slot": "custom",
+   "required": true,
+   "label": "This role requires in-person attendance at either our Denver, CO or Westlake, TX office."
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "gdpr_demographic_data_consent_given": {
+   "slot": "consent",
+   "required": true,
+   "label": "I consent to the collection and storage of my demographic data"
+  }
+ },
+ "greenhouse-cloudflare-7695702": {
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_64278780": {
+   "slot": "full_name",
+   "required": false,
+   "label": "Legal Name (if different than above)"
+  },
+  "question_64278781": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "How did you hear about this job?"
+  },
+  "question_64278782": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "Would you like to include your LinkedIn profile, personal website or blog?"
+  },
+  "question_64278783": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Do you now or will you in the future require immigration sponsorship to work at Cloudflare"
+  },
+  "question_64278784[]": {
+   "slot": "consent",
+   "required": true,
+   "label": "Please review and acknowledge Cloudflare's Candidate Privacy Policy (cloudflare.com/candid"
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "veteran_status": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "VeteranStatus"
+  },
+  "race": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "gender": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  }
+ },
+ "greenhouse-anthropic-54566190": {
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "question_19018737008": {
+   "slot": "custom",
+   "required": false,
+   "label": "(Optional) Personal Preferences"
+  },
+  "question_19018738008": {
+   "slot": "website",
+   "required": false,
+   "label": "Website"
+  },
+  "question_19018739008": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you open to working in-person in one of our offices 25% of the time?"
+  },
+  "question_19018740008": {
+   "slot": "start_date",
+   "required": false,
+   "label": "When is the earliest you would want to start working with us?"
+  },
+  "question_19018741008": {
+   "slot": "custom",
+   "required": false,
+   "label": "Do you have any deadlines or timeline considerations we should be aware of?"
+  },
+  "question_19018742008": {
+   "slot": "custom",
+   "required": true,
+   "label": "AI Policy for Application"
+  },
+  "question_19018743008": {
+   "slot": "custom",
+   "required": true,
+   "label": "Why Anthropic?"
+  },
+  "question_19018744008": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Do you require visa sponsorship?"
+  },
+  "question_19018745008": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you now or will you in the future require employment visa sponsorship to work in the "
+  },
+  "question_19018746008": {
+   "slot": "custom",
+   "required": false,
+   "label": "Additional Information"
+  },
+  "question_19018747008": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_19018748008": {
+   "slot": "relocation",
+   "required": true,
+   "label": "Are you open to relocation for this role?"
+  },
+  "question_19018749008": {
+   "slot": "location",
+   "required": false,
+   "label": "What is the address from which you plan on working? If you would need to relocate, please "
+  },
+  "question_19018750008": {
+   "slot": "custom",
+   "required": true,
+   "label": "Have you ever interviewed at Anthropic before?"
+  },
+  "question_19018751008": {
+   "slot": "custom",
+   "required": true,
+   "label": "Please read the arbitration agreement below"
+  },
+  "question_19018752008": {
+   "slot": "custom",
+   "required": true,
+   "label": "Agreement to Arbitrate"
+  },
+  "veteran_status": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "VeteranStatus"
+  },
+  "race": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "gender": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  }
+ },
+ "greenhouse-reddit-8153017": {
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "preferred_name": {
+   "slot": "preferred_name",
+   "required": false,
+   "label": "Preferred First Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_68776711": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_68776712": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "How did you hear about this job?"
+  },
+  "question_68776713": {
+   "slot": "current_company",
+   "required": true,
+   "label": "Please provide the name of your current (or most recent) company"
+  },
+  "question_68776714": {
+   "slot": "custom",
+   "required": true,
+   "label": "The person in this role is required to live within 50 miles (80 km) commuting distance of "
+  },
+  "question_68776715": {
+   "slot": "custom",
+   "required": false,
+   "label": "If not, tell us a bit more about your location or relocation plans"
+  },
+  "question_68776716": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you currently authorized to work in this country?"
+  },
+  "question_68776717": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Do you now, or will you in the future, require immigration sponsorship to work at Reddit?"
+  },
+  "question_68776718": {
+   "slot": "consent",
+   "required": true,
+   "label": "By selecting \"I agree,\" I understand that the information I have provided as part of this "
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  }
+ },
+ "greenhouse-airtable-84031070": {
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "preferred_name": {
+   "slot": "preferred_name",
+   "required": false,
+   "label": "Preferred First Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_35158654002": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_35158655002": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Do you have permanent work authorization to work in the U.S?"
+  },
+  "question_35158657002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Do you have a minimum of one to three years of experience closing sales in a SaaS (Softwar"
+  },
+  "question_35158658002": {
+   "slot": "salary",
+   "required": true,
+   "label": "What are your compensation expectations?"
+  },
+  "question_35158659002": {
+   "slot": "custom",
+   "required": true,
+   "label": "How are you using AI today in your current role? If applicable, show us your last AI exper"
+  },
+  "question_35158660002": {
+   "slot": "custom",
+   "required": false,
+   "label": "Optional: Upload your AI example."
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "veteran_status": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "VeteranStatus"
+  },
+  "race": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "gender": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  }
+ },
+ "greenhouse-twilio-8249615": {
+  "75375": {
+   "slot": "eeo_gender",
+   "required": true,
+   "label": "Voluntary Self-Identification of Gender"
+  },
+  "75376": {
+   "slot": "eeo_race",
+   "required": true,
+   "label": "Voluntary Self-Identification of Race/Ethnicity"
+  },
+  "75377": {
+   "slot": "eeo_veteran",
+   "required": true,
+   "label": "Protected Veteran Status"
+  },
+  "75378": {
+   "slot": "eeo_orientation",
+   "required": true,
+   "label": "Voluntary Self-Identification of Sexual Orientation"
+  },
+  "first_name": {
+   "slot": "first_name",
+   "required": true,
+   "label": "First Name"
+  },
+  "last_name": {
+   "slot": "last_name",
+   "required": true,
+   "label": "Last Name"
+  },
+  "preferred_name": {
+   "slot": "preferred_name",
+   "required": true,
+   "label": "Preferred First Name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_69588778": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile URL"
+  },
+  "question_69588779[]": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "How did you hear about Twilio?"
+  },
+  "question_69588780": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you legally authorized to work in the United States?"
+  },
+  "question_69588781": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you now or in the future require sponsorship for employment visa status (e.g., H-1B v"
+  },
+  "question_69588782": {
+   "slot": "custom",
+   "required": true,
+   "label": "Please indicate whether you are either a citizen or resident of any of the following count"
+  },
+  "question_69588783[]": {
+   "slot": "consent",
+   "required": true,
+   "label": "By clicking the \"Acknowledge\" button, you acknowledge that Twilio processes data in accord"
+  },
+  "question_69588784[]": {
+   "slot": "consent",
+   "required": true,
+   "label": "By checking this box, I confirm I have read, reviewed and understood the guidelines outlin"
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "gdpr_demographic_data_consent_given": {
+   "slot": "consent",
+   "required": true,
+   "label": "I consent to the collection and storage of my demographic data"
+  }
+ },
+ "lever-leverdemo-ad208490": {
+  "resume": {
+   "slot": "resume",
+   "required": false,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "pronouns": {
+   "slot": "pronouns",
+   "required": false,
+   "label": "Pronouns"
+  },
+  "customPronounsOption": {
+   "slot": "custom",
+   "required": false,
+   "label": "Custom"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": false,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": true,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[Github]": {
+   "slot": "github",
+   "required": false,
+   "label": "Github URL"
+  },
+  "urls[Other Website]": {
+   "slot": "website",
+   "required": false,
+   "label": "Other Website URL"
+  },
+  "urls[Video Link ]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Video Link URL"
+  },
+  "cards[6ddc5e28-c8a7-48e8-a866-635cf69932d2][field0]": {
+   "slot": "work_auth",
+   "required": false,
+   "label": "Are you eligible to work in the United States?"
+  },
+  "eeo[gender]": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  },
+  "eeo[race]": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "eeo[veteran]": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "Veteran status"
+  },
+  "eeo[disability]": {
+   "slot": "eeo_disability",
+   "required": false,
+   "label": "Disability status"
+  }
+ },
+ "lever-palantir-6ed76ce8": {
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": false,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": false,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[GitHub]": {
+   "slot": "github",
+   "required": false,
+   "label": "GitHub URL"
+  },
+  "urls[Portfolio]": {
+   "slot": "website",
+   "required": false,
+   "label": "Portfolio URL"
+  },
+  "cards[a69a985a-eae9-4c14-90fb-b5a4b891523e][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Language Skill(s) (Check all that apply)"
+  },
+  "cards[a69a985a-eae9-4c14-90fb-b5a4b891523e][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Type your response"
+  },
+  "cards[a69a985a-eae9-4c14-90fb-b5a4b891523e][field2]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Type your response"
+  },
+  "cards[1c719ca9-5069-4afe-9e82-39ca420e0edb][field0]": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you legally authorized to work in the country for which you are applying?"
+  },
+  "cards[1c719ca9-5069-4afe-9e82-39ca420e0edb][field1]": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you now or in the future require sponsorship for employment visa status (e.g., H-1B, "
+  },
+  "cards[3da58b41-acf5-40a1-945e-c7f047ef8050][field0]": {
+   "slot": "school",
+   "required": true,
+   "label": "Which university are you currently attending or did you last attend? Please select \"Other "
+  },
+  "cards[a6197d84-549e-4a91-8bb0-6af972510013][field0]": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "Please tell us how you heard about this opportunity."
+  },
+  "cards[ce72d538-c9ad-41f3-8e9a-618d40c82e3a][field0]": {
+   "slot": "custom",
+   "required": false,
+   "label": "What has been your favorite project or proudest accomplishment? Why?"
+  },
+  "cards[ce72d538-c9ad-41f3-8e9a-618d40c82e3a][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Why do you want to work at Palantir?"
+  },
+  "cards[73796cde-fc01-4758-9002-c85155f3503d][field0]": {
+   "slot": "consent",
+   "required": true,
+   "label": "As part of our interview process, we may use AI notetakers to transcribe conversations for"
+  },
+  "cards[a5557d1f-0fab-4dbd-9059-b8625900049a][field0]": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you a Singapore citizen?"
+  },
+  "cards[a5557d1f-0fab-4dbd-9059-b8625900049a][field1]": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you a Singapore permanent resident?"
+  },
+  "comments": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Additional information"
+  }
+ },
+ "lever-spotify-2a55d6c9": {
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "pronouns": {
+   "slot": "pronouns",
+   "required": false,
+   "label": "Pronouns"
+  },
+  "customPronounsOption": {
+   "slot": "custom",
+   "required": false,
+   "label": "Custom"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": true,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[GitHub]": {
+   "slot": "github",
+   "required": false,
+   "label": "GitHub URL"
+  },
+  "urls[Portfolio]": {
+   "slot": "website",
+   "required": false,
+   "label": "Portfolio URL"
+  },
+  "urls[Other]": {
+   "slot": "website",
+   "required": false,
+   "label": "Other website"
+  },
+  "cards[92a51f92-d683-4f7b-be57-e25376f60abe][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Have you ever been previously employed by Spotify?"
+  },
+  "What is your location?": {
+   "slot": "location",
+   "required": false,
+   "label": "What is your location?"
+  },
+  "consent[marketing]": {
+   "slot": "consent",
+   "required": false,
+   "label": "Spotify has my consent to contact me about future job opportunities."
+  }
+ },
+ "lever-shieldai-ba945088": {
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": false,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": false,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": false,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[Twitter]": {
+   "slot": "social",
+   "required": false,
+   "label": "Twitter URL"
+  },
+  "urls[GitHub]": {
+   "slot": "github",
+   "required": false,
+   "label": "GitHub URL"
+  },
+  "urls[Portfolio]": {
+   "slot": "website",
+   "required": false,
+   "label": "Portfolio URL"
+  },
+  "urls[Other]": {
+   "slot": "website",
+   "required": false,
+   "label": "Other website"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field0]": {
+   "slot": "eeo_veteran",
+   "required": true,
+   "label": "Are you a transitioning service member?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If yes, what partnership program are you working with?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field2]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If other, please provide further details"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field3]": {
+   "slot": "start_date",
+   "required": false,
+   "label": "When are you available to start your fellowship?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field4]": {
+   "slot": "start_date",
+   "required": false,
+   "label": "When are you available for full time work?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field5]": {
+   "slot": "custom",
+   "required": true,
+   "label": "What full time job(s) are you applying for?"
+  },
+  "cards[a90569ad-6b52-448e-9792-055f7c122285][field0]": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "How did you hear about us?"
+  },
+  "cards[a90569ad-6b52-448e-9792-055f7c122285][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If \"Industry Conference\" or \"Other,\" please provide more details:"
+  },
+  "cards[f27077c2-d069-4885-b031-ee14b393fd41][field0]": {
+   "slot": "relocation",
+   "required": true,
+   "label": "Are you local to or willing to relocate?"
+  },
+  "cards[f27077c2-d069-4885-b031-ee14b393fd41][field1]": {
+   "slot": "relocation",
+   "required": false,
+   "label": "What office(s) would you be willing to relocate to? (Select all that apply)"
+  },
+  "cards[f27077c2-d069-4885-b031-ee14b393fd41][field2]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If you selected international, what location(s)?"
+  },
+  "cards[0712feed-8da9-4a01-9d5f-cc96fcbd4bcc][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Please select all languages that you are at minimum business conversational or fluent in"
+  },
+  "eeo[gender]": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  },
+  "eeo[race]": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "eeo[veteran]": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "Veteran status"
+  },
+  "eeo[disability]": {
+   "slot": "eeo_disability",
+   "required": false,
+   "label": "Disability status"
+  }
+ },
+ "lever-zoox-e8a190f0": {
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "pronouns": {
+   "slot": "pronouns",
+   "required": false,
+   "label": "Pronouns"
+  },
+  "customPronounsOption": {
+   "slot": "custom",
+   "required": false,
+   "label": "Custom"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": false,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": false,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[Other]": {
+   "slot": "website",
+   "required": false,
+   "label": "Other website"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field0]": {
+   "slot": "preferred_name",
+   "required": false,
+   "label": "What is your preferred first name and last name? If your legal first and last name is your"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field1]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Export Control and Compliance: For the sole purpose of determining export licensing requir"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field2]": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Sponsorship: Do you require sponsorship, or will you require sponsorship in the future for"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field3]": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "How did you hear about us?"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field4]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Type your response"
+  },
+  "eeo[gender]": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  },
+  "eeo[race]": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "eeo[veteran]": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "Veteran status"
+  }
+ },
+ "lever-leverdemo-7e10ea46": {
+  "resume": {
+   "slot": "resume",
+   "required": false,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "pronouns": {
+   "slot": "pronouns",
+   "required": false,
+   "label": "Pronouns"
+  },
+  "customPronounsOption": {
+   "slot": "custom",
+   "required": false,
+   "label": "Custom"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": false,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": true,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[Github]": {
+   "slot": "github",
+   "required": false,
+   "label": "Github URL"
+  },
+  "urls[Other Website]": {
+   "slot": "website",
+   "required": false,
+   "label": "Other Website URL"
+  },
+  "urls[Video Link ]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Video Link URL"
+  },
+  "cards[d1e09f46-1816-49dc-bc51-a0b256f72e83][field0]": {
+   "slot": "age",
+   "required": false,
+   "label": "Are you 18 years or older?"
+  },
+  "eeo[gender]": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  },
+  "eeo[race]": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "eeo[veteran]": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "Veteran status"
+  },
+  "eeo[disability]": {
+   "slot": "eeo_disability",
+   "required": false,
+   "label": "Disability status"
+  }
+ },
+ "lever-palantir-0ccbe620": {
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": false,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": true,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": false,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[GitHub]": {
+   "slot": "github",
+   "required": false,
+   "label": "GitHub URL"
+  },
+  "urls[Portfolio]": {
+   "slot": "website",
+   "required": false,
+   "label": "Portfolio URL"
+  },
+  "cards[a69a985a-eae9-4c14-90fb-b5a4b891523e][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Language Skill(s) (Check all that apply)"
+  },
+  "cards[a69a985a-eae9-4c14-90fb-b5a4b891523e][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Type your response"
+  },
+  "cards[a69a985a-eae9-4c14-90fb-b5a4b891523e][field2]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Type your response"
+  },
+  "cards[a6197d84-549e-4a91-8bb0-6af972510013][field0]": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "Please tell us how you heard about this opportunity."
+  },
+  "cards[44c03c37-88cf-4cb8-9fb4-56693ccc3ae1][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Tell us your story. How did you get to where you are today? Include the jobs, training, an"
+  },
+  "cards[44c03c37-88cf-4cb8-9fb4-56693ccc3ae1][field1]": {
+   "slot": "custom",
+   "required": true,
+   "label": "How does your technical background and skillset align with this opportunity?"
+  },
+  "cards[44c03c37-88cf-4cb8-9fb4-56693ccc3ae1][field2]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Walk us through a particular project that you designed, initiated, and saw through to comp"
+  },
+  "cards[44c03c37-88cf-4cb8-9fb4-56693ccc3ae1][field3]": {
+   "slot": "custom",
+   "required": true,
+   "label": "What do you want to be doing a year out from completing the fellowship? How will the Ameri"
+  },
+  "cards[73796cde-fc01-4758-9002-c85155f3503d][field0]": {
+   "slot": "consent",
+   "required": true,
+   "label": "As part of our interview process, we may use AI notetakers to transcribe conversations for"
+  },
+  "comments": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Additional information"
+  }
+ },
+ "lever-shieldai-66ab9907": {
+  "opportunityLocationId": {
+   "slot": "custom",
+   "required": false,
+   "label": "Which location are you applying for?"
+  },
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": false,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": false,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": false,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[Twitter]": {
+   "slot": "social",
+   "required": false,
+   "label": "Twitter URL"
+  },
+  "urls[GitHub]": {
+   "slot": "github",
+   "required": false,
+   "label": "GitHub URL"
+  },
+  "urls[Portfolio]": {
+   "slot": "website",
+   "required": false,
+   "label": "Portfolio URL"
+  },
+  "urls[Other]": {
+   "slot": "website",
+   "required": false,
+   "label": "Other website"
+  },
+  "cards[115d9079-dcfa-4a25-aff3-f213bf88362e][field0]": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you authorized to work in the United States?"
+  },
+  "cards[115d9079-dcfa-4a25-aff3-f213bf88362e][field1]": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you require sponsorship for employment now or in the future?"
+  },
+  "cards[115d9079-dcfa-4a25-aff3-f213bf88362e][field2]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If yes, what type of sponsorship?"
+  },
+  "cards[7e99ef70-58ab-4a59-bc31-cc1c35935935][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "This position may require access to information and technology that is subject to export c"
+  },
+  "cards[7e99ef70-58ab-4a59-bc31-cc1c35935935][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If you selected \"A protected Individual\" OR \"Other\" to the above question, please explain "
+  },
+  "cards[5f2a739c-bb0e-4283-92c6-1dc8c09b459c][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Shield AI provides technology, services, and support to the United States military and all"
+  },
+  "cards[5f2a739c-bb0e-4283-92c6-1dc8c09b459c][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "(Optional) If you selected other or would like to expand on the above, feel free to do so "
+  },
+  "cards[a90569ad-6b52-448e-9792-055f7c122285][field0]": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "How did you hear about us?"
+  },
+  "cards[a90569ad-6b52-448e-9792-055f7c122285][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If \"Industry Conference\" or \"Other,\" please provide more details:"
+  },
+  "cards[eb3750bb-e1f0-473c-a54d-012919c5e349][field0]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Type your response"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field0]": {
+   "slot": "eeo_veteran",
+   "required": true,
+   "label": "Are you a transitioning service member?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field1]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If yes, what partnership program are you working with?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field2]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If other, please provide further details"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field3]": {
+   "slot": "start_date",
+   "required": false,
+   "label": "When are you available to start your fellowship?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field4]": {
+   "slot": "start_date",
+   "required": false,
+   "label": "When are you available for full time work?"
+  },
+  "cards[07fdf1f1-9952-493d-a9b7-320969a56fed][field5]": {
+   "slot": "custom",
+   "required": true,
+   "label": "What full time job(s) are you applying for?"
+  },
+  "cards[f27077c2-d069-4885-b031-ee14b393fd41][field0]": {
+   "slot": "relocation",
+   "required": true,
+   "label": "Are you local to or willing to relocate?"
+  },
+  "cards[f27077c2-d069-4885-b031-ee14b393fd41][field1]": {
+   "slot": "relocation",
+   "required": false,
+   "label": "What office(s) would you be willing to relocate to? (Select all that apply)"
+  },
+  "cards[f27077c2-d069-4885-b031-ee14b393fd41][field2]": {
+   "slot": "custom",
+   "required": false,
+   "label": "If you selected international, what location(s)?"
+  },
+  "cards[657522f5-cc60-482f-939e-1ce0f87d019a][field0]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Do you have, or are you able to obtain, a S/SAR clearance?"
+  },
+  "eeo[gender]": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  },
+  "eeo[race]": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "eeo[veteran]": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "Veteran status"
+  },
+  "eeo[disability]": {
+   "slot": "eeo_disability",
+   "required": false,
+   "label": "Disability status"
+  }
+ },
+ "lever-zoox-5569d46e": {
+  "resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume/CV ATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Success!"
+  },
+  "name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full name"
+  },
+  "pronouns": {
+   "slot": "pronouns",
+   "required": false,
+   "label": "Pronouns"
+  },
+  "customPronounsOption": {
+   "slot": "custom",
+   "required": false,
+   "label": "Custom"
+  },
+  "email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "location": {
+   "slot": "location",
+   "required": false,
+   "label": "Current location No location found. Try entering a different locationLoading"
+  },
+  "org": {
+   "slot": "current_company",
+   "required": false,
+   "label": "Current company"
+  },
+  "urls[LinkedIn]": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn URL"
+  },
+  "urls[Other]": {
+   "slot": "website",
+   "required": false,
+   "label": "Other website"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field0]": {
+   "slot": "preferred_name",
+   "required": false,
+   "label": "What is your preferred first name and last name? If your legal first and last name is your"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field1]": {
+   "slot": "custom",
+   "required": true,
+   "label": "Export Control and Compliance: For the sole purpose of determining export licensing requir"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field2]": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Sponsorship: Do you require sponsorship, or will you require sponsorship in the future for"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field3]": {
+   "slot": "hear_about",
+   "required": true,
+   "label": "How did you hear about us?"
+  },
+  "cards[c62ec44a-0482-4f8f-9630-94a6aac1e3c3][field4]": {
+   "slot": "custom",
+   "required": false,
+   "label": "Type your response"
+  },
+  "eeo[gender]": {
+   "slot": "eeo_gender",
+   "required": false,
+   "label": "Gender"
+  },
+  "eeo[race]": {
+   "slot": "eeo_race",
+   "required": false,
+   "label": "Race"
+  },
+  "eeo[veteran]": {
+   "slot": "eeo_veteran",
+   "required": false,
+   "label": "Veteran status"
+  }
+ },
+ "ashby-ramp-34413f8d": {
+  "3080cfba-13cc-4441-94b9-159da1278e66": {
+   "slot": "custom",
+   "required": true,
+   "label": "Do you have a minimum of 7 years of experience building software?"
+  },
+  "66d3b6e2-6cef-4cf8-9193-87200193ab98": {
+   "slot": "custom",
+   "required": true,
+   "label": "Do you have a minimum of 5 years of experience building in AWS (with Terraform)?"
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Legal Name"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "4b71793a-c95c-4cc9-9d06-02e6ef7c5777": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "smsConsent": {
+   "slot": "sms_consent",
+   "required": false,
+   "label": "SMS"
+  },
+  "whatsAppConsent": {
+   "slot": "sms_consent",
+   "required": false,
+   "label": "WhatsApp"
+  },
+  "_systemfield_location": {
+   "slot": "location",
+   "required": true,
+   "label": "Where do you plan on working from (for payroll tax purposes)?"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume"
+  },
+  "dc915b3a-c535-49df-abd6-dc8f3ddf6728": {
+   "slot": "linkedin",
+   "required": true,
+   "label": "LinkedIn Profile"
+  },
+  "6686ff1d-a7f9-484b-af56-4c32ff8cd99f": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "0086e069-bc0c-467b-8d38-c3f023146e79": {
+   "slot": "custom",
+   "required": true,
+   "label": "Please elaborate on your experience building software in AWS (with Terraform)"
+  },
+  "c88f753e-ac4c-461c-81ec-3495a671c5bd": {
+   "slot": "custom",
+   "required": true,
+   "label": "Here's some text encoded in a common format. Figure out the correct secret and submit it i"
+  },
+  "3285cb76-c9b1-4ac1-92ce-c4059b19e4a0": {
+   "slot": "custom",
+   "required": true,
+   "label": "In the above question, we ask you to figure out a secret to prove two things: (1) that you"
+  },
+  "3e666775-f7f9-4eab-bbdb-1a3bb13bc8a4": {
+   "slot": "custom",
+   "required": false,
+   "label": "We believe exceptional performance in one area is a good indication of performance in othe"
+  }
+ },
+ "ashby-notion-1fc309c8": {
+  "e01a85db-feaa-42b3-a9ad-69b1dcbbab3f": {
+   "slot": "custom",
+   "required": true,
+   "label": "We work from our offices on Mondays, Tuesdays, and Thursdays (Anchor Days). If you need an"
+  },
+  "790b5934-74f5-46f5-897a-675b7f37f2f3": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you now or in the future require Notion to sponsor an immigration case in order to em"
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full Name"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "8039f8aa-c269-467e-bdea-dec068474224": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "_systemfield_location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume"
+  },
+  "dbb7e595-3d7b-4a1f-b0b6-76497b74b4cb": {
+   "slot": "linkedin",
+   "required": true,
+   "label": "LinkedIn Profile"
+  },
+  "493d7e38-1fc7-4a33-b2e9-acf9d1dc7fdb_b0a5aba8-dbb7-41a9-b548-f72cc3e48956": {
+   "slot": "pronouns",
+   "required": false,
+   "label": "What pronouns would you like our team to use when addressing you?"
+  },
+  "0b3b7773-f6d9-4032-9ab1-368c4164e95a": {
+   "slot": "hear_about",
+   "required": false,
+   "label": "How did you hear about this opportunity? (select all that apply)"
+  }
+ },
+ "ashby-linear-d3bc1ced": {
+  "9fd0020d-14f0-47f3-b076-f31e5eaa8295": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you based in a EU or equivalent timezone?"
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Name"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume"
+  },
+  "1ed7df4b-e6d4-484e-92c3-4a5f5e07fd0c": {
+   "slot": "cover_letter",
+   "required": true,
+   "label": "Cover letter"
+  },
+  "1c843a13-4fe3-43df-afcf-37a69d88591b": {
+   "slot": "github",
+   "required": true,
+   "label": "Github"
+  },
+  "ca5c9d78-ec13-4bf2-86b8-bce6ff32e45e": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn"
+  },
+  "2165840e-d858-4ff0-ad26-bd48832fe3a7": {
+   "slot": "social",
+   "required": false,
+   "label": "X"
+  },
+  "b617d074-3a16-46ec-bb02-550e30cb0e50": {
+   "slot": "country",
+   "required": true,
+   "label": "What country are you based in?"
+  },
+  "ce587bdf-31fa-4768-9e92-7741b7ad2317": {
+   "slot": "start_date",
+   "required": true,
+   "label": "Notice Period"
+  },
+  "7d3da580-9e6d-494f-a63b-0a889e0a157a": {
+   "slot": "custom",
+   "required": true,
+   "label": "What would you want to work on? Tell us about the features you would want to implement in "
+  },
+  "e8a6b6ee-0550-4c69-85ab-05bd9b26c702": {
+   "slot": "custom",
+   "required": true,
+   "label": "Tell us of a time you had to put your PM hat on to solve a complex product problem."
+  },
+  "c4b19ee4-d084-47fa-89df-ca00e63a7721": {
+   "slot": "custom",
+   "required": true,
+   "label": "What are you extremely good at? What could you teach the team?"
+  },
+  "018585ea-12fd-472a-bdd6-9ef643dfabdd": {
+   "slot": "custom",
+   "required": false,
+   "label": "Has someone at Linear referred you for this role? If so, please include their name here:"
+  }
+ },
+ "ashby-openai-240d459b": {
+  "question_10174619004": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you able to work from our San Francisco HQ 3 days per week?"
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Name"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": false,
+   "label": "Phone"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_10174608004": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "question_10174609004": {
+   "slot": "website",
+   "required": false,
+   "label": "Website"
+  },
+  "question_10174610004": {
+   "slot": "custom",
+   "required": false,
+   "label": "What is your most significant technical achievement?"
+  },
+  "question_10174611004": {
+   "slot": "custom",
+   "required": true,
+   "label": "Please provide an example or evidence of your exceptional ability."
+  },
+  "question_10174612004": {
+   "slot": "github",
+   "required": false,
+   "label": "Where can we find samples of your code?"
+  },
+  "question_10174613004": {
+   "slot": "custom",
+   "required": false,
+   "label": "Where can we find your publications, papers or research?"
+  },
+  "question_10174614004": {
+   "slot": "custom",
+   "required": false,
+   "label": "Are there areas of research you are particularly interested in? If so, please let us know "
+  },
+  "61e65f0a-c044-456c-8d1c-a521b0cbb6af_question_10174615004": {
+   "slot": "custom",
+   "required": true,
+   "label": "How many years of relevant experience do you have outside internships/academia?"
+  },
+  "question_10174616004[]": {
+   "slot": "hear_about",
+   "required": false,
+   "label": "How did you hear about OpenAI?"
+  },
+  "61e65f0a-c044-456c-8d1c-a521b0cbb6af_question_10174617004": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you authorized to work lawfully in the US?"
+  },
+  "question_10174618004": {
+   "slot": "start_date",
+   "required": true,
+   "label": "When can you start a new role?"
+  },
+  "question_10174620004": {
+   "slot": "website",
+   "required": false,
+   "label": "Where can we learn more about you?"
+  },
+  "question_10174621004": {
+   "slot": "custom",
+   "required": false,
+   "label": "Additional Information"
+  },
+  "I acknowledge that I have opened, read, and understood the Arbitration Agreement. I understand that by submitting my application, I am agreeing to be bound by the terms of the Arbitration Agreement.": {
+   "slot": "consent",
+   "required": true,
+   "label": "I acknowledge that I have opened, read, and understood the Arbitration Agreement. I unders"
+  },
+  "I confirm I have read the above.": {
+   "slot": "consent",
+   "required": true,
+   "label": "I confirm I have read the above."
+  }
+ },
+ "ashby-vanta-7e8b02ec": {
+  "cced99e2-faf1-4d53-8a85-2b2736f4f845": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you legally authorized to work in the location where this role is based?"
+  },
+  "70a1df71-30f4-444f-b0a6-1fdeb81c1bcd": {
+   "slot": "custom",
+   "required": true,
+   "label": "This is a hybrid role and has an in-office requirement of Tuesday - Thursday in our Dublin"
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full Name"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "CV / Resume"
+  },
+  "220f31de-81af-41e1-86f0-228375416ab9": {
+   "slot": "linkedin",
+   "required": true,
+   "label": "LinkedIn Profile URL"
+  },
+  "5a974e8f-1ede-47f1-b1c4-472133aa21c1": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone Number"
+  },
+  "communicationConsent": {
+   "slot": "sms_consent",
+   "required": true,
+   "label": "SMS communication consent (titled Phone Number on the page)"
+  },
+  "bda8d900-0cf3-45fd-92b5-b27939491378": {
+   "slot": "current_company",
+   "required": true,
+   "label": "Current/Most Recent Company Name"
+  },
+  "5a3467b2-1e5c-4109-93a2-9003d24a8d48": {
+   "slot": "current_title",
+   "required": true,
+   "label": "Current/Most Recent Job Title"
+  },
+  "_systemfield_location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  }
+ },
+ "ashby-replit-659a8e1e": {
+  "f0f79fa8-eb5c-4982-be3f-c23062000609": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you able to work from our Foster City, CA HQ 3 days per week?"
+  },
+  "d5f11609-c2b0-4163-9bef-e71d2d29ba36": {
+   "slot": "relocation",
+   "required": true,
+   "label": "If not currently in the Bay Area, are you willing to relocate near our Foster City, CA Off"
+  },
+  "de3249cd-768e-4e82-83ac-bf0dade70657": {
+   "slot": "age",
+   "required": true,
+   "label": "Are you at least 18 years of age?"
+  },
+  "5044a612-4996-452a-a2cb-53d95125899b": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you legally authorized to work in the United States?"
+  },
+  "eb6f6616-ae08-47ae-838e-48078a592b2e": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Will you now, or in the future, require sponsorship for employment visa status (e.g. H-1B "
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Full Name"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "e4197ade-2b17-45c7-8cca-a2ad772e1dce": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone Number"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume"
+  },
+  "e6d21c84-8743-4de3-afff-365035b9508f": {
+   "slot": "custom",
+   "required": false,
+   "label": "Replit Profile URL"
+  },
+  "d3cb94e9-34e1-497b-8da8-1f0a313ed6c8": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "Linkedin Profile URL"
+  },
+  "20746d08-f090-47dd-a2a8-ec3b01cd3e5c": {
+   "slot": "website",
+   "required": false,
+   "label": "Portfolio URL"
+  },
+  "93ef361f-a0cd-42d7-af8c-ad4903a0100c": {
+   "slot": "github",
+   "required": false,
+   "label": "Github Profile URL"
+  },
+  "_systemfield_location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "90456d1d-541c-4e76-b82f-49e4840847d6": {
+   "slot": "custom",
+   "required": true,
+   "label": "What excites you about Replit?"
+  },
+  "36d24fe3-cca5-4817-811e-1c3699ebedb2": {
+   "slot": "custom",
+   "required": false,
+   "label": "If you want to share something you built with Replit please share below."
+  },
+  "23281fae-dd5b-427c-974f-f9febc853862_15472de4-f47a-4806-83ce-c3e2d4037ea1": {
+   "slot": "custom",
+   "required": true,
+   "label": "How many years of relevant professional experience do you have?"
+  },
+  "8bf68e7b-237f-40fb-84bc-2c8dd24e482b": {
+   "slot": "salary",
+   "required": true,
+   "label": "What is your desired salary range?"
+  }
+ },
+ "ashby-cohere-7133d205": {
+  "ffb715a5-0eb6-437b-8b25-ca7860a47435": {
+   "slot": "sponsorship",
+   "required": true,
+   "label": "Do you, now or in the future, require sponorship to work in the country you currently resi"
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Name"
+  },
+  "cba30164-a8ec-49b7-b130-df09134f8d29": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone Number"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "_systemfield_location": {
+   "slot": "location",
+   "required": true,
+   "label": "Location"
+  },
+  "46af6548-a1ae-405e-91a8-7f4710911784": {
+   "slot": "linkedin",
+   "required": true,
+   "label": "LinkedIn"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume"
+  },
+  "416dda0f-4e70-4098-b101-9a5f061fd5dd_df16df94-4951-4788-a57b-f353c95bccd4": {
+   "slot": "work_auth",
+   "required": true,
+   "label": "Are you authorized to work in the country you currently reside in?"
+  },
+  "6ad514c7-1228-4b7c-99cc-5ba3af59c967": {
+   "slot": "custom",
+   "required": false,
+   "label": "In a few words, what is the favourite internal application you've built?"
+  },
+  "8c061f65-1b73-4762-8f60-33c959523752": {
+   "slot": "github",
+   "required": false,
+   "label": "If you have a portfolio, GitHub, or other project showcases, please share a link below."
+  }
+ },
+ "ashby-ramp-4859cd5e": {
+  "2d26c0d3-21cb-4c52-8437-5d7db1f05012": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you familiar with or open to using AI tools (e.g. Copilot, ChatGPT, Claude Code, Curso"
+  },
+  "f2cd7bef-9d40-4492-bd2e-a9cbfc082851": {
+   "slot": "custom",
+   "required": true,
+   "label": "Are you located in New York City or San Francisco, and open to working out of our office 2"
+  },
+  "_systemfield_name": {
+   "slot": "full_name",
+   "required": true,
+   "label": "Name"
+  },
+  "_systemfield_email": {
+   "slot": "email",
+   "required": true,
+   "label": "Email"
+  },
+  "_systemfield_resume": {
+   "slot": "resume",
+   "required": true,
+   "label": "Resume"
+  },
+  "phone": {
+   "slot": "phone",
+   "required": true,
+   "label": "Phone"
+  },
+  "cover_letter": {
+   "slot": "cover_letter",
+   "required": false,
+   "label": "Cover Letter"
+  },
+  "question_15186500002": {
+   "slot": "linkedin",
+   "required": false,
+   "label": "LinkedIn Profile"
+  },
+  "669fc093-ca2e-451f-a804-37933a9d7c30": {
+   "slot": "custom",
+   "required": true,
+   "label": "What do you rate your SwiftUI experience 1 to 10 (10 being expert)?"
+  },
+  "question_23341704002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Please share some details about your proudest iOS SwiftUI project in 2 to 3 sentences."
+  },
+  "question_23341705002": {
+   "slot": "custom",
+   "required": true,
+   "label": "Have you contributed to a mobile app(s) and/or several features that reached a large numbe"
+  },
+  "77a45096-353f-4e65-8750-f326f0ebdfa7": {
+   "slot": "custom",
+   "required": false,
+   "label": "We believe exceptional performance in one area is a good indication of performance in othe"
+  }
+ }
+}

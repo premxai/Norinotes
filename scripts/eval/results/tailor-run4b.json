@@ -1,0 +1,415 @@
+{
+  "generatedAt": "2026-11-03T05:48:03.581Z",
+  "overall": {
+    "pairs": 6,
+    "coverageBefore": 77.8,
+    "coverageSelected": 85,
+    "coverageAfter": 85,
+    "exactBefore": 77.8,
+    "exactAfter": 85,
+    "phraseBefore": 57.3,
+    "phraseAfter": 70.2,
+    "presentOpeners": 3,
+    "yearsOnSkills": 0,
+    "strongVerbKept": 100,
+    "tackedOn": 0,
+    "boilerplate": 0,
+    "noOpKept": 8,
+    "summaryShapeOk": 100,
+    "repeatedFacts": 0,
+    "junkSkills": 0,
+    "unnamed": 0,
+    "unsupported": 0,
+    "banned": 0,
+    "wordsPerBullet": 19.1,
+    "wordsPerRewritten": 20.3,
+    "verbDiversity": 0.9,
+    "rewritten": 12,
+    "offered": 32,
+    "reverted": 12,
+    "judge": {
+      "model": null,
+      "relevance": null,
+      "truthfulness": null,
+      "specificity": null,
+      "tone": null,
+      "fabrications": 0
+    },
+    "tailorUsdPerResume": 0.010696333333333271,
+    "tailorUsdMax": 0.015015,
+    "totalUsd": 2.21431
+  },
+  "rows": [
+    {
+      "profile": "new_grad_swe",
+      "kind": "top",
+      "job": "Software Engineer, Product @ Prelim",
+      "fit": 0.75,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 100,
+        "phraseAfter": 100,
+        "total": 3
+      },
+      "readability": {
+        "strongOriginal": 2,
+        "strongKept": 2,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 3,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [],
+      "rewritten": 1,
+      "offered": 5,
+      "reverted": 1,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 23.2,
+      "wordsPerRewritten": 18,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": null,
+      "tailorUsd": 0.0059909999999998576,
+      "judgeUsd": 0,
+      "error": null,
+      "examples": [
+        {
+          "before": "Ran weekly recitations for 40 students, wrote autograder scripts in Python, held office hours.",
+          "after": "Led weekly recitations for 40 students and wrote autograder scripts in Python to support student learning and assessment."
+        }
+      ],
+      "summary": "Computer science graduate and software engineer skilled in React, Node.js, and PostgreSQL. Built a REST endpoint in Python and PostgreSQL for clinic staff and delivered a real-time transit delay tracker web app with about 400 weekly users in the first month."
+    },
+    {
+      "profile": "senior_frontend",
+      "kind": "top",
+      "job": "Senior Frontend Software Engineer, Consumer Engineering @ Reddit",
+      "fit": 0.825,
+      "coverage": {
+        "before": 80,
+        "selected": 80,
+        "after": 80,
+        "exactBefore": 80,
+        "exactAfter": 80,
+        "phraseBefore": 80,
+        "phraseAfter": 80,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 4,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 4,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Bachelor’s degree in Computer Science or related field or equivalent experience"
+      ],
+      "gaps": [
+        "Experience designing and building robust APIs (lacks APIs)",
+        "API design (lacks API design, API)"
+      ],
+      "rewritten": 0,
+      "offered": 6,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.3,
+      "wordsPerRewritten": null,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": null,
+      "tailorUsd": 0.007460000000000022,
+      "judgeUsd": 0,
+      "error": null,
+      "examples": [],
+      "summary": "Senior frontend engineer with 9 years of experience, working with JavaScript, TypeScript, React and Next.js. Tech lead for the merchant dashboard used by 120,000 merchants."
+    },
+    {
+      "profile": "backend_platform_mid",
+      "kind": "top",
+      "job": "Senior Software Engineer, ML Platform @ Dailypay",
+      "fit": 0.842,
+      "coverage": {
+        "before": 57,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 57,
+        "exactAfter": 100,
+        "phraseBefore": 29,
+        "phraseAfter": 86,
+        "total": 7
+      },
+      "readability": {
+        "strongOriginal": 5,
+        "strongKept": 5,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Experience with distributed systems and service-oriented architecture (lacks distributed systems)",
+        "Experience with infrastructure-as-code (Terraform or CloudFormation) (lacks infrastructure-as-code)",
+        "Experience with CI/CD pipelines (GitHub Actions or equivalent) (lacks GitHub Actions)"
+      ],
+      "rewritten": 3,
+      "offered": 6,
+      "reverted": 3,
+      "rounds": 1,
+      "stopReason": "critique found nothing to change",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.4,
+      "wordsPerRewritten": 22.3,
+      "verbDiversity": 0.88,
+      "repeatedOpeners": 1,
+      "summarySource": "facts",
+      "judge": null,
+      "tailorUsd": 0.015015,
+      "judgeUsd": 0,
+      "error": null,
+      "examples": [
+        {
+          "before": "Built an internal deployment CLI and Terraform modules used by 9 teams; reduced new-service setup from 3 days to 2 hours.",
+          "after": "Built production services by creating an internal deployment CLI and Terraform modules used by 9 teams, reducing new-service setup from 3 days to 2 hours."
+        },
+        {
+          "before": "Participate in a weekly on-call rotation; cut pages per week from 14 to 5 by tuning alerts and adding runbooks.",
+          "after": "Participated in a weekly on-call rotation and cut pages per week from 14 to 5 by tuning alerts and adding runbooks."
+        },
+        {
+          "before": "Migrated a nightly batch job from cron on a VM to Kubernetes CronJobs; runtime fell from 5 hours to 55 minutes.",
+          "after": "Migrated a nightly batch job from cron on a VM to Kubernetes CronJobs, reducing runtime from 5 hours to 55 minutes."
+        }
+      ],
+      "summary": "Software engineer with 6 years of experience, working with Python, AWS, Terraform and CI/CD pipelines. Built production services by creating an internal deployment CLI and Terraform modules used by 9 teams, reducing new-service setup from 3 days to 2 hours."
+    },
+    {
+      "profile": "product_designer",
+      "kind": "top",
+      "job": "Staff Product Designer @ F2 Ai",
+      "fit": 0.784,
+      "coverage": {
+        "before": 80,
+        "selected": 80,
+        "after": 80,
+        "exactBefore": 80,
+        "exactAfter": 80,
+        "phraseBefore": 60,
+        "phraseAfter": 80,
+        "total": 5
+      },
+      "readability": {
+        "strongOriginal": 4,
+        "strongKept": 4,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Strong portfolio demonstrating design thinking and problem solving"
+      ],
+      "gaps": [
+        "5+ years of experience in product design or UX/UI (lacks UI)",
+        "Experience leading end-to-end design across features",
+        "Experience with SaaS products and/or AI-driven tools (lacks SaaS, AI)",
+        "product design (lacks product design)",
+        "UX/UI design (lacks UX/UI design, UI design)"
+      ],
+      "rewritten": 2,
+      "offered": 6,
+      "reverted": 4,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 17.2,
+      "wordsPerRewritten": 20.5,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "facts",
+      "judge": null,
+      "tailorUsd": 0.014196999999999793,
+      "judgeUsd": 0,
+      "error": null,
+      "examples": [
+        {
+          "before": "Partner with research to run quarterly diary studies; synthesised findings into 3 roadmap bets.",
+          "after": "Synthesized findings from quarterly diary studies with research partners, collaborating with business stakeholders to inform 3 roadmap bets."
+        },
+        {
+          "before": "Designed patient scheduling and messaging flows for a telehealth app with 250,000 patients; reduced no-shows by 14%. Ran 30+ usability sessions and wrote design critiques for a team of 4 designers.",
+          "after": "Designed patient scheduling and messaging flows for a telehealth app with 250,000 patients, reducing no-shows by 14% through UX research and usability testing."
+        }
+      ],
+      "summary": "Senior product designer with 8 years of experience, working with UX, design systems and usability testing. Built and maintain a Figma component library of 140 components with design tokens, now used by 6 product teams."
+    },
+    {
+      "profile": "account_executive",
+      "kind": "top",
+      "job": "Enterprise Account Executive, Higher Ed @ Boxinc",
+      "fit": 0.753,
+      "coverage": {
+        "before": 50,
+        "selected": 50,
+        "after": 50,
+        "exactBefore": 50,
+        "exactAfter": 50,
+        "phraseBefore": 0,
+        "phraseAfter": 0,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 1,
+        "strongKept": 1,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 0,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 0,
+      "yearsOnSkills": 0,
+      "missing": [
+        "Ability to close complex deals",
+        "Experience in Higher Education vertical sales"
+      ],
+      "gaps": [
+        "Proven success selling SaaS (lacks SaaS)",
+        "SaaS sales (lacks SaaS sales, SaaS)",
+        "Sales process management (lacks Sales process management)",
+        "Experience with ECM, Cloud, or SaaS sales (lacks SaaS)"
+      ],
+      "rewritten": 5,
+      "offered": 5,
+      "reverted": 0,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 15.6,
+      "wordsPerRewritten": 15.6,
+      "verbDiversity": 1,
+      "repeatedOpeners": 0,
+      "summarySource": "model",
+      "judge": null,
+      "tailorUsd": 0.013584999999999958,
+      "judgeUsd": 0,
+      "error": null,
+      "examples": [
+        {
+          "before": "Carry a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts (1,000 to 10,000 employees).",
+          "after": "Carried a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts with 1,000 to 10,000 employees."
+        },
+        {
+          "before": "President's Club 2024 and 2025.",
+          "after": "Achieved President's Club 2024 and 2025 awards."
+        },
+        {
+          "before": "Run discovery, demos with a sales engineer, security questionnaires and procurement negotiation; forecast weekly in Salesforce.",
+          "after": "Ran discovery, demos with a sales engineer, security questionnaires, procurement negotiation, and forecasted weekly in Salesforce."
+        }
+      ],
+      "summary": "Senior account executive in the enterprise account executive field with 7 years of experience, carrying a $1.6M annual quota selling a cloud security platform to mid-market and enterprise accounts. Exceeded quota 7 of 10 quarters and earned President's Club 2024 and 2025."
+    },
+    {
+      "profile": "registered_nurse",
+      "kind": "top",
+      "job": "Registered Nurse | Chemo Infusion @ Elyb",
+      "fit": 0,
+      "coverage": {
+        "before": 100,
+        "selected": 100,
+        "after": 100,
+        "exactBefore": 100,
+        "exactAfter": 100,
+        "phraseBefore": 75,
+        "phraseAfter": 75,
+        "total": 4
+      },
+      "readability": {
+        "strongOriginal": 0,
+        "strongKept": 0,
+        "tackedOn": [],
+        "boilerplate": [],
+        "kept": 1,
+        "summaryShapeOk": true,
+        "repeatedFacts": [],
+        "junkSkills": [],
+        "named": true
+      },
+      "presentOpeners": 1,
+      "yearsOnSkills": 0,
+      "missing": [],
+      "gaps": [
+        "Current American Heart Association BLS Healthcare Provider card (lacks BLS)",
+        "Obtain Oncology Nurse Society Chemotherapy provider card within 6 months of hire",
+        "Maintain current Oncology Nurse Society provider card at all times",
+        "chemotherapy administration (lacks chemotherapy administration)",
+        "biotherapy administration (lacks biotherapy administration)",
+        "central venous access management (lacks central venous access management)"
+      ],
+      "rewritten": 1,
+      "offered": 4,
+      "reverted": 2,
+      "rounds": 1,
+      "stopReason": "coverage stopped improving",
+      "unsupported": [],
+      "banned": [],
+      "wordsPerBullet": 24,
+      "wordsPerRewritten": 25,
+      "verbDiversity": 0.75,
+      "repeatedOpeners": 1,
+      "summarySource": "facts",
+      "judge": null,
+      "tailorUsd": 0.007929999999999993,
+      "judgeUsd": 0,
+      "error": null,
+      "examples": [
+        {
+          "before": "Provide care for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpret rhythms, titrate cardiac drips per protocol, and coordinate with cardiology.",
+          "after": "Cared for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit; interpreted rhythms, titrated cardiac drips per protocol, and coordinated with cardiology."
+        }
+      ],
+      "summary": "Registered nurse with 6 years of experience, working with patient assessment and patient education. Cared for 4 to 5 patients per shift on a 32-bed cardiac telemetry unit."
+    }
+  ]
+}

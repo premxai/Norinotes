@@ -3,12 +3,13 @@
  * the model's output is invalid, so a resume still yields career points. It never invents anything: every point carries
  * the resume line it came from.
  */
+import { certificationsFromSections, type CertSections } from "./certifications.js";
 import { findSkills, normalizeSkills } from "./skills.js";
 import {
   DATE_RANGE, extractMetrics, extractScope, isPresent, normalizeDate, sectionOf, type Metric, type Section,
 } from "./text.js";
 
-export type PointKind = "role" | "project" | "achievement" | "education" | "skill";
+export type PointKind = "role" | "project" | "achievement" | "education" | "skill" | "certification";
 
 /** A career point before it is stored. Skills are canonical; `metrics` hold numbers and what they measure. */
 export type DraftPoint = {
@@ -258,28 +259,39 @@ function parseSkillLines(lines: string[]): DraftPoint[] {
   return out;
 }
 
-/** Parse resume text into draft career points without a model. */
-export function heuristicPoints(text: string): DraftPoint[] {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+function splitSections(text: string): Map<Section | "head", string[]> {
   const sections = new Map<Section | "head", string[]>();
   let current: Section | "head" = "head";
-  for (const line of lines) {
+  for (const line of text.replace(/\r\n?/g, "\n").split("\n")) {
     const sec = sectionOf(line);
     if (sec) { current = sec; if (!sections.has(sec)) sections.set(sec, []); continue; }
     const bucket = sections.get(current) ?? [];
     bucket.push(line);
     sections.set(current, bucket);
   }
+  return sections;
+}
+
+/** A resume's lines split for the certification finder: the licences section apart from every other section. */
+export function certificationSections(text: string): CertSections {
+  const sections = splitSections(text);
+  return {
+    certifications: sections.get("certifications") ?? [],
+    others: [...sections.entries()].filter(([k]) => k !== "certifications").map(([k, lines]) => ({ lines, head: k === "head" })),
+  };
+}
+
+/** Parse resume text into draft career points without a model. */
+export function heuristicPoints(text: string): DraftPoint[] {
+  const sections = splitSections(text);
   const points: DraftPoint[] = [];
   const exp = sections.get("experience") ?? [];
   for (const b of parseEntries(exp)) points.push(...entryToPoints("role", b));
   points.push(...parseProjects(sections.get("projects") ?? []));
   for (const b of parseEntries(sections.get("volunteer") ?? [])) points.push(...entryToPoints("role", b));
   points.push(...parseEducation(sections.get("education") ?? []));
-  for (const line of sections.get("certifications") ?? []) {
-    const t = clean(line.replace(BULLET, "$1"));
-    if (t && t.length <= 120) points.push({ kind: "education", title: t, org: null, startDate: null, endDate: normalizeDate(/\b(?:19|20)\d{2}\b/.exec(t)?.[0]), text: t, skills: findSkills(t), scope: {}, metrics: [], sourceQuote: line.trim() });
-  }
+  // Licences, certifications and clinical cards: the licences section, then credentials named anywhere else in the text.
+  points.push(...certificationsFromSections(certificationSections(text)));
   points.push(...parseSkillLines(sections.get("skills") ?? []));
   return points;
 }

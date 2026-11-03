@@ -1,0 +1,508 @@
+{
+ "absolute_url": "https://job-boards.greenhouse.io/twilio/jobs/8249615",
+ "data_compliance": [
+  {
+   "type": "gdpr",
+   "requires_consent": false,
+   "requires_processing_consent": false,
+   "requires_retention_consent": false,
+   "retention_period": null,
+   "demographic_data_consent_applies": true
+  }
+ ],
+ "internal_job_id": 3569208,
+ "location": {
+  "name": "Remote - US"
+ },
+ "id": 8249615,
+ "updated_at": "2026-11-01T20:22:30-05:00",
+ "requisition_id": "51180",
+ "title": "Account Executive 4",
+ "company_name": "Twilio",
+ "first_published": "2026-10-22T14:35:52-04:00",
+ "language": "en",
+ "application_deadline": null,
+ "departments": [
+  {
+   "id": 34752,
+   "name": "Sales",
+   "child_ids": [
+    70616,
+    70618,
+    70617,
+    70619,
+    74325,
+    634
+   ],
+   "parent_id": 70465
+  }
+ ],
+ "offices": [
+  {
+   "id": 1245,
+   "name": "Remote - US",
+   "location": null,
+   "child_ids": [],
+   "parent_id": 74918
+  }
+ ],
+ "include_ai_disclaimer": null,
+ "ai_opt_out_request_url": null,
+ "compliance": null,
+ "demographic_questions": {
+  "header": "Updated -  Twilio is proud to be an Equal Employment Opportunity employer",
+  "description": "<p><span style=\"font-weight: 400;\">We do not discriminate based upon race, religion, color, national origin, sex (including pregnancy, childbirth, reproductive health decisions, or related medical conditions), sexual orientation, gender identity, gender expression, age, status as a protected veteran, status as an individual with a disability, genetic information, political views or activity, or other applicable legally protected characteristics. We also consider qualified applicants with criminal histories, consistent with applicable federal, state and local law. Additionally, Twilio participates in the E-Verify program in certain locations, as required by law.</span></p>\n<h3 style=\"text-align: center;\"><span style=\"text-decoration: underline;\"><strong>Voluntary Self-Identification of Race &amp; Ethnicity and Protected Veterans Status</strong></span></h3>\n<p><span style=\"font-weight: 400;\">For government reporting purposes, we ask candidates to respond to the below self-identification survey. Completion of the form is entirely </span><strong>voluntary</strong><span style=\"font-weight: 400;\">. Whatever your decision, it will not be considered in the hiring process or thereafter. Any information that you do provide will be recorded and maintained in a confidential file.</span></p>\n<p><span style=\"font-weight: 400;\">As set forth in Twilio&rsquo;s Equal Employment Opportunity policy, we do not discriminate on the basis of any protected group status under any applicable law.</span></p>\n<p><a href=\"https://boards.cdn.greenhouse.io/docs/RaceEthnicityDefinitions.pdf\"><span style=\"font-weight: 400;\">Race &amp; Ethnicity Definitions</span></a></p>\n<p><span style=\"font-weight: 400;\">If you believe you belong to any of the categories of protected veterans listed below, please indicate by making the appropriate selection. As a government contractor subject to the Vietnam Era Veterans Readjustment Assistance Act (VEVRAA), we request this information in order to measure the effectiveness of the outreach and positive recruitment efforts we undertake pursuant to VEVRAA. Classification of protected categories is as follows:</span></p>\n<p><span style=\"font-weight: 400;\">A \"disabled veteran\" is one of the following: a veteran of the U.S. military, ground, naval or air service who is entitled to compensation (or who but for the receipt of military retired pay would be entitled to compensation) under laws administered by the Secretary of Veterans Affairs; or a person who was discharged or released from active duty because of a service-connected disability.</span></p>\n<p><span style=\"font-weight: 400;\">A \"recently separated veteran\" means any veteran during the three-year period beginning on the date of such veteran's discharge or release from active duty in the U.S. military, ground, naval, or air service.</span></p>\n<p><span style=\"font-weight: 400;\">An \"active duty wartime or campaign badge veteran\" means a veteran who served on active duty in the U.S. military, ground, naval or air service during a war, or in a campaign or expedition for which a campaign badge has been authorized under the laws administered by the Department of Defense.</span></p>\n<p><span style=\"font-weight: 400;\">An \"Armed forces service medal veteran\" means a veteran who, while serving on active duty in the U.S. military, ground, naval or air service, participated in a United States military operation for which an Armed Forces service medal was awarded pursuant to Executive Order 12985.</span></p>",
+  "questions": [
+   {
+    "id": 75375,
+    "label": "Voluntary Self-Identification of Gender",
+    "required": true,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 436603,
+      "label": "Male",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436604,
+      "label": "Female",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436605,
+      "label": "Transgender",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436606,
+      "label": "Gender Nonconforming",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436607,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": true
+     }
+    ]
+   },
+   {
+    "id": 75376,
+    "label": "Voluntary Self-Identification of Race/Ethnicity",
+    "required": true,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 436608,
+      "label": "Native American or Alaska Native",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436609,
+      "label": "Asian",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436610,
+      "label": "Black or African American",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436611,
+      "label": "Hispanic or Latino",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436612,
+      "label": "Native Hawaiian or Other Pacific Islander",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436613,
+      "label": "White",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436614,
+      "label": "Two or More Races",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436615,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": true
+     }
+    ]
+   },
+   {
+    "id": 75377,
+    "label": "Protected Veteran Status",
+    "required": true,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 436616,
+      "label": "I am not a protected veteran",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436617,
+      "label": "I identify as one or more of the classifications of a protected veteran",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436618,
+      "label": "I identify as a veteran but not a protected veteran",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436619,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": true
+     }
+    ]
+   },
+   {
+    "id": 75378,
+    "label": "Voluntary Self-Identification of Sexual Orientation",
+    "required": true,
+    "type": "multi_value_single_select",
+    "answer_options": [
+     {
+      "id": 436620,
+      "label": "Bisexual",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436621,
+      "label": "Heterosexual",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436622,
+      "label": "Homosexual",
+      "free_form": false,
+      "decline_to_answer": false
+     },
+     {
+      "id": 436623,
+      "label": "I don't wish to answer",
+      "free_form": false,
+      "decline_to_answer": true
+     }
+    ]
+   }
+  ]
+ },
+ "questions": [
+  {
+   "description": null,
+   "label": "First Name",
+   "required": true,
+   "fields": [
+    {
+     "name": "first_name",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Last Name",
+   "required": true,
+   "fields": [
+    {
+     "name": "last_name",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Preferred First Name",
+   "required": true,
+   "fields": [
+    {
+     "name": "preferred_name",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Email",
+   "required": true,
+   "fields": [
+    {
+     "name": "email",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Phone",
+   "required": true,
+   "fields": [
+    {
+     "name": "phone",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Resume/CV",
+   "required": true,
+   "fields": [
+    {
+     "name": "resume",
+     "type": "input_file",
+     "values": []
+    },
+    {
+     "name": "resume_text",
+     "type": "textarea",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Cover Letter",
+   "required": false,
+   "fields": [
+    {
+     "name": "cover_letter",
+     "type": "input_file",
+     "values": []
+    },
+    {
+     "name": "cover_letter_text",
+     "type": "textarea",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "LinkedIn Profile URL",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_69588778",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": "<p><em>Please click all that apply</em></p>",
+   "label": "How did you hear about Twilio?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_69588779[]",
+     "type": "multi_value_multi_select",
+     "values": [
+      {
+       "label": "Careers Website",
+       "value": 754160414
+      },
+      {
+       "label": "LinkedIn",
+       "value": 754160415
+      },
+      {
+       "label": "Twitter",
+       "value": 754160416
+      },
+      {
+       "label": "Glassdoor",
+       "value": 754160417
+      },
+      {
+       "label": "Indeed",
+       "value": 754160418
+      },
+      {
+       "label": "Twilio Blog",
+       "value": 754160419
+      },
+      {
+       "label": "Conference or Event",
+       "value": 754160420
+      },
+      {
+       "label": "Content (e.g. videos, ads, billboards etc)",
+       "value": 754160421
+      },
+      {
+       "label": "Other",
+       "value": 754160422
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Are you legally authorized to work in the United States?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_69588780",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Will you now or in the future require sponsorship for employment visa status (e.g., H-1B visa status)?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_69588781",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Please indicate whether you are either a citizen or resident of any of the following countries: Cuba, Iran, North Korea, Syria or Crimea Region of Ukraine.\n",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_69588782",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": "<p><a href=\"https://www.twilio.com/en-us/legal/privacy/Global-Applicant-Privacy-Notice\" target=\"_blank\" rel=\"noopener\" data-saferedirecturl=\"https://www.google.com/url?q=https://www.twilio.com/en-us/legal/privacy/Global-Applicant-Privacy-Notice&amp;source=gmail&amp;ust=1709314682155000&amp;usg=AOvVaw1NNgXTFu_UXYAYbZY8SC-a\">Twilio Applicant Privacy Policy</a></p>",
+   "label": "By clicking the \"Acknowledge\" button, you acknowledge that Twilio processes data in accordance with the Twilio Applicant Privacy Policy.",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_69588783[]",
+     "type": "multi_value_multi_select",
+     "values": [
+      {
+       "label": "Acknowledge",
+       "value": 754160423
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": "<p><a href=\"https://www.twilio.com/en-us/company/jobs/candidate-ai-policy\" target=\"_blank\" rel=\"noopener\">Candidate AI Responsible Use Policy</a></p>",
+   "label": "By checking this box, I confirm I have read, reviewed and understood the guidelines outlined in the Candidate AI Responsible Use Policy. I affirm that all the information and materials I submit throughout my application and candidacy will reflect my own work and experience.",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_69588784[]",
+     "type": "multi_value_multi_select",
+     "values": [
+      {
+       "label": "Acknowledge",
+       "value": 754160424
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "location_questions": [
+  {
+   "description": null,
+   "label": "Longitude",
+   "required": true,
+   "fields": [
+    {
+     "name": "longitude",
+     "type": "input_hidden",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Latitude",
+   "required": true,
+   "fields": [
+    {
+     "name": "latitude",
+     "type": "input_hidden",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Location",
+   "required": true,
+   "fields": [
+    {
+     "name": "location",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  }
+ ]
+}

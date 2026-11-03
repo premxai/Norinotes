@@ -1,4 +1,5 @@
 import path from "node:path";
+import { DEV_SESSION_SECRET } from "@norinote/telegram";
 
 /** API settings read from the environment. Everything has a default so `npm run dev:api` works with no setup. */
 export type ApiConfig = {
@@ -22,6 +23,8 @@ export type ApiConfig = {
   allowRealSubmit: boolean;
   telegramBotToken: string | undefined;
   telegramBotUsername: string | null;
+  /** SESSION_SECRET: signs Telegram button data and derives the Telegram webhook secret. A fixed value in development. */
+  sessionSecret: string | undefined;
   maxResumeBytes: number;
 };
 
@@ -45,6 +48,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     allowRealSubmit: env.ALLOW_REAL_SUBMIT === "true",
     telegramBotToken: clean(env.TELEGRAM_BOT_TOKEN),
     telegramBotUsername: clean(env.TELEGRAM_BOT_USERNAME)?.replace(/^@/, "") ?? null,
+    sessionSecret: clean(env.SESSION_SECRET) ?? (production ? undefined : DEV_SESSION_SECRET),
     maxResumeBytes: 10 * 1024 * 1024,
   };
 }
