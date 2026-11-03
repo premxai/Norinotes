@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nori animations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../src/nori-pet.css">
+<style>
+  :root { --bg: #f6f7f5; --surface: #ffffff; --sunken: #eef0ec; --fg: #121815; --muted: #5b665f; --line: rgba(16, 24, 20, 0.1); --accent: #1f3a2e; --on-accent: #fff; --sel: #2e5a44; color-scheme: light; }
+  :root[data-theme="dark"] { --bg: #0f1512; --surface: #161e1a; --sunken: #121a16; --fg: #eef0ea; --muted: #93a097; --line: rgba(255, 255, 255, 0.09); --accent: #f3ecdc; --on-accent: #0f1512; --sel: #a6e0bc; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 Geist, system-ui, sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 140px; }
+  header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  h1 { font: 500 34px/1.1 Fraunces, Georgia, serif; margin: 0; }
+  .sub { color: var(--muted); margin: 4px 0 0; }
+  .sub a { color: var(--fg); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .controls button, .controls label { font: 500 13px Geist, sans-serif; padding: 7px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .controls button.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+  .controls input[type=range] { width: 90px; accent-color: var(--sel); }
+
+  .stage { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 20px; margin-bottom: 22px; }
+  @media (max-width: 760px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  @media (max-width: 480px) { .stage { padding: 14px; } .big { width: 210px; height: 210px; } .big .spr { transform: scale(0.78); } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .big { width: 280px; height: 280px; margin: 0 auto; border-radius: 18px; background: var(--sunken); display: grid; place-items: center; position: relative; }
+  .big .spr { width: 256px; height: 256px; background-repeat: no-repeat; }
+  .big .tag { position: absolute; left: 0; top: 0; }
+  .info h2 { font: 500 26px/1.15 Fraunces, Georgia, serif; margin: 2px 0 4px; }
+  .info .when { color: var(--muted); margin: 0 0 14px; }
+  .facts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .facts span { font-size: 12.5px; padding: 3px 10px; border-radius: 99px; background: var(--sunken); color: var(--muted); }
+  .strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+  .strip div { flex: 0 0 auto; width: 84px; height: 84px; border-radius: 10px; background-color: var(--sunken); background-repeat: no-repeat; border: 2px solid transparent; position: relative; cursor: pointer; }
+  .strip div.on { border-color: var(--sel); }
+  .strip div b { position: absolute; right: 4px; bottom: 2px; font: 500 11px Geist; color: var(--muted); }
+  .nav { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .nav button { font: 500 13px Geist, sans-serif; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--sunken); color: var(--fg); cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 10px 10px 12px; cursor: pointer; text-align: left; color: var(--fg); font: inherit; transition: border-color .15s, transform .15s; }
+  .card:hover { transform: translateY(-2px); }
+  .card.on { border-color: var(--sel); }
+  .card .box { height: 140px; display: grid; place-items: center; border-radius: 12px; background: var(--sunken); }
+  .card .spr { width: 128px; height: 128px; background-repeat: no-repeat; }
+  .card .n { font-weight: 500; margin: 8px 2px 0; display: flex; justify-content: space-between; gap: 6px; }
+  .card .n i { font-style: normal; color: var(--muted); font-size: 12px; font-weight: 400; }
+  .card .w { font-size: 12.5px; color: var(--muted); margin: 2px 2px 0; line-height: 1.35; }
+  .bgs-checker .box, .bgs-checker .big, .bgs-checker .strip div { background-image: conic-gradient(var(--line) 25%, transparent 0 50%, var(--line) 0 75%, transparent 0); background-size: 20px 20px; }
+  .bgs-checker .spr { background-color: transparent; }
+  .sets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .sets button { font: 500 13px Geist, sans-serif; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+  .sets button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+  .sets i { font-style: normal; opacity: 0.6; margin-left: 4px; }
+  kbd { font: 12px ui-monospace, monospace; padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Nori, every animation</h1>
+      <p class="sub"><span id="count">All</span> animations, playing live. Click one to inspect it frame by frame, or press <kbd>←</kbd> <kbd>→</kbd>. Nori in the corner is the real companion: drag, pet, right-click. <a href="./">App playground</a> · <a href="./login.html">Sign-in demo</a></p>
+    </div>
+    <div class="controls">
+      <button class="primary" id="tour">Play one by one</button>
+      <button id="pause">Pause all</button>
+      <label>Speed <input type="range" id="speed" min="0.25" max="2" step="0.25" value="1"><span id="speedv">1x</span></label>
+      <button id="bg">Checker background</button>
+      <button id="theme">Light</button>
+    </div>
+  </header>
+
+  <section class="stage" aria-live="polite">
+    <div class="big"><div class="spr" id="bigspr"></div></div>
+    <div class="info">
+      <div class="facts" id="facts"></div>
+      <h2 id="title">Idle</h2>
+      <p class="when" id="when"></p>
+      <div class="strip" id="strip"></div>
+      <div class="nav">
+        <button id="prev">← Previous</button>
+        <button id="next">Next →</button>
+        <button id="step">Step frame</button>
+        <button id="loop">Loop: on</button>
+        <button id="ontop">Play on the real Nori</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="sets" id="sets"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script type="module">
+import { NoriPet } from "../src/index.js";
+
+const BASE = "../assets/";
+const manifest = await (await fetch(`${BASE}nori.json`)).json();
+const allIds = Object.keys(manifest.rows);
+let ids = allIds;
+const $ = (s) => document.querySelector(s);
+$("#count").textContent = allIds.length;
+let speed = 1, paused = false, current = 0, bigLoop = true, tourTimer = null;
+
+/** A tiny frame player for one element: steps the strip with the row's own timings. */
+function player(el, id, size) {
+  const row = manifest.rows[id];
+  el.style.backgroundImage = `url("${BASE}${row.src}")`;
+  el.style.backgroundSize = `${row.frames * size}px ${size}px`;
+  const p = { frame: 0, timer: null, loop: true, onEnd: null, onFrame: null };
+  const ms = (i) => (row.ms[i] || 450) / speed;
+  p.show = (i) => { p.frame = i; el.style.backgroundPosition = `${-i * size}px 0`; p.onFrame?.(i); };
+  p.tick = () => {
+    clearTimeout(p.timer);
+    if (paused) { p.timer = setTimeout(p.tick, 120); return; }
+    p.timer = setTimeout(() => {
+      if (p.frame < row.frames - 1) p.show(p.frame + 1);
+      else if (p.loop || row.loop || !p.onEnd) p.show(0);
+      else { p.onEnd(); return; }
+      p.tick();
+    }, ms(p.frame));
+  };
+  p.stop = () => clearTimeout(p.timer);
+  p.show(0);
+  p.tick();
+  return p;
+}
+
+// Grid: every row animating at once (one-shot rows loop here with a pause at the end).
+let gridPlayers = [];
+function renderGrid() {
+gridPlayers.forEach((p) => p.stop());
+$("#grid").innerHTML = ids.map((id, i) => {
+  const r = manifest.rows[id];
+  const name = r.label + (id.endsWith("-left") ? " (left)" : id.endsWith("-right") ? " (right)" : "");
+  return `<button class="card" data-i="${i}"><div class="box"><div class="spr"></div></div>
+    <div class="n">${name}<i>${r.frames}f${r.loop ? " · loop" : ""}</i></div><div class="w">${r.plays}</div></button>`;
+}).join("");
+document.querySelectorAll(".card").forEach((card) => {
+  const id = ids[Number(card.dataset.i)];
+  const p = player(card.querySelector(".spr"), id, 128);
+  gridPlayers.push(p);
+  if (!manifest.rows[id].loop) { p.loop = false; p.onEnd = () => setTimeout(() => { p.show(0); p.tick(); }, 700 / speed); }
+  card.onclick = () => { stopTour(); select(Number(card.dataset.i)); $(".stage").scrollIntoView({ behavior: "smooth", block: "nearest" }); };
+});
+}
+renderGrid();
+
+const SETS = { all: "All", app: "Dashboard", auth: "Sign-in", landing: "Landing" };
+$("#sets").innerHTML = Object.entries(SETS).map(([k, v]) => `<button data-set="${k}" aria-pressed="${k === "all"}">${v} <i>${k === "all" ? allIds.length : allIds.filter((id) => (manifest.rows[id].set ?? "app") === k).length}</i></button>`).join("");
+document.querySelectorAll("[data-set]").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("[data-set]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  ids = b.dataset.set === "all" ? allIds : allIds.filter((id) => (manifest.rows[id].set ?? "app") === b.dataset.set);
+  stopTour();
+  renderGrid();
+  select(0);
+}));
+
+// Stage: one row, big, with its frames laid out underneath.
+let big;
+function select(i) {
+  current = (i + ids.length) % ids.length;
+  const id = ids[current], r = manifest.rows[id];
+  big?.stop();
+  big = player($("#bigspr"), id, 256);
+  big.loop = bigLoop;
+  big.onEnd = () => setTimeout(() => { big.show(0); big.tick(); }, 600 / speed);
+  big.onFrame = (f) => document.querySelectorAll("#strip div").forEach((d, k) => d.classList.toggle("on", k === f));
+  $("#title").textContent = r.label + (id.endsWith("-left") ? " (left)" : id.endsWith("-right") ? " (right)" : "");
+  $("#when").textContent = `Plays when: ${r.plays}.`;
+  const total = r.ms.reduce((a, b) => a + b, 0);
+  $("#facts").innerHTML = `<span>${current + 1} of ${ids.length}</span><span>${r.frames} frames</span><span>${total ? `${(total / 1000).toFixed(2)}s per cycle` : "static poses"}</span><span>${r.loop ? "loops" : "plays once"}</span>${r.anchors.note.some(Boolean) ? "<span>holds a note</span>" : ""}<span>id: ${id}</span>`;
+  $("#strip").innerHTML = Array.from({ length: r.frames }, (_, f) =>
+    `<div data-f="${f}" style="background-image:url('${BASE}${r.src}');background-size:${r.frames * 84}px 84px;background-position:${-f * 84}px 0"><b>${f + 1} · ${r.ms[f] || "-"}ms</b></div>`).join("");
+  document.querySelectorAll("#strip div").forEach((d) => (d.onclick = () => { paused = true; $("#pause").textContent = "Play all"; big.show(Number(d.dataset.f)); }));
+  document.querySelectorAll(".card").forEach((c) => c.classList.toggle("on", Number(c.dataset.i) === current));
+  big.onFrame(0);
+}
+select(0);
+
+$("#prev").onclick = () => { stopTour(); select(current - 1); };
+$("#next").onclick = () => { stopTour(); select(current + 1); };
+$("#step").onclick = () => { paused = true; $("#pause").textContent = "Play all"; big.show((big.frame + 1) % manifest.rows[ids[current]].frames); };
+$("#loop").onclick = (e) => { bigLoop = !bigLoop; big.loop = bigLoop; e.target.textContent = `Loop: ${bigLoop ? "on" : "off"}`; };
+$("#pause").onclick = (e) => { paused = !paused; e.target.textContent = paused ? "Play all" : "Pause all"; };
+$("#speed").oninput = (e) => { speed = Number(e.target.value); $("#speedv").textContent = `${speed}x`; };
+$("#bg").onclick = (e) => { const on = document.body.classList.toggle("bgs-checker"); e.target.textContent = on ? "Plain background" : "Checker background"; };
+$("#theme").onclick = (e) => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === "dark" ? "light" : "dark"; e.target.textContent = r.dataset.theme === "dark" ? "Light" : "Dark"; };
+addEventListener("keydown", (e) => {
+  if (e.target.closest("input")) return;
+  if (e.key === "ArrowRight") { stopTour(); select(current + 1); }
+  if (e.key === "ArrowLeft") { stopTour(); select(current - 1); }
+  if (e.key === " ") { e.preventDefault(); $("#pause").click(); }
+});
+
+// Tour: each row twice through (static rows for 2.5s), then the next.
+function stopTour() { clearTimeout(tourTimer); tourTimer = null; $("#tour").textContent = "Play one by one"; }
+function tourStep() {
+  const r = manifest.rows[ids[current]];
+  const cycle = r.ms.reduce((a, b) => a + (b || 450), 0) / speed;
+  tourTimer = setTimeout(() => { select(current + 1); if (current === 0) { stopTour(); return; } tourStep(); }, Math.max(2500, cycle * 2 + 400));
+}
+$("#tour").onclick = () => {
+  if (tourTimer) { stopTour(); return; }
+  paused = false; $("#pause").textContent = "Pause all";
+  select(0); $("#tour").textContent = "Stop the tour"; tourStep();
+  $(".stage").scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+
+// The real companion, for dragging and petting; it can also play the selected row.
+const nori = await NoriPet.create({ assets: BASE, storageKey: "nori-gallery", onPet: () => "That tickles. 25 animations and counting." });
+window.nori = nori;
+$("#ontop").onclick = () => { const id = ids[current]; nori.setNote(manifest.rows[id].anchors.note.some(Boolean) ? "482 913" : null); nori.play(id); };
+</script>
+</body>
+</html>

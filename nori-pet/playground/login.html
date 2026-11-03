@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nori sign-in demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../src/nori-pet.css">
+<style>
+  :root { --bg: #f6f7f5; --surface: #ffffff; --sunken: #eef0ec; --fg: #121815; --muted: #5b665f; --line: rgba(16, 24, 20, 0.12); --accent: #1f3a2e; --on-accent: #fff; --ring: #4e8f6b; --err: #b4322a; color-scheme: light; }
+  :root[data-theme="dark"] { --bg: #0f1512; --surface: #161e1a; --sunken: #111915; --fg: #eef0ea; --muted: #93a097; --line: rgba(255, 255, 255, 0.1); --accent: #f3ecdc; --on-accent: #0f1512; --ring: #8fd3aa; --err: #f08a80; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg); font: 15px/1.5 Geist, system-ui, sans-serif; display: grid; grid-template-columns: 1.1fr 1fr; }
+  @media (max-width: 860px) { body { grid-template-columns: 1fr; } }
+  .brand { padding: 48px 56px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--line); }
+  .logo { font: 500 22px Fraunces, serif; }
+  .brand h1 { font: 500 48px/1.05 Fraunces, Georgia, serif; letter-spacing: -0.015em; margin: 0 0 14px; max-width: 12ch; }
+  .brand p { color: var(--muted); max-width: 40ch; margin: 0; }
+  .stats { display: flex; gap: 28px; color: var(--muted); font-size: 13px; }
+  .stats b { display: block; color: var(--fg); font: 500 26px Fraunces, serif; }
+  @media (max-width: 860px) { .brand { display: none; } .side { padding-top: 150px; } }
+  .side { display: grid; place-items: center; padding: 140px 24px 48px; }
+  .card { width: min(400px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 28px 26px 24px; }
+  .tabs { display: flex; gap: 4px; background: var(--sunken); padding: 4px; border-radius: 99px; margin-bottom: 20px; }
+  .tabs button { flex: 1; font: 500 13px Geist, sans-serif; border: 0; background: transparent; color: var(--muted); padding: 7px 0; border-radius: 99px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+  h2 { font: 500 26px Fraunces, serif; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+  .field { position: relative; }
+  input { width: 100%; font: 15px Geist, sans-serif; color: var(--fg); background: var(--sunken); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; outline: none; }
+  input:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 25%, transparent); }
+  input.code { letter-spacing: 0.4em; font: 500 20px ui-monospace, Consolas, monospace; text-align: center; }
+  .reveal { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font: 500 12.5px Geist, sans-serif; border: 0; background: transparent; color: var(--muted); padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+  .reveal:hover { color: var(--fg); }
+  .primary { width: 100%; margin-top: 18px; font: 500 15px Geist, sans-serif; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 99px; padding: 12px; cursor: pointer; }
+  .link { background: none; border: 0; color: var(--muted); font: 13px Geist, sans-serif; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 12px; }
+  .hint { font-size: 12.5px; color: var(--muted); margin: 14px 0 0; }
+  .err { color: var(--err); font-size: 12.5px; min-height: 18px; margin-top: 6px; }
+  form[hidden] { display: none; }
+  .theme { position: fixed; top: 16px; right: 16px; font: 500 12.5px Geist, sans-serif; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 99px; padding: 6px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+<section class="brand">
+  <div class="logo">Norinote</div>
+  <div>
+    <h1>Jobs you'll likely get, applied in 25 seconds.</h1>
+    <p>Nori reads the boards every morning, tailors your resume for each role, and sends it before your coffee cools.</p>
+  </div>
+  <div class="stats"><div><b>25s</b>per application</div><div><b>6</b>new fits a day</div><div><b>0</b>invented claims</div></div>
+</section>
+
+<section class="side">
+  <div class="card" id="card">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="signin" aria-selected="true">Sign in</button>
+      <button role="tab" data-tab="signup" aria-selected="false">Create account</button>
+      <button role="tab" data-tab="code" aria-selected="false">Email code</button>
+    </div>
+
+    <form id="signin" novalidate>
+      <h2>Welcome back</h2>
+      <p class="lede">Nori kept your shortlist warm.</p>
+      <label for="si-email">Email</label>
+      <input id="si-email" type="email" autocomplete="email" placeholder="you@example.com">
+      <label for="si-pass">Password</label>
+      <div class="field"><input id="si-pass" name="password" type="password" autocomplete="current-password" placeholder="Your password"><button type="button" class="reveal" aria-pressed="false">Show</button></div>
+      <div class="err" aria-live="polite"></div>
+      <button class="primary" type="submit">Sign in</button>
+      <button class="link" type="button" data-forgot>Forgot password?</button>
+      <p class="hint">Try it: type the word <b>wrong</b> as the password to see a failed sign-in.</p>
+    </form>
+
+    <form id="signup" novalidate hidden>
+      <h2>Create your account</h2>
+      <p class="lede">Two minutes now, then Nori does the applying.</p>
+      <label for="su-name">Your name</label>
+      <input id="su-name" data-text autocomplete="name" placeholder="Priya Raman">
+      <label for="su-email">Email</label>
+      <input id="su-email" type="email" autocomplete="email" placeholder="you@example.com">
+      <label for="su-pass">Password</label>
+      <div class="field"><input id="su-pass" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters"><button type="button" class="reveal" aria-pressed="false">Show</button></div>
+      <div class="err" aria-live="polite"></div>
+      <button class="primary" type="submit">Create account</button>
+      <button class="link" type="button" id="opened" hidden>I opened the link</button>
+    </form>
+
+    <form id="code" novalidate hidden>
+      <h2>Check your email</h2>
+      <p class="lede">We sent a 6-digit code. Any 6 digits work here.</p>
+      <label for="code-in">Code</label>
+      <input id="code-in" class="code" data-text inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+      <div class="err" aria-live="polite"></div>
+      <button class="link" type="button" data-resend>Send a new code</button>
+    </form>
+  </div>
+</section>
+<button class="theme" id="theme">Light</button>
+
+<script type="module">
+import { NoriPet } from "../src/index.js";
+
+const $ = (s, el = document) => el.querySelector(s);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+
+const nori = await NoriPet.create({ assets: "../assets/", storageKey: "nori-login", onPet: () => "I won't peek at your password. Promise." });
+window.nori = nori;
+nori.sitOn($("#card"));
+nori.react("hello", { say: "Hi! I'm Nori. Sign in and I'll show you today's jobs." });
+
+let unwire = null;
+function show(tab) {
+  document.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  document.querySelectorAll("form").forEach((f) => (f.hidden = f.id !== tab));
+  const form = $(`#${tab}`);
+  unwire?.();
+  unwire = nori.watchFields({
+    text: [...form.querySelectorAll('input[type="email"], input[data-text]')],
+    password: $('input[name="password"]', form) ?? undefined,
+    reveal: $(".reveal", form) ?? undefined,
+  });
+  nori.sitOn($("#card"));
+}
+document.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => {
+  show(b.dataset.tab);
+  if (b.dataset.tab === "code") nori.react("email-sent", { say: "Your code is on its way. It usually lands in a few seconds." });
+}));
+show("signin");
+
+// Show / hide password: toggle, then keep focus in the field (Nori peeks or covers again).
+document.querySelectorAll(".reveal").forEach((btn) => (btn.onclick = () => {
+  const input = btn.previousElementSibling;
+  const showIt = input.type === "password";
+  input.type = showIt ? "text" : "password";
+  btn.textContent = showIt ? "Hide" : "Show";
+  btn.setAttribute("aria-pressed", String(showIt));
+  input.focus();
+}));
+
+// Email fields: a gentle no for a half-typed address, a nod for a good one.
+document.querySelectorAll('input[type="email"]').forEach((input) => input.addEventListener("blur", () => {
+  if (!input.value) return;
+  if (validEmail(input.value)) nori.react("nod");
+  else nori.react("auth-failed", { say: "That email looks incomplete." });
+}));
+
+const error = (form, text) => { $(".err", form).textContent = text; };
+
+$("#signin").onsubmit = async (e) => {
+  e.preventDefault();
+  const form = e.target, email = $("#si-email").value, pass = $("#si-pass").value;
+  error(form, "");
+  if (!validEmail(email)) { error(form, "Enter your email."); nori.react("auth-failed", { say: "I need your email first." }); $("#si-email").focus(); return; }
+  if (!pass) { error(form, "Enter your password."); $("#si-pass").focus(); return; }
+  document.activeElement.blur();
+  nori.react("signing-in", { say: "Checking your details…", ms: 1500 });
+  await wait(1600);
+  if (pass.toLowerCase() === "wrong") { error(form, "That password didn't match."); nori.react("auth-failed", { say: "That password didn't match. Want to try again, or reset it?" }); return; }
+  nori.react("signed-in", { say: "Welcome back! 6 new jobs are waiting, 3 ready to send.", tone: "success", ms: 5000 });
+};
+
+$("[data-forgot]").onclick = async () => {
+  const email = $("#si-email").value;
+  if (!validEmail(email)) { nori.react("auth-failed", { say: "Type your email above and I'll send a reset link." }); $("#si-email").focus(); return; }
+  nori.react("loading", { say: "Sending a reset link…", ms: 1200 });
+  await wait(1200);
+  nori.react("email-sent", { say: `Reset link sent to ${email}. It works for 30 minutes.`, ms: 6000 });
+};
+
+$("#signup").onsubmit = async (e) => {
+  e.preventDefault();
+  const form = e.target, name = $("#su-name").value.trim(), email = $("#su-email").value, pass = $("#su-pass").value;
+  error(form, "");
+  if (!name) { error(form, "Tell Nori your name."); $("#su-name").focus(); return; }
+  if (!validEmail(email)) { error(form, "Enter a valid email."); nori.react("auth-failed", { say: "That email looks incomplete." }); $("#su-email").focus(); return; }
+  if (pass.length < 8) { error(form, "Use at least 8 characters."); nori.react("auth-failed", { say: "A little longer, please: at least 8 characters." }); $("#su-pass").focus(); return; }
+  document.activeElement.blur();
+  nori.react("loading", { say: "Creating your account…", ms: 1400 });
+  await wait(1500);
+  nori.react("email-sent", { say: `Nearly there, ${name.split(" ")[0]}. Open the link I sent to ${email}.`, ms: 0 });
+  $("#opened").hidden = false;
+};
+$("#opened").onclick = () => {
+  $("#opened").hidden = true;
+  nori.closeBubble();
+  nori.react("welcome", { say: `Welcome to Norinote, ${$("#su-name").value.trim().split(" ")[0] || "friend"}! Let's find your first jobs.`, tone: "success", ms: 6000 });
+};
+
+$("#code-in").addEventListener("input", async (e) => {
+  const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+  e.target.value = v;
+  if (v.length < 6) return;
+  e.target.blur();
+  nori.react("signing-in", { say: "Checking the code…", ms: 1200 });
+  await wait(1300);
+  nori.react("signed-in", { say: "Verified. You're in!", tone: "success", ms: 4000 });
+});
+$("[data-resend]").onclick = () => nori.react("email-sent", { say: "New code sent. The old one stops working now.", ms: 4000 });
+
+$("#theme").onclick = (e) => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === "dark" ? "light" : "dark"; e.target.textContent = r.dataset.theme === "dark" ? "Light" : "Dark"; };
+</script>
+</body>
+</html>

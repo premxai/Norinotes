@@ -1,0 +1,190 @@
+/* Nori companion styles. Theme with the --nori-* properties on .nori or any ancestor. */
+.nori {
+  --nori-bubble-bg: #ffffff;
+  --nori-fg: #16201b;
+  --nori-muted: #5d6862;
+  --nori-border: rgba(16, 24, 20, 0.12);
+  --nori-track: rgba(16, 24, 20, 0.08);
+  --nori-accent: #2e5a44;
+  --nori-on-accent: #ffffff;
+  --nori-alert: #b4561a;
+  --nori-success: #2f7a4f;
+  --nori-danger: #b4322a;
+  --nori-focus: #4e8f6b;
+  --nori-font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2147483000;
+  width: var(--nori-size, 112px);
+  height: var(--nori-size, 112px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-family: var(--nori-font);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not(.light) .nori {
+    --nori-bubble-bg: #1b2420;
+    --nori-fg: #eef1ec;
+    --nori-muted: #9aa69f;
+    --nori-border: rgba(255, 255, 255, 0.12);
+    --nori-track: rgba(255, 255, 255, 0.1);
+    --nori-accent: #f3ecdc;
+    --nori-on-accent: #0f1512;
+    --nori-alert: #f0a35e;
+    --nori-success: #8fd3aa;
+    --nori-danger: #f08a80;
+  }
+}
+/* Explicit dark: data-theme="dark" (any ancestor) or a .dark class, as next-themes and Tailwind set it. */
+[data-theme="dark"] .nori,
+.dark .nori {
+  --nori-bubble-bg: #1b2420;
+  --nori-fg: #eef1ec;
+  --nori-muted: #9aa69f;
+  --nori-border: rgba(255, 255, 255, 0.12);
+  --nori-track: rgba(255, 255, 255, 0.1);
+  --nori-accent: #f3ecdc;
+  --nori-on-accent: #0f1512;
+  --nori-alert: #f0a35e;
+  --nori-success: #8fd3aa;
+  --nori-danger: #f08a80;
+}
+.nori.is-ready { opacity: 1; }
+
+.nori-body {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transform-origin: 50% 6%;
+  transition: transform 0.12s;
+  border-radius: 42%;
+  outline: none;
+}
+.nori-body:focus-visible { box-shadow: 0 0 0 3px var(--nori-focus); }
+.nori.is-dragging .nori-body { cursor: grabbing; transition: none; }
+.nori-sprite { position: absolute; inset: 0; background-repeat: no-repeat; }
+
+/* The text on the card in Nori's hand, placed per frame from the manifest's note anchors. */
+.nori-note {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #fffdf7;
+  color: #18201c;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  font: 600 max(11px, calc(var(--nori-size, 112px) * 0.1)) / 1.2 ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.nori-note.is-on { opacity: 1; }
+
+.nori-bubble {
+  position: absolute;
+  left: 50%;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 16px));
+  transform: translateX(calc(-50% + var(--shift, 0px)));
+  transform-origin: calc(50% - var(--shift, 0px)) 100%;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--nori-bubble-bg);
+  color: var(--nori-fg);
+  border: 1px solid var(--nori-border);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-size: 13.5px;
+  line-height: 1.42;
+  pointer-events: auto;
+}
+.nori-bubble[hidden] { display: none; }
+.nori-bubble.is-in { animation: nori-pop 0.3s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.nori-bubble.is-below { transform-origin: calc(50% - var(--shift, 0px)) 0; }
+.nori-bubble::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - var(--shift, 0px));
+  bottom: -6px;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  background: var(--nori-bubble-bg);
+  border-right: 1px solid var(--nori-border);
+  border-bottom: 1px solid var(--nori-border);
+  transform: rotate(45deg);
+}
+.nori-bubble.is-below::after { bottom: auto; top: -6px; transform: rotate(225deg); }
+.nori-bubble-title { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; color: var(--nori-muted); margin-bottom: 2px; }
+.nori-bubble-time { font-variant-numeric: tabular-nums; }
+.nori-bubble[data-tone="alert"] .nori-bubble-title { color: var(--nori-alert); }
+.nori-bubble[data-tone="success"] .nori-bubble-title { color: var(--nori-success); }
+.nori-bubble[data-tone="error"] .nori-bubble-title { color: var(--nori-danger); }
+.nori-bubble[data-tone="alert"] { border-color: color-mix(in srgb, var(--nori-alert) 45%, var(--nori-border)); }
+.nori-bubble[data-tone="error"] { border-color: color-mix(in srgb, var(--nori-danger) 45%, var(--nori-border)); }
+.nori-bubble-bar { height: 4px; margin-top: 8px; border-radius: 4px; background: var(--nori-track); overflow: hidden; }
+.nori-bubble-bar i { display: block; height: 100%; border-radius: 4px; background: var(--nori-accent); transition: width 0.5s ease; }
+.nori-bubble-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nori-bubble-actions button {
+  font: 500 12.5px/1 var(--nori-font);
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--nori-border);
+  background: transparent;
+  color: var(--nori-fg);
+  cursor: pointer;
+}
+.nori-bubble-actions button:first-child { background: var(--nori-accent); color: var(--nori-on-accent); border-color: transparent; }
+.nori-bubble-actions button:focus-visible { outline: 2px solid var(--nori-focus); outline-offset: 2px; }
+
+.nori-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Effects */
+.nori-fx { position: absolute; inset: 0; pointer-events: none; }
+.nori-fx svg { display: block; width: 100%; height: 100%; }
+.nori-heart { fill: #ef8fa8; }
+.nori-star { fill: #f2b84b; }
+.nori-fx-rise { position: absolute; left: calc(50% - 9px); top: 4%; width: 18px; height: 18px; animation: nori-rise 1.2s ease-out var(--delay, 0ms) both; }
+.nori-fx-pop { position: absolute; left: calc(50% - 8px); top: 32%; width: 16px; height: 16px; animation: nori-burst 0.9s ease-out var(--delay, 0ms) both; }
+.nori-fx-confetti {
+  position: absolute; left: calc(50% - 3px); top: 30%; width: 6px; height: 10px; border-radius: 2px;
+  background: hsl(var(--hue) 80% 62%);
+  animation: nori-confetti 1.6s cubic-bezier(0.2, 0.7, 0.4, 1) var(--delay, 0ms) both;
+}
+.nori-fx-zzz { position: absolute; right: 6%; top: -2%; font: italic 700 calc(var(--nori-size, 112px) * 0.14) / 1 var(--nori-font); color: var(--nori-muted); }
+.nori-fx-zzz b { display: inline-block; animation: nori-z 2.4s ease-in-out infinite; }
+.nori-fx-zzz b:nth-child(2) { animation-delay: 0.4s; font-size: 0.8em; }
+.nori-fx-zzz b:nth-child(3) { animation-delay: 0.8s; font-size: 0.65em; }
+.nori-fx-alert {
+  position: absolute; right: 12%; top: 2%; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--nori-alert); color: #fff; font: 800 14px/1 var(--nori-font);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  animation: nori-nudge 1.4s ease-in-out infinite;
+}
+
+@keyframes nori-pop { from { scale: 0.85; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes nori-rise { 0% { opacity: 0; translate: 0 0; scale: 0.5; } 20% { opacity: 1; scale: 1; } 100% { opacity: 0; translate: var(--dx, 0) -64px; } }
+@keyframes nori-burst {
+  0% { transform: rotate(var(--a)) translateX(0) scale(0.2); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: rotate(var(--a)) translateX(calc(var(--nori-size, 112px) * 0.62)) scale(0.5); opacity: 0; }
+}
+@keyframes nori-confetti {
+  0% { transform: rotate(var(--a)) translateX(0) rotate(0); opacity: 1; }
+  100% { transform: rotate(var(--a)) translateX(var(--r)) translateY(40px) rotate(540deg); opacity: 0; }
+}
+@keyframes nori-z { 0%, 100% { translate: 0 0; opacity: 0.4; } 50% { translate: 3px -6px; opacity: 1; } }
+@keyframes nori-nudge { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .nori *, .nori *::after { animation: none !important; transition: none !important; }
+}

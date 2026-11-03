@@ -1,0 +1,36 @@
+{
+  "name": "@norinote/nori-pet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nori, the Norinote companion: 45 plush sprite animations, a framework-free player with states, bubbles, notes, drag and form helpers, and a React wrapper.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": { "types": "./src/index.d.ts", "default": "./src/index.js" },
+    "./react": { "types": "./src/react.d.ts", "default": "./src/react.js" },
+    "./style.css": "./src/nori-pet.css",
+    "./manifest": "./assets/nori.json",
+    "./assets/*": "./assets/*"
+  },
+  "files": ["src", "assets", "README.md"],
+  "sideEffects": ["**/*.css"],
+  "scripts": {
+    "play": "node scripts/serve.mjs",
+    "check": "node scripts/check.mjs",
+    "copy-assets": "node scripts/copy-assets.mjs",
+    "gen": "node scripts/generate.mjs",
+    "build:rows": "node scripts/build-rows.mjs",
+    "pack:tgz": "node scripts/check.mjs && npm pack --pack-destination dist"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5"
+  }
+}

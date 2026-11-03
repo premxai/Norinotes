@@ -1,0 +1,2203 @@
+{
+ "version": 1,
+ "cell": 256,
+ "ground": 248,
+ "rows": {
+  "idle": {
+   "src": "rows/idle.webp",
+   "set": "app",
+   "label": "Idle",
+   "plays": "default",
+   "frames": 6,
+   "ms": [
+    320,
+    140,
+    140,
+    160,
+    140,
+    360
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      123,
+      35
+     ],
+     [
+      118,
+      63
+     ],
+     [
+      121,
+      35
+     ],
+     [
+      126,
+      21
+     ],
+     [
+      122,
+      31
+     ],
+     [
+      125,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "blink": {
+   "src": "rows/blink.webp",
+   "set": "app",
+   "label": "Blink and look around",
+   "plays": "idle variety",
+   "frames": 6,
+   "ms": [
+    260,
+    90,
+    220,
+    420,
+    420,
+    260
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      121,
+      33
+     ],
+     [
+      122,
+      33
+     ],
+     [
+      121,
+      32
+     ],
+     [
+      124,
+      31
+     ],
+     [
+      125,
+      31
+     ],
+     [
+      126,
+      30
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "look": {
+   "src": "rows/look.webp",
+   "set": "app",
+   "label": "Look at cursor",
+   "plays": "hover tracking (static poses: left, right, up, down)",
+   "frames": 4,
+   "ms": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      123,
+      29
+     ],
+     [
+      130,
+      31
+     ],
+     [
+      131,
+      36
+     ],
+     [
+      121,
+      35
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "wave": {
+   "src": "rows/wave.webp",
+   "set": "app",
+   "label": "Wave hello",
+   "plays": "sign-in, morning shortlist ready, replies",
+   "frames": 6,
+   "ms": [
+    160,
+    120,
+    120,
+    120,
+    120,
+    220
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      127,
+      33
+     ],
+     [
+      122,
+      33
+     ],
+     [
+      132,
+      33
+     ],
+     [
+      122,
+      33
+     ],
+     [
+      121,
+      33
+     ],
+     [
+      125,
+      32
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "walk": {
+   "src": "rows/walk.webp",
+   "set": "app",
+   "label": "Walk right",
+   "plays": "moving to a new spot, after a drop",
+   "frames": 8,
+   "ms": [
+    110,
+    110,
+    110,
+    110,
+    110,
+    110,
+    110,
+    110
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      126,
+      29
+     ],
+     [
+      130,
+      33
+     ],
+     [
+      122,
+      28
+     ],
+     [
+      129,
+      31
+     ],
+     [
+      128,
+      32
+     ],
+     [
+      130,
+      37
+     ],
+     [
+      123,
+      31
+     ],
+     [
+      122,
+      34
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "walk-left": {
+   "src": "rows/walk-left.webp",
+   "set": "app",
+   "label": "Walk right",
+   "plays": "moving to a new spot, after a drop",
+   "frames": 8,
+   "ms": [
+    110,
+    110,
+    110,
+    110,
+    110,
+    110,
+    110,
+    110
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      114,
+      29
+     ],
+     [
+      120,
+      33
+     ],
+     [
+      117,
+      28
+     ],
+     [
+      121,
+      31
+     ],
+     [
+      121,
+      32
+     ],
+     [
+      121,
+      37
+     ],
+     [
+      118,
+      31
+     ],
+     [
+      117,
+      34
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "dangle": {
+   "src": "rows/dangle.webp",
+   "set": "app",
+   "label": "Picked up",
+   "plays": "while being dragged",
+   "frames": 4,
+   "ms": [
+    140,
+    140,
+    140,
+    140
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      123,
+      31
+     ],
+     [
+      133,
+      34
+     ],
+     [
+      111,
+      38
+     ],
+     [
+      131,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "land": {
+   "src": "rows/land.webp",
+   "set": "app",
+   "label": "Land",
+   "plays": "dropped",
+   "frames": 4,
+   "ms": [
+    90,
+    110,
+    110,
+    220
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      122,
+      96
+     ],
+     [
+      131,
+      21
+     ],
+     [
+      119,
+      63
+     ],
+     [
+      120,
+      36
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "dizzy": {
+   "src": "rows/dizzy.webp",
+   "set": "app",
+   "label": "Dizzy",
+   "plays": "shaken hard while dragging",
+   "frames": 6,
+   "ms": [
+    130,
+    130,
+    130,
+    130,
+    160,
+    240
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      96,
+      31
+     ],
+     [
+      142,
+      31
+     ],
+     [
+      95,
+      31
+     ],
+     [
+      124,
+      35
+     ],
+     [
+      123,
+      34
+     ],
+     [
+      128,
+      34
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "think": {
+   "src": "rows/think.webp",
+   "set": "app",
+   "label": "Thinking",
+   "plays": "preparing, tailoring a resume",
+   "frames": 6,
+   "ms": [
+    300,
+    300,
+    260,
+    300,
+    220,
+    300
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      112,
+      24
+     ],
+     [
+      102,
+      34
+     ],
+     [
+      129,
+      29
+     ],
+     [
+      105,
+      32
+     ],
+     [
+      118,
+      31
+     ],
+     [
+      122,
+      32
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "read": {
+   "src": "rows/read.webp",
+   "set": "app",
+   "label": "Reading",
+   "plays": "a prepared application is ready to review",
+   "frames": 6,
+   "ms": [
+    320,
+    280,
+    280,
+    260,
+    320,
+    360
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      123,
+      29
+     ],
+     [
+      120,
+      29
+     ],
+     [
+      130,
+      31
+     ],
+     [
+      120,
+      35
+     ],
+     [
+      121,
+      38
+     ],
+     [
+      127,
+      36
+     ]
+    ],
+    "note": [
+     [
+      89,
+      94
+     ],
+     [
+      80,
+      92
+     ],
+     [
+      88,
+      86
+     ],
+     [
+      93,
+      100
+     ],
+     [
+      91,
+      97
+     ],
+     [
+      91,
+      113
+     ]
+    ]
+   }
+  },
+  "scribble": {
+   "src": "rows/scribble.webp",
+   "set": "app",
+   "label": "Filling the form",
+   "plays": "applying",
+   "frames": 6,
+   "ms": [
+    120,
+    120,
+    120,
+    120,
+    140,
+    160
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      123,
+      32
+     ],
+     [
+      124,
+      31
+     ],
+     [
+      120,
+      32
+     ],
+     [
+      121,
+      32
+     ],
+     [
+      124,
+      31
+     ],
+     [
+      131,
+      31
+     ]
+    ],
+    "note": [
+     [
+      101,
+      122
+     ],
+     [
+      101,
+      129
+     ],
+     [
+      94,
+      127
+     ],
+     [
+      96,
+      127
+     ],
+     [
+      95,
+      134
+     ],
+     [
+      98,
+      135
+     ]
+    ]
+   }
+  },
+  "dash": {
+   "src": "rows/dash.webp",
+   "set": "app",
+   "label": "Dash with envelope",
+   "plays": "submitting",
+   "frames": 8,
+   "ms": [
+    90,
+    90,
+    90,
+    90,
+    90,
+    90,
+    90,
+    90
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      131,
+      32
+     ],
+     [
+      149,
+      64
+     ],
+     [
+      127,
+      54
+     ],
+     [
+      129,
+      19
+     ],
+     [
+      131,
+      27
+     ],
+     [
+      151,
+      62
+     ],
+     [
+      130,
+      54
+     ],
+     [
+      119,
+      27
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "catch": {
+   "src": "rows/catch.webp",
+   "set": "app",
+   "label": "Catch a note",
+   "plays": "a verification code arrives",
+   "frames": 6,
+   "ms": [
+    140,
+    140,
+    120,
+    120,
+    160,
+    280
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      129,
+      35
+     ],
+     [
+      106,
+      2
+     ],
+     [
+      89,
+      36
+     ],
+     [
+      127,
+      31
+     ],
+     [
+      140,
+      30
+     ],
+     [
+      126,
+      27
+     ]
+    ],
+    "note": [
+     [
+      92,
+      70
+     ],
+     [
+      124,
+      37
+     ],
+     [
+      108,
+      53
+     ],
+     [
+      94,
+      107
+     ],
+     [
+      92,
+      118
+     ],
+     [
+      97,
+      122
+     ]
+    ]
+   }
+  },
+  "hold": {
+   "src": "rows/hold.webp",
+   "set": "app",
+   "label": "Hold the note",
+   "plays": "showing a code or a short fact",
+   "frames": 4,
+   "ms": [
+    300,
+    200,
+    300,
+    240
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      119,
+      31
+     ],
+     [
+      130,
+      35
+     ],
+     [
+      123,
+      34
+     ],
+     [
+      121,
+      31
+     ]
+    ],
+    "note": [
+     [
+      99,
+      139
+     ],
+     [
+      101,
+      140
+     ],
+     [
+      105,
+      141
+     ],
+     [
+      94,
+      142
+     ]
+    ]
+   }
+  },
+  "wait": {
+   "src": "rows/wait.webp",
+   "set": "app",
+   "label": "Waiting for you",
+   "plays": "needs you, waiting for a code",
+   "frames": 6,
+   "ms": [
+    260,
+    160,
+    160,
+    300,
+    360,
+    300
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      127,
+      27
+     ],
+     [
+      124,
+      31
+     ],
+     [
+      121,
+      28
+     ],
+     [
+      119,
+      32
+     ],
+     [
+      118,
+      32
+     ],
+     [
+      132,
+      32
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "point": {
+   "src": "rows/point.webp",
+   "set": "app",
+   "label": "Point left",
+   "plays": "showing where to tap",
+   "frames": 4,
+   "ms": [
+    260,
+    260,
+    300,
+    300
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      131,
+      33
+     ],
+     [
+      141,
+      32
+     ],
+     [
+      124,
+      32
+     ],
+     [
+      129,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "point-right": {
+   "src": "rows/point-right.webp",
+   "set": "app",
+   "label": "Point left",
+   "plays": "showing where to tap",
+   "frames": 4,
+   "ms": [
+    260,
+    260,
+    300,
+    300
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      121,
+      33
+     ],
+     [
+      113,
+      32
+     ],
+     [
+      115,
+      32
+     ],
+     [
+      110,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "hop": {
+   "src": "rows/hop.webp",
+   "set": "app",
+   "label": "Hop for joy",
+   "plays": "submitted, reply received",
+   "frames": 6,
+   "ms": [
+    120,
+    140,
+    160,
+    140,
+    120,
+    260
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      117,
+      68
+     ],
+     [
+      126,
+      33
+     ],
+     [
+      121,
+      37
+     ],
+     [
+      130,
+      32
+     ],
+     [
+      116,
+      74
+     ],
+     [
+      128,
+      35
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "celebrate": {
+   "src": "rows/celebrate.webp",
+   "set": "app",
+   "label": "Big celebrate",
+   "plays": "interview or offer",
+   "frames": 8,
+   "ms": [
+    140,
+    110,
+    110,
+    110,
+    110,
+    110,
+    160,
+    320
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      122,
+      44
+     ],
+     [
+      117,
+      40
+     ],
+     [
+      131,
+      39
+     ],
+     [
+      125,
+      41
+     ],
+     [
+      113,
+      43
+     ],
+     [
+      132,
+      44
+     ],
+     [
+      122,
+      44
+     ],
+     [
+      124,
+      44
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "deflated": {
+   "src": "rows/deflated.webp",
+   "set": "app",
+   "label": "Deflated",
+   "plays": "captcha, failure, rejection",
+   "frames": 6,
+   "ms": [
+    200,
+    200,
+    260,
+    320,
+    320,
+    400
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      124,
+      16
+     ],
+     [
+      122,
+      32
+     ],
+     [
+      128,
+      54
+     ],
+     [
+      128,
+      25
+     ],
+     [
+      121,
+      38
+     ],
+     [
+      126,
+      34
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "comfort": {
+   "src": "rows/comfort.webp",
+   "set": "app",
+   "label": "Comfort",
+   "plays": "after a rejection, kindly",
+   "frames": 4,
+   "ms": [
+    360,
+    320,
+    360,
+    400
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      120,
+      25
+     ],
+     [
+      148,
+      38
+     ],
+     [
+      120,
+      34
+     ],
+     [
+      120,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "petted": {
+   "src": "rows/petted.webp",
+   "set": "app",
+   "label": "Petted",
+   "plays": "click or tap",
+   "frames": 4,
+   "ms": [
+    140,
+    160,
+    160,
+    260
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      118,
+      69
+     ],
+     [
+      125,
+      91
+     ],
+     [
+      121,
+      35
+     ],
+     [
+      122,
+      49
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "sleep": {
+   "src": "rows/sleep.webp",
+   "set": "app",
+   "label": "Sleep",
+   "plays": "idle a while, daily cap reached, night",
+   "frames": 4,
+   "ms": [
+    520,
+    620,
+    520,
+    620
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      127,
+      34
+     ],
+     [
+      117,
+      55
+     ],
+     [
+      125,
+      28
+     ],
+     [
+      119,
+      53
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "wake": {
+   "src": "rows/wake.webp",
+   "set": "app",
+   "label": "Wake up",
+   "plays": "coming out of sleep",
+   "frames": 6,
+   "ms": [
+    260,
+    260,
+    320,
+    280,
+    200,
+    260
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      122,
+      32
+     ],
+     [
+      117,
+      33
+     ],
+     [
+      119,
+      31
+     ],
+     [
+      127,
+      34
+     ],
+     [
+      128,
+      35
+     ],
+     [
+      125,
+      32
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "cover": {
+   "src": "rows/cover.webp",
+   "set": "auth",
+   "label": "Cover eyes",
+   "plays": "password field focused",
+   "frames": 4,
+   "ms": [
+    120,
+    120,
+    140,
+    220
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      127,
+      31
+     ],
+     [
+      125,
+      31
+     ],
+     [
+      123,
+      31
+     ],
+     [
+      123,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "uncover": {
+   "src": "rows/uncover.webp",
+   "set": "auth",
+   "label": "Uncover eyes",
+   "plays": "password field focused, undone",
+   "frames": 4,
+   "ms": [
+    220,
+    140,
+    120,
+    120
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      123,
+      31
+     ],
+     [
+      123,
+      31
+     ],
+     [
+      125,
+      31
+     ],
+     [
+      127,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "covered": {
+   "src": "rows/covered.webp",
+   "set": "auth",
+   "label": "Eyes covered",
+   "plays": "while the password is typed",
+   "frames": 4,
+   "ms": [
+    420,
+    300,
+    420,
+    300
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      125,
+      33
+     ],
+     [
+      123,
+      49
+     ],
+     [
+      119,
+      31
+     ],
+     [
+      134,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "peek": {
+   "src": "rows/peek.webp",
+   "set": "auth",
+   "label": "Peek at the password",
+   "plays": "show password turned on",
+   "frames": 4,
+   "ms": [
+    360,
+    260,
+    360,
+    300
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      121,
+      31
+     ],
+     [
+      116,
+      33
+     ],
+     [
+      118,
+      31
+     ],
+     [
+      123,
+      30
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "type-along": {
+   "src": "rows/type-along.webp",
+   "set": "auth",
+   "label": "Watch you type",
+   "plays": "typing an email or name (static poses follow the caret)",
+   "frames": 5,
+   "ms": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      91,
+      34
+     ],
+     [
+      104,
+      20
+     ],
+     [
+      122,
+      20
+     ],
+     [
+      148,
+      31
+     ],
+     [
+      144,
+      38
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "nod": {
+   "src": "rows/nod.webp",
+   "set": "auth",
+   "label": "Nod yes",
+   "plays": "a field looks right, sign-in accepted",
+   "frames": 5,
+   "ms": [
+    140,
+    140,
+    140,
+    140,
+    260
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      125,
+      28
+     ],
+     [
+      110,
+      54
+     ],
+     [
+      124,
+      29
+     ],
+     [
+      113,
+      53
+     ],
+     [
+      126,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "shake-no": {
+   "src": "rows/shake-no.webp",
+   "set": "auth",
+   "label": "Gentle no",
+   "plays": "wrong password, a field needs fixing",
+   "frames": 6,
+   "ms": [
+    120,
+    120,
+    120,
+    120,
+    160,
+    300
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      123,
+      31
+     ],
+     [
+      125,
+      29
+     ],
+     [
+      118,
+      30
+     ],
+     [
+      123,
+      32
+     ],
+     [
+      119,
+      36
+     ],
+     [
+      122,
+      36
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "key": {
+   "src": "rows/key.webp",
+   "set": "auth",
+   "label": "Unlocking",
+   "plays": "signing in, verifying a code",
+   "frames": 6,
+   "ms": [
+    200,
+    200,
+    200,
+    200,
+    240,
+    240
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      125,
+      32
+     ],
+     [
+      125,
+      31
+     ],
+     [
+      122,
+      32
+     ],
+     [
+      122,
+      30
+     ],
+     [
+      129,
+      32
+     ],
+     [
+      127,
+      30
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "check-mail": {
+   "src": "rows/check-mail.webp",
+   "set": "auth",
+   "label": "Check your email",
+   "plays": "verification email or reset link sent",
+   "frames": 4,
+   "ms": [
+    300,
+    260,
+    300,
+    360
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      130,
+      31
+     ],
+     [
+      134,
+      32
+     ],
+     [
+      136,
+      32
+     ],
+     [
+      136,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "bow": {
+   "src": "rows/bow.webp",
+   "set": "auth",
+   "label": "Welcome bow",
+   "plays": "account created, first sign-in",
+   "frames": 5,
+   "ms": [
+    180,
+    200,
+    340,
+    200,
+    300
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      127,
+      23
+     ],
+     [
+      112,
+      45
+     ],
+     [
+      113,
+      61
+     ],
+     [
+      127,
+      34
+     ],
+     [
+      131,
+      34
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "sway": {
+   "src": "rows/sway.webp",
+   "set": "auth",
+   "label": "Patient sway",
+   "plays": "loading, waiting on the network",
+   "frames": 4,
+   "ms": [
+    280,
+    240,
+    280,
+    240
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      136,
+      32
+     ],
+     [
+      120,
+      35
+     ],
+     [
+      111,
+      29
+     ],
+     [
+      120,
+      32
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "present": {
+   "src": "rows/present.webp",
+   "set": "landing",
+   "label": "Present",
+   "plays": "introducing a section beside it",
+   "frames": 4,
+   "ms": [
+    320,
+    260,
+    340,
+    320
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      119,
+      34
+     ],
+     [
+      118,
+      33
+     ],
+     [
+      113,
+      31
+     ],
+     [
+      109,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "present-left": {
+   "src": "rows/present-left.webp",
+   "set": "landing",
+   "label": "Present",
+   "plays": "introducing a section beside it",
+   "frames": 4,
+   "ms": [
+    320,
+    260,
+    340,
+    320
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      131,
+      34
+     ],
+     [
+      133,
+      33
+     ],
+     [
+      134,
+      31
+     ],
+     [
+      130,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "point-down": {
+   "src": "rows/point-down.webp",
+   "set": "landing",
+   "label": "Point down",
+   "plays": "scroll cue",
+   "frames": 4,
+   "ms": [
+    260,
+    220,
+    260,
+    320
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      119,
+      32
+     ],
+     [
+      117,
+      34
+     ],
+     [
+      130,
+      30
+     ],
+     [
+      127,
+      61
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "stopwatch": {
+   "src": "rows/stopwatch.webp",
+   "set": "landing",
+   "label": "Stopwatch",
+   "plays": "the speed story: applied in 25 seconds",
+   "frames": 6,
+   "ms": [
+    220,
+    180,
+    180,
+    220,
+    260,
+    340
+   ],
+   "loop": false,
+   "anchors": {
+    "top": [
+     [
+      125,
+      29
+     ],
+     [
+      121,
+      32
+     ],
+     [
+      123,
+      32
+     ],
+     [
+      132,
+      35
+     ],
+     [
+      49,
+      31
+     ],
+     [
+      121,
+      35
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "search": {
+   "src": "rows/search.webp",
+   "set": "landing",
+   "label": "Searching",
+   "plays": "finding jobs, matching",
+   "frames": 6,
+   "ms": [
+    280,
+    260,
+    280,
+    260,
+    300,
+    340
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      122,
+      27
+     ],
+     [
+      119,
+      31
+     ],
+     [
+      120,
+      30
+     ],
+     [
+      119,
+      36
+     ],
+     [
+      143,
+      35
+     ],
+     [
+      128,
+      36
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "laptop": {
+   "src": "rows/laptop.webp",
+   "set": "landing",
+   "label": "Typing on a laptop",
+   "plays": "working fast, filling applications",
+   "frames": 6,
+   "ms": [
+    110,
+    110,
+    110,
+    110,
+    160,
+    200
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      116,
+      31
+     ],
+     [
+      118,
+      31
+     ],
+     [
+      114,
+      34
+     ],
+     [
+      114,
+      32
+     ],
+     [
+      112,
+      32
+     ],
+     [
+      123,
+      31
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "papers": {
+   "src": "rows/papers.webp",
+   "set": "landing",
+   "label": "Sorting resumes",
+   "plays": "the tailoring story",
+   "frames": 6,
+   "ms": [
+    260,
+    220,
+    240,
+    220,
+    300,
+    340
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      117,
+      31
+     ],
+     [
+      120,
+      31
+     ],
+     [
+      122,
+      30
+     ],
+     [
+      125,
+      31
+     ],
+     [
+      128,
+      32
+     ],
+     [
+      126,
+      32
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "relax": {
+   "src": "rows/relax.webp",
+   "set": "landing",
+   "label": "Relax with tea",
+   "plays": "autopilot: you relax while Nori works",
+   "frames": 4,
+   "ms": [
+    420,
+    420,
+    380,
+    440
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      129,
+      27
+     ],
+     [
+      130,
+      26
+     ],
+     [
+      130,
+      26
+     ],
+     [
+      129,
+      26
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "heart": {
+   "src": "rows/heart.webp",
+   "set": "landing",
+   "label": "Thank you",
+   "plays": "sign-up call to action, thanks",
+   "frames": 4,
+   "ms": [
+    320,
+    360,
+    320,
+    260
+   ],
+   "loop": true,
+   "anchors": {
+    "top": [
+     [
+      128,
+      29
+     ],
+     [
+      129,
+      32
+     ],
+     [
+      124,
+      36
+     ],
+     [
+      136,
+      35
+     ]
+    ],
+    "note": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  }
+ }
+}
