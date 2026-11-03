@@ -46,12 +46,20 @@ export type SeedJob = {
   embedText?: string;
 };
 
+/**
+ * A neutral posting body (no skills, no restrictions) long enough to count as a real description. Jobs seeded with a spec
+ * get it unless the test passes its own `description`: a spec read from a real posting is a well-specified job.
+ */
+export const NEUTRAL_DESCRIPTION = Array.from({ length: 8 }, () =>
+  "You will join a friendly team, plan your own work with the people around you, ship improvements every week and help us keep a high bar for quality.",
+).join(" ");
+
 export async function seedJob(db: Db, o: SeedJob): Promise<string> {
   const id = uniq();
   const [j] = await db.insert(jobs).values({
     companyId: o.companyId, atsType: "greenhouse", externalId: id, title: o.title ?? "Software Engineer",
     location: o.location === undefined ? "San Francisco, CA" : o.location, remote: o.remote ?? false,
-    descriptionText: o.description ?? "", applyUrl: `https://example.test/jobs/${id}`,
+    descriptionText: o.description ?? (o.spec ? NEUTRAL_DESCRIPTION : ""), applyUrl: `https://example.test/jobs/${id}`,
     postedAt: o.postedAt === undefined ? daysAgo(3) : o.postedAt, firstSeenAt: o.firstSeenAt ?? daysAgo(3),
     closedAt: o.closedAt ?? null, dedupeKey: id,
   }).returning();

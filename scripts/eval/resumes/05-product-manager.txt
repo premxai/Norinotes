@@ -1,0 +1,28 @@
+Elena Vasquez
+Chicago, IL | elena.vasquez@example.com | (312) 555-0131 | linkedin.com/in/elenavasquezpm
+
+SUMMARY
+Product manager with 7 years of experience in B2B SaaS and fintech. Own roadmaps from discovery to launch, work closely with engineering and design, and measure success by adoption and revenue. US citizen.
+
+EXPERIENCE
+Senior Product Manager, Ledgerline (Chicago, IL), May 2023 - Present
+- Own the invoicing and collections product line (ARR $38M); manage a squad of 7 engineers, 1 designer and 1 data analyst.
+- Launched automated payment reminders after 20 customer interviews and a 6-week experiment; reduced average days-to-pay from 41 to 33 and added $2.4M in expansion ARR.
+- Wrote the strategy and PRDs for a self-serve onboarding flow; activation within 7 days rose from 34% to 51%.
+- Prioritise with RICE, run quarterly planning with 3 other PMs, and present to the executive team.
+
+Product Manager, Meridian Software (Chicago, IL), June 2020 - April 2023
+- Managed the reporting module for an HR platform with 900 enterprise customers; shipped a custom report builder used by 62% of accounts within 6 months.
+- Defined analytics events with SQL and Amplitude to track feature adoption and churn drivers.
+
+Associate Product Manager, Meridian Software, July 2019 - May 2020
+- Ran user research, triaged 300+ feature requests and ran sprint ceremonies.
+
+Business Analyst, Deloitte Consulting (Chicago, IL), 2017 - 2019
+
+EDUCATION
+MBA, Kellogg School of Management, Northwestern University, 2019
+B.A. Economics, University of Illinois Urbana-Champaign, 2017
+
+SKILLS
+Product strategy, roadmapping, PRDs, user research, A/B testing, SQL, Amplitude, Mixpanel, Looker, Jira, Figma, stakeholder management, pricing, B2B SaaS, fintech.

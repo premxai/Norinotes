@@ -1,0 +1,29 @@
+Maya Okonkwo
+New York, NY | maya.okonkwo@example.com | (917) 555-0142 | github.com/mokonkwo | linkedin.com/in/mayaokonkwo
+
+EDUCATION
+Rutgers University, New Brunswick, NJ
+B.S. in Computer Science, May 2026. GPA 3.7. Dean's List 2024, 2025.
+Relevant coursework: Data Structures, Algorithms, Operating Systems, Databases, Distributed Systems, Computer Networks.
+
+EXPERIENCE
+Software Engineering Intern, Brightwell Health (New York, NY), June 2025 - August 2025
+- Built a REST endpoint in Python (FastAPI) and PostgreSQL that lets clinic staff export appointment reports; cut manual report requests to the data team by about 30 per week.
+- Added integration tests with pytest that raised coverage of the scheduling service from 58% to 81%.
+- Shipped the feature to production in week 9 after two rounds of code review.
+
+Teaching Assistant, Data Structures (CS 112), Rutgers University, September 2024 - May 2026
+- Ran weekly recitations for 40 students, wrote autograder scripts in Python, held office hours.
+
+PROJECTS
+Transit Delay Tracker (Go, React, PostgreSQL), 2025
+- Web app that ingests the public MTA GTFS-realtime feed every 30 seconds and shows delays per line. Go service with a worker pool, React and TypeScript front end, deployed on Fly.io. About 400 weekly users in the first month.
+
+Distributed Key-Value Store (Java), 2025
+- Implemented Raft leader election and log replication for a 5-node key-value store as a course capstone; passed the 2,000-operation linearizability checker.
+
+Study Group Matcher (TypeScript, Node, MongoDB), 2024
+- Hackathon project, second place out of 60 teams; matches students by course and availability.
+
+SKILLS
+Python, Java, Go, TypeScript, JavaScript, SQL, React, FastAPI, Node.js, PostgreSQL, MongoDB, Docker, Git, GitHub Actions, AWS (EC2, S3), Linux.

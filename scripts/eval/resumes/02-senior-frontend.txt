@@ -1,0 +1,26 @@
+Daniel Reyes
+San Francisco, CA | daniel.reyes@example.com | (415) 555-0178 | github.com/dreyes-dev
+
+SUMMARY
+Senior frontend engineer with 9 years of experience building design systems, data-heavy dashboards and checkout flows in React and TypeScript. Led teams of up to 5 engineers. Care about performance, accessibility and developer experience.
+
+EXPERIENCE
+Senior Frontend Engineer, Lumen Payments (San Francisco, CA), March 2022 - Present
+- Tech lead for the merchant dashboard (React, TypeScript, GraphQL, Next.js) used by 120,000 merchants; led a team of 5.
+- Rebuilt the dashboard on a shared component library, cutting median page load from 4.1 s to 1.6 s and Largest Contentful Paint by 52%.
+- Introduced Playwright end-to-end tests and visual regression checks; production UI incidents fell by 60% year over year.
+- Drove WCAG 2.1 AA conformance across 40 screens.
+
+Frontend Engineer, Orchard Analytics (Remote), July 2019 - February 2022
+- Built interactive charting for a business intelligence product with D3 and React; handled tables of 1M+ rows with virtualization.
+- Migrated a 200-component Angular 1 app to React with a strangler pattern over 14 months, with no customer downtime.
+- Mentored 3 junior engineers.
+
+Software Engineer, Fieldnote Studios (Oakland, CA), August 2017 - June 2019
+- Built marketing sites and a CMS-driven web app in JavaScript, Sass and Node.
+
+EDUCATION
+B.A. Cognitive Science, UC San Diego, 2017
+
+SKILLS
+React, TypeScript, JavaScript, Next.js, GraphQL (Apollo), Redux, Webpack, Vite, Jest, Testing Library, Playwright, Storybook, CSS-in-JS, Tailwind, D3, web performance, accessibility (WCAG), design systems, Node.js, Figma handoff.

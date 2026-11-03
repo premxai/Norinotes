@@ -1,0 +1,30 @@
+Marcus Johnson
+Denver, CO | marcus.johnson@example.com | (720) 555-0152 | github.com/mjohnson-sre
+US citizen. Eligible to obtain a US government security clearance.
+
+SUMMARY
+Site reliability and DevOps engineer with 7 years of experience running Kubernetes platforms on AWS. Focus on reliability, automation and cost.
+
+EXPERIENCE
+Senior Site Reliability Engineer, Summit Cloud Software (Denver, CO), January 2022 - Present
+- Operate a multi-region EKS platform with 300+ services; maintain 99.95% availability for tier-1 APIs against a 99.9% SLO.
+- Wrote Terraform modules and an ArgoCD GitOps pipeline that cut deployment time from 40 minutes to 8 and enabled 150+ deploys a day.
+- Led incident response as incident commander for 20+ incidents; wrote blameless postmortems that drove a 35% reduction in repeat incidents.
+- Cut AWS spend by $1.1M a year through rightsizing, Savings Plans and Karpenter autoscaling.
+- Built observability with Prometheus, Grafana, OpenTelemetry and PagerDuty.
+
+DevOps Engineer, Redline Data Systems (Boulder, CO), August 2019 - December 2021
+- Migrated 40 services from EC2 to Docker and Kubernetes; wrote Helm charts and Jenkins and GitHub Actions pipelines.
+- Automated PostgreSQL backup and restore tests with Ansible and Python.
+
+Systems Administrator, Front Range Community College (Littleton, CO), 2017 - 2019
+- Managed 120 Linux servers and Active Directory for the IT department.
+
+EDUCATION
+B.S. Information Technology, Colorado State University, 2017
+
+CERTIFICATIONS
+AWS Certified Solutions Architect Professional; Certified Kubernetes Administrator (CKA); HashiCorp Terraform Associate.
+
+SKILLS
+AWS, Kubernetes, Terraform, ArgoCD, Helm, Docker, Linux, Python, Bash, Go (basic), Prometheus, Grafana, OpenTelemetry, PagerDuty, GitHub Actions, Jenkins, Ansible, PostgreSQL, SLOs, incident management, FinOps.

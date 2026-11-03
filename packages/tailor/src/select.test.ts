@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CareerPoint, FitMapEntry } from "@norinote/shared";
 import { SPEC } from "./test-fixtures.js";
-import { entryWeight, orderSkills, selectContent, splitBullets, yearsOfExperience } from "./select.js";
+import { baselineContent, bulletCount, entryWeight, functionWords, orderSkills, selectContent, splitBullets, targetYears, yearsOfExperience } from "./select.js";
 
 const pt = (id: string, p: Partial<CareerPoint> & Pick<CareerPoint, "kind" | "title">): CareerPoint => ({
   id, org: null, startDate: null, endDate: null, text: "", skills: [], scope: {}, metrics: {}, sourceQuote: null, ...p,
@@ -34,13 +34,14 @@ describe("selectContent", () => {
     expect(entryWeight(fit("a", [], 0.5, false))).toBeCloseTo(0.5);
   });
 
-  it("orders bullets in a role by the weight of the requirements they cover, ties in written order", () => {
+  it("orders bullets in a role by the requirements their own text supports, must-haves first, ties in written order", () => {
     const { content } = selectContent({ points, fitMap, spec: SPEC, contact, now: NOW });
     const acme = content.experience.find((r) => r.careerPointId === "acme")!;
-    // The Redis achievement covers a requirement of its own and inherits half of the role's; the three text lines share the role's credit.
-    expect(acme.bullets.map((b) => b.id)).toEqual(["redis", "acme#0", "acme#1", "acme#2"]);
-    expect(acme.bullets[0]!.careerPointIds).toEqual(["redis", "acme"]);
-    expect(acme.bullets[0]!.weight).toBeGreaterThan(acme.bullets[3]!.weight);
+    // The two lines that show must-haves (TypeScript REST APIs, PostgreSQL) lead; the Redis achievement shows a nice-to-have;
+    // the onboarding line supports nothing and the role already has its three bullets.
+    expect(acme.bullets.map((b) => b.id)).toEqual(["acme#0", "acme#1", "redis"]);
+    expect(acme.bullets[2]!.careerPointIds).toEqual(["redis", "acme"]);
+    expect(acme.bullets[0]!.weight).toBeGreaterThan(acme.bullets[2]!.weight);
   });
 
   it("shows roles most recent first and keeps zero-weight roles only if room remains", () => {
@@ -70,13 +71,14 @@ describe("selectContent", () => {
     expect(content.experience[1]!.bullets.length).toBeLessThanOrEqual(4);
   });
 
-  it("orders skills like the posting, then the rest by use", () => {
+  it("lists every skill the job names that the user really has first, in the job's order, then the rest by use", () => {
     const { content } = selectContent({ points, fitMap, spec: SPEC, contact, now: NOW });
     const core = content.skills.find((g) => g.group === "Core")!;
-    // The posting lists TypeScript, PostgreSQL, Kubernetes, Docker, Redis; the user has no Kubernetes and it is not invented.
-    expect(core.items).toEqual(["TypeScript", "PostgreSQL", "Docker", "Redis"]);
+    // Must-have terms first (REST APIs, TypeScript, PostgreSQL), then nice-to-haves; Kubernetes is asked for, but the user
+    // has none, so it is not listed. "REST APIs" is shown because the Acme text says so, not because a skills list does.
+    expect(core.items).toEqual(["REST APIs", "TypeScript", "PostgreSQL", "Redis", "Rust", "Docker"]);
     const extra = content.skills.find((g) => g.group === "Additional")!;
-    expect(extra.items).toEqual(expect.arrayContaining(["React", "Rust", "Flutter"]));
+    expect(extra.items).toEqual(expect.arrayContaining(["React", "Flutter"]));
     expect(extra.items).not.toContain("Kubernetes");
   });
 
@@ -90,7 +92,8 @@ describe("selectContent", () => {
   it("records the requirements each bullet supports", () => {
     const { covers } = selectContent({ points, fitMap, spec: SPEC, contact, now: NOW });
     expect(covers.get("redis")).toEqual(["Redis caching"]);
-    expect(covers.get("acme#0")).toEqual(["Build REST APIs in TypeScript", "PostgreSQL experience"]);
+    expect(covers.get("acme#0")).toEqual(["Build REST APIs in TypeScript"]);
+    expect(covers.get("acme#1")).toEqual(["PostgreSQL experience"]);
   });
 
   it("falls back to skill mentions when there is no fit map", () => {
@@ -100,9 +103,20 @@ describe("selectContent", () => {
     expect(content.projects).toEqual([]);
   });
 
-  it("uses the user's own spelling of a skill the posting names differently", () => {
+  it("uses the job's exact spelling of a skill the user writes differently", () => {
     const groups = orderSkills([pt("a", { kind: "role", title: "x", skills: ["Postgres", "JS"] })], ["JavaScript", "PostgreSQL"]);
-    expect(groups[0]!.items).toEqual(["JS", "Postgres"]);
+    expect(groups[0]!.items).toEqual(["JavaScript", "PostgreSQL"]);
+    expect(groups.flatMap((g) => g.items)).not.toContain("Postgres");
+  });
+
+  it("adds the long form or acronym once when the user writes the other one", () => {
+    const groups = orderSkills([pt("a", { kind: "role", title: "x", skills: ["Amazon Web Services", "machine learning"] })], ["AWS", "Machine Learning", "ML"]);
+    expect(groups[0]!.items).toEqual(["Amazon Web Services (AWS)", "Machine Learning"]);
+  });
+
+  it("finds a job's skill in the user's text, not only in skills lists, and never lists one the user lacks", () => {
+    const groups = orderSkills([pt("a", { kind: "role", title: "Analyst", text: "Built weekly dashboards in Tableau for the sales team" })], ["Tableau", "Looker"]);
+    expect(groups[0]!.items).toEqual(["Tableau"]);
   });
 });
 
@@ -112,5 +126,95 @@ describe("splitBullets", () => {
     const long = `${"Built the ingest pipeline for the data team and ".repeat(3)}shipped it to production. Cut the cost of the nightly job by half after profiling it. Wrote runbooks for the on-call rotation and trained the team to use them well in practice.`;
     expect(splitBullets(long).length).toBeGreaterThan(1);
     expect(splitBullets("")).toEqual([]);
+  });
+});
+
+describe("selection rules", () => {
+  const line = (n: number, what: string) => `${what} number ${n} with TypeScript for the platform team`;
+  const roles: CareerPoint[] = [
+    pt("now", { kind: "role", title: "Engineer", org: "Now Co", startDate: "2023-01", text: [1, 2, 3, 4, 5, 6].map((n) => line(n, "Built service")).join("\n") }),
+    pt("mid", { kind: "role", title: "Engineer", org: "Mid Co", startDate: "2020-01", endDate: "2022-12", text: "Answered support tickets\nBuilt TypeScript tools for support\nWrote PostgreSQL reports" }),
+    pt("old", { kind: "role", title: "Engineer", org: "Old Co", startDate: "2012-01", endDate: "2015-12", text: "Built TypeScript prototypes\nFiled reports\nUsed TypeScript for internal demos\nRan meetings" }),
+  ];
+  const f = [fit("TypeScript", ["now", "mid", "old"], 0.9, true), fit("PostgreSQL", ["mid", "old"], 0.8, true)];
+
+  it("gives the latest and recent roles 3 to 5 bullets and older ones 1 to 2", () => {
+    const { content } = selectContent({ points: roles, fitMap: f, spec: SPEC, contact, now: NOW });
+    const n = Object.fromEntries(content.experience.map((r) => [r.company, r.bullets.length]));
+    expect(n["Now Co"]).toBe(5);
+    expect(n["Mid Co"]).toBe(3);
+    expect(n["Old Co"]).toBe(2);
+  });
+
+  it("puts each role's best-supported bullet first, so the one-page fitter (which keeps the heaviest) never drops it", () => {
+    const { content } = selectContent({ points: roles, fitMap: f, spec: SPEC, contact, now: NOW });
+    const old = content.experience.find((r) => r.company === "Old Co")!;
+    expect(old.bullets.map((b) => b.text)).toEqual(["Built TypeScript prototypes", "Used TypeScript for internal demos"]);
+    const mid = content.experience.find((r) => r.company === "Mid Co")!;
+    expect(mid.bullets[0]!.weight).toBe(Math.max(...mid.bullets.map((b) => b.weight)));
+  });
+
+  it("bulletCount: at least 3 for recent or relevant roles even without support, at most 5; 1 or 2 for older ones", () => {
+    expect(bulletCount([0, 0, 0, 0], true)).toBe(3);
+    expect(bulletCount([2, 2, 2, 2, 2, 2, 2], true)).toBe(5);
+    expect(bulletCount([2, 1], true)).toBe(2);
+    expect(bulletCount([2, 1, 0], false)).toBe(2);
+    expect(bulletCount([2, 0, 0], false)).toBe(1);
+    expect(bulletCount([0, 0], false)).toBe(1);
+  });
+
+  it("baselineContent keeps the user's own order and wording, the before side of the report", () => {
+    const base = baselineContent(roles, contact);
+    expect(base.experience[0]!.bullets.map((b) => b.text)).toEqual([1, 2, 3, 4, 5].map((n) => line(n, "Built service")));
+    expect(base.summary).toBeUndefined();
+  });
+});
+
+describe("years of experience for the summary", () => {
+  it("counts only roles in the person's own function, never earlier analyst or assistant years", () => {
+    const pm: CareerPoint[] = [
+      pt("a", { kind: "role", title: "Senior Product Manager", org: "Ledgerline", startDate: "2023-05", text: "Own the invoicing roadmap with TypeScript teams" }),
+      pt("b", { kind: "role", title: "Product Manager", org: "Meridian", startDate: "2020-06", endDate: "2023-04", text: "Managed the reporting module" }),
+      pt("c", { kind: "role", title: "Business Analyst", org: "Deloitte", startDate: "2017-01", endDate: "2019-06", text: "Wrote TypeScript reports for clients" }),
+    ];
+    const sel = selectContent({ points: pm, fitMap: [fit("TypeScript", ["a", "c"], 0.9, true)], spec: SPEC, contact, now: NOW });
+    expect(sel.years).toBe(5);
+    expect(yearsOfExperience(pm, NOW)).toBe(8);
+    expect([...functionWords("Registered Nurse, Telemetry Unit (Charge Nurse)")]).toEqual(["registered", "nurse", "telemetry", "charge"]);
+    expect([...functionWords("Nursing Assistant (CNA)")]).toEqual(["nursing", "cna"]);
+  });
+});
+
+describe("job mirroring in selection", () => {
+  it("makes the latest role's first three bullets each address a different supported must-have", () => {
+    const pts: CareerPoint[] = [pt("now", {
+      kind: "role", title: "Backend Engineer", org: "Now Co", startDate: "2022-01",
+      text: [
+        "Built TypeScript services for billing with 99.9% uptime",
+        "Built TypeScript services for payouts with typed clients",
+        "Tuned PostgreSQL queries for the reporting team",
+        "Ran Redis caches in front of the slowest endpoints",
+        "Wrote TypeScript tooling for local development",
+      ].join("\n"),
+    })];
+    const spec = { ...SPEC, mustHaves: ["TypeScript", "PostgreSQL", "Redis"], niceToHaves: [], skills: [] };
+    const sel = selectContent({ points: pts, fitMap: [], spec, contact, now: NOW });
+    const top = sel.content.experience[0]!.bullets.slice(0, 3);
+    expect(top.map((b) => sel.focus.get(b.id))).toEqual(["TypeScript", "PostgreSQL", "Redis"]);
+    expect(top.map((b) => b.text)).toEqual([
+      "Built TypeScript services for billing with 99.9% uptime", "Tuned PostgreSQL queries for the reporting team", "Ran Redis caches in front of the slowest endpoints",
+    ]);
+  });
+
+  it("counts summary years in the target function from the person's own dates, none below 2", () => {
+    const roles: CareerPoint[] = [
+      pt("a", { kind: "role", title: "Senior Data Scientist", startDate: "2022-01", text: "x" }),
+      pt("b", { kind: "role", title: "Data Analyst", startDate: "2019-01", endDate: "2021-12", text: "x" }),
+      pt("c", { kind: "role", title: "Barista", startDate: "2015-01", endDate: "2018-12", text: "x" }),
+    ];
+    expect(targetYears(roles, "Data Scientist II", NOW)).toBe(7);
+    expect(targetYears(roles, "Machine Learning Scientist", NOW)).toBe(4);
+    expect(targetYears(roles, "Registered Nurse", NOW)).toBeNull();
+    expect(targetYears([pt("n", { kind: "role", title: "Software Engineer", startDate: "2025-09", text: "x" })], "Software Engineer", NOW)).toBeNull();
   });
 });

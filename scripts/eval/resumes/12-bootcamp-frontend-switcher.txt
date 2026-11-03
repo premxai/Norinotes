@@ -1,0 +1,29 @@
+Carlos Mendes
+Remote (Philadelphia, PA) | carlos.mendes@example.com | (267) 555-0173 | github.com/cmendes-codes | portfolio: carlosmendes.example.dev
+
+SUMMARY
+Former high school math teacher and recent web development bootcamp graduate, moving into frontend engineering. 8 years of experience teaching, curriculum design and communicating complex ideas. Looking for a junior or associate frontend or full-stack role.
+
+EDUCATION
+Hack Reactor, Software Engineering Immersive (full-time, 19 weeks), graduated September 2026
+M.Ed. Secondary Mathematics Education, Temple University, 2018
+B.S. Mathematics, Penn State University, 2016
+
+PROJECTS
+Plantwise (React, TypeScript, Node, Express, PostgreSQL), 2026 - capstone
+- Plant-care reminder app with auth, image upload and a notifications queue. Built the React front end with React Router and React Query, deployed on Render; 3-person team using agile sprints and pull requests.
+
+Budgetly (React, Redux Toolkit, Chart.js), 2026
+- Personal finance dashboard with responsive layouts, charts and accessible forms; Jest and React Testing Library tests, 85% coverage on components.
+
+Recipe Remix (JavaScript, HTML, CSS, REST API), 2026
+- Search app consuming a public recipe API; built a debounce search, keyboard navigation and a dark mode toggle.
+
+EXPERIENCE
+Mathematics Teacher, Northeast Philadelphia High School (Philadelphia, PA), August 2018 - June 2026
+- Taught Algebra II, Statistics and AP Calculus to 150 students a year; AP pass rate rose from 54% to 71%.
+- Designed a hybrid curriculum and built spreadsheets and small Python scripts to automate grading and track student progress.
+- Led the department technology committee; trained 12 teachers on a new learning management system.
+
+SKILLS
+JavaScript (ES6+), TypeScript (learning), React, Redux Toolkit, HTML5, CSS3, Sass, Node.js, Express, PostgreSQL, REST APIs, Git and GitHub, Jest, React Testing Library, responsive design, accessibility basics, Python (basic).

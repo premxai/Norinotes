@@ -17,7 +17,8 @@ export function contentText(c: ResumeContent): string {
     ...c.skills.flatMap((g) => [g.group, ...g.items]),
     ...c.experience.flatMap((r) => [r.title, r.company, ...r.bullets.map((b) => b.text)]),
     ...c.projects.flatMap((p) => [p.name, ...p.bullets.map((b) => b.text)]),
-    ...c.education.flatMap((e) => [e.school, e.degree ?? ""]),
+    ...c.education.flatMap((e) => [e.school, e.degree ?? "", e.field ?? ""]),
+    ...(c.certifications ?? []),
   ].filter(Boolean).join("\n");
 }
 

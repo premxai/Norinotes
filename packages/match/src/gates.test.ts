@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkGates } from "./gates.js";
 import { parseWorkAuth } from "./profile.js";
-import { baseSpec, profileOf } from "./test-helpers.js";
+import { NOW, baseSpec, profileOf } from "./test-helpers.js";
 
 const lane = (over: Partial<{ titles: string[]; locations: string[]; remote: boolean }> = {}) =>
   ({ id: "l", name: "Eng", titles: ["Software Engineer"], locations: ["San Francisco, CA"], remote: false, minFit: 0.5, enabled: true, ...over });
@@ -70,15 +70,20 @@ describe("checkGates", () => {
     expect(checkGates(spec, profileOf({ workAuth: { US: { authorized: false } } })).ok).toBe(false);
   });
 
-  it("compares years with a little slack", () => {
+  it("closes the years gate only for a large gap (a smaller one is a soft penalty in the fit)", () => {
     const profile = profileOf({ experienceYears: 2 });
     expect(checkGates(baseSpec({ yearsMin: 3 }), profile).ok).toBe(true);
-    const far = checkGates(baseSpec({ yearsMin: 8 }), profile);
+    expect(checkGates(baseSpec({ yearsMin: 4 }), profile).ok).toBe(true);
+    const far = checkGates(baseSpec({ yearsMin: 5 }), profile);
     expect(far.ok).toBe(false);
-    expect(far.reasons[0]).toBe("This role asks for 8 years of experience and you have about 2.");
-    // Without a number the seniority implies one, with more slack.
-    expect(checkGates(baseSpec({ seniority: "senior" }), profile).ok).toBe(true);
-    expect(checkGates(baseSpec({ seniority: "director" }), profile).ok).toBe(false);
+    expect(far.reasons[0]).toBe("This role asks for 5 years of experience and you have about 2.");
+    // A spec seniority alone never gates (it used to: a "director" spec closed for 2 years); a senior-or-above title does
+    // for someone with under 2 years.
+    expect(checkGates(baseSpec({ seniority: "director" }), profile).ok).toBe(true);
+    expect(checkGates(baseSpec({ seniority: "senior" }), profile, { title: "Senior Software Engineer" }).ok).toBe(true);
+    const junior = profileOf({ experienceYears: 1 });
+    expect(checkGates(baseSpec(), junior, { title: "Staff Software Engineer" }).reasons).toEqual(["This role asks for about 7 years of experience and you have about 1."]);
+    expect(checkGates(baseSpec(), junior, { title: "Software Engineer" }).ok).toBe(true);
     // Nothing known about the user's experience: no gate.
     expect(checkGates(baseSpec({ yearsMin: 10 }), profileOf()).ok).toBe(true);
   });
@@ -90,8 +95,12 @@ describe("checkGates", () => {
     const london = checkGates(baseSpec(), profile, { ...sf, location: "London, UK" });
     expect(london.ok).toBe(false);
     expect(london.reasons[0]).toBe("This role is in London, UK, which none of your lanes cover (and it is not remote).");
-    // A remote lane accepts a remote job anywhere.
-    expect(checkGates(baseSpec(), profileOf({ lanes: [lane({ remote: true })] }), { ...sf, location: "Remote - Germany", remote: true }).ok).toBe(true);
+    // A remote lane accepts a remote job in a country the user can work in. (It used to accept "Remote - Germany" for a
+    // user whose lanes are all in the US: that was the Europe-remote bug.)
+    expect(checkGates(baseSpec(), profileOf({ lanes: [lane({ remote: true })] }), { ...sf, location: "Remote - US", remote: true }).ok).toBe(true);
+    expect(checkGates(baseSpec(), profileOf({ lanes: [lane({ remote: true })] }), { ...sf, location: "Remote", remote: true }).ok).toBe(true);
+    const germany = checkGates(baseSpec(), profileOf({ lanes: [lane({ remote: true })] }), { ...sf, location: "Remote - Germany", remote: true });
+    expect(germany.reasons).toEqual(["This role is limited to Germany (remote), outside the countries you can work in."]);
     // The spec's own location rules are used when no job row is given.
     const spec = baseSpec({ location: { remote: "onsite", countries: [], cities: ["Austin"] } });
     expect(checkGates(spec, profile).ok).toBe(false);
@@ -102,5 +111,67 @@ describe("checkGates", () => {
     const spec = baseSpec({ citizenshipRequired: true, sponsorship: "no", yearsMin: 9 });
     const r = checkGates(spec, profileOf({ experienceYears: 1, workAuth: { US: { needsSponsorship: true } } }));
     expect(r.reasons).toHaveLength(3);
+  });
+});
+
+describe("checkGates: baseline failures", () => {
+  const usLane = (titles: string[]) => lane({ titles, locations: ["Austin, TX", "San Francisco, CA", "New York, NY"], remote: true });
+  const contractor = { title: "Business Title IT Dev Senior (Software Engineer) - Contractor", location: "Europe Remote - Parking", remote: true };
+
+  it("keeps the Europe-remote contractor away from every US-based profile it topped", () => {
+    const profiles = [
+      profileOf({ location: "Austin, TX", lanes: [usLane(["Backend Engineer", "Platform Engineer", "Software Engineer"])] }),
+      profileOf({ location: "San Francisco, CA", lanes: [usLane(["Senior Frontend Engineer", "Senior Software Engineer"])] }),
+      profileOf({ location: "Denver, CO", lanes: [usLane(["Site Reliability Engineer", "DevOps Engineer"])] }),
+      profileOf({ location: "Remote (Philadelphia, PA)", lanes: [usLane(["Frontend Engineer", "Web Developer"])] }),
+    ];
+    for (const p of profiles) {
+      const r = checkGates(baseSpec({ seniority: "senior" }), p, contractor);
+      expect(r.ok).toBe(false);
+      expect(r.reasons).toContain("This role is limited to Europe (remote), outside the countries you can work in.");
+    }
+  });
+
+  it.each(["Remote - Philippines", "Brazil", "EMEA", "Remote, UK", "Taiwan - Remote", "State of São Paulo, Brazil"])("closes for a US-based user: %s", (location) => {
+    const p = profileOf({ location: "New York, NY", lanes: [lane({ titles: ["Account Executive"], locations: [], remote: true })] });
+    expect(checkGates(baseSpec(), p, { title: "Account Executive", location, remote: /remote/i.test(location) }).ok).toBe(false);
+  });
+
+  it("lets unrestricted and US remote jobs through, and works the other way round for a UK-based user", () => {
+    const us = profileOf({ location: "New York, NY", lanes: [lane({ remote: true })] });
+    expect(checkGates(baseSpec(), us, { title: "Software Engineer", location: "Remote", remote: true }).ok).toBe(true);
+    expect(checkGates(baseSpec(), us, { title: "Software Engineer", location: "Remote (United States)", remote: true }).ok).toBe(true);
+    expect(checkGates(baseSpec(), us, { title: "Software Engineer", location: "US, UK, Canada Remote", remote: true }).ok).toBe(true);
+    const uk = profileOf({ location: "London, UK", lanes: [lane({ locations: ["London"], remote: true })] });
+    expect(checkGates(baseSpec(), uk, { title: "Software Engineer", location: "Remote - US", remote: true }).ok).toBe(false);
+    expect(checkGates(baseSpec(), uk, { title: "Software Engineer", location: "Remote, UK", remote: true }).ok).toBe(true);
+    // A country the user is authorised to work in is fine even if it is not home.
+    const both = profileOf({ location: "New York, NY", lanes: [lane({ remote: true })], workAuth: { US: { citizen: true }, GB: { authorized: true } } });
+    expect(checkGates(baseSpec(), both, { title: "Software Engineer", location: "Remote, UK", remote: true }).ok).toBe(true);
+  });
+
+  it("reads where the job is from the spec when the location text says only 'Remote'", () => {
+    const p = profileOf({ location: "New York, NY", lanes: [lane({ remote: true })] });
+    const mumbai = baseSpec({ location: { remote: "remote", countries: ["India"], cities: ["Mumbai"] } });
+    expect(checkGates(mumbai, p, { title: "Senior Graphic Designer", location: "Remote", remote: true }).ok).toBe(false);
+  });
+
+  it("counts years in the job's function: a teacher with a bootcamp fails Senior Software Engineer", () => {
+    let i = 0;
+    const pt = (title: string, startDate: string, endDate: string | null, kind = "role") => ({
+      id: `g${i++}`, kind, title, org: null, startDate, endDate, text: "", skills: [], scope: {}, metrics: {}, embedding: null,
+    });
+    const switcher = profileOf({
+      experienceYears: 7.8, lanes: [lane({ titles: ["Frontend Engineer"], locations: [], remote: true })],
+      points: [pt("Mathematics Teacher", "2018-08", "2026-06"), pt("Plantwise", "2026-01", null, "project")],
+    });
+    const senior = checkGates(baseSpec({ seniority: "senior", yearsMin: 5 }), switcher, { title: "Senior Software Engineer", location: null, remote: true }, { now: NOW });
+    expect(senior.ok).toBe(false);
+    expect(senior.reasons).toEqual(["This role asks for 5 years of experience and you have about 0 in this kind of role."]);
+    // Without a number, the title's seniority still asks for about 4 years.
+    expect(checkGates(baseSpec({ seniority: "mid" }), switcher, { title: "Senior Frontend Developer", location: null, remote: true }, { now: NOW }).ok).toBe(false);
+    expect(checkGates(baseSpec({ seniority: "entry" }), switcher, { title: "Junior Frontend Developer", location: null, remote: true }, { now: NOW }).ok).toBe(true);
+    // A job of an unknown family falls back to the whole career.
+    expect(checkGates(baseSpec({ yearsMin: 5 }), switcher, { title: "Curriculum Lead", location: null, remote: true }, { now: NOW }).ok).toBe(true);
   });
 });

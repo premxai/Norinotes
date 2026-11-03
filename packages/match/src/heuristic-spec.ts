@@ -32,16 +32,19 @@ export function seniorityFromTitle(title: string): Seniority | null {
   if (/\b(?:chief|cto|ceo|cfo|coo|cio|ciso|cpo|evp|svp|president)\b/.test(t)) return "executive";
   if (/\b(?:director|head of)\b/.test(t)) return "director";
   if (/\bmanager\b/.test(t) && !NOT_PEOPLE_MANAGER.test(t)) return "manager";
-  if (/\bprincipal\b|\bdistinguished\b|\bfellow\b/.test(t)) return "principal";
-  if (/\bstaff\b/.test(t)) return "staff";
-  if (/\b(?:senior|sr\.?|lead|iii|iv)\b/.test(t)) return "senior";
-  if (/\b(?:junior|jr\.?|entry[- ]level|new grad(?:uate)?|graduate|early career|associate|trainee)\b/.test(t) || /\b(?:engineer|developer|analyst|designer|scientist)\s+i\b/.test(t)) return "entry";
-  if (/\b(?:engineer|developer|analyst|designer|scientist)\s+ii\b/.test(t)) return "mid";
+  // Salesforce-style ladders: MTS, SMTS, LMTS, PMTS.
+  if (/\bprincipal\b|\bdistinguished\b|\bfellow\b|\bpmts\b/.test(t)) return "principal";
+  if (/\bstaff\b|\blmts\b/.test(t)) return "staff";
+  if (/\b(?:senior|sr\.?|lead|iii|iv|smts)\b/.test(t)) return "senior";
+  if (/\b(?:junior|jr\.?|entry[- ]level|new grad(?:uate)?|graduate|early career|associate|trainee|sdr|bdr|(?:sales|business) development representative)\b/.test(t) || /\b(?:engineer|developer|analyst|designer|scientist)\s+i\b/.test(t)) return "entry";
+  if (/\b(?:engineer|developer|analyst|designer|scientist)\s+ii\b/.test(t) || /\bmts\b/.test(t)) return "mid";
   return null;
 }
 
 /** "5+ years of experience", "at least 3 years", "experience: 4 years". The smallest number wins: it is the floor. */
-export function yearsFromText(text: string): number | null {
+export function yearsFromText(raw: string): number | null {
+  // Years a posting only prefers ("5+ years preferred", "ideally 3 years") are not a minimum.
+  const text = raw.split(/(?<=[.;\n])/).filter((s) => !/\b(?:preferred|preferably|ideally|nice to have|a plus|bonus|desired|desirable)\b/i.test(s)).join(" ");
   const found: number[] = [];
   const add = (s: string | undefined) => {
     const n = Number(s);

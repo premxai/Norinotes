@@ -3,18 +3,24 @@ export type { StoredJobSpec, UnderstandResult } from "./understand.js";
 export { UNSPECCED_BACKLOG_LIMIT, jobsFittingLanes, unspeccedJobsForUser } from "./demand.js";
 export { heuristicSpec, roleFamilyFromTitle, seniorityFromTitle, yearsFromText } from "./heuristic-spec.js";
 export type { HeuristicJob } from "./heuristic-spec.js";
-export { checkGates, requiredYears } from "./gates.js";
-export type { GateResult } from "./gates.js";
-export { SHORTLIST_MAX_AGE_DAYS, buildShortlist, clearRequirementVectorCache, matchNewJobs, openAndFreshSql, saveShortlistRows } from "./shortlist.js";
+export { HARD_YEARS_GAP, SENIOR_MIN_YEARS, checkGates, jobPlace, requiredYears } from "./gates.js";
+export type { GateOptions, GateResult } from "./gates.js";
+export { SHORTLIST_MAX_AGE_DAYS, buildShortlist, byRank, clearRequirementVectorCache, matchNewJobs, openAndFreshSql, rankScore, saveShortlistRows } from "./shortlist.js";
 export type {
   BuildShortlistOptions, EmbedFn, ExplainOptions, MatchNewJobsOptions, MatchNewJobsResult, MatchOptions, MatchStats, ShortlistCandidate, ShortlistRow,
 } from "./shortlist.js";
-export { buildRequirements, scoreFit, scoreRequirement, similarityToRelevance } from "./fit.js";
-export type { FitEvidence, FitMapItem, FitResult, Requirement, ScoreFitArgs } from "./fit.js";
+export { DEFAULT_MIN_FIT, RESUME_POINT_ID, buildRequirements, coverageOf, qualityOf, relevantYears, scoreFit, scoreRequirement, similarityToRelevance } from "./fit.js";
+export type { FitComponents, FitEvidence, FitMapItem, FitResult, QualityLevel, Requirement, ScoreFitArgs, SpecQuality } from "./fit.js";
+export {
+  familyRelation, familyYears, jobLevelBand, levelFromYears, matchTargetOf, recentRoleTitles, seniorityFit, statedYearsMin, titleAlignment, titlePairScore, widenedTooFar,
+} from "./alignment.js";
+export type { MatchTarget, SeniorityFit } from "./alignment.js";
+export { countryOf, parseLocation, placeAllowed, placeFactor, placeLabel } from "./location.js";
+export type { ParsedLocation, RemoteMode } from "./location.js";
 export { laneFitsJob, laneFitsSql, locationFits, matchingLanes, significantTitleWords, titleMatches } from "./lanes.js";
 export type { JobLike, LaneLike } from "./lanes.js";
 export {
-  experienceYearsOf, loadMatchProfile, meanProfileEmbedding, meanVector, normalizeCountry, parseWorkAuth, pointInterval, unionYears,
+  allowedCountries, experienceYearsOf, homeCountryOf, loadMatchProfile, meanProfileEmbedding, meanVector, normalizeCountry, parseWorkAuth, pointInterval, unionYears,
 } from "./profile.js";
 export type { CountryAuth, EvidencePoint, MatchProfile, WorkAuth } from "./profile.js";
 export { detectRestrictions, needsUsCitizenshipOrClearance } from "./clearance.js";
@@ -29,9 +35,9 @@ export type { LexicalProfile } from "./lexical.js";
 export {
   POOL_DEFAULT_LIMIT, POOL_MAX_AGE_DAYS, POOL_TTL_MS, ROLE_FAMILIES, SOFTWARE_SUBFAMILIES, adjacentTitles, clearRolePoolCache, mainFamilyOf, roleFamilyOf, rolePool,
 } from "./roles.js";
-export type { PoolJob, RoleClass, RoleFamily, RoleSeniority, RolePoolOptions, SoftwareSubfamily } from "./roles.js";
+export type { DataSpecialty, DesignSpecialty, PoolJob, RoleClass, RoleFamily, RoleSeniority, RolePoolOptions, SoftwareSubfamily } from "./roles.js";
 export {
-  OLDER_MAX_AGE_DAYS, WIDENED_BY, WIDENED_REASON_PREFIX, WIDEN_TARGET, deriveTemporaryLane, loadRemoteExcluded, loadTemporaryLane, widenedByOf, widenedReason,
+  OLDER_MAX_AGE_DAYS, WIDENED_BY, WIDENED_REASON_PREFIX, WIDEN_MIN_FIT, WIDEN_TARGET, deriveTemporaryLane, loadRemoteExcluded, loadTemporaryLane, widenedByOf, widenedReason,
   wideningPlan, withoutWidenedReasons,
 } from "./widen.js";
 export type { SimpleLane, TemporaryLane, WidenedBy, WideningStep } from "./widen.js";

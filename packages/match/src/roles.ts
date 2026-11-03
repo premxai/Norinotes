@@ -13,19 +13,35 @@ import { SPEC_VERSION } from "./understand.js";
 
 export const ROLE_FAMILIES = [
   "software_engineering", "product", "design", "data_analysis", "sales", "marketing", "customer_success", "operations",
-  "finance", "people", "legal", "other",
+  "finance", "people", "legal", "healthcare", "education",
+  /** A known kind of job outside these families (mechanical, civil, electrical engineering...). */
+  "other",
+  /** The title says nothing we can classify. Matching then compares title words instead of families. */
+  "unknown",
 ] as const;
 export type RoleFamily = (typeof ROLE_FAMILIES)[number];
 
-export const SOFTWARE_SUBFAMILIES = ["frontend", "backend", "full_stack", "mobile", "infrastructure", "data_ml", "security", "general"] as const;
+export const SOFTWARE_SUBFAMILIES = ["frontend", "backend", "full_stack", "mobile", "infrastructure", "data_ml", "security", "quality", "enterprise", "general"] as const;
 export type SoftwareSubfamily = (typeof SOFTWARE_SUBFAMILIES)[number];
 
 export type RoleSeniority = NonNullable<ReturnType<typeof seniorityFromTitle>> | "unknown";
+
+export const DESIGN_SPECIALTIES = ["ux", "visual", "graphic", "instructional", "general"] as const;
+export type DesignSpecialty = (typeof DESIGN_SPECIALTIES)[number];
+export const DATA_SPECIALTIES = ["science", "analyst", "general"] as const;
+export type DataSpecialty = (typeof DATA_SPECIALTIES)[number];
+export const HEALTHCARE_SPECIALTIES = ["nursing", "physician", "therapy", "pharmacy", "technologist", "care_support", "dental", "behavioral", "general"] as const;
+export type HealthcareSpecialty = (typeof HEALTHCARE_SPECIALTIES)[number];
 
 export type RoleClass = {
   family: RoleFamily;
   /** Only for software engineering. */
   subfamily: SoftwareSubfamily | null;
+  /**
+   * Only for design, data analysis and healthcare: product/UX design is a different job from graphic or instructional
+   * design, a data scientist is not a business analyst, a nurse is not a pharmacist. Null for every other family.
+   */
+  specialty: DesignSpecialty | DataSpecialty | HealthcareSpecialty | null;
   seniority: RoleSeniority;
 };
 
@@ -48,7 +64,7 @@ const SW_KEYWORD = "software|swe|backend|frontend|fullstack|mobile|ios|android|d
 const SW_ENGINEER = new RegExp(`(?:^|\\s)(?:${SW_KEYWORD})\\s+(?:engineer|engineers|developer|developers|programmer|architect)\\b`);
 const ML_RESEARCH = /\b(?:machine learning|ml|nlp|computer vision|deep learning|llm|ai)\b.*\b(?:scientist|researcher|research)\b|\b(?:research|applied) scientist\b/;
 const UI_ENGINEER = /\b(?:ui|ux|design)\s+(?:engineer|developer)\b/;
-const NON_SOFTWARE_ENGINEER = /\b(?:mechanical|electrical|civil|chemical|manufacturing|industrial|hardware|process|structural|biomedical|field service|facilities|mechatronics?)\s+engineer/;
+const NON_SOFTWARE_ENGINEER = /\b(?:mechanical|electrical|civil|chemical|manufacturing|industrial|hardware|process|structural|biomedical|field service|facilities|mechatronics?)\s+(?:\w+\s+)?engineer/;
 
 type Rule = [RegExp, RoleFamily];
 /** First match wins. Customer-facing engineers come before the bare "engineer" fallback so "Sales Engineer" is sales. */
@@ -59,27 +75,66 @@ const RULES: Rule[] = [
   [/recruit|talent|\bpeople\b|human resources|\bhr\b|\bhrbp\b|compensation|sourcer|\bculture\b|employee experience|learning and development/, "people"],
   [/financ|accountant|accounting|controller|fp&a|\bfpa\b|treasury|\btax\b|payroll|auditor|\baudit\b|bookkeep|procurement analyst/, "finance"],
   [/data analy|data scien|business analy|analytics|business intelligence|\bbi analyst|insights|research analyst|statistician|quantitative|\bbi developer|reporting analyst|product analyst/, "data_analysis"],
+  [/\bnurse\b|\bnurses\b|\bnursing\b|\brn\b|\blpn\b|\blvn\b|\bcna\b|clinical|clinician|physician|\bdoctor\b|surgeon|hospitalist|psychiatr|therapist|\btherapy\b|pharmac|dental|dentist|hygienist|medical assistant|\bpatient\b|radiolog|sonograph|phlebotom|paramedic|\bemt\b|caregiver|surgical tech|respiratory|social worker|psycholog|dietitian|midwife|optometr|veterinar|medical technologist|lab technician|healthcare|health aide|home health|\bmedical\b/, "healthcare"],
+  [/\bteacher\b|\bteachers\b|\bteaching\b|\btutor\b|instructor|professor|lecturer|educator|paraprofessional|\bschool\b|curriculum|\bfaculty\b/, "education"],
   [/designer|\bux\b|\bui\b|product design|visual design|graphic|creative director|user experience|illustrat|interaction design|design lead|design manager|head of design|design director|brand design|motion/, "design"],
   [/marketing|\bgrowth\b|\bseo\b|content (?:writer|strategist|manager|lead|creator|editor)|\bbrand\b|social media|copywriter|communications|public relations|\bpr\b|community manager|demand gen|lifecycle|campaign|\beditor\b|\bevents?\b/, "marketing"],
   [/product (?:manager|owner|management|lead|director)|(?:head|director|vp|chief) of product|chief product|\bapm\b|group product|technical product|\bproduct\b.*\bmanager\b/, "product"],
   [/operations|\bops\b|program manager|project manager|programme manager|scrum|logistics|supply chain|office manager|administrat|chief of staff|strategy|facilities|workplace|coordinator|executive assistant|business manager|general manager|\bproduct ops\b/, "operations"],
 ];
 
-const SOFTWARE_FALLBACK = /\b(?:engineer|engineers|engineering|developer|developers|programmer|swe|technical staff|software|architect|sre|devops)\b/;
+const SOFTWARE_FALLBACK = /\b(?:engineer|engineers|engineering|developer|developers|programmer|swe|technical staff|software|architect|sre|devops|tech lead|technical lead|sdet|qa engineer)\b/;
 
 export function roleFamilyOf(title: string): RoleClass {
   const t = normalize(title);
   const seniority: RoleSeniority = seniorityFromTitle(title) ?? "unknown";
-  const software = (): RoleClass => ({ family: "software_engineering", subfamily: softwareSubfamily(t), seniority });
-  if (NON_SOFTWARE_ENGINEER.test(t)) return { family: "other", subfamily: null, seniority };
-  if (SW_ENGINEER.test(t) || ML_RESEARCH.test(t) || UI_ENGINEER.test(t)) return software();
-  for (const [re, family] of RULES) if (re.test(t)) return { family, subfamily: null, seniority };
+  const software = (): RoleClass => ({ family: "software_engineering", subfamily: softwareSubfamily(t), specialty: null, seniority });
+  const of = (family: RoleFamily): RoleClass => ({
+    family, subfamily: null, seniority,
+    specialty: family === "design" ? designSpecialty(t) : family === "data_analysis" ? dataSpecialty(t) : family === "healthcare" ? healthcareSpecialty(t) : null,
+  });
+  if (NON_SOFTWARE_ENGINEER.test(t)) return of("other");
+  if (ML_RESEARCH.test(t)) return { ...software(), subfamily: softwareSubfamily(t) === "general" ? "data_ml" : softwareSubfamily(t) };
+  if (SW_ENGINEER.test(t) || UI_ENGINEER.test(t)) return software();
+  for (const [re, family] of RULES) if (re.test(t)) return of(family);
   if (SOFTWARE_FALLBACK.test(t)) return software();
-  return { family: "other", subfamily: null, seniority };
+  return of("unknown");
+}
+
+/** Nursing, physicians, therapists, pharmacy, technologists, care support, dental and behavioural health are different jobs. */
+function healthcareSpecialty(t: string): HealthcareSpecialty {
+  if (/\b(?:cna|nursing assistant|medical assistant|caregiver|aide|patient care tech\w*|care partner|patient care associate)\b/.test(t)) return "care_support";
+  if (/\b(?:nurse|nurses|nursing|rn|lpn|lvn|nurse practitioner)\b/.test(t)) return "nursing";
+  if (/\b(?:physician|doctor|md|surgeon|hospitalist|psychiatrist)\b/.test(t)) return "physician";
+  if (/\b(?:therapist|therapy|rehab\w*)\b/.test(t)) return "therapy";
+  if (/pharmac/.test(t)) return "pharmacy";
+  if (/\b(?:dental|dentist|hygienist)\b/.test(t)) return "dental";
+  if (/\b(?:counselor|social worker|psycholog\w*|behavioral)\b/.test(t)) return "behavioral";
+  if (/radiolog|sonograph|phlebotom|technologist|lab tech|surgical tech|paramedic|\bemt\b/.test(t)) return "technologist";
+  return "general";
+}
+
+/** Product and UX design, visual and brand design, graphic, motion and video design, and instructional design are different jobs. */
+function designSpecialty(t: string): DesignSpecialty {
+  if (/\b(?:instructional|learning|curriculum|e ?learning|training)\b/.test(t)) return "instructional";
+  if (/\b(?:graphic|motion|video|illustrat\w*|animat\w*|packaging|print|production artist|3d|presentation)\b/.test(t)) return "graphic";
+  if (/\b(?:product design\w*|ux|ui|user experience|interaction|service design\w*|design systems?|user research\w*|usability|experience designer)\b/.test(t)) return "ux";
+  if (/\b(?:visual|brand|creative|web designer|art director|marketing designer|communication designer|digital designer)\b/.test(t)) return "visual";
+  return "general";
+}
+
+/** Data science and research versus analyst work (business, data, BI, reporting). */
+function dataSpecialty(t: string): DataSpecialty {
+  if (/\bdata scien|\bstatistician\b|\bquantitative (?:researcher|scientist)\b|\bresearch scientist\b|\bapplied scientist\b|\bdecision scientist\b/.test(t)) return "science";
+  if (/\banaly|\bbusiness intelligence\b|\bbi\b|\binsights\b|\breporting\b/.test(t)) return "analyst";
+  return "general";
 }
 
 /** Subfamily of a software engineering title, from keywords anywhere in it. "general" when none says more. */
 function softwareSubfamily(t: string): SoftwareSubfamily {
+  // Enterprise platforms (RPA, Salesforce, SAP, ServiceNow, mainframe) are their own trade.
+  if (/\b(?:rpa|uipath|automation anywhere|blue prism|salesforce|sap|abap|servicenow|dynamics 365|mulesoft|mainframe|cobol|peoplesoft)\b/.test(t)) return "enterprise";
+  if (/\b(?:qa|quality assurance|quality engineer\w*|test engineer\w*|engineer in test|sdet|tester|testing|test automation)\b/.test(t)) return "quality";
   if (/\bfullstack\b/.test(t)) return "full_stack";
   if (/\b(?:mobile|ios|android|react native|flutter|swift|kotlin)\b/.test(t)) return "mobile";
   if (/\b(?:frontend|ui|ux|web|react|angular|vue|design engineer|css)\b/.test(t) && !/\bwebscale\b/.test(t)) return "frontend";
@@ -101,6 +156,8 @@ const SOFTWARE_ADJACENT: Record<SoftwareSubfamily, string[]> = {
   infrastructure: ["Software Engineer", "DevOps Engineer", "Site Reliability Engineer", "Platform Engineer", "Infrastructure Engineer"],
   data_ml: ["Software Engineer", "Data Engineer", "Machine Learning Engineer", "Analytics Engineer"],
   security: ["Software Engineer", "Security Engineer", "Application Security Engineer"],
+  enterprise: ["Software Engineer", "Salesforce Developer", "RPA Developer"],
+  quality: ["QA Engineer", "Software Engineer in Test", "Test Automation Engineer"],
 };
 
 const FAMILY_ADJACENT: Partial<Record<RoleFamily, string[]>> = {
@@ -128,7 +185,7 @@ export function mainFamilyOf(titles: readonly string[]): RoleFamily {
   const counts = new Map<RoleFamily, number>();
   for (const t of titles) {
     const f = roleFamilyOf(t).family;
-    if (f !== "other") counts.set(f, (counts.get(f) ?? 0) + 1);
+    if (f !== "other" && f !== "unknown") counts.set(f, (counts.get(f) ?? 0) + 1);
   }
   let best: RoleFamily = "other";
   let bestN = 0;
@@ -158,7 +215,10 @@ const FAMILY_PREFILTER: Record<RoleFamily, string[]> = {
   finance: ["financ", "account", "controller", "fp&a", "fpa", "treasury", "tax", "payroll", "audit", "bookkeep", "procurement"],
   people: ["recruit", "talent", "people", "human resources", "hr", "compensation", "sourcer", "culture", "employee", "learning"],
   legal: ["legal", "attorney", "counsel", "paralegal", "lawyer", "compliance", "privacy"],
+  healthcare: ["nurs", "rn", "clinic", "physician", "doctor", "therap", "pharmac", "dental", "medical", "patient", "health", "radiolog", "care"],
+  education: ["teach", "tutor", "instructor", "professor", "lecturer", "educat", "school", "curriculum", "faculty"],
   other: [],
+  unknown: [],
 };
 
 export type PoolJob = {

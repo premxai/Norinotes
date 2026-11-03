@@ -1,0 +1,25 @@
+Priya Nair
+Austin, TX | priya.nair@example.com | (512) 555-0119 | linkedin.com/in/priyanair-eng
+
+PROFESSIONAL SUMMARY
+Backend engineer with 5 years of experience building APIs, event-driven services and internal platform tooling in Go and Python. Comfortable owning services from design through on-call.
+
+EXPERIENCE
+Software Engineer II, Cobalt Logistics (Austin, TX), January 2023 - Present
+- Own the shipment-tracking service (Go, gRPC, PostgreSQL, Kafka) that processes 18 million events per day at p99 latency under 120 ms.
+- Designed an idempotent retry layer for carrier webhooks that eliminated duplicate shipment records (previously ~0.4% of events).
+- Built an internal deployment CLI and Terraform modules used by 9 teams; reduced new-service setup from 3 days to 2 hours.
+- Participate in a weekly on-call rotation; cut pages per week from 14 to 5 by tuning alerts and adding runbooks.
+
+Software Engineer, Tallgrass Insurance Technology (Dallas, TX), July 2021 - December 2022
+- Built claims-processing REST APIs in Python (Django REST Framework) with Celery workers and Redis.
+- Migrated a nightly batch job from cron on a VM to Kubernetes CronJobs; runtime fell from 5 hours to 55 minutes.
+- Wrote OpenAPI specs and contract tests adopted by 3 partner teams.
+
+Associate Software Engineer (Intern to full-time), Tallgrass, June 2020 - June 2021
+
+EDUCATION
+B.S. Computer Engineering, University of Texas at Austin, 2020
+
+SKILLS
+Go, Python, SQL, gRPC, REST, Kafka, PostgreSQL, Redis, Docker, Kubernetes, Terraform, AWS (ECS, RDS, SQS), Datadog, Prometheus, CI/CD, system design.

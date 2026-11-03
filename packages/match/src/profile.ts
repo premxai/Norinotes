@@ -2,6 +2,7 @@ import { and, asc, careerPointEmbeddings, careerPoints, desc, eq, lanes, profile
 import { normalizeCountry, parseWorkAuthMap, type CountryAuth } from "@norinote/shared";
 import { canonicalSkills, type SkillMap, DEFAULT_SKILL_MAP } from "./skills.js";
 import type { LaneLike } from "./lanes.js";
+import { countryOf, parseLocation } from "./location.js";
 
 // ---- work authorisation ---------------------------------------------------------------------------------------------
 
@@ -26,6 +27,45 @@ export function parseWorkAuth(raw: Record<string, unknown> | null | undefined, p
   const located = profileLocation ? Object.keys(countries).find((c) => new RegExp(`\\b${c}\\b`, "i").test(profileLocation)) : undefined;
   const primary = located ?? (countries.US ? "US" : (Object.keys(countries)[0] ?? null));
   return { countries, primary };
+}
+
+// ---- where the user can work ------------------------------------------------------------------------------------------
+
+/** The user's home country: their profile location, else the country most of their lane locations are in, else their main work-authorisation country. */
+export function homeCountryOf(profile: Pick<MatchProfile, "location" | "lanes" | "workAuth">): string | null {
+  const own = countryOf(profile.location);
+  if (own) return own;
+  const counts = new Map<string, number>();
+  for (const l of profile.lanes) for (const loc of l.locations) {
+    const c = countryOf(loc);
+    if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  for (const [c, n] of counts) if (best == null || n > (counts.get(best) ?? 0)) best = c;
+  return best ?? profile.workAuth.primary;
+}
+
+/**
+ * Countries the user can take a job in: the home country, countries they are authorised to work in or are a citizen
+ * of, and countries their lane locations name. Empty when nothing is known (then every place is allowed).
+ */
+const ALLOWED_CACHE = new WeakMap<object, Set<string>>();
+
+export function allowedCountries(profile: Pick<MatchProfile, "location" | "lanes" | "workAuth">): Set<string> {
+  const hit = ALLOWED_CACHE.get(profile);
+  if (hit) return hit;
+  const out = allowedCountriesUncached(profile);
+  ALLOWED_CACHE.set(profile, out);
+  return out;
+}
+
+function allowedCountriesUncached(profile: Pick<MatchProfile, "location" | "lanes" | "workAuth">): Set<string> {
+  const out = new Set<string>();
+  const home = homeCountryOf(profile);
+  if (home) out.add(home);
+  for (const [c, a] of Object.entries(profile.workAuth.countries)) if (a.authorized === true || a.citizen === true) out.add(c);
+  for (const l of profile.lanes) for (const loc of l.locations) for (const c of parseLocation(loc).countries) out.add(c);
+  return out;
 }
 
 // ---- career points ----------------------------------------------------------------------------------------------------
@@ -54,6 +94,8 @@ export type MatchProfile = {
   /** Years of paid experience from role points; null when there are no career points at all. */
   experienceYears: number | null;
   points: EvidencePoint[];
+  /** The resume text, searched by words for licences and certifications the career points missed. Null when none. */
+  resumeText?: string | null;
 };
 
 /** `YYYY` or `YYYY-MM` to a fractional year. `end` of null means "now". */
@@ -116,6 +158,7 @@ export async function loadMatchProfile(db: Db, userId: string, now: Date, skills
     workAuth: parseWorkAuth(profile?.workAuth, profile?.location),
     lanes: laneRows.map((l) => ({ id: l.id, name: l.name, titles: l.titles, locations: l.locations, remote: l.remote, minFit: l.minFit, enabled: true })),
     experienceYears: experienceYearsOf(points, now),
+    resumeText: profile?.resumeText ?? null,
     points,
   };
 }

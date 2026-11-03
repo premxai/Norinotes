@@ -1,0 +1,25 @@
+Jonas Becker
+New York, NY | jonas.becker@example.com | (646) 555-0187 | portfolio: jonasbecker.example.com
+
+SUMMARY
+Product designer with 6 years of experience in consumer and B2B apps. Strong in interaction design, design systems and user research; works comfortably in code review with engineers.
+
+EXPERIENCE
+Senior Product Designer, Plume Wallet (New York, NY), February 2023 - Present
+- Lead designer for the card and spending experience in iOS, Android and web; collaborate with 2 PMs and 12 engineers.
+- Redesigned onboarding after moderated usability tests with 18 participants; completion rose from 62% to 78%.
+- Built and maintain a Figma component library of 140 components with design tokens, now used by 6 product teams.
+- Partner with research to run quarterly diary studies; synthesised findings into 3 roadmap bets.
+
+Product Designer, Sorrel Health (Brooklyn, NY), June 2020 - January 2023
+- Designed patient scheduling and messaging flows for a telehealth app with 250,000 patients; reduced no-shows by 14%.
+- Ran 30+ usability sessions and wrote design critiques for a team of 4 designers.
+
+UX Designer, Kite and Co. agency (New York, NY), 2018 - 2020
+- Delivered websites and prototypes for 12 clients across retail and media.
+
+EDUCATION
+B.F.A. Interaction Design, Parsons School of Design, 2018
+
+SKILLS
+Figma, FigJam, Sketch, Protopie, design systems, interaction design, prototyping, usability testing, user research, information architecture, accessibility, HTML and CSS, design tokens, motion design, workshop facilitation.

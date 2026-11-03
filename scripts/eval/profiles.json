@@ -1,0 +1,379 @@
+[
+  {
+    "id": "new_grad_swe",
+    "resume": "01-new-grad-swe.txt",
+    "label": "New-grad software engineer",
+    "seniority": "entry (0 to 1 years, graduated May 2026)",
+    "location": "New York, NY",
+    "lanes": [
+      {
+        "name": "Software engineering",
+        "titles": [
+          "Software Engineer",
+          "Backend Engineer",
+          "Full Stack Engineer"
+        ],
+        "locations": [
+          "New York, NY",
+          "San Francisco, CA",
+          "Seattle, WA"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  },
+  {
+    "id": "senior_frontend",
+    "resume": "02-senior-frontend.txt",
+    "label": "Senior frontend engineer",
+    "seniority": "senior (9 years, tech lead)",
+    "location": "San Francisco, CA",
+    "lanes": [
+      {
+        "name": "Frontend",
+        "titles": [
+          "Senior Frontend Engineer",
+          "Senior Software Engineer",
+          "Staff Frontend Engineer"
+        ],
+        "locations": [
+          "San Francisco, CA",
+          "New York, NY",
+          "Seattle, WA"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  },
+  {
+    "id": "backend_platform_mid",
+    "resume": "03-backend-platform-mid.txt",
+    "label": "Backend / platform engineer (mid)",
+    "seniority": "mid (5 years)",
+    "location": "Austin, TX",
+    "lanes": [
+      {
+        "name": "Backend and platform",
+        "titles": [
+          "Backend Engineer",
+          "Platform Engineer",
+          "Software Engineer"
+        ],
+        "locations": [
+          "Austin, TX",
+          "San Francisco, CA",
+          "New York, NY"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  },
+  {
+    "id": "data_scientist_ml",
+    "resume": "04-data-scientist-ml.txt",
+    "label": "Data scientist / ML engineer (needs visa sponsorship)",
+    "seniority": "senior (5 years industry, PhD)",
+    "location": "San Francisco, CA",
+    "lanes": [
+      {
+        "name": "Data science and ML",
+        "titles": [
+          "Data Scientist",
+          "Machine Learning Engineer",
+          "Applied Scientist"
+        ],
+        "locations": [
+          "San Francisco, CA",
+          "San Mateo, CA",
+          "New York, NY",
+          "Seattle, WA"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": true,
+        "citizen": false,
+        "clearance": false
+      }
+    },
+    "workAuthText": "On an H-1B visa; needs the new employer to sponsor a transfer; not a US citizen."
+  },
+  {
+    "id": "product_manager",
+    "resume": "05-product-manager.txt",
+    "label": "Product manager (US citizen)",
+    "seniority": "senior (7 years)",
+    "location": "Chicago, IL",
+    "lanes": [
+      {
+        "name": "Product management",
+        "titles": [
+          "Product Manager",
+          "Senior Product Manager"
+        ],
+        "locations": [
+          "Chicago, IL",
+          "New York, NY",
+          "Seattle, WA",
+          "Bellevue, WA"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": true,
+        "clearance": null
+      }
+    },
+    "workAuthText": "US citizen."
+  },
+  {
+    "id": "product_designer",
+    "resume": "06-product-designer.txt",
+    "label": "Product designer",
+    "seniority": "senior (6 years)",
+    "location": "New York, NY",
+    "lanes": [
+      {
+        "name": "Product design",
+        "titles": [
+          "Product Designer",
+          "UX Designer"
+        ],
+        "locations": [
+          "New York, NY",
+          "San Francisco, CA"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  },
+  {
+    "id": "devops_sre",
+    "resume": "07-devops-sre.txt",
+    "label": "DevOps / SRE (US citizen)",
+    "seniority": "senior (7 years)",
+    "location": "Denver, CO",
+    "lanes": [
+      {
+        "name": "SRE and DevOps",
+        "titles": [
+          "Site Reliability Engineer",
+          "DevOps Engineer",
+          "Platform Engineer"
+        ],
+        "locations": [
+          "Denver, CO",
+          "Seattle, WA",
+          "San Francisco, CA"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": true,
+        "clearance": false
+      }
+    },
+    "workAuthText": "US citizen; eligible to obtain a clearance but does not currently hold one."
+  },
+  {
+    "id": "account_executive",
+    "resume": "08-account-executive.txt",
+    "label": "Account executive (sales)",
+    "seniority": "senior (8 years)",
+    "location": "Dallas, TX",
+    "lanes": [
+      {
+        "name": "Enterprise sales",
+        "titles": [
+          "Account Executive",
+          "Enterprise Account Executive"
+        ],
+        "locations": [
+          "Dallas, TX",
+          "Austin, TX",
+          "New York, NY"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  },
+  {
+    "id": "marketing_manager",
+    "resume": "09-marketing-manager.txt",
+    "label": "Marketing manager",
+    "seniority": "mid to senior (7 years, manages 2 people)",
+    "location": "Atlanta, GA",
+    "lanes": [
+      {
+        "name": "Marketing",
+        "titles": [
+          "Marketing Manager",
+          "Demand Generation Manager",
+          "Product Marketing Manager"
+        ],
+        "locations": [
+          "Atlanta, GA",
+          "New York, NY"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  },
+  {
+    "id": "financial_analyst",
+    "resume": "10-financial-analyst.txt",
+    "label": "Financial analyst",
+    "seniority": "mid (4 years)",
+    "location": "Chicago, IL",
+    "lanes": [
+      {
+        "name": "Finance",
+        "titles": [
+          "Financial Analyst",
+          "Senior Financial Analyst"
+        ],
+        "locations": [
+          "Chicago, IL",
+          "New York, NY"
+        ],
+        "remote": false
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  },
+  {
+    "id": "registered_nurse",
+    "resume": "11-registered-nurse.txt",
+    "label": "Registered nurse (US citizen)",
+    "seniority": "mid (6 years, charge nurse)",
+    "location": "Saint Cloud, MN",
+    "lanes": [
+      {
+        "name": "Nursing",
+        "titles": [
+          "Registered Nurse",
+          "Telemetry Nurse"
+        ],
+        "locations": [
+          "Saint Cloud, MN",
+          "Minneapolis, MN"
+        ],
+        "remote": false
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": true,
+        "clearance": null
+      }
+    },
+    "workAuthText": "US citizen. Minnesota RN license."
+  },
+  {
+    "id": "bootcamp_frontend",
+    "resume": "12-bootcamp-frontend-switcher.txt",
+    "label": "Bootcamp career switcher into frontend",
+    "seniority": "entry (career changer, bootcamp graduate, no professional software experience)",
+    "location": "Philadelphia, PA",
+    "lanes": [
+      {
+        "name": "Junior frontend",
+        "titles": [
+          "Frontend Engineer",
+          "Junior Frontend Developer",
+          "Web Developer",
+          "Full Stack Engineer"
+        ],
+        "locations": [
+          "Philadelphia, PA",
+          "New York, NY"
+        ],
+        "remote": true
+      }
+    ],
+    "workAuth": {
+      "US": {
+        "authorized": true,
+        "needsSponsorship": false,
+        "citizen": null,
+        "clearance": null
+      }
+    },
+    "workAuthText": "Authorized to work in the US (permanent resident); does not need sponsorship; not a US citizen."
+  }
+]

@@ -1,0 +1,2498 @@
+{
+ "v1|product_designer|07fdc3bd-d181-4418-acf0-aee8736f3c3e|565810acc5fc": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job requires candidates to be based in Mumbai or surrounding cities, but the candidate is located in New York and did not list Mumbai as an accepted location.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|55cca786-e531-417d-9bdd-03b13be1e04f|dd608be41644": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior product designer in New York with relevant experience and skills, matching the job's function, level, and location requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|a3f3d2da-cfb8-4422-b6dd-3ccc9b062db9|046a073ef833": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a product/UX designer, but the job requires professional instructional design experience, which is not shown in their resume.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|0794c623-909d-4508-ad56-706b67eb2046|245c5e79735d": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 6 years of experience, which is below the typical 7–12 years target range for this UX Lead role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|c0a8272b-0eb3-4305-8477-cccc242562d5|57a16cbf5264": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a product/UX designer, while the job is focused on brand and marketing visual design, which is a different function despite some overlapping skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|83d7423a-cfe1-41fe-b7e3-b57f66d156b4|a4607a74cdfb": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks demonstrated experience or subject matter expertise in free-to-play collectible card games, which is a highly preferred requirement for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|c28190a7-5b1b-41d6-9d11-9df17aa3f47f|c4a44769b6c8": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is based in London (remote), but the candidate only lists New York, San Francisco, or remote jobs as acceptable locations, not international remote roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|959a41c6-8b16-4e47-8e23-eb120577ae49|58cf0775847c": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a product/UX designer, but the job is for an instructional designer requiring expertise in adult learning theory and e-learning development, which is not shown.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|8e0296dc-b99a-4cfc-a88c-f3f537d1952c|da89ca1e9240": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but based in the Philippines, while the candidate only accepts jobs in Chicago or New York and does not accept remote roles outside those locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|9a1d9618-16f6-4fac-866c-af774727d265|56736d4471c8": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but based in the Philippines, while the candidate only accepts jobs in Chicago or New York and does not accept remote roles outside those locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|711ddedf-c77b-4573-9e39-463067234e66|f6a6593cf0c3": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but based in Metro Manila, Philippines, and the candidate only accepts jobs in Chicago, New York, or non-remote roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|549967ea-bbb6-439b-96d4-b45eab87743a|c6290e3deb95": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but based in the Philippines, while the candidate only accepts jobs in Chicago or New York and does not accept remote roles outside those locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|d4c479b0-6e66-4885-8e36-5dbd39d0e69f|c96b10f31c4f": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but based in the Philippines, while the candidate only accepts jobs in Chicago or New York and does not accept remote roles outside the US.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|d6044d6e-1b5d-4add-827e-06f976a0645d|f2a19b7957ed": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has relevant finance experience and skills for this remote finance/strategy role, though SaaS or GTM exposure is not explicit but not strictly required.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|96bf4f56-fc6a-409f-bf9a-736f4b6c7af5|8f2c04813012": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks sufficient detail to determine the specific function or requirements for the Analyst, Financial Instruments & Technology role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|fa3378dc-7bf0-4ebf-9cd2-acaad8be19da|6de3fa639fb7": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is an entry-level CS student with relevant internship and project experience, matching the internship's requirements and location.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|d5562172-94e6-4627-a9b8-5707b0ffe8eb|012b8ac4c202": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is an entry-level software engineer with relevant backend experience and skills, and meets the remote and work authorization requirements for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|d5824003-7762-4668-8f2e-8aeceeb0dd97|a101c635170c": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is an entry-level software engineer with no security engineering experience, while the job requires hands-on security expertise and leadership in vulnerability management.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|d8d9ec6c-bae1-4a89-a73b-7aa5b76fcebb|61d7848d634c": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is primarily a backend/full stack engineer, while the job requires deep expertise in frontend (React/TypeScript) and frontend architecture.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|2d5a4f89-958b-495d-960f-c596f999d77c|16e91da6fefe": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is an entry-level software engineer with no security engineering experience, while the job requires security expertise across multiple domains.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|612b4a7f-1987-4ef3-84d4-4dfc8cfe3410|160303a2f189": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The posting lacks any description, so it's unclear what the internship entails or what qualifications are required.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|a8c6ae60-c484-4d2e-a22d-725be38ab71d|a669c5cb66b7": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it is unclear what level or requirements are expected for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|737b1cf4-2147-452f-b571-c53b17264c81|00da2b6e99ae": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it is unclear what level or requirements are expected for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|8e3265dc-26f8-404f-a232-ce661532371c|417992804e80": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it is unclear what level or skills are required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|0342683c-5219-416f-8fac-61e734a35194|9dfd8ca54393": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks any description, so it's unclear what level or requirements are expected for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|0a1bd100-6616-4e92-9075-325ca084f820|7f980a5e5cb2": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, while 'Technical Architect' is a senior role requiring significant experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|898f88ff-b74e-4831-b317-1862790e0ad0|cec460c1e54d": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a new graduate software engineer, not a Salesforce Architect, and has no Salesforce or architecture experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|b8148014-1db7-4960-b112-2ef33d328057|9a951f9c9bf8": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks Flutter/Dart or mobile/frontend experience and has not demonstrated building with an LLM API, both of which are stated requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|a039573e-ad97-4fd4-95fb-e2ad2e5f86aa|e711ac2fc8f7": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a software engineer, but this role is primarily a product design position requiring end-to-end design ownership, which is a different discipline.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|d4545f36-75bf-452b-a953-d8d14ccb84ff|ef157baec2c0": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, while 'Technical Architect' is a senior role requiring significant experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|b272de33-a77c-481e-8c29-40e73b3b35f1|fe94eac06a1c": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it's unclear what specific skills or experience are required for this Front-End Developer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|30a042b2-44bf-4115-908e-634ffafe627a|75c3e3be498c": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, while Technical Architect is a senior/expert role requiring much more experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|5a366899-1742-48e7-8609-78f28af0c8ea|7d5c5f1ca88a": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it is unclear what the responsibilities or requirements are for this Information Security Engineer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|7a00831a-7821-476a-9f14-b06c9b2a59d0|68c1e1c23ea3": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it's unclear what the role entails or if it matches the candidate's software engineering background.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|fa3378dc-7bf0-4ebf-9cd2-acaad8be19da|51f164087965": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior engineer with 9 years' experience, while this is an internship strictly for current students.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|d8d9ec6c-bae1-4a89-a73b-7aa5b76fcebb|653fbb05e55a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with deep React/TypeScript experience, has led teams, and is based in San Francisco, matching all must-haves for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|4d72986b-e550-4a84-be4d-c7ea5c3dabe9|c88fbdac62f3": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is highly qualified for the role, but the job is only remote within Germany or Switzerland, not the US or candidate's listed locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|865d9d9d-b4ad-41f4-b03a-af91c855926a|53851aa33143": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifically listed as Europe Remote, while the candidate is based in the US and did not list Europe as an accepted location.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|b0cee4bd-23e9-4d4d-9966-7cfaccb6b445|437f157809ad": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong experience in production software and team leadership, matching the seniority and technical requirements of this hybrid role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|cc028cc9-ccfe-4e4e-9844-55f948a69da0|9b2a8d4fee0b": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate is a strong frontend engineer and tech lead but lacks clear backend and full-stack experience required for a Staff Full-Stack Engineer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|ebf954c5-c2e7-46db-b3e7-dc36bc1d4489|6d7ee3ab6ce6": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a frontend engineer with no demonstrated backend or Java experience, while the job is for a backend-focused senior engineer.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|d5562172-94e6-4627-a9b8-5707b0ffe8eb|1c865442bcc6": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior frontend engineer, but this job is for a backend-focused software engineer, which is a different function despite some overlapping technologies.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|c4c8e9fd-0003-4e6b-b961-a7227e8f3faa|38b10f6a3e80": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior frontend engineer, not a dedicated SDET or QA automation specialist, though they have some relevant Playwright and testing experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|2774dc64-18b7-47f1-b076-f8d1786c47d4|2b54f0920d28": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a strong frontend engineer, but this role emphasizes backend, full-stack, and developer productivity/AI tooling, which are not demonstrated in the resume.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|3e739c41-7371-4ad6-aff0-b337b3ecf10d|23dc86876556": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a senior/tech lead frontend engineer, but this Principal/PMTS full-stack role requires deeper backend and broader technical leadership experience than shown.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|a727aaa3-b539-4e4f-b819-d5ef516576c5|21e3265549bb": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior frontend engineer, but this role emphasizes backend and full-stack engineering with strong data modeling, which is not clearly demonstrated in the resume.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|8e02389e-a6a7-4637-ae69-61159d00f94e|2c23dc69d800": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong full stack experience and leadership, matching the seniority and most requirements, though backend experience is less explicit.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|434dc101-4c3b-489b-be4d-01b30b29dff0|0ae079806ace": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a frontend engineer with no demonstrated experience in backend distributed systems, big data pipelines, or the required backend technologies for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|4bd75eb6-1789-46b1-bcd2-72a51cfbb7a3|9e564b214a85": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with 9 years' experience, tech lead background, and meets the technical and leadership requirements for a Staff Software Engineer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|25890125-81de-45af-8b37-8b1b63e15a8e|96588a49e28b": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior frontend engineer, but this job is for a backend-focused senior software engineer building distributed systems, which is a different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|64b6d308-cd2c-49a9-93ee-cafc61f27fae|62f31479a4b7": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior engineer with strong full-stack and leadership experience, matching the seniority and technical requirements of this remote role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|9d0790d7-e835-4ef6-8998-6f1414d5b75a|4c7b2b06767a": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a frontend engineer, but this role requires deep experience in backend infrastructure and distributed systems, which is not shown in the resume.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|b18be5f7-fd58-46bd-99de-59aa20c31dd3|76364ab9c888": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but restricted to the United Kingdom, while the candidate is based in the US and did not list the UK as an accepted location.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|22ffb851-9b29-4593-abb3-a0044c6cfc67|85e8637c701d": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a frontend engineer with no demonstrated experience in backend distributed systems or Java, which are core requirements for this lead backend role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|edfc2d73-1564-4f40-834f-1fa47f1533bd|d98dc241afd1": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend and platform engineering experience with relevant skills in Go, Python, Kubernetes, Terraform, and CI/CD, matching the DevOps-focused requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|865d9d9d-b4ad-41f4-b03a-af91c855926a|30a530eb8023": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifies Europe, while the candidate is based in the US and did not list Europe as an accepted location.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|ebf954c5-c2e7-46db-b3e7-dc36bc1d4489|9a9731e3fc1f": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, but this is a senior-level role expecting deeper expertise and leadership than shown.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|6773ef12-e5f8-4d8e-81fa-84c24d758df4|b1e1ddbe6b14": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a backend/software engineer, not a cloud infrastructure or Azure IaC specialist as required by the job.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|cc028cc9-ccfe-4e4e-9844-55f948a69da0|46f4703a4e0f": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is mid-level with 5 years' experience, but the job is for a Staff Engineer, a significantly more senior technical leadership role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|fa3378dc-7bf0-4ebf-9cd2-acaad8be19da|d4f568438648": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a mid-level professional, not a current student, and this internship is strictly for students seeking resume-building experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|ddee6907-8d9c-4b36-8ba9-8db19fc3f255|52177050fb27": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has relevant backend and platform experience but is mid-level, while the job is for a Staff SRE, which is a significantly more senior role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|aaf2ff31-5d07-4ff2-a956-6c0fba4f7f17|917b9c5f54ad": {
+  "score": 3,
+  "reason": "location_mismatch",
+  "sentence": "The candidate is not located in San Francisco and the job requires five days per week in-office there, which does not match their listed locations or remote preference.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|e152f209-8300-48b2-a523-403c25541401|284dc087c43a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend and platform engineering experience, relevant tech stack, on-call ownership, and matches the job's location and seniority requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|a727aaa3-b539-4e4f-b819-d5ef516576c5|4194204d3123": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 5 years of backend engineering experience, strong data modeling, and platform skills, matching the job's requirements and remote eligibility.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|25890125-81de-45af-8b37-8b1b63e15a8e|24628a8f89c7": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, which is likely below the typical requirement for a Senior Software Engineer at Salesforce.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|9d0790d7-e835-4ef6-8998-6f1414d5b75a|39a8e138f937": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience and is mid-level, but the job requires 6+ years and senior-level leadership skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|d5824003-7762-4668-8f2e-8aeceeb0dd97|9cdad7177bbe": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a backend/platform engineer with no explicit security engineering experience, while the job requires hands-on security engineering and vulnerability management expertise.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|8fd67e8d-02d7-4aab-899e-9a2432cfeec7|08815d2e8427": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, but this is a senior-level role likely requiring more depth in network infrastructure and leadership.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|b0cee4bd-23e9-4d4d-9966-7cfaccb6b445|6d16fb3aff8b": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience but is currently mid-level, while the job is for a Senior Software Engineer and expects broader architectural ownership.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|60b2c313-8b71-47eb-9438-53d01db6fb3f|b17e46ea97a7": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a backend/platform engineer with no embedded, robotics, or safety-critical systems experience required for this embedded software engineering role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|8e02389e-a6a7-4637-ae69-61159d00f94e|06e791cc6849": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of backend experience but the job is for a Senior Full Stack Engineer, requiring broader stack expertise and likely more seniority.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|63be250c-63ec-41e3-adfe-c5fa9d9c998f|78a6fe84749e": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks embedded systems and robotics experience, as well as C++ or Rust skills, which are required for this onboard platform engineering role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|9ee6ca81-41cf-474d-a7c1-51698c7bb9c4|af7376fbb9f1": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is based in São Paulo, Brazil (hybrid strongly preferred), but the candidate is only seeking roles in the US or remote, not Brazil.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|434dc101-4c3b-489b-be4d-01b30b29dff0|b0fe86863847": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong backend and platform experience but is 2+ years short of the 7+ years and senior/lead level required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|225515ec-bbe5-459a-957d-b65deef583ca|64186aa35c94": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but based in Brazil, and the candidate is only seeking roles in the US or remote US positions.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|865d9d9d-b4ad-41f4-b03a-af91c855926a|dfab9eb0a6bc": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifically located in Europe, which is not a location the candidate listed or is eligible to work in.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|bcebcade-1e58-485e-b7f6-24ce1282154d|02386a1be02a": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior-level professional with a PhD and 5 years' industry experience, while the job is an internship strictly for current students.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|6f2158fb-c482-4a9f-a72a-bb7134abd4ed|763e18d3a009": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong analytics engineering skills (dbt, SQL, Snowflake), relevant industry experience, and meets the seniority and location requirements, though their background is more data science than pure analytics engineering.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|e343d4d1-6197-4af9-82cf-88f4101da291|271b185d84f6": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior-level machine learning engineer with production experience, relevant technical skills, and is open to San Francisco roles requiring visa sponsorship.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|777032d8-0c80-4e63-bcfc-efba6f146aad|dff69be5e684": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior data scientist and machine learning engineer, but this job is for a senior data engineer focused on pipelines and modeling, which is a different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|7f91dc6f-527c-46c8-ac9b-507e95bed601|4d5a6a3aad2b": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior machine learning engineer with relevant experience and skills, and meets the location and seniority requirements, though lacks direct protein engineering experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|0fcffd53-deb8-472c-8784-f157388173c4|99381e72ce5a": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, but this job is a compliance reporting analyst role focused on regulatory reporting, not data science or ML.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|9d71420f-47d2-4812-b165-04e17668bbdf|e5c9b9239be4": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong ML and recommendation experience but only 5 years in industry, below the 8+ years required for this staff-level role.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|434dc101-4c3b-489b-be4d-01b30b29dff0|44c47ca68539": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, but the job is for a senior/lead software engineer focused on distributed systems and real-time data platforms.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|9519d670-4827-4bf4-b0ae-fff738724d0d|93e839207605": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SQL, ETL, and data warehouse experience, matching the job's requirements, though their recent focus is more on data science than pure ETL development.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|88d663b7-d522-4e20-8650-e885fce5fdd3|cce858630514": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong experience in machine learning, ranking, NLP, and production systems, matching the seniority, function, and location requirements for this Spotify role.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|8290c9d0-9c1a-4ccb-8d16-616352ff4f9d|62e93f66e71d": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is based in London or Stockholm, but the candidate is only seeking roles in the US or remote US-based positions.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|22ffb851-9b29-4593-abb3-a0044c6cfc67|405d55f79ecd": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, not a backend distributed systems software engineer as required by this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|9d0790d7-e835-4ef6-8998-6f1414d5b75a|c681639e48a5": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, but the job is for a senior software engineer focused on infrastructure and distributed systems.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|fa3378dc-7bf0-4ebf-9cd2-acaad8be19da|24c50f0fe60d": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior-level professional with a PhD and 5 years of industry experience, while the job is an internship strictly for current students.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|64b6d308-cd2c-49a9-93ee-cafc61f27fae|0209fcd22c76": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior data scientist and machine learning engineer, but the job is for a senior software engineer with a focus on core optimization and full-stack development.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|a727aaa3-b539-4e4f-b819-d5ef516576c5|62cef6c829ea": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, but this role is primarily a backend/full-stack software engineering position focused on fleet management systems.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|63be250c-63ec-41e3-adfe-c5fa9d9c998f|0d3daa2757ae": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, but the job requires embedded systems and robotics software engineering experience, which is not shown in the resume.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|ebf954c5-c2e7-46db-b3e7-dc36bc1d4489|0f49721a74d8": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, but the job is for a backend software engineer with deep experience in Java or similar backend technologies.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|22379475-103a-4ce8-bc90-b9e65ce07650|e4f415a87509": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong B2B SaaS and fintech product management experience, matches the seniority, and is open to remote roles, making this an excellent fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|786fdbfc-eaac-4ebc-ac4e-ddeda432a7c2|4cd719c37a5f": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior product manager with 7 years' experience, while the job is for an associate (entry-level) product manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|29c29ad3-fd9e-4d7e-b69d-73a792291417|64c401e4db42": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong product management experience in B2B SaaS and fintech, relevant to a data product manager role, though lacks direct insurance domain experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|ba4842c7-43dc-49cb-9886-a59429124cc5|89ba4aec0c05": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks experience with audiobooks, ebooks, or consumer digital reading products, which is a stated must-have for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|4c51eec4-9e54-4675-98c9-311999f8eb05|ecf937019cca": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 7 years of B2B SaaS/fintech product management experience, but the job requires 10+ years and deep consumer media leadership at scale.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|fc5ea01f-9e34-4683-a0d2-878414e4474d|c0cf7c09b819": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior product manager with strong experience in B2B SaaS, technical collaboration, and experimentation, matching the remote product manager role's requirements and level.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|6fed2415-f51d-4367-a4f1-f67a3222d228|8665c58bce44": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct experience with large-scale search, discovery, or AI/ML-powered search systems, which are core requirements for this principal-level role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|59a4e563-202b-478c-8ff3-b9d1f47e5aad|c1e5ea8e3aab": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong B2B SaaS product management experience, technical skills, and matches the seniority and location requirements for this technical product manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|f7f4e8ed-6b8f-4c21-b36e-eba44ba4aab1|88c84a07a0ba": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a product manager, but this role is for product marketing, which is a different function with distinct responsibilities and skill sets.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|5de82da5-4a32-4214-a838-567e49a2ed15|f3d6773170ad": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks hands-on technical experience in writing production code, solution engineering, or technical architecture, which is a stated must-have for this technical product manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|0fd3c202-c772-4995-b63f-2fee3000b311|8bafe8eff375": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has senior product management experience in fintech and B2B SaaS, matching the technical, financial services focus and seniority required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|7329d280-d2c1-4484-9716-aaaf8f177497|1aadbd5f396a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has senior product management experience, relevant domain skills, and is open to Bellevue, WA, making this an excellent fit for the role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|8b6a5b8f-1bc9-4296-a763-1e47982ef89f|7b8756e6a384": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks hands-on technical experience in writing production code, solution engineering, or technical architecture, which is a stated must-have for this technical product manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|dcfe34e7-1f91-4385-9d68-5b136b0dfbb8|4c4e92131e85": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a product manager, not a product marketing manager, and lacks direct product marketing experience required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|7cafc2c9-2cb6-4db6-b743-255d5944aba1|32d2924a7cf0": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks explicit experience with AI-embedded products and working with AI models, which is a stated must-have for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|fe8ea60d-4a78-42a9-9668-f0df2bb1033a|3bb173dc799b": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a senior product manager with 7 years' experience, while this is an associate-level role intended for early-career applicants.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|62b14468-bf6a-46cc-aa44-16bd5345f1ba|92100546fb28": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks procurement domain and Zip/platform experience, which are preferred and central to this product owner role, though they meet product management and analytics requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|039efe42-97e7-44b7-8bcc-9862b45b6687|0a8a79dd1c4e": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of B2B SaaS product management experience, meets all must-haves, and is open to New York or remote roles, making this an excellent fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|0ce59428-0d9c-4442-9808-ce73f5b6787b|97fd7fb91957": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a product manager, but this role is primarily product marketing, which is a different function despite some overlapping skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|8f4c6978-284c-4779-a164-cbd84e65c43a|d7134446f042": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has senior product management experience in fintech and B2B SaaS, matching the seniority, function, and domain of the T-Mobile Money Sr Product Manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|aaf2ff31-5d07-4ff2-a956-6c0fba4f7f17|12d5589a85a2": {
+  "score": 3,
+  "reason": "location_mismatch",
+  "sentence": "The candidate is not located in San Francisco and did not list willingness to relocate or work onsite there, while the job requires full-time in-office presence.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|6773ef12-e5f8-4d8e-81fa-84c24d758df4|f842e23191ee": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks the required 3+ years of hands-on Azure experience; their background is AWS-focused, making this a stretch application.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|865d9d9d-b4ad-41f4-b03a-af91c855926a|630b6029ec77": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifically listed as Europe-based, while the candidate is only seeking US-based or remote US roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|edfc2d73-1564-4f40-834f-1fa47f1533bd|9913f44a21ff": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong senior-level SRE/DevOps experience, matching skills in AWS, Kubernetes, Terraform, Python, and incident management, and is open to San Francisco or remote roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|ddee6907-8d9c-4b36-8ba9-8db19fc3f255|abffccc18f88": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior SRE with deep AWS, Kubernetes, Terraform, and observability experience, matching the remote staff SRE role's requirements and location flexibility.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|d5824003-7762-4668-8f2e-8aeceeb0dd97|4ca1e08ed7d8": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but this role is for a software security engineer, which is a different function despite some overlapping skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|e152f209-8300-48b2-a523-403c25541401|a716da683ee3": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior SRE/DevOps engineer with strong AWS, Kubernetes, Terraform, and incident response experience, matching the job's requirements and location preferences.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|25c6acf6-6768-4301-aa31-67778e43187b|cda3d25a8fee": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of SRE/DevOps experience, incident command, and technical skills matching the job, and is open to Seattle or remote roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|434dc101-4c3b-489b-be4d-01b30b29dff0|644f9c6576e8": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks explicit experience with real-time data streaming (e.g., Flink, Kafka) and large-scale distributed data pipelines, which are core requirements for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|8fd67e8d-02d7-4aab-899e-9a2432cfeec7|382dde096c5c": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong Kubernetes, infrastructure, and automation experience, and basic Go skills, matching most requirements, though their main focus is SRE/DevOps rather than pure software engineering.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|9d0790d7-e835-4ef6-8998-6f1414d5b75a|e0ba54a7621c": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but this job is for a senior software engineer focused on distributed systems development, which is adjacent but not the same function.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|ebf954c5-c2e7-46db-b3e7-dc36bc1d4489|92c3310c587a": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but the job is for a backend software engineer with deep Java or similar backend development experience, which is not shown.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|63be250c-63ec-41e3-adfe-c5fa9d9c998f|012d9afe140b": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a Site Reliability/DevOps engineer, but the job requires embedded systems software engineering experience in robotics or similar fields, which the candidate lacks.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|a727aaa3-b539-4e4f-b819-d5ef516576c5|b82a3a23c51a": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but the job is for a software engineer with strong backend and full-stack development skills, which is adjacent but not a direct match.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|93c51ef6-2360-43df-bb95-9bd0f1114c48|23923213858c": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is only open to candidates in Germany or Switzerland, but the candidate is based in the US and did not list those locations as acceptable.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|22ffb851-9b29-4593-abb3-a0044c6cfc67|619f0c8359ac": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 7 years of experience, but the job requires 10+ years and deep Java expertise, which is not clearly demonstrated.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|2774dc64-18b7-47f1-b076-f8d1786c47d4|2808564249f3": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but this job is for a lead software engineer focused on building internal developer productivity tools and full-stack applications.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|d5562172-94e6-4627-a9b8-5707b0ffe8eb|c785123e5ca3": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but this job is for a back-end software engineer focused on Ruby and TypeScript, which is a different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|60b2c313-8b71-47eb-9438-53d01db6fb3f|9cd3febe52df": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a cloud-focused Site Reliability/DevOps engineer with no embedded, robotics, or safety-critical software experience required for this embedded software engineering role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|64b6d308-cd2c-49a9-93ee-cafc61f27fae|86046f850e29": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but the job is for a senior software engineer focused on core algorithm and full-stack development, which is a different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|ef3a85b2-dac6-4268-8b62-d08baef1093f|62af7af7e224": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior SaaS account executive with enterprise and security sales experience, matching the remote enterprise account executive role at Salesforce.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|8cb592d7-4dde-4360-8fa9-81d335c8487c|72727a616950": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifically based in Cape Town, South Africa, which is not a location the candidate listed or is eligible for.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|6fa11456-292a-4a10-a9ba-e778e5efef7e|5a1694f16bc0": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but based in Taiwan, which is not a location the candidate listed or is likely eligible to work in.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|fe4541ce-c526-4cf5-854c-04b71bf4129a|246499f9c569": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise account executive, significantly overqualified for an SDR role focused on inbound lead qualification.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|a162351c-e50b-41dc-bdf4-5b82f29df793|c711cb66042c": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate has strong SaaS enterprise sales experience but lacks the preferred 10+ years and specific public sector or large account management experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|94fe5869-6a76-45ed-a132-d76568c8386f|2ee6fe653787": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifically focused on managing major accounts in Chile, which is not a location the candidate listed or has experience in.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|a8a1c949-8c10-4cc3-8ae7-e240f9f3b042|c36fd8760a08": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS account executive experience, including full-cycle sales to mid-market and enterprise, matching the job's requirements and locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|343e5d01-8942-4917-ac7b-99296231e870|2b56a59d0927": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise Account Executive, significantly overqualified for an entry-level SDR role focused on top-of-funnel prospecting.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|4743d214-4da0-40b5-89cc-37e3fa714458|76038e9141b5": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 8 years of SaaS sales experience but the job requires 10+ years of enterprise software sales, making this a stretch application.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|e2ec0d57-6d74-45d4-991a-28d8c0e81e71|9826c635ed21": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise Account Executive, and this SDR role is entry-level and not a fit for their experience or career trajectory.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|b447bff8-4023-4bf6-a897-ddb8f2c2aba1|5b6b1aa3e3da": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifically based in Taiwan, which is not a location the candidate listed or is likely eligible to work in.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|f816a0cb-2c69-428d-aaf8-d7ac72dcadb6|8fa77a0f35db": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks experience selling into large enterprise healthcare organizations and closing $1M+ ARR or multi-million dollar deals, which are must-haves for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|fbd65155-819c-4ef5-a1b3-986099ed7d54|1288cb22c2cd": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifically for Taiwan, which is not a location the candidate listed or is likely eligible to cover from the US.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|10fd1adb-05fa-42e6-b26f-172e52ea2b66|cfc7206ae0cd": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of enterprise SaaS sales experience, matches the seniority, location, and function, and meets all must-have requirements for this enterprise account executive role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|9ffa3d82-131b-4cd2-9c3c-0f76fe1de44e|5c0b7ab9dcb4": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks the required 5+ years of outside K12 software sales experience, which is a stated must-have for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|13008a84-c309-44ee-b2c1-db1ebdd9fa08|52f0a20edd90": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SaaS sales experience, full-cycle enterprise and mid-market sales, and relevant skills, though most experience is with larger accounts than the job's SMB focus.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|7fe334e0-1b16-43d2-b285-5c04c1279d6b|d35470c10062": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct experience selling to State and Local Government, which is a stated must-have for this public sector-focused role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|93210d9b-7b5d-4cf1-a960-e312770a5539|82e88811ddef": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SaaS enterprise sales experience and meets all must-haves, though lacks direct energy industry experience, which is only a nice-to-have.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|7e6809f5-11f5-45df-bcdb-89e4cb0f3df3|b4d407623aa6": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate has strong enterprise SaaS sales experience but lacks the 10+ years and specific FSI or government integrator sales background required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|dd9af38c-071d-4276-9015-46f78471f2f6|d912c7f63341": {
+  "score": 3,
+  "reason": "location_mismatch",
+  "sentence": "The candidate is based in Dallas and open to remote, but this hybrid role requires regular in-office presence in New York, which is not feasible.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|7328ba7a-6bea-4fcc-a7ef-5144539db85b|049919f33134": {
+  "score": 3,
+  "reason": "location_mismatch",
+  "sentence": "The candidate is based in Atlanta and only listed Atlanta, New York, or remote, but this job is hybrid in New York, not remote.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|f552cb59-0937-4826-b1e9-b819ed70a438|a1473f74b090": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong B2B demand generation experience but lacks director-level leadership and client-facing agency experience required for this senior role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|6d9c47e3-ee1e-43b0-a0da-abcd341f0284|fb28df5531cb": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct experience in cybersecurity or a comparable technical category, which is a stated must-have for this content marketing role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|081e5e64-4f24-4ab5-b14d-3901cd883456|d367ba4739c8": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a demand generation marketer, but this role is focused on marketing operations, systems, and CRM governance, which is adjacent but not their core experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|0a50a824-f820-4498-ad15-a858ec2e2d8b|83adf04cbc39": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct agency experience and financial services/fintech domain exposure, which are stated as preferred or required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|22379475-103a-4ce8-bc90-b9e65ce07650|bebac87b230b": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a marketing manager with no product management experience, while the job is for a product manager role focused on platform migration and quoting systems.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|94caf57d-04e1-4051-a7bb-d57b84b981d9|8fac1e9dcc3f": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks Bahasa Indonesia language skills, which is a stated requirement for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|cb4f6b58-c93e-4a10-8a73-e76f0d7f1bac|61ab1ec72499": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate has strong marketing and campaign management experience but lacks direct influencer marketing or ambassador program leadership, which is central to this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|dcfe34e7-1f91-4385-9d68-5b136b0dfbb8|530fac7249d7": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct product marketing experience and finance domain knowledge, both of which are must-haves for this Product Marketing Manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|8c22cf4e-1448-421e-8db1-b1246a192b4a|6d45fef2b2e3": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate has strong demand generation and campaign experience but lacks direct product marketing and analyst relations experience required for this lead-level product marketing role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|a977b286-1266-4c24-94c8-d76939e97e9d|c0224e5b8c2f": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate's experience is in B2B demand generation and content marketing, not influencer or creator community management as required by this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|0d567053-037e-4f78-a957-0796219cbbe5|72c7496d98df": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a marketing manager, not a visual content creator or photographer, so this is a different function despite the Atlanta location.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|890a9c78-979a-4a4b-b09e-75a380e44a6e|a441e449719e": {
+  "score": 3,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "This Head of Provider Growth role is a significant step up in scope and seniority from the candidate's current marketing manager experience, making it a stretch application.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|1c7ecfbe-0d8e-4777-bd1c-f3924ee79f08|33ef0d16e97b": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate's experience is in marketing and demand generation, not event parking operations or logistics management.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|9dbeab94-71e3-464f-9121-9cabfabad7ca|4f153c887176": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate's experience is in marketing and demand generation, not operations coordination or event/travel administration as required by the job.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|c36a4362-6def-40b5-820b-48828a85b8bd|4269906c41bb": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate's experience is in marketing and demand generation, not PR or media relations, which are core requirements for this PR Account Supervisor role.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|45138148-e739-4184-958d-0ffc699e2b80|33d81796f508": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 6 years of telemetry RN experience, a BSN, Minnesota RN license, and lives in Saint Cloud, matching all job requirements and preferences.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|55f2cc00-023b-4167-9326-dcf4172b7b88|291a7bc161cd": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with recent med-surg and telemetry experience in Saint Cloud, MN, matching the job's requirements and location perfectly.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|911c51b2-3818-4592-a5f9-7cdf55bb9078|78296c72a1c3": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with relevant acute-care and float experience in Saint Cloud, MN, matching all requirements for this Float Pool RN role.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|c6a2c499-fe3d-4d8a-8db1-6b1a74ea358a|cb8d8232795e": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with relevant acute care and orthopedic experience, licensed in MN, and lives in Saint Cloud, matching all job requirements and location.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|25cb869f-4ad1-45aa-b9e1-339c344aa639|224087425ca4": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with relevant acute care and orthopedic experience, licensed in MN, and lives in Saint Cloud, matching all job requirements and location.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|7a01ace7-1686-41bf-88b1-4788d42fd12a|9ca6b3f5d68a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a mid-level RN with telemetry and acute care experience, a BSN, Minnesota RN license, and lives in Saint Cloud, matching all job requirements for this cardiovascular thoracic RN role.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|6af33d1d-f998-4f68-99ae-46a4686f7e5c|d2f4552b89d5": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with recent telemetry and charge experience in Saint Cloud, meeting all must-haves for this CICU RN role.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|b40d90b3-ad43-40bf-8c79-03ae80f3e69b|c27a0c440575": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with acute care and telemetry experience, holds a Minnesota RN license, and lives in Saint Cloud, matching all job requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|21a3fe88-0afc-40cd-bd2a-b240acbbe53c|c6c3c64eb7c4": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with acute care and telemetry experience, holds a Minnesota RN license, and is local to Saint Cloud, matching all must-haves for this ICU RN role.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|da398577-3d35-4110-9e87-364d3abfe47c|ae700293a376": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with acute care and telemetry experience, holds a Minnesota RN license, and lives in Saint Cloud, fully meeting the job's requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|0dbe5db3-2a4a-4dc6-8788-4a4b7b496d83|ae51acbbe54d": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a mid-level RN with telemetry and acute care experience, holds a Minnesota RN license, and lives in Saint Cloud, matching all must-haves for this PACU RN role.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|e845ad0e-2b38-48ea-9328-875a3d654e9a|8fba35c28f0c": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks the required 2 years of risk management or quality management experience specified in the job posting.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|bc781eeb-74ae-4de6-9c3e-6fcdee357e04|eee2dc4991ee": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it is unclear if the candidate's experience matches the pediatric unit requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|ed73814f-e170-4c31-ae3a-4620391ca072|3d1cff76075d": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it's unclear if the candidate's acute-care and telemetry experience matches the requirements of a Birth Center RN role.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|82e23734-6564-4251-8554-e8a27111f98b|d57f1e9826da": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN RN with acute care and telemetry experience, meets licensure and education requirements, and is local; lacks direct oncology/infusion experience but is otherwise a strong fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|4d72986b-e550-4a84-be4d-c7ea5c3dabe9|1f990263be36": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires a senior frontend developer with significant experience and leadership responsibilities.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|b088b499-5c0a-45b9-abe4-78a964696a8b|d4c0342ae24a": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a junior frontend developer with no RPA or UiPath experience, while the job requires 4+ years of UiPath development and deep RPA expertise.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|d5562172-94e6-4627-a9b8-5707b0ffe8eb|131434ea0cea": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a junior frontend-focused developer with no professional backend or Ruby experience, while the job is for a backend engineer with Ruby on Rails expertise.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|865d9d9d-b4ad-41f4-b03a-af91c855926a|4a78c6cf0d52": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but specifies Europe, while the candidate is based in the US and only seeks US or specific US metro locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|ebf954c5-c2e7-46db-b3e7-dc36bc1d4489|a62d8eace7f4": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires deep experience as a senior backend engineer.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|9ee6ca81-41cf-474d-a7c1-51698c7bb9c4|5ad758940172": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate with no professional software experience, while the job requires 5+ years and proven technical leadership.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|a727aaa3-b539-4e4f-b819-d5ef516576c5|26188480d129": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, but the job requires 5+ years of production software experience and system ownership.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|fa3378dc-7bf0-4ebf-9cd2-acaad8be19da|4232f164d0ee": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is not a current student and has already graduated, so they do not meet the internship's student requirement.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|b0cee4bd-23e9-4d4d-9966-7cfaccb6b445|252d5a74eedf": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires at least 5 years of production software experience at a senior level.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|cc028cc9-ccfe-4e4e-9844-55f948a69da0|4acc8e08a4a0": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires a senior staff-level engineer with technical leadership experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|60b2c313-8b71-47eb-9438-53d01db6fb3f|101aca5ca028": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a junior frontend web developer with no embedded systems or safety-critical software experience, while the job requires senior embedded systems expertise.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|c4c8e9fd-0003-4e6b-b961-a7227e8f3faa|8770cb0bf4de": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate with no professional software experience, while the job requires senior-level expertise in test automation and enterprise QA leadership.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|63be250c-63ec-41e3-adfe-c5fa9d9c998f|f2a5822743d2": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is an entry-level frontend developer with no embedded systems or robotics experience, while the job requires senior-level embedded systems engineering expertise.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|8e02389e-a6a7-4637-ae69-61159d00f94e|10c8ce503909": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires at least 5 years of production software experience and senior-level responsibilities.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|64b6d308-cd2c-49a9-93ee-cafc61f27fae|aa466d8afee7": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires a senior engineer with 4+ years of development experience and leadership responsibilities.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|25890125-81de-45af-8b37-8b1b63e15a8e|d35467bb217f": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires a senior engineer with end-to-end ownership and architectural experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|4bd75eb6-1789-46b1-bcd2-72a51cfbb7a3|00d1de28e384": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires at least 8 years of production software experience and staff-level leadership.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|01b75beb-71a1-4e24-a298-cc5504e4896b|1c291f9d3a46": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a junior frontend developer with no experience in robotics, state estimation, or sensor fusion, which are core requirements for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|b8ba2c2d-8c03-49a5-a589-1e2714fa1993|5b61281d843f": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while the job requires a senior engineer with significant backend and platform experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|b18be5f7-fd58-46bd-99de-59aa20c31dd3|20e0b65b7f73": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is remote but restricted to the United Kingdom, while the candidate is based in the US and only listed US locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|a5246e00-8bf7-425d-8b11-4ae55c11987e|799fb3d05086": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is an entry-level software engineer with relevant skills and education, and the job welcomes new graduates with similar technical backgrounds for a remote US role.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|dd2f33fa-647f-4737-9a83-09493e5b0c9c|2a4b68b78dfa": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is an entry-level software engineer with no AI, LLM, or multimodal model experience, while the job requires hands-on AI engineering and relevant domain expertise.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|590ed322-3e18-4b51-be4d-1a80bc643682|43c70e40cb1a": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a software engineer with backend and full stack experience, but this role is primarily for a design engineer with strong visual and motion design skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|4dc6846f-6fd5-4c90-b873-37e2b2bef56b|91784bde1e3e": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, but this role expects strong production experience and deep expertise in web fundamentals, which the candidate lacks.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|2d13b0b7-2d65-406b-b1f2-b83716af6fdc|05b143e69f06": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a software engineer with no hardware or electrical engineering background, while the job requires hands-on hardware lab and electrical skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|4943f6f5-a193-480b-bffc-cb3a6f15ba50|78114e9ce051": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong React, TypeScript, and Next.js experience, matching the job's requirements and seniority for a remote US-based role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|4dc6846f-6fd5-4c90-b873-37e2b2bef56b|524a489cd576": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with deep Next.js, React, and TypeScript experience, matching the job's requirements and location perfectly.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|590ed322-3e18-4b51-be4d-1a80bc643682|42692507a676": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong design system and dashboard experience, matching the Design Engineer role's focus on frontend craft and design collaboration, though Three.js/WebGL is not listed.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|6087e637-54f9-4967-8c4d-b03f95a5e234|ddeff4a960c6": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has deep frontend build and CI experience with React/TypeScript, matching the role's requirements, though their resume shows less explicit CI/CD platform ownership than ideal.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|6743cc1e-ccb0-45a5-a368-02e9a5c01902|195267e78d2c": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior frontend engineer, but the job is for a manual QA engineer, which is a different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|4910a419-2cd2-4b65-8216-eeac25ce2c56|32e46ca9b03e": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong React, TypeScript, and Next.js experience, matching the job's requirements and remote US location.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|0d94e679-40cd-4c14-9a2c-d3d64c35c8c6|99bccb201e81": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong React/TypeScript experience and some backend exposure, making them a good fit for this full-stack, UI-focused role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|f78d1a54-98cf-47a0-93aa-0985233f671d|d43c87301b4f": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks any description, so it's unclear what the function or requirements are beyond the title.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|269c4052-7be7-48e5-96a4-85526e93f982|eeced1307f56": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong Go and platform experience but lacks the deep Kubernetes internals expertise and senior-level experience required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|21a31d74-4afe-4dfe-b17f-7becbd0e12f9|ee23f79b0f12": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, but the job requires 6+ years and likely expects a more senior engineer for this visible, foundational role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|087db281-0f56-47cc-b0ac-067e992af315|f9cb57e5b139": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience but is not yet at a senior level or shown ML platform/infrastructure leadership, making this a stretch for a senior ML platform role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|92c52c57-4b7b-4476-9b5b-cefad5ef8fbc|949c0265162c": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend engineering experience, relevant skills, and meets the experience and location requirements for this mid-level software engineering role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|0d68dff4-b9e7-41a4-9184-9fc1c96c804e|192d581e6b5a": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend and platform engineering experience, matching the internal tooling and developer platform focus of the role, and is open to San Francisco roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|c54df74a-7985-48d3-8aca-e5359315ad59|1d8937718bf5": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 5 years of backend/platform experience, relevant tech skills, and matches the remote location and seniority, though lacks direct financial systems experience (a nice-to-have, not a must-have).",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|44d38c44-c9e8-44d0-82c6-a19dd8d6872a|842f64243a80": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a backend engineer with some platform experience but lacks direct DevOps roles and the required depth in infrastructure and cloud operations.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|1caeee0d-c6f8-4cdc-a455-1a94ff4ce8c9|8cef1c0e7b8b": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of backend experience but lacks the strong frontend (React/TypeScript) and technical leadership required for this senior full-stack role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|7847e007-f166-4f68-8acd-dda16e128bbc|27620ace886d": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a backend/platform engineer with relevant experience in control plane, APIs, and automation, matching the job's requirements for a senior, integration-focused backend engineer.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|c911e960-9002-4ac8-9333-3e1dc9d6498d|601b641b4bfd": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a backend software engineer with no semiconductor test engineering or hardware experience, which is a different profession than the job requires.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|c17e2645-1b4b-4362-98b3-a2dad1ccc570|235359689956": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks any description, so it's unclear what function or requirements are expected for this Senior Software Engineer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|6eecbc0a-0bdb-49bd-9721-51468352b1db|c45b4f1e3f4d": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience and relevant skills, but the job requires 6+ years and a senior-level DevOps background, making this a stretch application.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|af90fbb0-9819-429d-a035-fdff275b0a12|a555c09a772e": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, but this is a senior-level role likely requiring more experience and demonstrated technical leadership.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|51bf1d78-d485-4554-8ea0-831973adce33|0ac108778330": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend and platform engineering experience with relevant DevOps skills, matching the remote DevOps engineer role's requirements and responsibilities.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|68613a79-691a-4cd1-ba3a-a5cad3f42aa9|e06ab2ac0c97": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong backend and some platform experience but lacks explicit senior-level infrastructure/DevOps ownership and deep GCP/Kubernetes expertise required for this senior role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|24c81075-8b2b-460d-ad84-f5e3cb64e6a6|bc81dc84585f": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a backend engineer with some platform experience but lacks direct DevOps or MLOps roles, making this a stretch for a senior DevOps position.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|53bfb543-0f40-4ccb-a217-f49575d9a84a|181757d4cdb7": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job requires 5 days per week onsite in NYC, but the candidate is based in Austin and did not list willingness to relocate.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|5dd3c2de-270a-4545-aa13-92c7f46d374b|690896634b3d": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong relevant skills but only 5 years' experience and no clear infrastructure leadership, while the job seeks a senior/lead with proven ownership of architectural decisions.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|118a0680-5a9f-472a-a9e3-177d17b2db81|0f90d3aa3308": {
+  "score": 3,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is overqualified for a Statistician I role, which is entry-level, given their senior data scientist experience and PhD.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|7520618b-2e08-463d-882f-344218f16a05|66e62146323a": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist and machine learning engineer, but the job requires deep experience in quantitative finance, derivatives pricing, and structuring, which is not shown in the resume.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|b794be03-0486-47bf-b319-503c8161bdc7|3bc6bce2e11a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior data scientist with strong NLP, ML, and production experience, matching the job's requirements and remote eligibility; H-1B transfer is standard for US remote roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|d0b92095-44bc-4ed5-8dce-ef0cf8ada96b|485e781f92cf": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong data science experience, relevant technical skills, and leadership, though lacks direct media industry experience, making them a realistic but not perfect fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|d224eb28-54de-483c-91ee-bed07775b233|3e7484851c4f": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist with ML and statistics experience, but lacks direct market research or survey research expertise required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|a97a64f4-be75-4b33-a56f-f5778d60c415|726fdd574b95": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job requires relocation to Denver for a hybrid role, but the candidate only lists San Francisco, San Mateo, New York, Seattle, or remote as acceptable locations.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|a928d80f-f3c0-4a4d-839f-a700dd1d73b1|4bac84f49ac8": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a data scientist focused on modeling and analytics, while the job is a data engineering role centered on pipelines and integrations for HR systems.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|90962fe7-a80b-437e-b079-eea029684de7|0c8df92c0e2a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong Python, ML, data pipeline, and evaluation experience, matching the research engineer role's requirements and location, and is open to H-1B transfer sponsorship.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|f78d1a54-98cf-47a0-93aa-0985233f671d|31a9146376f5": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks a description, so it's unclear if the function matches the candidate's data science and machine learning background.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|215c9e38-e56c-423b-b88d-30327e37a422|767c5cfd76f1": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong Python, SQL, ETL, and data pipeline experience, matching the analytics engineering role, though their background is more data science than pure analytics engineering.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|dfb0c1d3-f99d-4ac1-b058-0a52edecb05d|b31ae560201c": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SQL, Python, experiment design, and analytics experience at the senior level, making them a good fit for this remote Senior Data Analyst role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|08a8c0c9-89bc-4343-93ad-d9621479a3f4|d5a3aa406636": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of B2B SaaS/fintech product management experience and matches the seniority, function, and location requirements, though lacks explicit AI/ML launch experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|8da21063-9a8d-4dad-ac0e-a072f8b4094c|b3f37e636513": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks required experience in performance advertising, DSPs, or ad network e-commerce products, which is a hard requirement for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|4389472d-9e34-40fd-9ea4-05a4ee29055c|ebd2ed63d2f0": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct experience in Ads monetization products or ad formats, which is a hard requirement for this Staff Product Manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|b22dc335-77a4-4f30-80db-3e7216cfdc21|55cbe058a28c": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks demonstrated hands-on coding and AI prototyping experience, which are core requirements for this product manager role at Ajaia.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|a5932959-4cdb-408a-9a4e-52667fab10b7|5474bbe9bb59": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a digital product manager in SaaS/fintech, while this job is for a physical product development/formulation manager in the beauty industry.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|641e0243-da9a-4093-9b01-49a60d3417ce|7ae3f1d21004": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior product manager with relevant B2B SaaS experience and meets the requirements for the Product Manager role at FanDuel, though lacks direct sports/gaming domain experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|d9078db8-b2e5-4455-bc4b-ad5f36315c03|ac2e011110de": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate has strong B2B SaaS and fintech product management experience, but lacks direct consumer growth or conversion-focused product management in a consumer context, which is a core requirement for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|07a3330b-816b-433d-b6e5-c0dde39ae27d|57873d5ea3a9": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of B2B SaaS product management experience, strong analytics skills, and relevant domain exposure, making them a realistic fit for this senior PM role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|3c942fd4-994e-4259-8d25-da2491412ab7|b5ababb8b7e9": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of B2B SaaS product management, has owned product areas, and meets all must-haves except explicit mention of using AI tools regularly.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|4d09ad4d-4469-4b40-83b9-43ab1aec81c6|101b8b9e7127": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of relevant B2B SaaS product management experience at the right seniority and is open to New York or remote roles, matching all must-haves.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|0a5f45d4-723a-4a4a-a1fe-e7d8834893a4|8ce8e47f81f8": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of B2B SaaS and fintech product management experience, matching the seniority and function, though lacks direct onchain/DeFi experience, which is a strong plus but not a must-have.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|bb2431e3-64b6-40cd-bcf3-c907b3eef133|3305007ae8bf": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks experience shipping AI-native products to production customers, which is a stated must-have for this Staff Product Manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|d0f107d5-c759-4abd-a007-0c9dd3abd09b|96409065189b": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job requires working in the Polish time zone and is Europe-based, which does not match the candidate's US-based location preferences.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|a9bde915-8e42-420b-8303-35cf3b8739ef|805218cfdbee": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a senior product manager with 7 years' experience, but the role requires 8+ years and director-level leadership of multiple PMs and designers.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|ca028962-89ea-4df6-bbd0-88c062085844|7d3e58290cf1": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a senior product manager with experience leading a single product line, but the job requires portfolio-level leadership and experience managing multiple product teams.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|09ede6d4-69e0-47ec-96a6-fbc74ad1fb6f|6489525b91b8": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a Senior Product Manager but the job is for a Director, requiring broader leadership and organizational scope than shown in the resume.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|cd021157-9d2a-4093-9d95-edbf8053e6a2|584dbc2e6f6b": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a senior product manager but lacks director-level experience and global team leadership, making this a stretch for a director role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|345d5380-7b48-4c28-abe9-553ebdb8f3b7|6eeb4c20ff43": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a senior product manager but this Head of Product/VP role requires executive leadership experience managing multiple teams and functions, which is a significant seniority gap.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|0201e519-4978-42a1-883d-b94c92ad5918|1033ac7647f7": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 7 years of product management experience but lacks the required 12+ years and experience leading PM managers for this head-of-level role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|e8390a56-75a3-41af-954d-ac73de503963|7da8b3339596": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks B2C product management experience and does not speak Russian, both of which are must-haves for this Head of Product role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|58b4b9a6-055b-4603-a6b0-51711616f9ea|003fb491730a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior product/UX designer with strong design systems and interaction design experience, matching the remote mid-senior designer role's requirements and function.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|47832230-0d04-4fa8-9c84-4b3e7ce1c506|9cc359fc296c": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 6 years of relevant product and UX design experience, strong B2B and design systems background, and meets all must-haves for this remote Staff Product Designer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|4757f7f2-17a4-465d-98aa-1001be6320d8|a9e2662b0721": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 6 years of experience, but the job requires 7+ years and a staff-level scope, making this a stretch application.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|86c93624-db7b-457d-ac8a-3b981a9e627f|3620bcb40818": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a strong product/UX designer but lacks clear brand identity and marketing design experience, which is central to this Brand Experience Designer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|b03bc49f-0119-4a58-805a-2a0cfeaf6ba9|8602a79ff3c4": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a product/UX designer, while the job is focused on 2D visual/graphic design for experiential and environmental work, which is a different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|ac5a8106-1d12-4db6-9dd4-0a33d261e077|af33a1605ebe": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong senior-level IC experience but lacks explicit people management or team leadership required for a Senior Manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|e49a98f6-c287-4438-94ee-98ca25497a18|565cb114ce9d": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a senior-level individual contributor, but this role requires significant leadership and team management experience at the director level.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|d9f32a97-5777-454c-837a-0f6539c17432|773bb770b2b7": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks clear experience in motion graphics, 3D design, and advanced Adobe Creative Suite skills, which are core requirements for this multidisciplinary designer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|44d38c44-c9e8-44d0-82c6-a19dd8d6872a|618d4ee85ac5": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of relevant DevOps/SRE experience, deep AWS/Kubernetes/Terraform skills, and is open to remote roles, matching all must-haves for this position.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|21a31d74-4afe-4dfe-b17f-7becbd0e12f9|71fb4da7cf33": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of SRE/DevOps experience with AWS, Kubernetes, Terraform, and incident response, matching the cloud infrastructure engineering role's requirements and location.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|30e4342a-ce4b-4dbb-b88c-be9fdfb14447|c89640cfc250": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong AWS and migration experience but lacks the required 10+ years and architect-level leadership on large-scale migrations.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|087db281-0f56-47cc-b0ac-067e992af315|dfde49a5b943": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a strong SRE/DevOps engineer but lacks direct experience building ML platforms or significant software engineering in Python, Scala, or Go for ML infrastructure.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|68613a79-691a-4cd1-ba3a-a5cad3f42aa9|02fe6b5929fe": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SRE/DevOps experience with Kubernetes, Terraform, CI/CD, observability, and remote is accepted, making them an excellent fit for this Senior Infrastructure Engineer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|6f16c729-70ad-4a4d-ae5e-9fd8e2356886|89d74133975c": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, while the job is for a mid-level software engineer focused on application development, which is an adjacent but different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|6402a0e4-e726-4b8e-bc8b-1034c56c077c|a15520077d7e": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of SRE/DevOps experience, relevant technical skills, and targets both the title and location; this is a strong match for the role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|be27ab20-c971-4c16-976e-3613a120867a|7268e3fd661f": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but the job is for a software engineer focused on application development, which is an adjacent but different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|c17e2645-1b4b-4362-98b3-a2dad1ccc570|462d9e4ae252": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks any description, so it's unclear if the function matches the candidate's SRE/DevOps background.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|0d3c18f8-37b4-4cce-8971-eeb26e28f6b2|021f8456c925": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks Databricks and strong data pipeline experience, which are core requirements for this data platform engineering role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|8b215265-22e1-4bdf-bc6e-5b2410138787|435784137408": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong SRE experience but lacks any engineering management or people leadership background required for this manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|0f8cbf0e-d7c8-4c93-ac18-6c03f4fef949|dc20353d17ea": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise account executive, significantly overqualified for an SDR role, which is an entry-level sales position.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|79174526-8a3c-4109-827c-393ef646bcab|58b906a5a08c": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior SaaS enterprise account executive in an accepted location, with relevant experience, though no explicit higher ed vertical experience is shown.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|6ea860fe-3899-41f4-8240-b5b68feece28|01a8adb26e9a": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of enterprise SaaS sales, full-cycle experience, and meets the seniority and location requirements for this NYC-based Senior Account Executive role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|1748434e-706b-41ea-8806-3b5b4648515e|af941da53371": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS account executive experience, meets all must-haves, and is open to remote roles, making this an excellent fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|1c44d995-5d61-485a-a1b7-7b3d6e5a74d6|63936066d19b": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks required experience selling into the Federal public sector and navigating executive-level Federal sales, which is a must-have for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|0d6f3ae4-731b-4cab-b5ce-f7ebf931e996|9b98f7b1feef": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise Account Executive, so this SDR role is two levels below their experience and not a realistic fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|9067bdd9-99dd-401b-9dd3-5de237452ecb|6200e3ba8e4d": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has senior SaaS account executive experience, selling to enterprise accounts, and is seeking remote roles like this Customer Account Manager position.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|ac893569-8948-4e63-afcb-7c74ff4f5248|cc9fda5d88b8": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS enterprise sales experience, matches the remote location, and meets all must-haves for this account management role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|2c4b42d6-bec5-401d-938d-f3fca9c301ff|e3d3966040cc": {
+  "score": 3,
+  "reason": "location_mismatch",
+  "sentence": "The candidate is based in Dallas and the job requires daily in-person field sales in NYC, which is not a listed location or remote.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|e35233bd-235c-4e93-83b4-724b4e6837ff|c3caa458d692": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks stated fluency in Spanish, which is a hard requirement for this bilingual sales role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|75969233-9b60-42a8-badd-7904088b12fb|616251cf603a": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS account executive experience, matches the remote location, and exceeds all must-have requirements for this mid-level AE role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|f63d9d8a-62d1-442e-a253-a981e10999da|1fa025c3e0db": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise account executive, significantly overqualified for an SDR role, which is entry-level and not a sensible career move.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|659016d7-d17c-43fa-a8e4-41f29262afa5|2e90354a5f07": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS account executive experience, matches the remote US location, and meets all must-have requirements for this Account Executive role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|07e4ef25-403e-4b2e-821a-f5d4d0f6d931|aa4515cb199d": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SaaS sales experience and meets all must-haves, though their background is more enterprise than high-velocity SMB account management.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|4395b5f7-223b-40f6-90d7-a8aa8f9d2863|2f4d717dad74": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SaaS account executive experience and meets all must-haves, though the role is SMB-focused and may be a slight step down in seniority.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|419f718a-0b2d-4e6f-b038-888a40d8bfae|e1900c79597e": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS account executive experience, matches the remote requirement, and exceeds all must-haves for this outbound AE role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|9bb0f85b-1dce-44b8-9efe-fd933bf4626d|1cae0fc69f18": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise account executive, making this SDR role a significant step down in seniority and responsibility.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|646d2076-4072-4b0d-ac4a-41b770491855|ecc1baf71b26": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise account executive, while this is an entry-level SDR role requiring no prior sales experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|5b35b652-a945-40ed-8385-9ceff2096204|a4ddfe929ea8": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is based in Germany (remote), but the candidate only lists US locations and does not indicate willingness to work in Europe.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|594081f6-d14a-4833-bdaf-378cab433333|82a19b3fd9b1": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong B2B SaaS demand generation and marketing operations experience, matching all must-haves for this remote performance marketing manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|066de995-3fe5-46db-9696-cc60cd81ac9e|39ed8cafe07b": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong demand generation experience but lacks director-level leadership and full ownership of strategy and multi-year team buildout required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|561699e1-0d40-416d-83b6-d3af87268d57|f38d52041ab0": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 7 years of experience and manages a small team, but the Director role requires broader leadership and at least 8 years, making this a stretch.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|d7bc305e-4aba-40c0-ab6e-ccc7983eac8b|1ec2789555a3": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of demand generation experience, deep HubSpot and Salesforce skills, and matches the remote US location and seniority for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|cab20ff1-8ade-40c6-9efe-d232d8042867|0d9141566b29": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a marketing manager focused on demand generation, not a copywriter with ecommerce marketplace product copy experience as required by the job.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|3ade3417-df5e-41ca-bb4a-839bc12240db|aebb1c40c653": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks native Norwegian proficiency, which is a stated must-have for this SEO Specialist role focused on the Norwegian market.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|8f5ecae4-ae70-49db-99bf-78d041aa2eb8|481fc2efc820": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has relevant marketing and event experience, is open to remote roles, and matches the seniority, though the field marketing focus is a slight shift from demand generation.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|e808c8b3-71f9-4020-ab51-6c7d19966387|a8821a32c202": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The candidate is based in Atlanta and the job requires living in or near Los Angeles, which is not a listed location or remote option for the candidate.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|cfb54e0e-4e30-4e7e-9a2b-e2f8c4db1667|44cef58516e2": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a marketing manager focused on demand generation, not a copywriter or creative writer as required by the job.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|7bfa8801-aef5-4df7-97f7-d9b7d8054ae6|fc18667d3520": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a marketing manager with no editorial or journalism experience, while the job requires significant news editing and reporting background.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|9bee39a4-d7dc-426c-9b55-871e509f1cd4|934ae2f42e68": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong demand generation and campaign management experience in B2B SaaS, matching the remote senior integrated campaign manager role's requirements and level.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|bc242b08-33c3-48c1-a802-e0c0d424a2fc|e142ac577c11": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a demand generation marketing manager with no clear event or community management experience, making this a stretch for the event-focused role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|2d98f3f5-1c2e-42e0-abf1-8b7ceb7f4d69|eb9720d88592": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong B2B SaaS marketing experience and relevant skills, though their direct product marketing experience is less explicit; still, they are a reasonable fit for this remote Product Marketing Manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|5d0e5cbf-94dd-4a3c-965c-3327af5766ba|6569180be180": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a demand generation marketing manager with limited direct event management experience, while the job requires end-to-end ownership of corporate events.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|0b8e3cde-362a-49b7-917d-450909e801a4|e128e054fd26": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong demand generation experience but lacks director-level scope and experience leading a full marketing organization at the required scale.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|3fa312a8-369e-4d2a-bb3f-15368e651037|1868de539836": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years in B2B SaaS demand generation and lifecycle marketing, matching the seniority and function for this remote PLG digital growth role, though direct PLG experience is not explicit.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|2f5fd67f-ee83-4248-87aa-716dd30ff5a2|45cf80ee9608": {
+  "score": 3,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a mid-level manager with some team leadership, but the Director role requires broader strategic leadership and likely more extensive management experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|3171ee62-df8f-43dc-a5e1-d927dda064ae|1c07d1646edd": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong lifecycle and demand generation experience in B2B SaaS, matching the lifecycle marketing manager role, though the product domain is different (CPG vs SaaS).",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|8ab5d5ff-23f1-433d-bbb2-40142619688e|4bbe87cbfa70": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks the required direct commercial equipment finance underwriting experience, which is a hard requirement for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|e9b874c7-08c7-4efc-a78a-4e567264d97a|8a480c099558": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 4 years of relevant FP&A experience, advanced Excel/Power BI skills, and is based in Chicago, matching all must-haves for this Senior Financial Analyst role.",
+  "model": "gpt-4.1"
+ },
+ "v1|financial_analyst|035c724e-f4a5-4122-a52c-6bc782036ad1|7f5457201747": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 4 years of experience, but the job requires 5+ years and a more senior, business-partnering FP&A background.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|590ed322-3e18-4b51-be4d-1a80bc643682|7764ddfa5bf7": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "This role is for a highly specialized Design Engineer with advanced visual, motion, and creative coding skills, which the candidate's entry-level frontend background does not match.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|2d13b0b7-2d65-406b-b1f2-b83716af6fdc|e5ece507b775": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a junior web developer with no hardware or electrical engineering background, while the job requires hands-on hardware lab and electronics skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|f78d1a54-98cf-47a0-93aa-0985233f671d|3577b82887e0": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "There is no job description, so it's unclear if the candidate's skills and level match the requirements for this Software Engineer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|6743cc1e-ccb0-45a5-a368-02e9a5c01902|46b2cc24472b": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is targeting junior frontend or full-stack engineering roles, but this is a mid-level manual QA position requiring 3+ years of QA experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|4dc6846f-6fd5-4c90-b873-37e2b2bef56b|5bc00f7addc5": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate, while this role requires strong production experience and deep expertise in JavaScript, TypeScript, and React.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|f78d1a54-98cf-47a0-93aa-0985233f671d|4970f84d748b": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks any description, so it's unclear what the actual requirements or responsibilities are.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|db359f4d-6907-471d-ac86-d459fb1b0f3c|50569125561e": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, but the job requires 3+ years of backend experience, making this a stretch application.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|1a675ccd-311e-4f99-ba83-62e565686da3|0792bd828499": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, but this is a Software Engineer II role requiring more experience than they have.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|82a30c2e-291c-4c55-a12c-5388cd501dbb|9f24c8bb0349": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, but the job requires a master's degree and at least 2 years of experience, which they do not have.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|bada4a5d-4092-48bf-84da-0d3bf01d60a9|3b195ca915fe": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad with one internship, while the job prefers 3+ years of Go experience; this is a stretch but not impossible given their Go project work.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|3d0c16f8-f79e-4949-a98f-02bc7f18dcfc|13ec458d58ae": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, but the job is for a senior engineer expected to lead, mentor, and drive high-leverage projects, which is a level above their current scope.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|52afc2c6-a6f2-472a-a749-b127f1ae4b1c|a00b623b928c": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend experience, meets the experience requirement, and is open to San Francisco or remote roles, though lacks explicit frontend experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|da5f3f83-2e35-4d14-b154-8b0cafd7d35e|339b0e009932": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, but the job is for a Senior Software Engineer, which typically requires more experience and leadership exposure.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|473deb25-56ef-472c-8c34-a87812ec0db9|4cae23bd8cfc": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend and infrastructure experience with Go, Python, distributed systems, and cloud tooling, matching the job's requirements and remote US location.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|4cbe4865-132b-4fd4-aa51-233f3fcc0b74|13f4da10d318": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks production Rust experience, which is a primary requirement for this senior backend role.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|c00caaae-5f07-4784-88b2-ee832d39d944|8e95da2fc329": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior data scientist, not a data engineer, and lacks clear experience building and maintaining ETL pipelines as the core job function.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|6eecbc0a-0bdb-49bd-9721-51468352b1db|8140aa1e4876": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of relevant DevOps/SRE experience, strong AWS/Kubernetes/Terraform skills, and matches the seniority, location, and technical requirements for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|51bf1d78-d485-4554-8ea0-831973adce33|02f2ee8283dc": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong DevOps and SRE experience, matching the job's requirements for cloud infrastructure, CI/CD, automation, and reliability, and is open to remote US roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|7c8b57ed-01d6-4372-80f0-fd142b4a770f|f7d3a90cc3c6": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong senior-level DevOps and SRE experience, matching the remote senior DevOps role's requirements and responsibilities, with relevant skills in Terraform, CI/CD, and observability.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|5bfd2a02-6cc7-46c7-864b-a4f4c30ecc4d|3c949d51aa33": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of relevant SRE/DevOps experience, meets all must-haves, is a US citizen, and accepts remote roles, making this an excellent fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|0d68dff4-b9e7-41a4-9184-9fc1c96c804e|e8fbd6bb97c6": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate's SRE/DevOps background aligns well with the internal platform engineering focus of this role, though it is more software engineering oriented than their recent experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|f78d1a54-98cf-47a0-93aa-0985233f671d|3890d3ce0abf": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks any description, so it is unclear if the function matches the candidate's experience in SRE/DevOps.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|ad5d7d61-0c06-4c16-8a50-6fec4de39df8|0514c555850f": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior SRE/DevOps engineer with strong platform experience, but the job is for a staff-level engineer, typically one level higher than their current experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|acb9f8a3-191b-4e38-807d-433a29b1b4e5|89c405e66482": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS enterprise sales, strong quota attainment, and relevant experience, though their average deal size is below the stated $200k+ ACV preference.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|6822e3b4-fdc8-47db-8609-135bc8bd9e9b|f8599fa7bac2": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong enterprise SaaS sales experience, meets the seniority and remote criteria, and aligns with most must-haves, though direct DevOps/AI infrastructure domain experience is only adjacent.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|c0b5c282-2514-4f70-a7ec-4755930016b9|89c405e66482": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS enterprise sales, strong quota attainment, and relevant experience, though their average deal size is below the stated $200k+ ACV preference.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|b3d9ab7b-740d-4bf5-baf6-04401b00e15e|89c405e66482": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS enterprise sales, strong quota attainment, and relevant experience, though their average deal size is below the stated $200k+ ACV preference.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|36803529-d48f-4ebf-b873-a0ec50f88402|6a56ef9ab23b": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has senior SaaS sales experience, full-cycle enterprise selling, and matches the remote location and required skills for this Senior Account Executive role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|f8b306ab-3029-4439-ad41-56e752dee222|5de3bd071330": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise Account Executive, so this SDR role is two levels below their experience and not a realistic fit.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|13482ebf-226a-4ba1-b52b-6df783617f0e|a84a387eaf41": {
+  "score": 2,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior enterprise Account Executive, while this job is an entry-level SDR role, representing a two-level step down in seniority and responsibility.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|8d1d6d2b-3229-43c5-87a4-fac2aae82998|f66fa73a1dc5": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a marketing manager, but this role is a growth analyst focused on data analytics and product, which is an adjacent but different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|b2a08057-2d54-4877-a482-ee141f260f10|c3c8dbcbdef2": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong B2B SaaS demand generation and campaign management experience, matching the remote Growth Marketing Lead role's requirements and seniority.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|e82d59b7-a84a-4225-b02b-1a9e474975ef|4c30e2bb394c": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong hands-on demand generation and channel growth experience in B2B SaaS, matching the Growth Lead role's requirements and remote US location.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|8b1a1959-68af-4904-b8dd-eb9f86239272|767ea5b10a6d": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 7 years of experience, but the job requires 12 years or 8 years plus a master's degree, making this a stretch application.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|70732780-0034-4c4e-9cb6-feee309ac919|41ced27c014c": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The role is a program-level engineering integrator requiring cross-functional engineering and project management experience, which the candidate lacks as an entry-level frontend developer.",
+  "model": "gpt-4.1"
+ },
+ "v1|new_grad_swe|dc04175d-d82c-4bf3-9beb-d372b5ef9a51|ab00d96e5c82": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level new grad, while the role expects deep expertise and experience maintaining production-grade SDKs and open-source libraries.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|7b40b02a-a354-4f36-beea-7ef25794b384|a986040dd3c6": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong React/TypeScript experience and leadership, matching the seniority and frontend focus; only mobile/native experience is a minor gap.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|c17e2645-1b4b-4362-98b3-a2dad1ccc570|2477adc2fb22": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "There is no job description, so it is unclear what the function or requirements are beyond the title.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|f78d1a54-98cf-47a0-93aa-0985233f671d|65704cb0452d": {
+  "score": 2,
+  "reason": "unclear_job",
+  "sentence": "The job posting lacks any description, so it's unclear what function or skills are required for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|82fe9db7-5522-4d99-9197-a26abc4d901e|019fc03e5f2c": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior frontend engineer, but this role is focused on backend/core systems and agent SDKs, which is outside their primary expertise.",
+  "model": "gpt-4.1"
+ },
+ "v1|senior_frontend|7ae35e4a-3020-41a6-8985-f0ee69b8950e|1d827330218d": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior frontend engineer with strong experience in building data-heavy, user-facing products and meets the remote, senior software engineer requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|22fb62bf-3c60-409e-894f-8be466017ce0|0273b5e750ad": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend and platform engineering experience, matching the job's focus on internal tooling and developer platforms, and is open to San Francisco roles.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|3e04cbd1-f645-4af1-ad7c-9f244b78872a|d7f63d1ba2d3": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend and platform engineering experience with Python, SQL, CI/CD, and cloud, matching most requirements, though lacks explicit dbt/Airflow experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|92f5e7ba-acce-4157-82a2-f1fe1ff90a29|c033ee8e36f8": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks experience with C#, .NET, and frontend technologies like React.js, which are required for this senior full-stack role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|bc9100d8-3dc8-4fc0-ba0d-ce61102acc74|109f808658a8": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong backend and platform experience but is mid-level, while the job requires a senior engineer to architect and own infrastructure at scale.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|ff0918c6-1340-4857-8fe3-b7185067c29e|cc6a9ab1ec59": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong backend and platform experience but is mid-level, while the job requires senior-level ownership and cross-team influence.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|bb11c3ae-3855-4b5b-aa50-5eca00641833|91b1997ccbc4": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks deep experience integrating with Salesforce or similar business systems, which is a core requirement for this senior GTM systems role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|dc04175d-d82c-4bf3-9beb-d372b5ef9a51|3880e3f68b71": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong Go and Python experience building APIs and internal tooling, matching the SDK engineering focus, though lacks explicit open-source library contributions.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|82fe9db7-5522-4d99-9197-a26abc4d901e|77d3bfc2e04c": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong backend engineering experience, relevant skills (Go, platform tooling), and meets all must-haves for this mid-level software engineering role.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|53c3bc8a-4b21-45f1-8223-17f5aeb18327|1a831bea89a9": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience and is mid-level, but the job requires 6+ years and senior-level leadership and mentoring experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|9592b647-5df4-4b16-929f-ad03f018d2b4|9151ca6fc72c": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has 5 years of experience, but this is a senior-level role expecting architectural leadership and mentorship, which may be a stretch for their current level.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|d19f859c-9ddb-4101-8ef8-177b436a52e2|df5e633df543": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong backend and platform experience but is mid-level, while the job requires staff-level leadership and ownership beyond their current scope.",
+  "model": "gpt-4.1"
+ },
+ "v1|backend_platform_mid|9cfa19ca-c317-41b6-a6c3-54ea886dd1e5|a9359f4d02b2": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate has strong platform and backend experience but is mid-level, not senior, and lacks direct Ruby on Rails infrastructure background required for this senior role.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|f73f3909-8f6b-4254-a317-c1efd8471cef|cc44fc46c6a6": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior data scientist with strong experience in experimental design, ML, and relevant tools, matching the remote senior data scientist role requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|9f22e7f2-23c2-48b4-8070-217da4d85959|e6650a14e19f": {
+  "score": 3,
+  "reason": "location_mismatch",
+  "sentence": "The job is only open to professionals based in Latin America, but the candidate is based in San Francisco, CA and not in Latin America.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|b44873ac-3e8a-477d-a4a1-eec69152d864|ff2898aac83a": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong data modeling, analytics, and dbt experience, making them a good fit for this senior analytics engineer role, though their focus is more ML than pure analytics engineering.",
+  "model": "gpt-4.1"
+ },
+ "v1|data_scientist_ml|a8582410-99f6-4435-8047-fe7191e3c04d|138ccc031ecb": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior data scientist and machine learning engineer, but this job is for a senior data engineer, which is a different function despite some overlapping skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|10972a40-bed5-47a2-9a59-f7ca395f17d6|334dc9a150dd": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct experience building developer-facing products or working on infrastructure, cloud, or developer tools, which is a core requirement for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|32d3247e-6304-439a-9ffd-ea8c580a590d|55daf4dc5dd5": {
+  "score": 3,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is a Senior Product Manager but the job is for a Staff-level PM, which is typically a step above their current experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|5018deae-0df6-4327-abf2-0ce9c523f944|0b73fe49aefd": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior product manager with fintech and B2B SaaS experience, matching the job's function, level, and location preferences, though the forward-deployed aspect is a slight domain shift.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|da52a2f0-cb32-497a-bae9-354d107a312d|aed9d7ba4498": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks direct AI/ML or AI observability experience, which is a key requirement for this product management role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|1f4f6626-7bb6-491e-be02-3bed342f5457|f34077d7bd09": {
+  "score": 3,
+  "reason": "missing_must_have",
+  "sentence": "The candidate lacks experience with operator-facing or real-time operational tooling and does not have a technical degree, which are key requirements for this technical product manager role.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_manager|b6c7bb5f-b092-436f-b020-14ed26fa983e|1689819cfa51": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of B2B SaaS product management experience at the right level and is open to New York roles, matching all must-haves for this Senior Product Manager job.",
+  "model": "gpt-4.1"
+ },
+ "v1|product_designer|78f603d3-2cd8-45f3-a71f-7dd1c6e76f70|ec0124a5a6aa": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 6 years of relevant product design experience, is based in NYC, and matches all must-have qualifications for this in-office Product Designer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|af304e75-fe0b-4d03-9bde-3a7d6e90b710|e5b24eafce5b": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate is a senior SRE with strong Kubernetes, AWS, and automation experience, matching the role, though their resume shows less explicit security specialization than the posting emphasizes.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|86e01896-7545-4a61-b4a0-76da634e0a7b|c644bbc426e3": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong DevOps and cloud infrastructure experience, matching the job's requirements, though direct VPN/networking experience is not explicit but adjacent to their skills.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|f049b9f3-bb98-49ff-a7ff-a41719af1cf8|544ca70d109c": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 7 years of SRE/DevOps experience, strong AWS and Kubernetes skills, and is located in the Mountain time zone with US work authorization, matching all job requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|e6c3fa74-5bcc-4bd9-acf9-c652d65f3322|463ad1619779": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong platform, DevOps, and SRE experience with relevant automation, cloud, and security skills, though direct lab hardware/networking experience is not explicit but adjacent.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|62f7bbc7-a39f-43b8-95e0-57d17ce49f2d|9e46d0493853": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate matches the function, seniority, remote location, and all core technical requirements for this Senior DevOps Engineer role.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|4b252ee0-1107-4628-be40-1ad6cd30c788|8fe1d45a8566": {
+  "score": 3,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a senior SRE/DevOps engineer, but this is a Staff Software Engineer role focused on distributed data platform software development, not SRE or DevOps.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|a4ac4534-3bc0-4f6d-aaba-cbaca8c44fea|aa48f581dae7": {
+  "score": 2,
+  "reason": "location_mismatch",
+  "sentence": "The job is based in London, UK, but the candidate is only seeking roles in the US or remote US positions, making this a location mismatch.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|bb11c3ae-3855-4b5b-aa50-5eca00641833|eede77bf2035": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a Site Reliability/DevOps engineer, but this job is for a software engineer focused on sales systems and business process automation, which is a different function.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|5ccb29a0-4ae0-4f38-ac98-461276b19304|73d26025c754": {
+  "score": 3,
+  "reason": "wrong_seniority_too_senior",
+  "sentence": "The candidate is a senior-level engineer, but this is a staff-level (higher) role requiring deeper experience in platform architecture and large-scale data systems.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|ff0918c6-1340-4857-8fe3-b7185067c29e|94dfd8c23ad7": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong senior-level infrastructure and DevOps experience, relevant programming skills, and matches the San Francisco or remote location, though lacks explicit AI coding tool experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|devops_sre|570ce90c-547c-4e37-807f-9d43a39e3365|4ae0c608e9f7": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SRE/DevOps experience, relevant skills in Python, CI/CD, AWS, Kubernetes, and developer tooling, making them a realistic fit for this remote senior infrastructure role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|081e935c-7f73-4c54-9b2e-7547a3390d13|939c63a4f68d": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of enterprise SaaS sales, recent cloud security experience, and meets all must-haves for this remote Account Executive role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|78fae8b4-2352-455f-acd6-446614de549d|f8cf4d122927": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS sales experience, full-cycle enterprise and mid-market sales, and is based in Texas with remote eligibility, matching all must-haves for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|9105b57e-cdd1-4e71-a8b6-90e114457a3d|3598ab85e164": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of enterprise SaaS sales experience, meets the seniority and location requirements, and matches all must-have qualifications for this remote role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|8cf4ef61-5943-45e0-b3dc-80c5bc2854d2|e09df02e5d63": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of SaaS enterprise sales experience, meets the seniority, remote location, and function requirements, and uses MEDDICC, matching the job's must-haves.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|c2d60ade-f326-454b-9588-92f1624204e5|4a207586112d": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 8 years of enterprise SaaS sales experience, matches the remote location, and meets all must-haves for the Enterprise Account Executive role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|9f17d2eb-234e-4cfe-bb56-326320a6340a|e31cfe8f62c9": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has extensive enterprise SaaS sales experience, matches the seniority, is authorized for remote US work, and meets all must-have requirements for this role.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|9f1f0af2-1574-458d-9ea0-b27aa50d6786|588ec6ad5a8b": {
+  "score": 3,
+  "reason": "location_mismatch",
+  "sentence": "The candidate is based in Texas and did not list California as a target location, while the job is remote but specifically for Southern California.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|060d6b03-210c-4216-97e2-8c0b641f4a42|b938e561caa2": {
+  "score": 4,
+  "reason": "good_fit",
+  "sentence": "The candidate has strong SaaS account executive experience and meets the remote, US work authorization, and seniority requirements, though the role focuses on SMB rather than enterprise accounts.",
+  "model": "gpt-4.1"
+ },
+ "v1|account_executive|14be5e41-fc13-4a98-9043-33fa2b4b3f4a|e47846aab0c4": {
+  "score": 2,
+  "reason": "missing_must_have",
+  "sentence": "The candidate does not indicate fluency in Mandarin, which is a hard requirement for this bilingual sales role.",
+  "model": "gpt-4.1"
+ },
+ "v1|marketing_manager|29185c65-c613-497b-ad45-86deab57ec20|d1d9d2c674de": {
+  "score": 2,
+  "reason": "wrong_function",
+  "sentence": "The candidate is a marketing manager, but this is a senior product management role requiring deep product ownership and cross-functional leadership experience the candidate lacks.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|0c5ae743-0e82-443a-9b6c-47b70577c6cc|17ff98919446": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a mid-level RN with BSN, current MN license, and relevant med-surg/telemetry experience in Saint Cloud, matching all job requirements and location.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|8d1fd0c3-cf88-4205-975e-ad41826eb5c0|9fda12f05352": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate has 6 years of telemetry RN experience, a BSN, Minnesota RN license, and lives in Saint Cloud, matching all job requirements and location.",
+  "model": "gpt-4.1"
+ },
+ "v1|registered_nurse|fcac1ce9-b98d-4636-b1c3-c9939348f969|6f25e21e123f": {
+  "score": 5,
+  "reason": "good_fit",
+  "sentence": "The candidate is a BSN-prepared RN with relevant acute care and orthopedic experience, licensed in MN, and lives in Saint Cloud, matching all job requirements.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|1f577754-95ff-4038-ae3f-c1f6a2a3767a|b4f97e31a572": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate with no professional software experience, while the job requires 3+ years and hands-on Appian platform experience.",
+  "model": "gpt-4.1"
+ },
+ "v1|bootcamp_frontend|5adf9842-c6f7-415e-9c28-e36bf00dccc9|0129d843c4d9": {
+  "score": 2,
+  "reason": "wrong_seniority_too_junior",
+  "sentence": "The candidate is an entry-level bootcamp graduate with no professional software experience, while the job requires strong engineering background and hands-on AI application experience.",
+  "model": "gpt-4.1"
+ }
+}

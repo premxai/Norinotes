@@ -1,7 +1,7 @@
 import type { Browser } from "playwright";
 import { withPage } from "./browser.js";
 import { readFontFile } from "./fonts.js";
-import { DEFAULT_FONT, DEFAULT_SIZE, DEFAULT_TEMPLATE, PAGE_SIZES, renderResumeHtml } from "./template.js";
+import { DEFAULT_TEMPLATE, PAGE_SIZES, renderResumeHtml, themeFor } from "./template.js";
 import type { Density, FontId, PageSize, ResumeBullet, ResumeContent, ResumeTemplate } from "./types.js";
 
 /** Count pages in a PDF by its page objects ("/Type /Page", not "/Pages"). */
@@ -28,7 +28,8 @@ export const playwrightRenderer: PdfRenderer = (html, { size, browser }) => with
   });
   await page.setContent(html, { waitUntil: "load" });
   await page.evaluate("document.fonts.ready");
-  return Buffer.from(await page.pdf({ format: PAGE_SIZES[size].css as "Letter" | "A4", printBackground: true, preferCSSPageSize: true }));
+  // Real text in reading order, links as annotations with their visible label, no images. `tagged` adds a structure tree.
+  return Buffer.from(await page.pdf({ format: PAGE_SIZES[size].css, printBackground: true, preferCSSPageSize: true, tagged: true }));
 }, browser);
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -77,7 +78,7 @@ export function withoutBullets(content: ResumeContent, ids: ReadonlySet<string>)
 }
 
 /**
- * Bring a resume within `maxPages`. First tighter type (normal, then compact); then cut the lowest-weight bullets,
+ * Bring a resume within `maxPages`. First tighter type (normal, compact, tight); then cut the lowest-weight bullets,
  * found by binary search over how many to cut, so the render count stays logarithmic; and only if even that is not
  * enough, tight type with every cuttable bullet gone. Returns the best attempt, with its real page count.
  */
@@ -100,6 +101,9 @@ export async function fitToPages(content: ResumeContent, measure: Measure, opts:
   if (fits(normal)) return done(content, "normal", normal, []);
   const compact = await run(content, "compact", "compact:0");
   if (fits(compact)) return done(content, "compact", compact, []);
+  // Tight type is still better than losing a bullet, so try it before cutting anything.
+  const tight = await run(content, "tight", "tight:0");
+  if (fits(tight)) return done(content, "tight", tight, []);
 
   const order = dropOrder(content);
   const cut = (k: number) => order.slice(0, k);
@@ -139,6 +143,8 @@ export type RenderOptions = {
   size?: PageSize;
   /** A Playwright browser to use. Default: a shared one launched on first use. */
   browser?: Browser;
+  /** Theme overrides for ATS Standard (font size, margin, accent...); normalised and clamped. */
+  theme?: unknown;
   /** Replace the PDF renderer (tests). */
   renderer?: PdfRenderer;
   /** Pages allowed. Default 1. */
@@ -162,11 +168,12 @@ export type RenderedResume = {
 /** Render a resume to a PDF, refitting until it reaches the page limit or runs out of things to cut. */
 export async function renderResumePdf(content: ResumeContent, opts: RenderOptions = {}): Promise<RenderedResume> {
   const template = opts.template ?? DEFAULT_TEMPLATE;
-  const font = opts.font ?? DEFAULT_FONT;
-  const size = opts.size ?? DEFAULT_SIZE;
+  // Explicit font and size win over the theme overrides; the theme (default: ATS Standard's) decides the rest.
+  const theme = themeFor({ ...(opts.theme && typeof opts.theme === "object" ? opts.theme : {}), ...(opts.font ? { font: opts.font } : {}), ...(opts.size ? { pageSize: opts.size } : {}) });
+  const size = theme.pageSize;
   const renderer = opts.renderer ?? playwrightRenderer;
   const measure: Measure = async (c, density) => {
-    const html = renderResumeHtml(c, { template, font, size, density, fontBase: FONT_HOST });
+    const html = renderResumeHtml(c, { template, theme, density, fontBase: FONT_HOST });
     const pdf = await renderer(html, { size, browser: opts.browser });
     return { pdf, pages: countPdfPages(pdf) };
   };
@@ -178,6 +185,6 @@ export async function renderResumePdf(content: ResumeContent, opts: RenderOption
   } else {
     fit = await fitToPages(content, measure, { maxPages });
   }
-  const html = renderResumeHtml(fit.content, { template, font, size, density: fit.density });
+  const html = renderResumeHtml(fit.content, { template, theme, density: fit.density });
   return { pdf: fit.pdf, html, pages: fit.pages, content: fit.content, density: fit.density, dropped: fit.dropped, renders: fit.renders };
 }

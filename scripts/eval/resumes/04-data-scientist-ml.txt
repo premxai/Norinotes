@@ -1,0 +1,26 @@
+Wei Zhang
+San Francisco, CA | wei.zhang@example.com | (650) 555-0163 | publications and GitHub available on request
+
+SUMMARY
+Data scientist and machine learning engineer with a PhD in statistics and 5 years in industry. Built forecasting, ranking and NLP models that shipped to production. Currently on an H-1B visa; will require employer sponsorship for a transfer.
+
+EXPERIENCE
+Senior Data Scientist, Northbeam Retail Technologies (San Francisco, CA), April 2023 - Present
+- Built a demand-forecasting system (LightGBM and a temporal fusion transformer in PyTorch) for 8,000 SKUs; reduced forecast error (WAPE) by 19% and stockouts by 11%.
+- Led an A/B testing program: designed experiments, power analysis and CUPED variance reduction for 25 experiments per quarter.
+- Productionised a product-ranking model served via a Python microservice on Kubernetes at 40 ms p95; lifted conversion by 2.3%.
+- Mentor 2 junior data scientists; present results to VP-level stakeholders.
+
+Data Scientist, Helix Genomics (South San Francisco, CA), September 2021 - March 2023
+- Developed NLP models (BERT fine-tuning, Hugging Face) to extract variants from 200,000 clinical notes with 0.91 F1.
+- Built feature pipelines in Spark and Airflow; wrote SQL models in dbt for the analytics team.
+
+Research Assistant, Department of Statistics, Stanford University, 2016 - 2021
+- Ph.D. research on Bayesian hierarchical models for causal inference; 4 peer-reviewed papers.
+
+EDUCATION
+Ph.D. Statistics, Stanford University, 2021
+M.S. Statistics, Peking University, 2016
+
+SKILLS
+Python, SQL, R, PyTorch, scikit-learn, LightGBM, XGBoost, Hugging Face Transformers, Spark, Airflow, dbt, Snowflake, Kubernetes, MLflow, experiment design, causal inference, time-series forecasting, NLP, Bayesian methods.

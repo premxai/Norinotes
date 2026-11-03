@@ -52,7 +52,18 @@ describe("roleFamilyOf", () => {
     ["Corporate Counsel", "legal", null],
     ["Paralegal", "legal", null],
     ["Mechanical Engineer", "other", null],
-    ["Barista", "other", null],
+    ["Barista", "unknown", null],
+    ["Registered Nurse | Telemetry", "healthcare", null],
+    ["Charge Nurse", "healthcare", null],
+    ["Physical Therapist", "healthcare", null],
+    ["Clinical Research Coordinator", "healthcare", null],
+    ["Mathematics Teacher", "education", null],
+    ["Software Engineering Instructor", "education", null],
+    ["Nurse Recruiter", "people", null],
+    ["Clinical Data Scientist", "data_analysis", null],
+    ["Hardware Lab Engineer Intern", "other", null],
+    ["Senior SDET", "software_engineering", "quality"],
+    ["Middle Manual QA Engineer (Growth)", "software_engineering", "quality"],
   ];
   it.each(cases)("%s -> %s", (title, family, subfamily) => {
     const c = roleFamilyOf(title);

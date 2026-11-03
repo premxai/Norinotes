@@ -1,0 +1,25 @@
+Robert Kim
+Chicago, IL | robert.kim@example.com | (773) 555-0145 | linkedin.com/in/robertkimfinance
+
+SUMMARY
+Financial analyst with 4 years of corporate FP&A experience in consumer goods and manufacturing. Strong in budgeting, forecasting and variance analysis; advanced Excel and SQL. CFA Level II candidate.
+
+EXPERIENCE
+Financial Analyst, Prairie Foods Inc. (Chicago, IL), August 2023 - Present
+- Own the monthly forecast and variance reporting for a $320M business unit; present to the VP of Finance and the business unit GM.
+- Rebuilt the annual operating plan model in Excel and Power BI, cutting the budget cycle from 6 weeks to 4.
+- Identified $2.6M of annual trade-spend savings through promotion ROI analysis.
+- Partner with supply chain on margin bridges and standard cost updates; support SOX controls for revenue accruals.
+
+Junior Financial Analyst, Midwest Industrial Components (Naperville, IL), July 2022 - July 2023
+- Prepared monthly management reports, headcount forecasts and capex tracking for 3 plants.
+- Automated reconciliations with SQL and VBA, saving 25 hours per month.
+
+Finance Intern, Allstate Financial Operations, Summer 2021
+
+EDUCATION
+B.S. Finance, DePaul University, 2022 (Magna Cum Laude)
+CFA Program: Level I passed 2023; Level II candidate 2026
+
+SKILLS
+Financial modeling, budgeting and forecasting, variance analysis, Excel (pivot tables, XLOOKUP, Power Query), Power BI, SQL, SAP, Hyperion Planful, NetSuite, SOX, GAAP, DCF, working capital analysis.

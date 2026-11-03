@@ -12,8 +12,11 @@ import { adjacentTitles, mainFamilyOf, type RoleFamily } from "./roles.js";
  *  3. `older`            jobs up to 90 days old instead of 60
  *  4. `role_pool`        the role-family pool for the user's main family and metro (see `rolePool`)
  *
- * Gates (citizenship, clearance, sponsorship, years), blocked companies and jobs the user already dismissed or applied
- * to are never widened; only what the lanes asked for is.
+ * Gates (citizenship, clearance, sponsorship, years, location scope), blocked companies and jobs the user already
+ * dismissed or applied to are never widened; only what the lanes asked for is. Every widened candidate gets the same fit
+ * as a lane match and must clear `WIDEN_MIN_FIT`, in every step including `older`; lane jobs that failed the gates or
+ * their lane minimum are not brought back under a widened label. Within a step the best candidates win: the fit already
+ * prefers the same family and seniority band, and jobs with a real spec come first.
  */
 
 export const WIDENED_BY = ["adjacent_titles", "remote", "older", "role_pool"] as const;
@@ -22,6 +25,11 @@ export type WidenedBy = (typeof WIDENED_BY)[number];
 /** Fewer shortlist candidates than this from the lanes triggers the ladder, and the ladder fills up to it. */
 export const WIDEN_TARGET = 20;
 export const OLDER_MAX_AGE_DAYS = 90;
+/**
+ * Widened rows are scored with the same fit as lane matches and must reach this (or the user's own lane minimum, when that
+ * is lower): a stretch, not noise. See the fit scale in fit.ts.
+ */
+export const WIDEN_MIN_FIT = 0.45;
 
 /** Stored in `shortlist.reasons` next to the human sentences; the API strips it and reports `widenedBy` instead. */
 export const WIDENED_REASON_PREFIX = "widened:";

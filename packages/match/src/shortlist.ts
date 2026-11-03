@@ -4,22 +4,27 @@ import {
   and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes, notInArray, or,
   shortlist, sql, type Db,
 } from "@norinote/db";
-import { buildRequirements, requirementTexts, scoreFit, type FitMapItem } from "./fit.js";
+import { matchTargetOf, widenedTooFar, type MatchTarget } from "./alignment.js";
+import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitMapItem, type QualityLevel } from "./fit.js";
 import { checkGates } from "./gates.js";
 import { heuristicSpec } from "./heuristic-spec.js";
 import { inlineLanesFitSql, laneFitsSql, matchingLanes } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
+import { placeFactor } from "./location.js";
 import { loadMatchProfile, meanProfileEmbedding, type MatchProfile } from "./profile.js";
 import { rolePool } from "./roles.js";
 import { DEFAULT_SKILL_MAP, type SkillMap } from "./skills.js";
-import type { StoredJobSpec } from "./understand.js";
+import { SPEC_VERSION, type StoredJobSpec } from "./understand.js";
 import {
-  WIDEN_TARGET, loadRemoteExcluded, loadTemporaryLane, widenedReason, wideningPlan, type SimpleLane, type WidenedBy, type WideningStep,
+  WIDEN_MIN_FIT, WIDEN_TARGET, loadRemoteExcluded, loadTemporaryLane, widenedReason, wideningPlan, type SimpleLane, type WidenedBy, type WideningStep,
 } from "./widen.js";
 
 export const SHORTLIST_MAX_AGE_DAYS = 60;
+/** At most this many pages of `candidates` vector-ranked lane jobs are scored before the shortlist widens. */
+const LANE_PAGES = 3;
 const DAY_MS = 86_400_000;
-const EMBED_BATCH = 100;
+const EMBED_BATCH = 256;
+const EMBED_CONCURRENCY = 4;
 
 export type EmbedFn = (texts: string[]) => Promise<number[][]>;
 
@@ -60,6 +65,10 @@ export type ShortlistCandidate = {
   similarity: number;
   /** Set when the job is here because the shortlist was widened (it does not fit the user's lanes as written). */
   widenedBy?: WidenedBy | null;
+  /** How far the spec can be trusted: 1 for a full posting read by the model, down to 0.7 for a job without a description. */
+  confidence?: number;
+  /** The ranking key: fit x confidence plus a small bonus for fresh postings. */
+  rankScore?: number;
 };
 
 export type MatchStats = {
@@ -100,7 +109,15 @@ type CandidateJob = {
   /** Widening only: the posting text (for a heuristic spec when the job has none) and whether similarity is still to be computed by skill overlap. */
   description?: string;
   rankLexically?: boolean;
+  /** Length of the posting text (null: unknown). Jobs without one are capped and ranked after described ones. */
+  descriptionChars?: number | null;
+  /** Posted, else first seen. */
+  recency?: Date | null;
 };
+
+/** SQL for the columns every candidate query reads besides the basics. */
+const descriptionCharsSql = () => sql<number>`length(${jobs.descriptionText})`.mapWith(Number);
+const recencySql = () => sql<string>`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`.mapWith((v) => (v == null ? null : new Date(v as string)));
 
 // ---- shared SQL conditions --------------------------------------------------------------------------------------------
 
@@ -140,22 +157,25 @@ async function requirementVectors(texts: readonly string[], embedFn: EmbedFn): P
     if (hit) out.set(t, hit);
     else missing.push(t);
   }
-  for (let i = 0; i < missing.length; i += EMBED_BATCH) {
-    const batch = missing.slice(i, i + EMBED_BATCH);
-    let vectors: number[][];
+  const batches: string[][] = [];
+  for (let i = 0; i < missing.length; i += EMBED_BATCH) batches.push(missing.slice(i, i + EMBED_BATCH));
+  // A few batches at a time: one round trip per EMBED_CONCURRENCY batches instead of one per batch.
+  for (let i = 0; i < batches.length; i += EMBED_CONCURRENCY) {
+    const group = batches.slice(i, i + EMBED_CONCURRENCY);
+    let results: number[][][];
     try {
-      vectors = await embedFn(batch);
+      results = await Promise.all(group.map((b) => embedFn(b)));
     } catch (e) {
       if (e instanceof AiUnavailableError) return out;
       throw e;
     }
-    batch.forEach((t, j) => {
-      const v = vectors[j];
+    group.forEach((batch, g) => batch.forEach((t, j) => {
+      const v = results[g]![j];
       if (!v) return;
       if (vectorCache.size >= VECTOR_CACHE_MAX) vectorCache.clear();
       vectorCache.set(t, v);
       out.set(t, v);
-    });
+    }));
   }
   return out;
 }
@@ -167,13 +187,40 @@ export function clearRequirementVectorCache(): void {
 
 // ---- detailed fit and save --------------------------------------------------------------------------------------------
 
-async function loadSpecs(db: Db, jobIds: readonly string[]): Promise<Map<string, StoredJobSpec>> {
-  const out = new Map<string, StoredJobSpec>();
+type LoadedSpec = { spec: StoredJobSpec; heuristic: boolean };
+
+async function loadSpecs(db: Db, jobIds: readonly string[]): Promise<Map<string, LoadedSpec>> {
+  const out = new Map<string, LoadedSpec>();
   if (jobIds.length === 0) return out;
-  const rows = await db.select({ jobId: jobSpecs.jobId, version: jobSpecs.version, spec: jobSpecs.spec })
+  const rows = await db.select({ jobId: jobSpecs.jobId, version: jobSpecs.version, spec: jobSpecs.spec, model: jobSpecs.model })
     .from(jobSpecs).where(inArray(jobSpecs.jobId, [...jobIds])).orderBy(asc(jobSpecs.version));
-  for (const r of rows) out.set(r.jobId, r.spec as StoredJobSpec); // ascending, so the newest version wins
+  // Ascending, so the newest version wins. A spec below the current version, or written without a model, is heuristic.
+  for (const r of rows) out.set(r.jobId, { spec: r.spec as StoredJobSpec, heuristic: r.model === "heuristic" || r.version < SPEC_VERSION });
   return out;
+}
+
+// ---- ranking ----------------------------------------------------------------------------------------------------------
+
+/** At most this much is added to the ranking key of a job posted today, nothing after 30 days. */
+const RECENCY_BONUS = 0.03;
+const RECENCY_DAYS = 30;
+
+/** fit x confidence plus a small bonus for fresh postings. */
+export function rankScore(fit: number, confidence: number, recency: Date | null | undefined, now: Date): number {
+  const age = recency ? Math.max(0, (now.getTime() - recency.getTime()) / DAY_MS) : RECENCY_DAYS;
+  return Math.round((fit * confidence + RECENCY_BONUS * Math.max(0, 1 - age / RECENCY_DAYS)) * 10000) / 10000;
+}
+
+/** Jobs with a real spec (read by the model from a real posting) come before the rest, whatever their score. */
+const wellSpecified = (q: QualityLevel) => q === "full" || q === "thin";
+
+type Rankable = { rankScore?: number; fit: number; similarity: number; quality?: QualityLevel };
+
+/** Well-specified first, then by ranking key, fit and similarity. */
+export function byRank(a: Rankable, b: Rankable): number {
+  const qa = a.quality ? Number(wellSpecified(a.quality)) : 1;
+  const qb = b.quality ? Number(wellSpecified(b.quality)) : 1;
+  return qb - qa || (b.rankScore ?? b.fit) - (a.rankScore ?? a.fit) || b.fit - a.fit || b.similarity - a.similarity;
 }
 
 const WHY_SYSTEM = "You write one short sentence (at most 25 words) telling a job seeker why a job fits them. Use only the facts given. No hype, no second-guessing, no quotes.";
@@ -213,54 +260,91 @@ export async function saveShortlistRows(db: Db, userId: string, rows: readonly S
   return saved.length;
 }
 
-type ScoredItem = ShortlistCandidate & { title: string; companyName: string | null };
+type ScoredItem = ShortlistCandidate & { title: string; companyName: string | null; quality?: QualityLevel; recency?: Date | null };
 
 type ScoreOptions = {
   /** The profile the gates run against when the lanes in force differ from `profile.lanes` (temporary and widened lanes). */
   gateProfile?: MatchProfile;
-  /** Widening: no lane minimum fit (the ladder fills the list up to a target). Gates still apply. */
-  ignoreMinFit?: boolean;
+  /**
+   * Widening: instead of the lane minimum, a candidate must clear the widening floor (`WIDEN_MIN_FIT`, or a lower lane
+   * minimum the user chose). A candidate that fits the user's own lanes and is fresh enough to be a lane match still needs
+   * the lane minimum: widening never re-admits a lane job under a lower bar. Gates still apply.
+   */
+  widened?: boolean;
   /** Widening: a job without a stored spec is read with the heuristic spec in memory, and candidates flagged `rankLexically` get a skill-overlap similarity. */
   heuristic?: boolean;
 };
 
-type ScoreResult = { scored: ScoredItem[]; withoutSpec: number; gated: Array<{ jobId: string; reasons: string[] }>; belowMinFit: number; scoredCount: number };
+type ScoreResult = {
+  scored: ScoredItem[]; withoutSpec: number; gated: Array<{ jobId: string; reasons: string[] }>; belowMinFit: number; scoredCount: number;
+  /** Candidates that were scored but fell below the bar: widening must not bring them back. */
+  belowMinFitIds: string[];
+};
 
-/** Gates, then the detailed fit, for each candidate. Nothing is saved. */
+/** Gates, then the detailed fit, for each candidate. Nothing is saved. Sorted well-specified first, then by `rankScore`. */
 async function scoreCandidates(db: Db, profile: MatchProfile, candidates: CandidateJob[], opts: MatchOptions, so: ScoreOptions = {}): Promise<ScoreResult> {
   const skills = opts.skills ?? DEFAULT_SKILL_MAP;
   const gateProfile = so.gateProfile ?? profile;
+  const target: MatchTarget = matchTargetOf(profile, opts.now);
   const stored = await loadSpecs(db, candidates.map((c) => c.jobId));
-  const specs = new Map<string, StoredJobSpec>();
+  const specs = new Map<string, LoadedSpec>();
   for (const c of candidates) {
-    const spec = stored.get(c.jobId) ?? (so.heuristic ? heuristicSpec({ title: c.title, descriptionText: c.description ?? "", location: c.location, remote: c.remote }, skills) : undefined);
+    const spec = stored.get(c.jobId)
+      ?? (so.heuristic ? { spec: heuristicSpec({ title: c.title, descriptionText: c.description ?? "", location: c.location, remote: c.remote }, skills), heuristic: true } : undefined);
     if (spec) specs.set(c.jobId, spec);
   }
-  const out: ScoreResult = { scored: [], withoutSpec: 0, gated: [], belowMinFit: 0, scoredCount: 0 };
+  const out: ScoreResult = { scored: [], withoutSpec: 0, gated: [], belowMinFit: 0, scoredCount: 0, belowMinFitIds: [] };
   const withSpec = candidates.filter((c) => specs.has(c.jobId));
   out.withoutSpec = candidates.length - withSpec.length;
+  // Gates first: requirement texts are embedded only for jobs that can reach the shortlist.
+  const passed: CandidateJob[] = [];
+  for (const c of withSpec) {
+    const gate = checkGates(specs.get(c.jobId)!.spec, gateProfile, { title: c.title, location: c.location, remote: c.remote }, { now: opts.now });
+    if (gate.ok) passed.push(c);
+    else out.gated.push({ jobId: c.jobId, reasons: gate.reasons });
+  }
   const vectors = await requirementVectors(
-    withSpec.flatMap((c) => requirementTexts(buildRequirements(specs.get(c.jobId)!, skills))),
+    passed.flatMap((c) => requirementTexts(buildRequirements(specs.get(c.jobId)!.spec, skills))),
     opts.embedFn ?? ((texts) => embed(texts)),
   );
-  const lp = withSpec.some((c) => c.rankLexically) ? lexicalProfile(profile.points, skills) : null;
+  const lp = passed.some((c) => c.rankLexically) ? lexicalProfile(profile.points, skills) : null;
+  const laneFloor = Math.min(...profile.lanes.map((l) => l.minFit), 1);
+  const widenFloor = Math.min(WIDEN_MIN_FIT, laneFloor);
+  const freshSince = opts.now.getTime() - SHORTLIST_MAX_AGE_DAYS * DAY_MS;
 
-  for (const c of withSpec) {
-    const spec = specs.get(c.jobId)!;
-    const gate = checkGates(spec, gateProfile, { title: c.title, location: c.location, remote: c.remote });
-    if (!gate.ok) { out.gated.push({ jobId: c.jobId, reasons: gate.reasons }); continue; }
+  for (const c of passed) {
+    const { spec, heuristic } = specs.get(c.jobId)!;
     const fitLanes = matchingLanes(gateProfile.lanes, c);
-    const minFit = so.ignoreMinFit ? 0 : Math.min(...(fitLanes.length > 0 ? fitLanes : gateProfile.lanes).map((l) => l.minFit), 1);
+    let minFit: number;
+    if (so.widened) {
+      const ownLanes = matchingLanes(profile.lanes, c);
+      const laneJob = ownLanes.length > 0 && (c.recency == null || c.recency.getTime() >= freshSince);
+      minFit = laneJob ? Math.min(...ownLanes.map((l) => l.minFit)) : widenFloor;
+      // Widened rows only: nothing more than one level above the user, nothing from another function without a shared core word.
+      if (!laneJob && widenedTooFar(c.title, spec, target, relevantYears(profile.points, c.title, opts.now, profile.experienceYears))) {
+        out.belowMinFit++;
+        out.belowMinFitIds.push(c.jobId);
+        continue;
+      }
+    } else {
+      minFit = Math.min(...(fitLanes.length > 0 ? fitLanes : gateProfile.lanes).map((l) => l.minFit), 1);
+    }
     const similarity = c.rankLexically && lp ? lexicalSimilarity(lexicalOverlap({ title: c.title, spec }, lp, skills)) : c.similarity;
+    const descriptionChars = c.descriptionChars ?? (c.description != null ? c.description.length : null);
     const result = scoreFit({
       spec, points: profile.points, vectors, similarity, experienceYears: profile.experienceYears,
       laneName: fitLanes[0]?.name ?? null, now: opts.now, skills,
+      jobTitle: c.title, target, quality: { heuristic, descriptionChars }, placeFactor: placeFactor(c.location, c.remote), resumeText: profile.resumeText,
     });
     out.scoredCount++;
-    if (result.fit < minFit) { out.belowMinFit++; continue; }
-    out.scored.push({ jobId: c.jobId, fit: result.fit, fitMap: result.fitMap, reasons: result.reasons, similarity, title: c.title, companyName: c.companyName });
+    if (result.fit < minFit) { out.belowMinFit++; out.belowMinFitIds.push(c.jobId); continue; }
+    out.scored.push({
+      jobId: c.jobId, fit: result.fit, fitMap: result.fitMap, reasons: result.reasons, similarity, title: c.title, companyName: c.companyName,
+      confidence: result.confidence, quality: result.components.quality, recency: c.recency ?? null,
+      rankScore: rankScore(result.fit, result.confidence, c.recency, opts.now),
+    });
   }
-  out.scored.sort((a, b) => b.fit - a.fit || b.similarity - a.similarity);
+  out.scored.sort(byRank);
   return out;
 }
 
@@ -289,7 +373,7 @@ async function fitAndSave(db: Db, profile: MatchProfile, candidates: CandidateJo
   if (opts.explain) await explainTop(db, profile, top, opts.explain.top ?? 3);
 
   stats.saved = await saveShortlistRows(db, profile.userId, top);
-  stats.items = top.map(({ jobId, fit, fitMap, reasons, similarity }) => ({ jobId, fit, fitMap, reasons, similarity }));
+  stats.items = top.map(({ jobId, fit, fitMap, reasons, similarity, confidence, rankScore }) => ({ jobId, fit, fitMap, reasons, similarity, confidence, rankScore }));
   return stats;
 }
 
@@ -301,10 +385,15 @@ async function fitAndSave(db: Db, profile: MatchProfile, candidates: CandidateJo
  * 1. SQL filter: open, posted (else first seen) within 60 days, company not blocked, fits an enabled lane by title and
  *    location or remote, not already dismissed, applied or in progress. A user with no lane yet gets a temporary one from
  *    their most recent role and their location.
- * 2. Vector rank by cosine distance to the profile embedding on `job_embeddings`, keep `candidates` (200).
+ * 2. Vector rank by cosine distance to the profile embedding on `job_embeddings`, keep `candidates` (200); when fewer than
+ *    `limit` of those pass, score the next pages (up to 3) before widening.
  * 3. Detailed fit on those against the user's career points, gates applied, lane `minFit` honoured, best `limit` saved.
  * 4. Fewer than 20 shortlist candidates: widen (see widen.ts): adjacent titles, remote, up to 90 days, the role-family pool.
- *    Each widened row carries a `widened:<step>` reason. Rows widened by an earlier run and not chosen now are removed.
+ *    Widened candidates get the same fit and must clear `WIDEN_MIN_FIT`; lane jobs that failed the gates or the lane
+ *    minimum are never brought back. Each widened row carries a `widened:<step>` reason. Rows widened by an earlier run
+ *    and not chosen now are removed.
+ * Order: lane matches first, then widened rows; within each, jobs with a real spec (read by the model from a posting)
+ * before the rest, then by `rankScore` (fit x confidence plus a small bonus for fresh postings).
  * 5. Optionally, one small-model "why this fits" line for the top few (`explain`).
  *
  * The planner may serve step 2 from the HNSW index or sort the filtered set exactly; for a user whose lanes narrow the
@@ -325,41 +414,69 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
     : sql`EXISTS (SELECT 1 FROM ${lanes} WHERE ${lanes.userId} = ${userId} AND ${lanes.enabled} AND ${laneFitsSql()})`;
   const fitsUser = and(openAndFreshSql(opts.now), laneFilter, notActedOnSql(userId));
 
-  let candidates: CandidateJob[] = [];
-  if (opts.profileEmbedding) {
+  const vectorPage = async (offset: number): Promise<CandidateJob[]> => {
+    if (!opts.profileEmbedding) return [];
     const distance = cosineDistance(jobEmbeddings.embedding, opts.profileEmbedding);
     const rows = await db
-      .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, distance })
+      .select({
+        jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, distance,
+        descriptionChars: descriptionCharsSql(), recency: recencySql(),
+      })
       .from(jobs)
       .innerJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
       .innerJoin(companies, eq(companies.id, jobs.companyId))
       .where(fitsUser)
-      .orderBy(asc(distance))
-      .limit(limit);
-    candidates = rows.map((r) => ({ jobId: r.jobId, title: r.title, location: r.location, remote: r.remote, companyName: r.companyName, similarity: 1 - Number(r.distance) }));
+      .orderBy(asc(distance), jobs.id)
+      .limit(limit)
+      .offset(offset);
+    return rows.map((r) => ({
+      jobId: r.jobId, title: r.title, location: r.location, remote: r.remote, companyName: r.companyName, similarity: 1 - Number(r.distance),
+      descriptionChars: r.descriptionChars, recency: r.recency,
+    }));
+  };
+  const maxRows = opts.limit ?? 20;
+  let page = await vectorPage(0);
+  const candidates: CandidateJob[] = [...page, ...await lexicalCandidates(db, profile, fitsUser, opts, limit)];
+  const base = await scoreCandidates(db, profile, candidates, opts);
+  // Many lane jobs but most of a full page rejected (a new grad among senior roles): read the next pages before widening.
+  const mostlyRejected = (r: ScoreResult, n: number) => r.gated.length + r.belowMinFit >= n / 2;
+  let last: ScoreResult = base;
+  let lastN = candidates.length;
+  for (let pages = 1; base.scored.length < maxRows && page.length === limit && mostlyRejected(last, lastN) && pages < LANE_PAGES; pages++) {
+    page = await vectorPage(pages * limit);
+    if (page.length === 0) break;
+    candidates.push(...page);
+    const more = await scoreCandidates(db, profile, page, opts);
+    last = more;
+    lastN = page.length;
+    base.scored = [...base.scored, ...more.scored].sort(byRank);
+    base.gated.push(...more.gated);
+    base.belowMinFitIds.push(...more.belowMinFitIds);
+    base.belowMinFit += more.belowMinFit;
+    base.withoutSpec += more.withoutSpec;
+    base.scoredCount += more.scoredCount;
   }
-  candidates.push(...await lexicalCandidates(db, profile, fitsUser, opts, limit));
 
   const stats = newStats(candidates);
   stats.temporaryLane = temporary;
-  const base = await scoreCandidates(db, profile, candidates, opts);
   stats.withoutSpec = base.withoutSpec;
   stats.scored = base.scoredCount;
   stats.gated = base.gated;
   stats.belowMinFit = base.belowMinFit;
-  const maxRows = opts.limit ?? 20;
   const items: ScoredItem[] = base.scored.slice(0, maxRows);
   stats.laneMatches = items.length;
 
   const widenedItems: Array<ScoredItem & { widenedBy: WidenedBy }> = [];
   const target = Math.min(WIDEN_TARGET, maxRows);
   if (opts.widen !== false && items.length < target) {
-    const seen = new Set<string>([...items.map((i) => i.jobId), ...base.gated.map((g) => g.jobId)]);
+    // Everything the lanes already produced, gated out or scored below the lane minimum stays out of the widened list.
+    const seen = new Set<string>([...items.map((i) => i.jobId), ...base.gated.map((g) => g.jobId), ...base.belowMinFitIds]);
     widenedItems.push(...await widenShortlist(db, userId, profile, opts, {
       seen, have: items.length, target, roleKeys: new Set(items.map((i) => roleKey(i.companyName, i.title))), gated: stats.gated,
     }));
   }
-  const all: ScoredItem[] = [...items, ...widenedItems];
+  // Lane matches first, then widened rows, each in rank order (`stats.widened` keeps the ladder order).
+  const all: ScoredItem[] = [...items, ...[...widenedItems].sort(byRank)];
   if (opts.explain) await explainTop(db, profile, all, opts.explain.top ?? 3);
   for (const w of widenedItems) w.reasons = [...w.reasons, widenedReason(w.widenedBy)];
 
@@ -367,7 +484,10 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
   await removeStaleWidened(db, userId, all.map((i) => i.jobId));
   stats.widened = widenedItems.map((w) => ({ jobId: w.jobId, by: w.widenedBy }));
   stats.poolUsed = widenedItems.some((w) => w.widenedBy === "role_pool");
-  stats.items = all.map((i) => ({ jobId: i.jobId, fit: i.fit, fitMap: i.fitMap, reasons: i.reasons, similarity: i.similarity, widenedBy: (i as { widenedBy?: WidenedBy }).widenedBy ?? null }));
+  stats.items = all.map((i) => ({
+    jobId: i.jobId, fit: i.fit, fitMap: i.fitMap, reasons: i.reasons, similarity: i.similarity,
+    widenedBy: (i as { widenedBy?: WidenedBy }).widenedBy ?? null, confidence: i.confidence, rankScore: i.rankScore,
+  }));
   return stats;
 }
 
@@ -385,7 +505,8 @@ type WidenState = { seen: Set<string>; have: number; target: number; roleKeys: S
 /**
  * Walks the ladder until `target` shortlist candidates exist. Each step reads more jobs than the one before it
  * allowed (never ones the user dismissed, applied to or that were already considered), runs the same gates, scores them
- * (a job without a spec is read with the heuristic spec) and keeps the best few that bring the list up to the target.
+ * with the same fit (a job without a spec is read with the heuristic spec), drops those below the widening floor and keeps
+ * the best few (well-specified first, then by rank score) that bring the list up to the target.
  * The same company and role posted in several places counts once.
  */
 async function widenShortlist(db: Db, userId: string, profile: MatchProfile, opts: BuildShortlistOptions, st: WidenState): Promise<Array<ScoredItem & { widenedBy: WidenedBy }>> {
@@ -404,8 +525,9 @@ async function widenShortlist(db: Db, userId: string, profile: MatchProfile, opt
 
     const gateLanes: SimpleLane[] = step.pool ? [{ titles: [], locations: step.pool.metro ? [step.pool.metro] : [], remote: step.pool.remote }] : step.lanes;
     const gateProfile: MatchProfile = { ...profile, lanes: gateLanes.map((l, i) => ({ id: `widen-${i}`, name: profile.lanes[0]?.name ?? "widened", minFit: 0, ...l, enabled: true })) };
-    const r = await scoreCandidates(db, profile, candidates, opts, { gateProfile, ignoreMinFit: true, heuristic: true });
+    const r = await scoreCandidates(db, profile, candidates, opts, { gateProfile, widened: true, heuristic: true });
     for (const g of r.gated) { st.seen.add(g.jobId); st.gated.push(g); }
+    for (const id of r.belowMinFitIds) st.seen.add(id);
     for (const s of r.scored) {
       if (out.length + st.have >= st.target) break;
       const key = roleKey(s.companyName, s.title);
@@ -422,7 +544,7 @@ async function widenShortlist(db: Db, userId: string, profile: MatchProfile, opt
 async function laneCandidates(db: Db, userId: string, step: WideningStep, opts: BuildShortlistOptions, seen: ReadonlySet<string>): Promise<CandidateJob[]> {
   const distance = opts.profileEmbedding ? cosineDistance(jobEmbeddings.embedding, opts.profileEmbedding) : sql<null>`null`;
   const rows = await db
-    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, description: sql<string>`left(${jobs.descriptionText}, 12000)`, distance })
+    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, description: sql<string>`left(${jobs.descriptionText}, 12000)`, distance, descriptionChars: descriptionCharsSql(), recency: recencySql() })
     .from(jobs)
     .innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
@@ -444,7 +566,7 @@ async function poolCandidates(db: Db, userId: string, step: WideningStep, opts: 
   const distance = opts.profileEmbedding ? cosineDistance(jobEmbeddings.embedding, opts.profileEmbedding) : sql<null>`null`;
   // Same filters as the pool plus the user's own: the pool is shared and cached, so it may hold a job closed or acted on since.
   const rows = await db
-    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, description: sql<string>`left(${jobs.descriptionText}, 12000)`, distance })
+    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, description: sql<string>`left(${jobs.descriptionText}, 12000)`, distance, descriptionChars: descriptionCharsSql(), recency: recencySql() })
     .from(jobs)
     .innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
@@ -453,10 +575,16 @@ async function poolCandidates(db: Db, userId: string, step: WideningStep, opts: 
   return rows.sort((a, b) => (order.get(a.jobId) ?? 0) - (order.get(b.jobId) ?? 0)).slice(0, WIDEN_SCAN).map(widenCandidate);
 }
 
-function widenCandidate(r: { jobId: string; title: string; location: string | null; remote: boolean; companyName: string | null; description: string; distance: unknown }): CandidateJob {
+type WidenRow = {
+  jobId: string; title: string; location: string | null; remote: boolean; companyName: string | null; description: string; distance: unknown;
+  descriptionChars: number | null; recency: Date | null;
+};
+
+function widenCandidate(r: WidenRow): CandidateJob {
   const hasVector = r.distance !== null && r.distance !== undefined;
   return {
     jobId: r.jobId, title: r.title, location: r.location, remote: r.remote, companyName: r.companyName, description: r.description,
+    descriptionChars: r.descriptionChars, recency: r.recency,
     similarity: hasVector ? 1 - Number(r.distance) : 0, ...(hasVector ? {} : { rankLexically: true }),
   };
 }
@@ -483,7 +611,7 @@ const LEXICAL_MIN_SIMILARITY = 0.2;
  */
 async function lexicalCandidates(db: Db, profile: MatchProfile, fitsUser: ReturnType<typeof and>, opts: MatchOptions, limit: number): Promise<CandidateJob[]> {
   const rows = await db
-    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name })
+    .select({ jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name, descriptionChars: descriptionCharsSql(), recency: recencySql() })
     .from(jobs)
     .innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
@@ -502,7 +630,7 @@ async function rankLexically(db: Db, profile: MatchProfile, rows: readonly PairR
   const lp = lexicalProfile(profile.points, skills);
   const out: CandidateJob[] = [];
   for (const r of rows) {
-    const spec = specs.get(r.jobId);
+    const spec = specs.get(r.jobId)?.spec;
     if (!spec) continue;
     const overlap = lexicalOverlap({ title: r.title, spec }, lp, skills);
     const similarity = lexicalSimilarity(overlap);
@@ -547,7 +675,10 @@ export async function matchNewJobs(db: Db, jobIds: readonly string[], opts: Matc
   if (jobIds.length === 0) return result;
 
   const pairs = await db
-    .selectDistinct({ userId: lanes.userId, jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name })
+    .selectDistinct({
+      userId: lanes.userId, jobId: jobs.id, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name,
+      descriptionChars: descriptionCharsSql(), recency: recencySql(),
+    })
     .from(jobs)
     .leftJoin(jobEmbeddings, eq(jobEmbeddings.jobId, jobs.id))
     .innerJoin(companies, eq(companies.id, jobs.companyId))
@@ -583,7 +714,10 @@ export async function matchNewJobs(db: Db, jobIds: readonly string[], opts: Matc
     }
     const close: CandidateJob[] = userPairs
       .filter((p) => similarity.has(p.jobId))
-      .map((p) => ({ jobId: p.jobId, title: p.title, location: p.location, remote: p.remote, companyName: p.companyName, similarity: similarity.get(p.jobId)! }))
+      .map((p) => ({
+        jobId: p.jobId, title: p.title, location: p.location, remote: p.remote, companyName: p.companyName, similarity: similarity.get(p.jobId)!,
+        descriptionChars: p.descriptionChars, recency: p.recency,
+      }))
       .filter((c) => c.similarity >= minSimilarity);
     // Everything else is compared by skill overlap.
     close.push(...await rankLexically(db, profile, userPairs.filter((p) => !similarity.has(p.jobId)), skills, minSimilarity));

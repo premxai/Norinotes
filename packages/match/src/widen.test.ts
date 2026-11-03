@@ -4,7 +4,7 @@ import { eq, profiles, shortlist } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { clearRolePoolCache } from "./roles.js";
 import { buildShortlist, clearRequirementVectorCache } from "./shortlist.js";
-import { NOW, baseSpec, daysAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
+import { NEUTRAL_DESCRIPTION, NOW, baseSpec, daysAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 import { deriveTemporaryLane, loadTemporaryLane, widenedByOf, withoutWidenedReasons, wideningPlan } from "./widen.js";
 
 let t: TestDb;
@@ -20,8 +20,14 @@ afterEach(async () => {
 
 const vec = fakeEmbedding("frontend engineer react typescript");
 const SPEC = baseSpec({ roleFamily: "frontend engineering", skills: [{ name: "React", level: "working", years: null, required: true }], mustHaves: ["React"] });
+/** A posting the heuristic spec can read (widened jobs without a stored spec are read this way). */
+const REACT_POSTING = `Requirements: React and TypeScript. ${NEUTRAL_DESCRIPTION}`;
 
-/** A frontend engineer in San Francisco whose lane matches `laneJobs` jobs, plus pools of jobs for each widening step. */
+/**
+ * A frontend engineer in San Francisco whose lane matches `laneJobs` jobs, plus pools of jobs for each widening step. Every
+ * widened job is a plausible frontend job (widening has a fit floor): some have a stored spec, the rest a posting the
+ * heuristic spec reads; some have an embedding, the rest are ranked by skill overlap.
+ */
 async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; older?: number; pool?: number; remoteExcluded?: boolean; lanes?: boolean }) {
   const co = await seedCompany(t.db, { name: "Index Co" });
   const userId = await seedUser(t.db, { location: "San Francisco, CA", workAuth: { US: { authorized: true, needsSponsorship: false } } });
@@ -30,7 +36,12 @@ async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; o
   if (o.remoteExcluded) await t.db.update(profiles).set({ preferences: { remote: "no" } }).where(eq(profiles.userId, userId));
   const make = async (n: number, title: (i: number) => string, over: Partial<Parameters<typeof seedJob>[1]> | ((i: number) => Partial<Parameters<typeof seedJob>[1]>) = {}) => {
     const ids: string[] = [];
-    for (let i = 0; i < n; i++) ids.push(await seedJob(t.db, { companyId: co, title: title(i), embedText: i % 2 === 0 ? "frontend engineer react" : undefined, spec: i % 3 === 0 ? SPEC : undefined, postedAt: daysAgo(2 + i), ...(typeof over === "function" ? over(i) : over) }));
+    for (let i = 0; i < n; i++) {
+      ids.push(await seedJob(t.db, {
+        companyId: co, title: title(i), embedText: i % 2 === 0 ? "frontend engineer react" : undefined, spec: i % 3 === 0 ? SPEC : undefined,
+        description: i % 3 === 0 ? undefined : REACT_POSTING, postedAt: daysAgo(2 + i), ...(typeof over === "function" ? over(i) : over),
+      }));
+    }
     return ids;
   };
   const ids = {
@@ -38,7 +49,8 @@ async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; o
     adjacent: await make(o.adjacent ?? 0, (i) => `Software Engineer, Adjacent ${i}`),
     remote: await make(o.remote ?? 0, (i) => `Frontend Engineer, Remote ${i}`, { location: "Remote - US", remote: true }),
     older: await make(o.older ?? 0, (i) => `Frontend Engineer, Older ${i}`, (i) => ({ postedAt: daysAgo(70 + i), firstSeenAt: daysAgo(70 + i) })),
-    pool: await make(o.pool ?? 0, (i) => `Site Reliability Engineer, Pool ${i}`),
+    // Same family (software), not one of the adjacent titles: only the role pool brings these in.
+    pool: await make(o.pool ?? 0, (i) => `React Developer, Pool ${i}`),
   };
   return { co, userId, ids };
 }
@@ -106,8 +118,8 @@ describe("buildShortlist: the widening ladder", () => {
     const citizen = await seedJob(t.db, { companyId: co, title: "Software Engineer, Citizens Only", embedText: "frontend engineer react", spec: baseSpec({ citizenshipRequired: true }) });
     const clearance = await seedJob(t.db, { companyId: co, title: "Software Engineer, Cleared", description: "Active TS/SCI security clearance required. US citizens only." });
     const noSponsor = await seedJob(t.db, { companyId: co, title: "Software Engineer, No Visa", spec: baseSpec({ sponsorship: "no", location: { remote: "unknown", countries: ["United States"], cities: [] } }) });
-    const poolCitizen = await seedJob(t.db, { companyId: co, title: "Site Reliability Engineer, Citizens", description: "You must be a U.S. citizen to apply.", location: "San Francisco, CA" });
-    const poolOk = await seedJob(t.db, { companyId: co, title: "Site Reliability Engineer, Open", description: "Keep systems up.", location: "San Francisco, CA" });
+    const poolCitizen = await seedJob(t.db, { companyId: co, title: "React Developer, Citizens", description: `You must be a U.S. citizen to apply. ${REACT_POSTING}`, location: "San Francisco, CA" });
+    const poolOk = await seedJob(t.db, { companyId: co, title: "React Developer, Open", description: REACT_POSTING, location: "San Francisco, CA" });
 
     const stats = await buildShortlist(t.db, userId, options);
     const ids = stats.items.map((i) => i.jobId);
@@ -120,11 +132,11 @@ describe("buildShortlist: the widening ladder", () => {
   it("keeps blocked companies, dismissed jobs and applied jobs out while widening", async () => {
     const { userId, co } = await seed({ laneJobs: 1 });
     const blocked = await seedCompany(t.db, { name: "Blocked", blocked: true });
-    const fine = await seedJob(t.db, { companyId: co, title: "Software Engineer, Fine", spec: baseSpec() });
+    const fine = await seedJob(t.db, { companyId: co, title: "Software Engineer, Fine", spec: baseSpec(), embedText: "frontend engineer react" });
     const dismissed = await seedJob(t.db, { companyId: co, title: "Software Engineer, Dismissed", spec: baseSpec() });
-    const poolDismissed = await seedJob(t.db, { companyId: co, title: "Site Reliability Engineer, Dismissed", location: "San Francisco, CA" });
+    const poolDismissed = await seedJob(t.db, { companyId: co, title: "React Developer, Dismissed", description: REACT_POSTING, location: "San Francisco, CA" });
     const fromBlocked = await seedJob(t.db, { companyId: blocked, title: "Software Engineer, Blocked", spec: baseSpec() });
-    const poolBlocked = await seedJob(t.db, { companyId: blocked, title: "Site Reliability Engineer, Blocked", location: "San Francisco, CA" });
+    const poolBlocked = await seedJob(t.db, { companyId: blocked, title: "React Developer, Blocked", description: REACT_POSTING, location: "San Francisco, CA" });
     const closed = await seedJob(t.db, { companyId: co, title: "Software Engineer, Closed", closedAt: daysAgo(1) });
     await t.db.insert(shortlist).values([dismissed, poolDismissed].map((jobId) => ({ userId, jobId, fit: 0.9, status: "dismissed" as const })));
 

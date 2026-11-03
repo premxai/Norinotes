@@ -30,7 +30,8 @@ packages/
   graph/      Resume to career graph: parse, structure career points (skills, depth, recency, scope, impact), embed.
   match/      Job spec extraction (once per job), shortlist: SQL lane filter -> vector rank -> detailed fit on about 200
               -> top few. Gates for citizenship, clearance, years, location, sponsorship.
-  tailor/     Resume tailoring from the fit map (pick, order, rewrite a few bullets, summary), one-page render to PDF.
+  tailor/     Resume tailoring: evidence index, deterministic selection, gated rewrite of the top bullets and summary,
+              critique and revise, one-page render to PDF, coverage report.
   answers/    Answer bank: profile defaults plus previously given answers, matched by meaning; batches new questions.
   apply/      Application state machine, per-system Playwright drivers, warm browser pool, AI fallback hook, receipts.
   inbox/      Owned inbound email: parse verification codes, confirmations, replies; link them to applications.
@@ -81,7 +82,38 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 1. SQL filter: open, posted within 60 days, fits an enabled lane (title, location, remote), not blocked, gates pass.
 2. Vector rank: cosine similarity between the user's profile embedding (mean of top career points) and `job_embeddings`, top about 200.
 3. Detailed fit: requirement by requirement against career points (exact skill match, embedding similarity, graph links), weighted by the spec; must-haves cap the score.
+   Then scaled by function alignment (title and role family against the lanes and recent roles), seniority against the user's
+   years in that function, and place; capped for jobs without a description or with only a heuristic spec. Scale: 0.8+ strong,
+   0.6 to 0.8 plausible (the default lane minimum is 0.6), 0.45 to 0.6 stretch (the widening floor), under 0.3 irrelevant.
+   Gates also drop remote jobs limited to countries or regions the user cannot work in. Order: lane matches, then widened
+   rows; well-specified jobs first, then fit x confidence plus a small recency bonus.
 4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring.
+
+## Tailoring (packages/tailor)
+
+Goal: the resume matches the posting as strongly as the person's real experience allows. Rewrite and reframe only; never add
+a skill, tool, employer, number, scope or seniority. A must-have the person lacks is reported as a gap, not filled.
+Details in docs/tailoring.md.
+
+1. Evidence index: every requirement (must-haves, nice-to-haves, listed skills) against the career points, through an alias
+   table of about 290 terms (`aliases.ts`: K8s/Kubernetes, FP&A, EHR, BLS ...). Exact or alias match first; the fit map and
+   embedding similarity only for descriptive requirements; soft ones (ownership, end-to-end, startup pace, stakeholder
+   work) only where a point shows the behaviour. Each descriptive requirement keeps the posting's key phrase. No support is a gap.
+2. Deterministic selection: bullets weighted by the requirements their own text supports (must-haves double); the latest
+   and recent or relevant roles get 3 to 5 bullets, older ones 1 to 2; the latest role's first three bullets each lead
+   with a different supported must-have; a role's best bullet is never cut. Skills: every
+   skill the job names that the person really has, in the job's spelling, then the rest.
+3. One large-model call (temperature 0.2, JSON) rewrites up to 6 bullets (the top role's, then the heaviest) and writes
+   the summary; each bullet cites its source point and carries the posting's own key phrases where its source supports
+   them. A deterministic gate checks every bullet (numbers, tools, employers, titles against the cited source; lacked
+   requirements and phrases; tools newer than the role; length; banned phrases; repeated verbs; past tense; term overuse).
+   The summary may state years only as the exact whole years in the target function (none below 2, never tied to a skill). Failures are retried once on the small model; failing twice reverts to the original.
+4. Critique and revise, at most 2 rounds (small model): only coverage gaps or faithfulness fixes; stops when nothing is
+   open, coverage stops improving, or after round 2.
+5. One-page render; `resumes.ats_checks.tailoring` stores the report (coverage before and after, gaps, per-bullet source
+   ids and gate results, rounds, cost). Without the AI service steps 3 and 4 are skipped and the selection stands.
+
+Cost about 1 cent per resume (eval run 2: $0.0100 mean, $0.0139 max; docs/eval/tailor-run2.md).
 
 ## Applying (packages/apply)
 

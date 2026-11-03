@@ -12,8 +12,12 @@ import { jobs, lanes } from "@norinote/db";
  *
  * Location: a lane with no locations fits anywhere. Otherwise the job fits when it is remote and the lane accepts remote,
  * or the first part of a lane location ("San Francisco" of "San Francisco, CA") appears as whole words in the job's
- * location. "United States" / "USA" / "US" are interchangeable. A job with no location text fits only a lane without
- * locations (or a remote lane, when the job is remote).
+ * location ("NYC" counts as "New York"). "United States" / "USA" / "US" are interchangeable. A job with no location text
+ * fits only a lane without locations (or a remote lane, when the job is remote).
+ *
+ * This is a broad prefilter on purpose: a remote job limited to another country or region ("Europe Remote", "Remote -
+ * Philippines") still fits a remote lane here, and the gates (`checkGates`, with the location parser in location.ts) take
+ * it out for a user who cannot work there.
  */
 
 export const TITLE_STOP_WORDS = [
@@ -57,11 +61,15 @@ export function locationNeedle(laneLocation: string): string {
   return (laneLocation.split(",")[0] ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
 }
 
+/** Short forms job feeds use for a lane's city ("NYC - 1211 Ave of the Americas"). Mirrored in `locationFitsSql`. */
+export const NEEDLE_ALIASES: Record<string, string> = { "new york": "nyc", "new york city": "nyc" };
+
 export function locationMatches(laneLocation: string, jobLocation: string | null): boolean {
   if (!jobLocation) return false;
   const loc = jobLocation.toLowerCase();
   const needle = locationNeedle(laneLocation);
-  if (needle && new RegExp(`\\b${needle}\\b`).test(loc)) return true;
+  const alias = NEEDLE_ALIASES[needle];
+  if (needle && new RegExp(`\\b(?:${needle}${alias ? `|${alias}` : ""})\\b`).test(loc)) return true;
   if (US_ALIASES.includes(laneLocation.trim().toLowerCase())) return /\b(?:us|usa|united states)\b/.test(loc);
   return false;
 }
@@ -88,6 +96,7 @@ export function matchingLanes<L extends LaneLike>(lanesOfUser: readonly L[], job
 
 const stopList = sql.join(TITLE_STOP_WORDS.map((w) => sql`${w}`), sql`, `);
 const usAliasList = sql.join(US_ALIASES.map((w) => sql`${w}`), sql`, `);
+const aliasCases = sql.join(Object.entries(NEEDLE_ALIASES).map(([needle, alias]) => sql`WHEN ${needle}::text THEN ${`|${alias}`}::text`), sql` `);
 
 /** SQL for the normalised form of a title expression (see `normalizeTitle`). */
 const normTitleSql = (expr: SQL | typeof jobs.title) =>
@@ -123,7 +132,8 @@ export function locationFitsSql(): SQL {
       SELECT 1 FROM unnest(${lanes.locations}) AS ll(loc)
       WHERE (
         regexp_replace(trim(lower(split_part(ll.loc, ',', 1))), '[^a-z0-9 ]', '', 'g') <> ''
-        AND lower(${jobs.location}) ~ ('\\m' || regexp_replace(trim(lower(split_part(ll.loc, ',', 1))), '[^a-z0-9 ]', '', 'g') || '\\M')
+        AND lower(${jobs.location}) ~ ('\\m(' || regexp_replace(trim(lower(split_part(ll.loc, ',', 1))), '[^a-z0-9 ]', '', 'g')
+          || CASE regexp_replace(trim(lower(split_part(ll.loc, ',', 1))), '[^a-z0-9 ]', '', 'g') ${aliasCases} ELSE '' END || ')\\M')
       ) OR (
         trim(lower(ll.loc)) IN (${usAliasList}) AND lower(${jobs.location}) ~ '\\m(us|usa|united states)\\M'
       )

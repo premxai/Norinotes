@@ -106,10 +106,10 @@ describe("renderResumeHtml", () => {
     const c = content();
     c.experience[0]!.bullets[0]!.text = "Cut <script> costs & shipped";
     const html = renderResumeHtml(c);
-    expect([...html.matchAll(/<h2>(.*?)<\/h2>/g)].map((m) => m[1])).toEqual(["Summary", "Skills", "Experience", "Projects", "Education"]);
+    expect([...html.matchAll(/<h2>(.*?)<\/h2>/g)].map((m) => m[1])).toEqual(["Summary", "Skills", "Experience", "Education", "Projects"]);
     expect(html).not.toMatch(/<table|<img|<svg/i);
     expect(html).toContain("Cut &lt;script&gt; costs &amp; shipped");
-    expect(html).toContain("Mar 2021 - Present");
+    expect(html).toContain("Mar 2021 – Present");
   });
 });
 
@@ -132,4 +132,14 @@ describe("renderResumePdf with a real browser", () => {
     expect(small.pages).toBe(1);
     expect(small.dropped).toEqual([]);
   }, 90_000);
+});
+
+describe("fitToPages tight type before cuts", () => {
+  it("uses tight type rather than cutting a bullet when tight is enough", async () => {
+    const { measure } = fakeMeasure(6); // 8 bullets: 2 pages normal (6), 2 compact (7.2), 1 tight (9)
+    const fit = await fitToPages(content(), measure);
+    expect(fit.density).toBe("tight");
+    expect(fit.dropped).toEqual([]);
+    expect(fit.pages).toBe(1);
+  });
 });

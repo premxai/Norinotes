@@ -1,0 +1,54 @@
+{
+  "entries": {
+    "resume|gpt-4.1-mini": {
+      "calls": 53,
+      "promptTokens": 84324,
+      "cachedTokens": 26752,
+      "completionTokens": 83367,
+      "micros": 159116
+    },
+    "resume|text-embedding-3-small": {
+      "calls": 53,
+      "promptTokens": 25581,
+      "cachedTokens": 0,
+      "completionTokens": 0,
+      "micros": 541
+    },
+    "understand|gpt-4.1-mini": {
+      "calls": 1325,
+      "promptTokens": 2253292,
+      "cachedTokens": 192512,
+      "completionTokens": 664490,
+      "micros": 1907275
+    },
+    "understand|text-embedding-3-small": {
+      "calls": 1324,
+      "promptTokens": 337670,
+      "cachedTokens": 0,
+      "completionTokens": 0,
+      "micros": 7397
+    },
+    "shortlist|text-embedding-3-small": {
+      "calls": 283,
+      "promptTokens": 256862,
+      "cachedTokens": 0,
+      "completionTokens": 0,
+      "micros": 5280
+    },
+    "judge|gpt-4.1": {
+      "calls": 416,
+      "promptTokens": 743470,
+      "cachedTokens": 92160,
+      "completionTokens": 18533,
+      "micros": 1496964
+    },
+    "unrecorded-concurrent-runs|estimate": {
+      "calls": 0,
+      "promptTokens": 0,
+      "cachedTokens": 0,
+      "completionTokens": 0,
+      "micros": 600000
+    }
+  },
+  "startedAt": "2026-11-03T00:54:01.652Z"
+}
