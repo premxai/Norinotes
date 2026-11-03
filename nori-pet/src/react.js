@@ -12,7 +12,6 @@ export function useNori(options) {
     NoriPet.create(options).then((p) => { if (alive) { made = p; setPet(p); } else p.destroy(); });
     return () => { alive = false; made?.destroy(); };
     // Options are read once; change size or mute through the instance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return pet;
 }

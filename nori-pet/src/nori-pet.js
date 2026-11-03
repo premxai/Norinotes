@@ -483,8 +483,8 @@ export class NoriPet {
     b.addEventListener("pointercancel", up);
     b.addEventListener("dblclick", () => this.emit("open", {}));
     b.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.tucked ? this.untuck() : this.pet(); }
-      if (e.key === "Escape") this.tucked ? this.untuck() : this.tuck();
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (this.tucked) this.untuck(); else this.pet(); }
+      if (e.key === "Escape") { if (this.tucked) this.untuck(); else this.tuck(); }
     });
     b.addEventListener("contextmenu", (e) => { e.preventDefault(); this.menu(); });
     this.bubble.addEventListener("click", (e) => {
