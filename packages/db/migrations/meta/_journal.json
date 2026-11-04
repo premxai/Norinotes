@@ -78,6 +78,13 @@
       "when": 1793770452670,
       "tag": "0010_lean_job_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793783620104,
+      "tag": "0011_company_logo_domain",
+      "breakpoints": true
     }
   ]
 }

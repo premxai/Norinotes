@@ -9,6 +9,7 @@
  * - `addJobByUrl` adds one job from a pasted link (SSRF-guarded).
  * - Lean storage: jobs that are not fresh are stored without their description, and `sweepStaleJobs` trims jobs that
  *   aged out and nobody refers to (description, specs, embeddings); `fillJobDescription` reads the text back on demand.
+ * - `resolveLogoDomains` finds each visible company's web domain in its own postings, for the logo on job cards.
  */
 
 export type { Connector, ConnectorCapabilities, HttpOptions, ListOptions, ListResult, NormalizedJob } from "./types.js";
@@ -60,6 +61,9 @@ export type { FillDescriptionResult } from "./detail.js";
 export { sweepStaleJobs, SWEEP_BATCH_SIZE, SWEEP_MAX_BATCHES, SWEEP_GRACE_HOURS } from "./sweep.js";
 export type { SweepOptions, SweepResult } from "./sweep.js";
 export type { UpsertOptions, UpsertResult } from "./store.js";
+
+export { logoDomainFromPostings, registrableDomain, resolveLogoDomains, LOGO_BATCH_SIZE, LOGO_RECHECK_DAYS } from "./logo-domain.js";
+export type { LogoDomainOptions, LogoDomainResult } from "./logo-domain.js";
 
 export { addJobByUrl, UnsupportedJobUrlError, JobNotFoundError } from "./add-job.js";
 export type { AddJobOptions, AddJobResult } from "./add-job.js";

@@ -361,6 +361,29 @@ describe("worker: inbox and lifecycle", () => {
     }
   });
 
+  it("finds a visible company's logo domain in its postings and logs the counts", async () => {
+    const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: `logo${n++}`, name: "Logoworks", firstReadAt: new Date(NOW.getTime() - 30 * 86_400_000) }).returning();
+    const posted = new Date(NOW.getTime() - 3_600_000);
+    const id = `logo-a${n++}`;
+    await t.db.insert(jobs).values({
+      companyId: c!.id, atsType: "greenhouse", externalId: id, title: "Engineer", descriptionText: "Questions? talent@logoworks.com",
+      applyUrl: `https://boards.greenhouse.io/logoworks/jobs/${id}`, postedAt: posted, firstSeenAt: posted, dedupeKey: id,
+    });
+
+    const lines: Array<Record<string, unknown>> = [];
+    const worker = await startWorker({
+      db: t.db, queue: new MemoryQueue(), config: config(), log: createLogger((l) => lines.push(JSON.parse(l)), () => NOW), now: () => NOW,
+      scheduler: false, seed: false, pool: stubPool().pool,
+    });
+    try {
+      expect(await worker.consumers.findLogoDomains()).toBeGreaterThanOrEqual(1);
+      expect(lines.find((l) => l.event === "companies.logo-domains")).toMatchObject({ ok: true });
+      expect((await t.db.select().from(companies).where(eq(companies.id, c!.id)))[0]?.logoDomain).toBe("logoworks.com");
+    } finally {
+      await worker.stop();
+    }
+  });
+
   it("seeds the board registry and starts without a browser", async () => {
     const db = (await createTestDb());
     try {
@@ -382,5 +405,7 @@ describe("config", () => {
     expect(loadConfig({ BROWSER_POOL_SIZE: "nope" }).browserPoolSize).toBe(3);
     expect(loadConfig({})).toMatchObject({ jobSweepEveryMs: 3_600_000, jobSweepBatch: 500 });
     expect(loadConfig({ JOB_SWEEP_EVERY_MINUTES: "0", JOB_SWEEP_BATCH: "50" })).toMatchObject({ jobSweepEveryMs: 0, jobSweepBatch: 50 });
+    expect(loadConfig({})).toMatchObject({ logoDomainsEveryMs: 900_000, logoDomainsBatch: 500 });
+    expect(loadConfig({ LOGO_DOMAINS_EVERY_MINUTES: "0", LOGO_DOMAINS_BATCH: "20" })).toMatchObject({ logoDomainsEveryMs: 0, logoDomainsBatch: 20 });
   });
 });

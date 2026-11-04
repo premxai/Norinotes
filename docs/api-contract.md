@@ -30,11 +30,13 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeHours` (1 to 72, default 72; `view=today` is the last 24 hours),
   `clearance`, `limit`; only jobs posted in the last 72 hours are listed, plus jobs the user added by link (always); returns
   `[{ job, match, applicationStatus?, locations?, locationNames? }]`; `job.companyName` is a non-null string.
+  `job.companyLogoUrl` is the company's logo on Brandfetch's CDN, or null (no known domain, or `BRANDFETCH_CLIENT_ID`
+  unset). Load it only in an `<img>`; it answers 404 when Brandfetch has no logo, so show the letter tile on error too.
 - GET `/api/jobs/summary` returning `{ open, newToday, fitsLanes, hasLanes }` over the last 72 hours, GET `/api/jobs/:id` returning `{ job, match }`, POST `/api/jobs/url` returning `{ job }` (and saving it for the user, so it always shows in their list).
 
 ## Shortlist
 - GET `/api/shortlist` returning
-  `[{ id, jobId, fit, reasons, status, createdAt, job: { id, companyName, title, location, remote, applyUrl, postedAt } }]`
+  `[{ id, jobId, fit, reasons, status, createdAt, job: { id, companyName, companyLogoUrl, title, location, remote, applyUrl, postedAt } }]`
 - POST `/api/shortlist/:jobId/dismiss`
 
 ## Applications

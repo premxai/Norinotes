@@ -103,6 +103,14 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     sweepTimer.unref();
   }
 
+  // Job card logos: find visible companies' web domains in their own postings, every LOGO_DOMAINS_EVERY_MINUTES (15).
+  let logoTimer: ReturnType<typeof setInterval> | null = null;
+  if (opts.scheduler !== false && config.logoDomainsEveryMs > 0) {
+    void consumers.findLogoDomains();
+    logoTimer = setInterval(() => { void consumers.findLogoDomains(); }, config.logoDomainsEveryMs);
+    logoTimer.unref();
+  }
+
   // Inbox retention: delete messages past INBOX_RETENTION_DAYS (default 90) or the user's own setting, every 6 hours.
   const stopRetention = opts.scheduler !== false ? startInboxRetention(db, { log: (event, fields) => log.info(event, fields) }) : () => undefined;
   // Telegram: daily shortlist, questions and events for linked chats (only with TELEGRAM_BOT_TOKEN). See docs/telegram.md.
@@ -114,6 +122,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
   const stop = () => (stopped ??= (async () => {
     if (timer) clearInterval(timer);
     if (sweepTimer) clearInterval(sweepTimer);
+    if (logoTimer) clearInterval(logoTimer);
     await consumers.stopSweep();
     stopRetention();
     stopTelegram();

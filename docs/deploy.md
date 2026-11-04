@@ -13,8 +13,9 @@ A fresh stack, separate from the old Nori apps, which keep running until the new
 | Account emails | Resend | `RESEND_API_KEY`, `MAIL_FROM` |
 | Inbox addresses | Cloudflare Email Routing and an Email Worker, `@in.norinote.xyz` | `INBOUND_WEBHOOK_SECRET` |
 | Telegram | A new bot from BotFather | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` |
+| Company logos | Brandfetch Logo API (free, no attribution) | `BRANDFETCH_CLIENT_ID` |
 
-Code goes to a new private repository under `premxai`.
+Code is in the public repository `premxai/Norinotes`.
 
 ## DNS
 
@@ -77,13 +78,14 @@ Set once per app with `fly secrets set NAME=value -a <app>`, never in the toml f
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | yes | yes |
 | `INBOUND_WEBHOOK_SECRET` | yes | |
 | `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes | yes |
+| `BRANDFETCH_CLIENT_ID` (public, sent to browsers in logo URLs; kept out of the repository with the rest) | yes | |
 
 ## Order
 
-1. Create the accounts and apps: private GitHub repository under `premxai`, Cloudflare (move the nameservers), Supabase
+1. Create the accounts and apps: Cloudflare (move the nameservers), Supabase
    project in us-west-1 (enable the `vector` extension, create the `artifacts` bucket and an S3 key), Fly apps (rename
    `app` in both toml files), Resend (verify `norinote.xyz`), two Vercel projects (`apps/landing`, `apps/web`),
-   Telegram bot.
+   Telegram bot, Brandfetch developer account (client id).
 2. Deploy to temporary subdomains of `norinote.xyz`, for example `next.norinote.xyz` (landing), `jobs-next.norinote.xyz`
    (dashboard) and `api-next.norinote.xyz` (API), with `LANDING_URL`, `WEB_URL` and `API_URL` pointing at them. They
    must be on `norinote.xyz`: the session cookie is `SameSite=Lax`, so sign-in does not stick across the unrelated

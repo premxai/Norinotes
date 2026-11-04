@@ -4,12 +4,14 @@ import { WIDENED_BY, widenedByOf, withoutWidenedReasons, type WidenedBy } from "
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { intParam, notFound, uuidParam } from "../http.js";
+import { brandfetchLogo, companyLogoDomain } from "../serialize.js";
 import { enqueueSoft, type AppEnv, type Ctx } from "../types.js";
 
 export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
   const auth = requireUser(ctx);
   const { db } = ctx;
+  const logo = brandfetchLogo(ctx.config.brandfetchClientId);
 
   type Entry = { row: Row; locations: string[]; widenedBy: WidenedBy | null };
   type Row = Awaited<ReturnType<typeof loadRows>>[number];
@@ -21,6 +23,7 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   const loadRows = (userId: string, take: number) => db.select({
     id: shortlist.id, jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, status: shortlist.status, createdAt: shortlist.createdAt,
     jobTitle: jobs.title, location: jobs.location, remote: jobs.remote, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, companyName: companies.name,
+    logoDomain: companyLogoDomain,
   }).from(shortlist)
     .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
     .innerJoin(companies, eq(companies.id, jobs.companyId))
@@ -50,7 +53,7 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
       // Set when the job is here because the lanes were widened ("Showing similar roles while we look for more").
       widenedBy,
       locations: Math.max(1, locations.length), locationNames: locations.slice(0, 8),
-      job: { id: s.jobId, companyName: s.companyName, title: s.jobTitle, location: s.location, remote: s.remote, applyUrl: s.applyUrl, postedAt: s.postedAt ? s.postedAt.toISOString() : null },
+      job: { id: s.jobId, companyName: s.companyName, companyLogoUrl: logo(s.logoDomain), title: s.jobTitle, location: s.location, remote: s.remote, applyUrl: s.applyUrl, postedAt: s.postedAt ? s.postedAt.toISOString() : null },
     })));
   });
 

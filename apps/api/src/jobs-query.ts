@@ -1,7 +1,7 @@
 import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobs, lanes, ne, or, queryRows, savedJobs, shortlist, sql, type Db } from "@norinote/db";
 import { inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
 import type { SQL } from "drizzle-orm";
-import { toJob, toMatch } from "./serialize.js";
+import { companyLogoDomain, toJob, toMatch, type LogoUrl } from "./serialize.js";
 
 const LIST_DESCRIPTION_CHARS = 1200;
 /** The most rows one list request reads while it filters and groups. */
@@ -49,7 +49,7 @@ const columns = (description: SQL<string> | typeof jobs.descriptionText) => ({
   id: jobs.id, companyId: jobs.companyId, atsType: jobs.atsType, externalId: jobs.externalId, title: jobs.title, location: jobs.location,
   remote: jobs.remote, descriptionText: description, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, firstSeenAt: jobs.firstSeenAt,
   lastSeenAt: jobs.lastSeenAt, closedAt: jobs.closedAt, dedupeKey: jobs.dedupeKey, companyName: companies.name,
-  fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
+  logoDomain: companyLogoDomain, fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
 });
 
 export type JobListItem = {
@@ -66,7 +66,7 @@ export type JobListItem = {
  * grouping by company and title run on pages of rows until `limit` results are found. Jobs the user added by link always
  * belong, whatever their age or lane fit (in New today: links added in the last 24 hours).
  */
-export async function listJobs(db: Db, userId: string, p: JobListParams, now: Date): Promise<JobListItem[]> {
+export async function listJobs(db: Db, userId: string, p: JobListParams, now: Date, logo: LogoUrl = () => null): Promise<JobListItem[]> {
   const today = p.view === "today";
   const saved = savedByUser(userId, today ? new Date(now.getTime() - 24 * 3_600_000) : undefined);
   const conds: (SQL | undefined)[] = [eq(companies.blocked, false), or(freshJobSql(now, today ? Math.min(24, p.maxAgeHours) : p.maxAgeHours), saved)];
@@ -111,7 +111,7 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
   return rows.map(([key, row]): JobListItem => {
     const description = needFullText ? row.descriptionText.slice(0, LIST_DESCRIPTION_CHARS) : row.descriptionText;
     const item: JobListItem = {
-      job: toJob({ ...row, descriptionText: description }, row.companyName),
+      job: toJob({ ...row, descriptionText: description }, { name: row.companyName, logoUrl: logo(row.logoDomain) }),
       match: row.fit === null ? null : toMatch(row.id, { fit: row.fit, fitMap: row.fitMap ?? [], reasons: row.reasons ?? [], createdAt: row.matchAt ?? now }),
       applicationStatus: row.appStatus,
     };

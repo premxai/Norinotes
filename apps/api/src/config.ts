@@ -32,6 +32,8 @@ export type ApiConfig = {
   /** RESEND_API_KEY and MAIL_FROM: both set means account emails are really sent. */
   resendApiKey: string | undefined;
   mailFrom: string | undefined;
+  /** BRANDFETCH_CLIENT_ID: public id for company logos on job cards. Unset = no logo URLs (cards show a letter tile). */
+  brandfetchClientId: string | undefined;
 };
 
 const clean = (v: string | undefined): string | undefined => v?.trim() || undefined;
@@ -59,5 +61,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     maxResumeBytes: 10 * 1024 * 1024,
     resendApiKey: clean(env.RESEND_API_KEY),
     mailFrom: clean(env.MAIL_FROM),
+    brandfetchClientId: clean(env.BRANDFETCH_CLIENT_ID),
   };
 }

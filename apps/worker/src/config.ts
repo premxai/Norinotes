@@ -26,6 +26,10 @@ export type WorkerConfig = {
   jobSweepEveryMs: number;
   /** Jobs per sweep batch (one short transaction each). Default 500. */
   jobSweepBatch: number;
+  /** How often visible companies' postings are searched for their web domain (job card logos), in ms. 0 = off. Default 15 minutes. */
+  logoDomainsEveryMs: number;
+  /** Companies searched per run. Default 500. */
+  logoDomainsBatch: number;
   /** Where screenshots and resumes go. Unset = the packages' own defaults. */
   artifactsDir: string | undefined;
 };
@@ -50,6 +54,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     explainTop: int(env.MATCH_EXPLAIN_TOP, 3),
     jobSweepEveryMs: int(env.JOB_SWEEP_EVERY_MINUTES, 60) * 60_000,
     jobSweepBatch: int(env.JOB_SWEEP_BATCH, 500, 1),
+    logoDomainsEveryMs: int(env.LOGO_DOMAINS_EVERY_MINUTES, 15) * 60_000,
+    logoDomainsBatch: int(env.LOGO_DOMAINS_BATCH, 500, 1),
     artifactsDir: env.ARTIFACTS_DIR?.trim() || undefined,
   };
 }

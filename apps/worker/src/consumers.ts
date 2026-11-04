@@ -8,7 +8,7 @@ import {
 import { AiUnavailableError } from "@norinote/ai";
 import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
 import {
-  feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, sweepStaleJobs, type DueBoard,
+  feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, resolveLogoDomains, sweepStaleJobs, type DueBoard,
 } from "@norinote/ingest";
 import { createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
 import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
@@ -40,6 +40,8 @@ export type Consumers = {
   sweepJobs(): Promise<number>;
   /** Ends a running sweep after its current batch and waits for it. */
   stopSweep(): Promise<void>;
+  /** One run of `resolveLogoDomains`; logs and returns how many domains it found. A run already going is not doubled. */
+  findLogoDomains(): Promise<number>;
 };
 
 /** Ids in a payload, for the one log line per job. Never the payload itself. */
@@ -224,6 +226,23 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     })());
   }
 
+  let findingLogos: Promise<number> | null = null;
+  function findLogoDomains(): Promise<number> {
+    return (findingLogos ??= (async () => {
+      const started = Date.now();
+      try {
+        const r = await resolveLogoDomains(db, { now: now(), batchSize: config.logoDomainsBatch });
+        log.info("companies.logo-domains", { ok: true, ms: Date.now() - started, ...r });
+        return r.found;
+      } catch (err) {
+        log.error("companies.logo-domains", { ok: false, ms: Date.now() - started, error: err instanceof Error ? err.message : String(err) });
+        return 0;
+      } finally {
+        findingLogos = null;
+      }
+    })());
+  }
+
   // ingest.poll-board: one board's feed into `jobs`. A new job is understood (one model call) only when it could be shown
   // to somebody: it fits an enabled lane of some user. The rest wait until a lane that fits them exists (match.user below).
   await queue.work(JOBS.ingestPollBoard, instrument(log, JOBS.ingestPollBoard, async ({ companyId }) => {
@@ -323,7 +342,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
   const forwarder = createStubForwarder((line) => log.info("inbox.forward", { line }));
   await queue.work(JOBS.inboxReceive, instrument(log, JOBS.inboxReceive, async ({ messageId }) => handleInboxReceive(db, messageId, { model: smallModel, forwarder })));
 
-  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs,
+  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs, findLogoDomains,
     stopSweep: async () => { sweepAbort.abort(); await sweeping; },
   };
 }

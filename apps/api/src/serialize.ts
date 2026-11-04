@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { applications, jobs, resumes, runEvents } from "@norinote/db";
+import { companies, sql, type applications, type jobs, type resumes, type runEvents } from "@norinote/db";
 import { widenedByOf, withoutWidenedReasons } from "@norinote/match";
 import type { JobSpec } from "@norinote/shared";
 import { iso } from "./http.js";
@@ -13,11 +13,32 @@ const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is st
 
 export type JobRow = Omit<typeof jobs.$inferSelect, "descriptionText" | "missingReads"> & { descriptionText: string };
 
-export function toJob(j: JobRow, companyName: string | null, spec?: JobSpec | null) {
+/** The domain a company's logo is looked up by, for selects: found in its postings, else the one a seed knows. */
+export const companyLogoDomain = sql<string | null>`coalesce(${companies.logoDomain}, ${companies.domain})`;
+
+const LOGO_PX = 128;
+
+/** A company's logo URL from its domain, or null. */
+export type LogoUrl = (domain: string | null | undefined) => string | null;
+
+/**
+ * Logos from Brandfetch's CDN. The browser loads them (their terms allow only `<img>` embedding, no copies), and
+ * `fallback/404` makes a missing logo fail so the card shows its letter tile. Without a client id there are no URLs.
+ */
+export function brandfetchLogo(clientId: string | undefined): LogoUrl {
+  return (domain) => {
+    const host = domain?.trim().toLowerCase().replace(/^https?:\/\//, "").split(/[/?#]/)[0]?.replace(/^www\./, "");
+    if (!clientId || !host || !/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,24}$/.test(host)) return null;
+    return `https://cdn.brandfetch.io/domain/${host}/w/${LOGO_PX}/h/${LOGO_PX}/fallback/404/type/icon?c=${encodeURIComponent(clientId)}`;
+  };
+}
+
+export function toJob(j: JobRow, company: { name: string | null; logoUrl: string | null }, spec?: JobSpec | null) {
   return {
     id: j.id,
     companyId: j.companyId,
-    companyName: companyName ?? "",
+    companyName: company.name ?? "",
+    companyLogoUrl: company.logoUrl,
     atsType: j.atsType,
     externalId: j.externalId,
     title: j.title,

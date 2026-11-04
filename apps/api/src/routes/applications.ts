@@ -6,7 +6,7 @@ import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { HttpError, notFound, parseBody, uuidParam } from "../http.js";
-import { toApplication, toJob, toResume, toRunEvent } from "../serialize.js";
+import { brandfetchLogo, companyLogoDomain, toApplication, toJob, toResume, toRunEvent } from "../serialize.js";
 import { enqueueRequired, enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
 const Create = z.object({ jobId: z.uuid() });
@@ -103,15 +103,16 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
   const auth = requireUser(ctx);
   const { db } = ctx;
   const artifacts = ctx.config.artifactsDir;
+  const logo = brandfetchLogo(ctx.config.brandfetchClientId);
 
   async function detail(app: ApplicationRow) {
-    const [row] = await db.select({ job: jobs, companyName: companies.name }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, app.jobId)).limit(1);
+    const [row] = await db.select({ job: jobs, companyName: companies.name, logoDomain: companyLogoDomain }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, app.jobId)).limit(1);
     if (!row) throw notFound("Job not found");
     const [resume] = app.resumeId ? await db.select().from(resumes).where(and(eq(resumes.id, app.resumeId), eq(resumes.applicationId, app.id))).limit(1) : [];
     const events = await db.select().from(runEvents).where(eq(runEvents.applicationId, app.id)).orderBy(asc(runEvents.ts), asc(runEvents.id)).limit(500);
     return {
       application: toApplication(app, artifacts),
-      job: toJob(row.job, row.companyName),
+      job: toJob(row.job, { name: row.companyName, logoUrl: logo(row.logoDomain) }),
       resume: resume ? toResume(resume) : null,
       events: events.map(toRunEvent),
     };
@@ -124,14 +125,14 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
   }
 
   r.get("/", auth, async (c) => {
-    const rows = await db.select({ app: applications, job: jobs, companyName: companies.name, resume: resumes }).from(applications)
+    const rows = await db.select({ app: applications, job: jobs, companyName: companies.name, logoDomain: companyLogoDomain, resume: resumes }).from(applications)
       .innerJoin(jobs, eq(jobs.id, applications.jobId))
       .innerJoin(companies, eq(companies.id, jobs.companyId))
       .leftJoin(resumes, and(eq(resumes.id, applications.resumeId), eq(resumes.applicationId, applications.id)))
       .where(eq(applications.userId, c.get("user").id)).orderBy(desc(applications.createdAt)).limit(200);
     return c.json(rows.map((x) => ({
       application: toApplication(x.app, artifacts),
-      job: toJob({ ...x.job, descriptionText: x.job.descriptionText.slice(0, LIST_DESCRIPTION_CHARS) }, x.companyName),
+      job: toJob({ ...x.job, descriptionText: x.job.descriptionText.slice(0, LIST_DESCRIPTION_CHARS) }, { name: x.companyName, logoUrl: logo(x.logoDomain) }),
       resume: x.resume ? toResume(x.resume) : null,
     })));
   });

@@ -117,6 +117,22 @@ again would count as new).
 - Freed space is reused by Postgres, but the table file does not shrink by itself. After the first sweep of a large
   existing database, run `VACUUM FULL jobs` once (it locks the table) to give the space back.
 
+## Company logos
+
+Job cards show the company's logo from Brandfetch's Logo API, which looks logos up by web domain. Seeds know almost no
+domains, so the worker finds them in our own postings (`resolveLogoDomains`, packages/ingest/src/logo-domain.ts; every
+`LOGO_DOMAINS_EVERY_MINUTES`, default 15, `LOGO_DOMAINS_BATCH` companies a run, shortlisted companies first):
+
+- Candidates are the apply link's host, addresses in the text (accommodations@acme.com) and domains written in it
+  (acme.com/careers). One counts only when its label spells the company's name (acme.com, getacme.io, acmehq.com for
+  "Acme, Inc."), so job systems, mail providers and other companies never match. Apply links weigh most.
+- The result goes to `companies.logo_domain`, which is display only. `companies.domain` stays for domains a seed knows
+  exactly, because the inbox trusts mail from it.
+- Only companies with fresh jobs are searched; one with no match is searched again after 7 days.
+- On the collection of 2026-11-03, about 1 in 5 visible companies got a domain. The rest show a letter tile.
+- Nothing from Brandfetch is stored: its terms allow only live lookups and `<img>` embedding. The API builds
+  `companyLogoUrl` from the domain and the public `BRANDFETCH_CLIENT_ID`; the browser loads it.
+
 ## Never empty
 
 1. Precomputed pools per (role family x metro or remote), refreshed hourly from the shared index.

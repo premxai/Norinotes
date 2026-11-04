@@ -32,8 +32,15 @@ export const companies = pgTable("companies", {
   atsType: text("ats_type").$type<AtsType>().notNull(),
   atsToken: text("ats_token").notNull(),
   name: text("name").notNull(),
-  /** Company web domain when a seed knows it. */
+  /** Company web domain when a seed knows it. The inbox trusts mail from it, so only exact sources set it. */
   domain: text("domain"),
+  /**
+   * Domain for the company's logo on job cards, found in its own postings (`resolveLogoDomains`). Display only: never
+   * used to trust mail.
+   */
+  logoDomain: text("logo_domain"),
+  /** Last time the postings were searched for a logo domain. Null = never. */
+  logoCheckedAt: ts("logo_checked_at"),
   /** registry, seed:ats-scrapers, seed:open-ats-feed, user, url, crawl. */
   discoveredVia: text("discovered_via").notNull().default("user"),
   status: text("status").$type<CompanyStatus>().notNull().default("active"),
