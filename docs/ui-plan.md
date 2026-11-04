@@ -2,7 +2,8 @@
 
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
 Onboarding is built and passed QA as well.
-The dashboard is planned, and parts 4a (the shell and Today) and 4b (Applications and Inbox) are built.
+The dashboard is planned, and parts 4a (the shell and Today) and 4b (Applications and Inbox) are built. Part 4c (You)
+is planned, wireframed and specified.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -16,7 +17,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
-| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)). Next: plan 4c (You) |
+| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c planned, wireframed and specified ([dashboard-4c-spec.md](dashboard-4c-spec.md)). Next: build 4c (You) |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -570,6 +571,145 @@ comfort), each once per new outcome since the last visit. In the Inbox, `check-m
 | Inbox empty | Nothing here yet. Codes and replies from employers land here, and Nori uses them to finish applications. |
 | Forwarding | Forward a copy to my email · Keep messages for 90 days |
 
+### Part 4c: You
+
+Status: planned and wireframed: the "Dashboard 4c: You" page of the design canvas (desktop and phone, every sub-page,
+light and dark in Tweaks, plus an empty graph, Telegram's three states and an unconfirmed email). On 4 Nov the API
+gained card editing, the answer bank and an enforced daily limit; the plan and the wireframe both use them (Fix edits
+the card in place, "Answers Nori remembered" on the Nori page, and No limit). Specified in
+[dashboard-4c-spec.md](dashboard-4c-spec.md), which wins where it and this plan differ. Next: build 4c.
+
+Everything Nori knows about you and every setting, in one place: the career graph Nori matches and tailors from, what
+it searches for, what it puts on forms, how it reaches you, and the account.
+
+| Question | Decision |
+|---|---|
+| Layout | **Four sub-pages under a tab row:** Graph (`/you`), Job search (`/you/search`), Nori (`/you/nori`) and Account (`/you/account`). Each loads only its own data |
+| The career graph | **A drawn graph, like Obsidian's graph view:** dots joined by lines, skills joined to the roles, projects and results that used them. Hover or focus a dot and it and its neighbours stay lit while the rest fades; drag, pan and zoom. A **List** view shows the same items as grouped cards; it's also the keyboard and screen-reader route |
+| Fixing a card | **Edit in place.** **Fix** turns the card into a form (title, company, what was done, skills, from and to) and saves with `PATCH /api/graph/nodes/:id`. A skill has no Fix, only Remove. (Planned as remove-then-add; the API gained editing on 4 Nov) |
+| Autopilot and the answer bank | **The limit and the answers now, autopilot later.** The daily limit is editable and the API enforces it; the page still says "Nori asks before every send. Sending on its own is coming." The answers Nori remembered get their own section on the Nori page (edit an answer, delete one). Autopilot stays on the API's to-do list |
+
+#### What the API already does
+
+| Need | Endpoint |
+|---|---|
+| The graph | `GET /api/graph`: `nodes` (role, project, metric, education, certification, skill; `props` with title, org, statement, skills, years; dates; `source`, "your resume" or "a fact you added"; `sourceQuote`) and `edges` (fact to skill, `used`) |
+| Edit a card | `PATCH /api/graph/nodes/:id` with any of `{ title, org, statement, skills, startDate, endDate }`: dates `YYYY` or `YYYY-MM`, `endDate: null` means current, `org: null` clears it. Returns `{ node }` and re-runs matching. 400 for an empty or invalid edit (an end before the start too), 422 for a skill, 404 not found; 120 an hour. The card keeps its source, so a newer resume still replaces resume cards, edited or not |
+| Add a fact, remove one | `POST /api/graph/facts` `{ text }` (3 to 2000 characters, AI-parsed; returns `nodesCreated` and a `note` when the AI was unavailable; 60 an hour); `DELETE /api/graph/nodes/:id` (a skill's id takes that skill off every fact). Both re-run matching |
+| A newer resume | `POST /api/profile/resume-file` (PDF, DOCX or text, 10 MB) or `POST /api/profile/resume` (pasted text) |
+| Lanes | `GET /api/lanes`; `PUT /api/lanes` with the whole array (name, titles, locations, remote, minFit 0 to 1, enabled; up to 20). Re-runs matching |
+| What Nori puts on forms | `GET /api/me`, `PUT /api/profile`: contact, work authorisation, salary expectation, start date, notice period, relocation, clearance, over 18, voluntary EEO answers, `preferences` (salaryMin, excludeCompanies), `autoApplyDailyCap` 0 to 100 |
+| The daily limit | `autoApplyDailyCap` above 0 caps approvals per UTC day across the web, Telegram and the worker; 0 is no limit. Approving over it is 429 "Today's limit is used up" and the application stays ready. One approved earlier has already counted and is never refused. `GET /api/agent/status` `usedToday` is the same count |
+| The answers Nori remembered | `GET /api/profile/answers` (`id`, `questionText`, `answer`, `source` user, default or model, `lastUsedAt`; most recently used first); `PATCH /api/profile/answers/:id` `{ answer }` (1 to 2000 characters; becomes `source: "user"`); `DELETE /api/profile/answers/:id`. Only the answer can change, not the question |
+| Telegram | `GET`, `PUT`, `DELETE /api/channels/telegram`; `POST /api/channels/telegram/link` (a single-use `t.me` link, 15 minutes) |
+| Account | `GET /api/auth/session`, `POST /api/auth/resend-verification`, `POST /api/auth/change-password` (signs out every other session), `GET /api/auth/sessions`, `DELETE /api/auth/sessions/:id`, `POST /api/auth/sessions/revoke-others`, `DELETE /api/auth/account` `{ confirm }` (the account email) |
+
+#### What the API doesn't do yet (its to-do list)
+
+- **Autopilot:** nothing approves a prepared application on its own. (The daily limit is enforced now.)
+- **Change the account email.** Shown read-only.
+- **Links between facts.** Edges only join a fact to its skills, so roles and projects meet through shared skills, not
+  directly.
+
+#### Graph (`/you`)
+
+- **Top:** "Your career graph" with true counts ("4 roles · 6 results · 23 skills"), **Add a fact** (primary), a
+  Graph / List switch kept in the address (`?view=list`), and **Add a newer resume** in a small menu.
+- **The graph:** one dot per item, sized by how many links it has, coloured by kind with the theme's tokens (roles
+  `accent`, results `peach`, projects, education and certifications their own tints, skills neutral). Labels show on
+  the bigger dots, and on any dot under the pointer or focus. Lines are the `used` links. A force layout (`d3-force`,
+  about 10 KB, loaded only on this page) is settled before it's drawn, so it doesn't swim in; dragging a dot moves its
+  neighbours, but not with reduced motion. Zoom and pan with the wheel, pinch or drag, plus **+**, **−** and **Fit**
+  buttons. 560 px tall on desktop, 440 on tablets, 60% of the screen on phones.
+- **Filters and search:** chips for Roles, Projects, Results, Education, Certifications and Skills (hide or show a
+  kind), and "Find in your graph", which lights the matches.
+- **Opening an item:** tap or Enter opens its card, as a side panel on desktop and a sheet on phones: title, company,
+  dates, what was done, its skills (each opens that skill), and where it came from ("From your resume: '…'", or "A fact
+  you added"). A skill's card shows its years, when it was last used, and the facts that use it. **Fix** (not on
+  skills) and **Remove**.
+- **Fix:** the card becomes a form in place: title, company, what was done, skills (chips), from and to (a year or a
+  month; "I still do this" clears the end). **Save** sends only what changed; the card keeps where it came from. The
+  API's errors show by their field ("The end is before the start."). A note under the form: "If you add a newer
+  resume, cards from your resume are replaced, including ones you've fixed."
+- **Remove:** confirmed in place: "Remove this from your graph? Nori stops using it in matches and resumes." For a
+  skill: "Remove Figma from 4 facts?" There's no Undo, since the API can't restore it.
+- **Add a fact:** a box, "Something your resume leaves out: a project, a result with a number, a tool you use." **Add
+  it** reports what the API made ("Added 3 to your graph."), and the new dots pulse once. The API's limit and
+  AI-allowance messages show as they come.
+- **List view:** roles as a timeline, then projects, results, education and certifications as cards, then skills as
+  chips with years. The same card opens from each.
+- **Empty:** "Your graph is empty. Add your resume or a fact and Nori builds it from there."
+
+#### Job search (`/you/search`)
+
+- **Lanes:** one card per lane: its name, job titles and places as chips (or Remote), the lowest fit Nori shortlists
+  (50 to 90%), and an on/off switch. **Add a lane** (up to 20), **Remove**. **Save** sends the whole list: "Saved. Nori
+  looks again with these."
+- **Everywhere:** the lowest salary to consider, and companies to skip, as chips.
+
+#### Nori (`/you/nori`)
+
+- **Daily limit:** how many applications a day (1 to 100, or **No limit**), and "2 sent today". "Nori asks before
+  every send. Sending on its own is coming." and "The count starts again at midnight UTC."
+- **Answers Nori remembered:** each question as the form asked it, your answer, where it came from ("You told Nori",
+  "Your default", "Nori's draft") and when it was last used, most recent first. **Edit** changes the answer only (1 to
+  2000 characters; saving makes it yours, so Nori never overwrites it) and **Delete** asks first. Empty: "Nothing yet.
+  When a form asks something new, your answer is kept here for next time."
+- **What Nori puts on forms:** the onboarding answers, editable in three groups (Contact, Work authorisation, Standard
+  questions), each with its own Save. These are the fields onboarding collected, edited with the same controls.
+- **Telegram:** not switched on: "Telegram isn't switched on yet." Not linked: **Connect Telegram** opens the bot link
+  and the page waits for the link, up to 15 minutes. Linked: the morning list's time and how many jobs, the evening
+  summary's time, quiet hours, the time zone, which messages to get, and **Disconnect**.
+
+#### Account (`/you/account`)
+
+- **Email:** shown read-only, confirmed or not, with **Send the link again** when not.
+- **Password:** current and new, with "Changing it signs you out everywhere else."
+- **Where you're signed in:** each device with when it signed in, "This device" marked; **Sign out** on each, and
+  **Sign out everywhere else**.
+- **Theme:** System, Light and Dark, the same switch as the account menu.
+- **Delete your account:** type your email to confirm. "Everything goes: your graph, applications, inbox and resumes.
+  This can't be undone."
+
+#### Fixes to the built parts
+
+- The rail's cap note says "Nori sends up to your cap without asking." when the limit is above 0. That isn't true:
+  nothing sends on its own. It becomes "Nori asks before every send." for every limit, and the 4a spec changes with it.
+- Approving over the limit now fails with 429. **Send it** shows the API's words ("Today's limit is used up.") and
+  leaves the application ready; **Send all** stops at the first 429 and says how many went and that the rest wait
+  for tomorrow.
+
+#### Nori in 4c
+
+`preparing` (thinks) while a fact or resume is being read, then a hop with "Added 3 to your graph."; `searching` when
+lanes are saved; `hello` when Telegram links; `password-done` after a password change. Nothing on removal or account
+deletion.
+
+#### Copy (draft, 4c)
+
+| Place | Words |
+|---|---|
+| Graph counts | 4 roles · 6 results · 23 skills |
+| Add a fact | Something your resume leaves out: a project, a result with a number, a tool you use. · Add it |
+| Added | Added 3 to your graph. |
+| Fix | Fix · Save · Cancel · I still do this · If you add a newer resume, cards from your resume are replaced, including ones you've fixed. |
+| Remove | Remove this from your graph? Nori stops using it in matches and resumes. · Remove · Keep it |
+| Lanes saved | Saved. Nori looks again with these. |
+| Daily limit | Up to 5 applications a day · No limit · 2 sent today · Nori asks before every send. Sending on its own is coming. · The count starts again at midnight UTC. |
+| Over the limit | Today's limit is used up. · Sent 3. The other 2 wait until tomorrow. |
+| Answers | Answers Nori remembered · You told Nori · Your default · Nori's draft · Last used 2 Nov · Edit · Delete · Delete this answer? Nori will ask again next time. |
+| Telegram | Connect Telegram · Waiting for you in Telegram… · Connected 4 Nov · Disconnect |
+| Password | Changing it signs you out everywhere else. |
+| Delete | Everything goes: your graph, applications, inbox and resumes. This can't be undone. |
+
+#### Open (4c)
+
+- A big graph (200 or more dots) may need a canvas instead of SVG; the wireframe and build measure it.
+- Labels: the wireframe shows the bigger dots' labels on desktop and only the lit ones on phones. The build needs a
+  collision step so two labels never overlap (two did in the wireframe's sample).
+- Whether **Add a newer resume** adds to the graph or replaces what came from the old resume (the API's `replace`
+  flag) is settled in the spec.
+
 ### Night Dawn (dark)
 
 | Token | Light (Dawn) | Dark (Night Dawn) |
@@ -614,8 +754,8 @@ the live panel shows. In the evening with nothing waiting, Nori falls asleep on 
 
 ### Open
 
-- Pro and autopilot: until billing exists, the cap meter says what the cap is, and autopilot (sending without asking)
-  is set in You (part 4c).
+- Pro and autopilot: until billing exists, the cap meter says what the cap is. Autopilot (sending without asking)
+  isn't in the API yet; part 4c sets the limit and says so.
 - Notifications outside the app (email digests, browser notifications): not in part 4; Telegram covers approvals for
   now.
 - The evening strip and night strip are two small new scenes (about $0.25).
