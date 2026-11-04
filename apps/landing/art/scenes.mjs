@@ -43,6 +43,24 @@ export const SCENES = {
     size: "1536x1024",
     prompt: "A low, quiet horizon of rolling sage-green felt hills in full soft daylight, seen from far away, like the bottom edge of a landscape. The upper 60 percent is plain pale rice-cream sky with no detail at all. The hills are low, soft and simple, spread evenly from left to right, with a few tiny felt trees. On the right third, a small, flat, empty grassy spot on the nearest hill (leave it empty).",
   },
+  // Part 2 (ui-plan.md): sign-up and email confirmation sit on the door, sign-in and the password pages on the nook.
+  door: {
+    size: "1024x1536",
+    prompt: "Portrait composition. A small round felt door set into a soft sage-green grassy hillside at sunrise, with a tiny round window and a little paper lantern beside it. A short path of flat clay stepping stones leads up to the door. Right of the door, near the right edge, a small flat empty stone step in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the door, the stones and the empty step inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is calm sky fading from rice-cream to soft peach, with almost no detail.",
+  },
+  // Alternatives to the round hillside door, which reads too much like a familiar fantasy home.
+  cottage: {
+    size: "1024x1536",
+    prompt: "Portrait composition. The front of a tiny square felt-and-clay cottage at sunrise: a plain rectangular wooden front door painted soft seaweed green with a small brass knob, a little square window with a rice-paper blind, a pitched roof of felt tiles, a paper lantern on a hook by the door. A short path of flat clay stepping stones leads up to two low wooden steps. Right of the door, near the right edge, an empty wooden crate or flat step in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the door, the steps and the empty spot inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is calm sky fading from rice-cream to soft peach, with almost no detail.",
+  },
+  gate: {
+    size: "1024x1536",
+    prompt: "Portrait composition. A small open wooden garden gate set in a low, soft, rounded felt hedge at sunrise, with a path of flat clay stepping stones leading through it towards gentle sage-green hills and a low round felt sun in the distance. A small paper lantern hangs from the gate post. Right of the gate, near the right edge, the flat top of a short wooden fence post or a flat stone in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the gate, the path and the empty spot inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is calm sky fading from rice-cream to soft peach, with almost no detail.",
+  },
+  nook: {
+    size: "1024x1536",
+    prompt: "Portrait composition of a cosy indoor reading nook in early morning light: a low wooden desk under a round window with soft peach light coming through, a steaming clay mug, a folded paper note and a tiny potted felt plant on the desk, all kept small. Near the right edge of the desktop, a small flat empty felt cushion in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the desk, the mug and the empty cushion inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is a calm, softly blurred warm cream wall with almost no detail.",
+  },
 };
 
 function ledger() {

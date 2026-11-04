@@ -1,7 +1,7 @@
 # Norinote UI plan
 
-Status: the landing page is planned and specified, and is next to build. Sign-in and sign-up, onboarding and the
-dashboard follow, in that order.
+Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are planned, wireframed and
+specified, and are next to build. Onboarding and the dashboard follow, in that order.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -12,8 +12,8 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 
 | # | Part | Pages | Status |
 |---|---|---|---|
-| 1 | Landing | `/` (plus `/privacy` and `/terms`) | Planned, specified ([landing-design-spec.md](landing-design-spec.md)), wireframed. Next: build |
-| 2 | Sign-in and sign-up | `/signin`, `/signup` (two pages) | Not started. Plan and wireframe after the landing page is built |
+| 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
+| 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Planned, wireframed and specified ([auth-design-spec.md](auth-design-spec.md)). Next: build |
 | 3 | Onboarding | `/onboarding` (steps to be planned) | Not started |
 | 4 | Dashboard | `/dashboard` and its views | Not started |
 
@@ -37,6 +37,9 @@ How the parts link:
 | `/signup` done | `/onboarding` |
 | `/signin` done | `/dashboard`, or `/onboarding` if it isn't finished |
 | `/onboarding` done | `/dashboard` |
+| Sign-in **Forgot password?** | `/forgot-password` |
+| The reset email's link | `/reset-password?token=…`, then `/signin` |
+| The confirmation email's link | `/verify-email?token=…`, then onward (see part 2) |
 
 Until part 2 is built, `/signin` and `/signup` are plain placeholder pages in the same theme, so the landing page's links
 work from day one.
@@ -134,8 +137,150 @@ lantern scene could come back later as a night variant, such as the footer where
 
 ## Sign-in and sign-up (part 2)
 
-Not planned yet; it starts after the landing page is built. Two pages, `/signin` and `/signup`, in the same theme, with
-Nori and generated scenes. Designed fresh.
+Status: planned and wireframed: the "Sign-in and sign-up" page of the design canvas
+(https://claude.ai/artifact/WtzZgiFAkh9ef64jW6iLFr), desktop and phone, every page and state, with the gate and nook scenes
+(`art/scenes.mjs` gate and nook, takes `gate-2` and `nook-2`). Specified in [auth-design-spec.md](auth-design-spec.md), which wins where it and this plan differ. Next: build.
+
+They live in `apps/landing` under the `(auth)` route group, so the same Nori stays mounted from the landing page into
+sign-up and on into onboarding.
+
+### Decided
+
+| Question | Decision |
+|---|---|
+| Layout | **Split.** The scene on the left with Nori in it, the form on the right on plain cream. On phones the scene becomes a short band above the form |
+| Sign-in methods | **Email and password**, which the API already has, with forgot password and email confirmation. Google comes later as its own backend task in `apps/api` |
+| Sign-up fields | **Email and password.** The name is asked in onboarding's contact step |
+| Scenes | **Two new ones.** Sign-up: an open garden gate with a path towards the sunrise hills (starting out). Sign-in: back at the desk with a mug (coming back) |
+
+Why the scene goes on the left:
+1. **One order at every size.** On phones the scene sits above the form. Left then right on desktop reads in the same
+   order as top then bottom on a phone, so the page has a single reading order.
+2. **Nori faces the form.** Sitting at the scene's right edge, Nori looks toward the fields it reads along with, and its
+   peek and eye-covering point at what you're typing.
+3. **The path ends at the button.** The eye starts on the picture and ends at the bottom right, on **Create account** or
+   **Sign in**.
+
+Swapping sides is a mirror of the grid, so the wireframe can still test it.
+
+### Pages
+
+The API emails links to `/verify-email` and `/reset-password`, so those pages have to exist. Part 2 is therefore two
+main pages and three small ones, all on the same layout.
+
+| Route | What it does | Scene |
+|---|---|---|
+| `/signup` | Create an account, then go to `/onboarding` | Gate |
+| `/signin` | Sign in, then go to `/dashboard`, or `/onboarding` if it isn't finished (`GET /onboarding` gives the step) | Desk |
+| `/forgot-password` | Ask for a reset link. The answer is the same for every address | Desk |
+| `/reset-password?token=…` | Choose a new password. Every session is signed out, so it ends on "Sign in with your new password" | Desk |
+| `/verify-email?token=…` | Confirm the address from the email. Works signed in or not | Gate |
+
+If you're already signed in (`GET /auth/session`), `/signin` and `/signup` send you on to where you'd land after signing
+in. A `?next=` path is honoured only when it's a same-site path.
+
+### Anatomy
+
+**Laptop and up (64rem+):** two columns at full height (`100svh`, with a minimum so short screens scroll).
+
+- **Scene column** (about 5/12 of the width): the scene covers it. Nori's seat is near its right edge, and there's a
+  calm patch for one short line of Nori's words.
+- **Form column:** cream `bg`. The form is up to 25rem wide and vertically centred.
+  - Top bar: the logo (to `/`) on the left. On the right, the switch link ("Have an account? **Sign in**").
+  - Headline in Geist Serif, then one line of lead.
+  - Plan chip, only with `?plan=pro` (see Open).
+  - Fields with visible labels (never placeholder-only): Email, then Password with a show/hide button. Sign-up shows
+    the hint "At least 8 characters" under it. Sign-in puts **Forgot password?** on the password label's row.
+  - The form error, when there is one, just above the button.
+  - The primary button, full width.
+  - Sign-up only: small print, "By creating an account you agree to the **Terms** and **Privacy**."
+
+**Tablet (48–64rem):** the phone layout with a taller band and the form centred. (A 2/5 split left a 320 px sliver of
+scene; see the spec.)
+
+**Phone (under 48rem):** a 56 px logo bar on `bg`, then the scene as a band about 30svh tall, with Nori sitting on it
+at size `s`. (The logo can't sit on the gate scene: it fails contrast there.) The form follows at full width with the
+page margin. The switch link moves under the button.
+
+### Nori
+
+The rows and events already exist in `nori-pet`.
+
+| Moment | What Nori does |
+|---|---|
+| Arriving from the landing page | The same Nori hops into the scene's seat. On a direct visit it starts on the seat and plays `hello` (wave) once |
+| Typing your email | Reads along (`watchFields`, `type-along`) |
+| Password field focused | Covers its eyes (`password`). **Show** makes it peek (`password-show`), **Hide** covers again, and leaving the field uncovers (`password-done`) |
+| Submitting | Turns a key (`signing-in`) while the request runs |
+| Sign-up succeeds | Bows with hearts (`welcome`), then goes on to `/onboarding` |
+| Sign-in succeeds | Nods and waves (`signed-in`, "Welcome back!"), then goes on |
+| Wrong password, address taken, too many tries | Gently shakes its head (`auth-failed`) with a short bubble. The error is always in the form as well; Nori is never the only place it appears |
+| Reset link sent | Holds up an envelope (`email-sent`, "Check your inbox") |
+| Confirming email | Sways while it checks (`loading`), then `celebrate`. On an expired link: `deflated`, then `comfort` |
+
+Same rules as the landing page: Nori stays on the scene and never covers a field or button. It can be dragged, tucked
+and muted. Reduced motion gets still poses, and every page works fully with Nori tucked away.
+
+### Form behaviour
+
+- A real `<form>` with `name` and `autocomplete` (`email`, `new-password` on sign-up, `current-password` on sign-in) so
+  password managers work. No paste blocking and no "confirm password" field; the show button covers that.
+- The API's messages are already plain English and are shown as they are. "An account with this email already exists.
+  **Sign in** instead." links to `/signin` with the email carried over in memory, never in the URL.
+- Field errors sit under their field (`aria-invalid`, `aria-describedby`). After a failed submit, focus goes to the
+  first error. A polite live region says "Signing in…".
+- Network failure: "Couldn't reach Norinote. Check your connection and try again." Rate limits: the API's own wording.
+- The email field gets autofocus on laptops and up only, so a phone keyboard doesn't cover the scene on arrival.
+- An unconfirmed email doesn't block anything. The reminder to confirm lives in the dashboard.
+
+### Connecting to the API
+
+- Calls go to `apps/api` with `credentials: "include"`. Its cookie is httpOnly and `SameSite=Lax`.
+- The API accepts only `WEB_URL` as a browser origin, and builds the email links from it. In development that's set to
+  `http://localhost:3400`. This is an environment setting, not a code change.
+- In production the app and the API must be on the same site (for example `norinote.com` and `api.norinote.com`) for
+  the cookie to work. That's part of the hosting decision (landing spec, Phase 6).
+- Without `RESEND_API_KEY`, the API prints the email links to its console, which is enough for local testing.
+
+### Scenes
+
+The same model, style prompt and pipeline as the landing scenes. Each scene comes as a portrait crop for the column and a
+wide phone crop for the band.
+
+- **Gate (sign-up, verify):** an open wooden garden gate in a felt hedge at sunrise, stepping stones leading through it
+  towards the landing page's hills, a paper lantern on the post. Nori sits on the flat top of the fence post at the
+  right edge. Chosen over a round hillside door (too close to a familiar fantasy home) and a cottage front door (read as
+  "welcome home" rather than "starting out").
+- **Desk (sign-in, forgot, reset):** a low wooden desk by a round window in morning light, a steaming mug, a folded note,
+  a small plant. An empty cushion for Nori. This is a cosier interior than the landing's desk scene, so the two don't
+  look like repeats.
+- Budget: about 8 images including retries, roughly $1–2 from the same ledger (about $3.90 of $24 spent so far).
+
+### Copy (draft)
+
+| Page | Headline | Lead | Button |
+|---|---|---|---|
+| Sign-up | Create your account | Then add your resume, and Nori builds your first shortlist. | Create account |
+| Sign-in | Welcome back | Sign in to see today's shortlist. | Sign in |
+| Forgot | Reset your password | We'll email you a link. It works for one hour. | Send link |
+| Reset | Choose a new password | You'll sign in with it next. | Save password |
+| Verify (ok) | Email confirmed | Thanks. You're all set. | Continue |
+| Verify (expired) | This link has expired | Links last 3 days. Sign in and ask for a new one. | Sign in |
+
+The time limits (one hour, 3 days) are the API's real values.
+
+### Budgets and checks
+
+The landing spec's budgets and QA matrix apply: LCP under 2.0s on 4G, CLS under 0.1, axe clean, keyboard only, reduced
+motion, three engines, 11 sizes. The QA script also covers each form's error states and a full sign-up, sign-in and reset
+against a local API.
+
+### Open
+
+- **What `?plan=pro` shows.** There's no billing yet. Proposal: a small chip, "Pro selected · you'll add payment after
+  setup", carried into onboarding. Until billing exists, everyone starts on Free.
+- **Google sign-in:** later, as a separate `apps/api` task.
+- **Hosting and domain:** the API and the app on the same site (shared with landing Phase 6).
 
 ## Onboarding (part 3)
 
