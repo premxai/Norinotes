@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api, type ShortlistEntry } from "@/lib/api";
+import { setTheme, useTheme } from "@/lib/theme";
 import { usePolling } from "@/lib/use-polling";
 import { LivePanel } from "./LivePanel";
 
@@ -46,38 +47,10 @@ const Icon = ({ d }: { d: string }) => (
   </svg>
 );
 
-// ---- theme ------------------------------------------------------------------------------------------------------------
-
-type Theme = "system" | "light" | "dark";
-const THEME_KEY = "norinote-theme";
-const themeSubs = new Set<() => void>();
-const readTheme = (): Theme => {
-  const t = document.documentElement.getAttribute("data-app-theme");
-  return t === "light" || t === "dark" ? t : "system";
-};
-function setTheme(t: Theme) {
-  if (t === "system") document.documentElement.removeAttribute("data-app-theme");
-  else document.documentElement.setAttribute("data-app-theme", t);
-  try {
-    if (t === "system") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, t);
-  } catch {
-    // Storage blocked: the choice lasts until the page is closed.
-  }
-  themeSubs.forEach((fn) => fn());
-}
-const useTheme = () =>
-  useSyncExternalStore(
-    (fn) => {
-      themeSubs.add(fn);
-      return () => void themeSubs.delete(fn);
-    },
-    readTheme,
-    () => "system" as Theme,
-  );
-
 function AccountMenu({ name, onSignOut }: { name: string; onSignOut: () => void }) {
   const theme = useTheme();
+  // Two menus are on the page (rail and top bar): each needs its own radio group, or one always shows nothing chosen.
+  const group = useId();
   return (
     <details className="group relative">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-row px-2 text-[0.9375rem] font-semibold text-ink hover:bg-tint [&::-webkit-details-marker]:hidden">
@@ -93,7 +66,7 @@ function AccountMenu({ name, onSignOut }: { name: string; onSignOut: () => void 
           <legend className="mb-1.5 text-small font-semibold text-ink">Theme</legend>
           {(["system", "light", "dark"] as const).map((t) => (
             <label key={t} className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-row px-1.5 text-small text-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink">
-              <input type="radio" name="theme" checked={theme === t} onChange={() => setTheme(t)} className="size-4 accent-accent" />
+              <input type="radio" name={group} checked={theme === t} onChange={() => setTheme(t)} className="size-4 accent-accent" />
               {t === "system" ? "System" : t === "light" ? "Light" : "Dark"}
               {t === "system" && <span className="text-ink-2">· follows your device</span>}
             </label>
@@ -142,6 +115,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const me = usePolling(gate === "in" ? "me" : null, api.me, 300_000);
   const agent = usePolling(gate === "in" ? "agent" : null, api.agentStatus, 30_000);
+  // You's daily limit asks for a fresh read when it changes (4c spec section 5.1).
+  const refreshAgent = agent.refresh;
+  useEffect(() => {
+    const on = () => void refreshAgent();
+    addEventListener("norinote:agent", on);
+    return () => removeEventListener("norinote:agent", on);
+  }, [refreshAgent]);
   const shortlist = usePolling(gate === "in" ? "shortlist-count" : null, api.shortlist, 30_000);
   const name = me.data?.profile.fullName ?? me.data?.user.name ?? "";
   const unverified = !!me.data && !me.data.user.emailVerifiedAt;
@@ -169,6 +149,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const count = (href: string) => (href === "/today" && today !== null ? today : null);
+  // The sections' pages load when you point at or focus their link, not all at once: prefetching every section on
+  // every page put each one's code (You's is about 35 KB) into the first screen's budget (4c spec section 11).
+  const intent = (href: string) => ({ prefetch: false, onMouseEnter: () => router.prefetch(href), onFocus: () => router.prefetch(href), onTouchStart: () => router.prefetch(href) });
 
   return (
     <PanelContext.Provider value={ctx}>
@@ -187,6 +170,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={s.href}
                 href={s.href}
+                {...intent(s.href)}
                 aria-current={current ? "page" : undefined}
                 className={`group relative flex min-h-11 items-center gap-3 rounded-row px-3 text-[0.9375rem] text-ink no-underline hover:bg-tint max-laptop:justify-center ${current ? "bg-tint font-semibold" : "font-medium"}`}
               >
@@ -202,11 +186,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-small text-ink-2">Sent today</p>
             <p className="text-[0.9375rem] font-semibold text-ink tabular-nums">{cap > 0 ? `${used} of ${cap}` : used}</p>
             {cap > 0 && (
-              <div role="meter" aria-label="Daily cap" aria-valuemin={0} aria-valuemax={cap} aria-valuenow={used} className="h-1.5 overflow-hidden rounded-full bg-line">
+              <div role="meter" aria-label="Daily limit" aria-valuemin={0} aria-valuemax={cap} aria-valuenow={used} className="h-1.5 overflow-hidden rounded-full bg-line">
                 <div className="h-full bg-accent" style={{ width: `${Math.min(100, (used / cap) * 100)}%` }} />
               </div>
             )}
-            <p className="text-[0.75rem] leading-[1.4] text-ink-2">{cap > 0 ? "Nori sends up to your cap without asking." : "Nori asks before every send."}</p>
+            {/* True for every limit: nothing sends on its own (4c spec section 7). */}
+            <p className="text-[0.75rem] leading-[1.4] text-ink-2">Nori asks before every send.</p>
           </div>
 
           <div className="relative mt-auto flex flex-col gap-1 max-laptop:hidden">
@@ -251,10 +236,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {panel && <LivePanel />}
 
-        {/* Below 1024 px on a page with neither Today's strip nor a 4b title row (You, for now), Nori stands in the
-            bottom-right corner, above the tabs on phones: nori-pet's own corner is on top of them. */}
-        <div aria-hidden="true" data-nori-seat="corner" className="pointer-events-none fixed right-12 bottom-[calc(72px+env(safe-area-inset-bottom))] size-px tablet:right-16 tablet:bottom-4 laptop:hidden" />
-
         <nav aria-label="Dashboard" className="fixed inset-x-0 bottom-0 z-[20] grid h-16 grid-cols-4 border-t-[1.5px] border-line bg-surface-2 pb-[env(safe-area-inset-bottom)] tablet:hidden">
           {SECTIONS.map((s) => {
             const current = path === s.href || path.startsWith(`${s.href}/`);
@@ -262,6 +243,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={s.href}
                 href={s.href}
+                {...intent(s.href)}
                 aria-current={current ? "page" : undefined}
                 className={`relative flex flex-col items-center justify-center gap-0.5 text-[0.75rem] no-underline ${current ? "font-semibold text-ink" : "font-medium text-ink-2"}`}
               >

@@ -3,7 +3,7 @@
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
 Onboarding is built and passed QA as well.
 The dashboard is planned, and parts 4a (the shell and Today) and 4b (Applications and Inbox) are built. Part 4c (You)
-is planned, wireframed and specified.
+is built and QA'd.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -17,7 +17,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
-| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c planned, wireframed and specified ([dashboard-4c-spec.md](dashboard-4c-spec.md)). Next: build 4c (You) |
+| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c built and QA'd ([dashboard-4c-spec.md](dashboard-4c-spec.md)) |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -577,7 +577,8 @@ Status: planned and wireframed: the "Dashboard 4c: You" page of the design canva
 light and dark in Tweaks, plus an empty graph, Telegram's three states and an unconfirmed email). On 4 Nov the API
 gained card editing, the answer bank and an enforced daily limit; the plan and the wireframe both use them (Fix edits
 the card in place, "Answers Nori remembered" on the Nori page, and No limit). Specified in
-[dashboard-4c-spec.md](dashboard-4c-spec.md), which wins where it and this plan differ. Next: build 4c.
+[dashboard-4c-spec.md](dashboard-4c-spec.md), which wins where it and this plan differ. Built and QA'd: 1240 checks in
+three engines (the spec's build checklist).
 
 Everything Nori knows about you and every setting, in one place: the career graph Nori matches and tailors from, what
 it searches for, what it puts on forms, how it reaches you, and the account.

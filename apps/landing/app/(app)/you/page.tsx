@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
-import { AppPlaceholder } from "@/components/app/AppPlaceholder";
+import { Suspense } from "react";
+import { CareerGraphPage } from "@/components/app/you/Graph";
 
 export const metadata: Metadata = { title: "You", robots: { index: false, follow: false } };
 
 export default function Page() {
-  return <AppPlaceholder title="You" part="Part 4c" body="Your career graph, lanes, autopilot, Telegram and account settings come here next. The theme switch is in the account menu." />;
+  // The view (`?view=list`) is read from the address, so the page waits for it on the client.
+  return (
+    <Suspense>
+      <CareerGraphPage />
+    </Suspense>
+  );
 }

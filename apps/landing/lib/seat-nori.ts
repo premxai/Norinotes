@@ -180,15 +180,15 @@ export const startOnboardingNori = (pet: NoriPet, { arrived }: { arrived: boolea
   });
 
 /**
- * The dashboard (4a spec section 10, 4b section 7): Nori sits at the rail's foot from 1024 px and on Today's strip below
- * that (beside a 4b page's title, or a corner seat above the tabs on pages with neither); the panel, Today, Applications and the Inbox ask for their events. No
+ * The dashboard (4a spec section 10, 4b section 7, 4c section 9): Nori sits at the rail's foot from 1024 px and on Today's
+ * strip below that (beside the title on the other pages); the panel and every page ask for their events. No
  * greeting of its own: Today waves when new jobs are in.
  */
 export const startAppNori = (pet: NoriPet, { arrived }: { arrived: boolean }) =>
   startSeatNori(pet, {
-    seat: ["rail", "strip", "head", "corner"],
+    seat: ["rail", "strip", "head"],
     arrived,
     greet: { event: "idle", key: "norinote-app-greet", onlyFresh: true },
     fieldRows: [],
-    laterRows: ["wave", "papers", "present", "scribble", "dash", "wait", "catch", "hold", "point", "deflated", "comfort", "celebrate", "sleep", "check-mail"],
+    laterRows: ["wave", "papers", "present", "scribble", "dash", "wait", "catch", "hold", "point", "deflated", "comfort", "celebrate", "sleep", "check-mail", "think", "hop", "search", "nod"],
   });

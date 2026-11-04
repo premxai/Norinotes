@@ -137,12 +137,16 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
     return () => clearInterval(t);
   }, [status]);
 
-  async function act(fn: () => Promise<{ ok: boolean; error?: string }>) {
+  async function act(fn: () => Promise<{ ok: boolean; status: number; error?: string; detail?: string }>) {
     setBusy(true);
     setFailure(null);
     const r = await fn();
     setBusy(false);
-    if (!r.ok) setFailure(r.error ?? "That didn't work.");
+    if (!r.ok) {
+      // Over the daily limit the application stays ready; the API's detail says what the limit is (4c spec section 7).
+      setFailure([r.error ?? "That didn't work.", r.detail].filter(Boolean).join(" "));
+      if (r.status === 429 && r.detail) void noriReact({ event: "cap-reached" });
+    }
     void refresh();
   }
 

@@ -37,18 +37,26 @@ export type Profile = {
   over18: boolean | null;
   preferences: { titles?: string[]; locations?: string[]; remote?: "only" | "ok" | "no"; salaryMin?: number; excludeCompanies?: string[] };
   rawResumeText: string | null;
+  location: string | null;
+  /** The daily limit: 0 is no limit (4c spec section 5.1). */
+  autoApplyDailyCap: number;
 };
 
-/** One node of the career graph (`buildGraphView` in apps/api). */
+/** One node of the career graph (`buildGraphView` in apps/api). Skills carry `years`, `current` and `lastUsed`. */
 export type GraphNode = {
   id: string;
   type: string;
   label: string;
-  props: { title?: string; org?: string; statement?: string; skills?: string[] };
+  props: { title?: string; org?: string; statement?: string; skills?: string[]; years?: number; current?: boolean; lastUsed?: string; group?: string };
   startDate: string | null;
   endDate: string | null;
+  /** "your resume" or "a fact you added"; null for skills. */
+  source?: string | null;
   sourceQuote?: string | null;
 };
+export type GraphEdge = { id: string; src: string; dst: string; type: string };
+/** `PATCH /api/graph/nodes/:id`: any of these; null clears `org` or a date (`endDate: null` is "still doing it"). */
+export type NodePatch = { title?: string; org?: string | null; statement?: string; skills?: string[]; startDate?: string | null; endDate?: string | null };
 
 /** What reading a resume returns (`IngestResult`). */
 export type Ingest = {
@@ -57,7 +65,7 @@ export type Ingest = {
   nodes: GraphNode[];
 };
 
-export type Lane = { id: string; name: string; titles: string[]; locations: string[]; remote: boolean };
+export type Lane = { id: string; name: string; titles: string[]; locations: string[]; remote: boolean; minFit: number; enabled: boolean };
 
 /** A job as the API sends it (`toJob`). `companyLogoUrl`: a Brandfetch CDN logo, or null (see CompanyLogo). */
 export type Job = { id: string; companyName: string; companyLogoUrl?: string | null; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null };
@@ -145,7 +153,15 @@ export type InboxMessage = {
 };
 export type InboxSettings = { forwardTo: string | null; forwardEnabled: boolean; retentionDays: number | null };
 
-export type Result<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string };
+// Part 4c: the answers Nori remembered, Telegram and the account (4c spec sections 5 and 6).
+export type BankAnswer = { id: string; questionText: string; answer: string; source: "user" | "default" | "model"; lastUsedAt: string | null };
+export type TelegramEvents = { digest: boolean; questions: boolean; submitted: boolean; needsUser: boolean; inbox: boolean; summary: boolean };
+export type TelegramSettings = { dailyTime: string; timezone: string; count: number; summaryTime: string; quietHours: { enabled: boolean; start: string; end: string }; events: TelegramEvents };
+export type TelegramState = { configured: boolean; botUsername: string | null; linked: boolean; linkedAt: string | null; settings: TelegramSettings };
+export type Session = { id: string; current: boolean; device: string; createdAt: string; expiresAt: string };
+
+/** A failure carries the API's words (`error`) and, for some, more of them (`detail`: the daily limit's 429 names the limit). */
+export type Result<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string; detail?: string };
 
 async function call<T>(path: string, { method, json, form }: { method?: string; json?: unknown; form?: FormData } = {}): Promise<Result<T>> {
   let res: Response;
@@ -163,7 +179,8 @@ async function call<T>(path: string, { method, json, form }: { method?: string; 
   if (res.ok) return { ok: true, status: res.status, data: body as T };
   // The API's errors are `{ error, detail? }` and written for people; anything else (a proxy's HTML page) isn't.
   const error = body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : OFFLINE;
-  return { ok: false, status: res.status, error };
+  const detail = body && typeof body === "object" && "detail" in body && typeof body.detail === "string" ? body.detail : undefined;
+  return { ok: false, status: res.status, error, ...(detail ? { detail } : {}) };
 }
 
 export const api = {
@@ -186,7 +203,7 @@ export const api = {
     return call<Ingest>("/profile/resume-file", { form });
   },
   resumeText: (text: string) => call<Ingest>("/profile/resume", { json: { text } }),
-  graph: () => call<{ nodes: GraphNode[] }>("/graph"),
+  graph: () => call<{ nodes: GraphNode[]; edges: GraphEdge[] }>("/graph"),
   lanes: () => call<Lane[]>("/lanes"),
   inboxAddress: () => call<{ address: string | null; configured: boolean; settings: InboxSettings }>("/inbox/address"),
   shortlist: () => call<ShortlistEntry[]>("/shortlist"),
@@ -212,4 +229,22 @@ export const api = {
   inbox: () => call<InboxMessage[]>("/inbox?limit=200"),
   message: (id: string) => call<InboxMessage>(`/inbox/${encodeURIComponent(id)}`),
   inboxSettings: (settings: InboxSettings) => call<{ settings: InboxSettings }>("/inbox/settings", { method: "PUT", json: settings }),
+  // Part 4c.
+  addFact: (text: string) => call<{ nodesCreated: number; note: string | null }>("/graph/facts", { json: { text } }),
+  editNode: (id: string, patch: NodePatch) => call<{ node: GraphNode }>(`/graph/nodes/${encodeURIComponent(id)}`, { method: "PATCH", json: patch }),
+  removeNode: (id: string) => call<{ ok: true }>(`/graph/nodes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  saveLanes: (lanes: (Omit<Lane, "id"> & { id: string | null })[]) => call<Lane[]>("/lanes", { method: "PUT", json: lanes }),
+  saveProfile: (patch: Record<string, unknown>) => call<Profile>("/profile", { method: "PUT", json: patch }),
+  answers: () => call<BankAnswer[]>("/profile/answers"),
+  editAnswer: (id: string, answer: string) => call<BankAnswer>(`/profile/answers/${encodeURIComponent(id)}`, { method: "PATCH", json: { answer } }),
+  removeAnswer: (id: string) => call<{ ok: true }>(`/profile/answers/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  telegram: () => call<TelegramState>("/channels/telegram"),
+  saveTelegram: (settings: Partial<TelegramSettings>) => call<TelegramState>("/channels/telegram", { method: "PUT", json: settings }),
+  linkTelegram: (timezone: string) => call<{ code: string; expiresAt: string; botUsername: string; link: string }>("/channels/telegram/link", { json: { timezone } }),
+  unlinkTelegram: () => call<{ ok: true; linked: false }>("/channels/telegram", { method: "DELETE" }),
+  changePassword: (current: string, next: string) => call<{ ok: true }>("/auth/change-password", { json: { current, next } }),
+  sessions: () => call<Session[]>("/auth/sessions"),
+  endSession: (id: string) => call<{ ok: true }>(`/auth/sessions/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  endOtherSessions: () => call<{ revoked: number }>("/auth/sessions/revoke-others", { json: {} }),
+  deleteAccount: (confirm: string) => call<{ ok: true }>("/auth/account", { method: "DELETE", json: { confirm } }),
 };

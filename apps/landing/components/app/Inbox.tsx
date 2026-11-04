@@ -259,8 +259,12 @@ export function Inbox() {
 
   // From 1024 px the newest message is open on arrival, and the URL follows so Back works.
   const first = list.data?.[0]?.id;
+  const autoOpened = useRef<string | null>(null);
   useEffect(() => {
-    if (!id && first && wide()) router.replace(`/inbox/${first}`);
+    if (!id && first && wide()) {
+      autoOpened.current = first;
+      router.replace(`/inbox/${first}`);
+    }
   }, [id, first, router]);
 
   // Nori checks the mail while a message is open, and catches a code (section 7); back to idle on leaving.
@@ -268,7 +272,12 @@ export function Inbox() {
   const hasCode = !!open?.code;
   useEffect(() => {
     if (!openId) return;
-    void noriReact({ event: hasCode ? "code" : "email-sent" });
+    // The message opened for you on arrival waits until the page has settled, as a first screen's reaction does: the
+    // move to /inbox/:id counts as arriving from another page, so Nori would play it, and load its strip, at once.
+    const since = performance.now();
+    const wait = openId === autoOpened.current ? Math.max(0, 1500 - since) : 0;
+    const t = window.setTimeout(() => void noriReact({ event: hasCode ? "code" : "email-sent" }), wait);
+    return () => clearTimeout(t);
   }, [openId, hasCode]);
   useEffect(() => () => void noriReact({ event: "idle" }), []);
 

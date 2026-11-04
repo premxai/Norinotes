@@ -97,7 +97,7 @@ landing, auth and onboarding pages stay Dawn, so their scenes keep working.
 |---|---|
 | `AppShell` | The rail or bar and tabs, Nori's seat, the account menu, the email banner slot, and the live panel's slot. One layout for the `(app)` group |
 | Rail row / tab | A `Link` with `aria-current="page"` on the current one; the count is part of its name ("Today, 3") |
-| Cap meter | "Sent today" and "2 of 5" (Mono), a 6 px `meter` bar; under it "Nori asks before every send" when the cap is 0 (autopilot off) |
+| Cap meter | "Sent today" and "2 of 5" (Mono), a 6 px `meter` bar; under it "Nori asks before every send" at every limit: nothing sends on its own (4c spec section 7; it said "Nori sends up to your cap without asking" above 0, which was never true) |
 | Email banner | `tint`, 14 px radius: "**Confirm your email** so employers' replies reach you. We sent a link to …" and **Send it again**. After sending: "Sent. Check your inbox." The resend's rate limit shows the API's words |
 | Needs-you row | A button: a `warning` dot, "**Nori needs you** · 1 application waiting on you", **Open**. Opens the first waiting application in the panel |
 | Job card | `surface`, 1.5 px `line`, 18 px radius. The company logo (below) on the left; the title and meta are one button that opens the job; the fit score on the right; two reasons; **Apply** (primary) and **Not for me** (text). Once applied, the buttons give way to a status chip and **Watch** |
@@ -146,7 +146,7 @@ in the header reads "1 of 3" with previous and next.
 - **Order:** waiting on you (needs-you row) first, then the cards by fit, highest first. Cards already sent move to the
   bottom with their chip.
 - **Apply:** creates the application and opens the panel. **Send all N** creates one per card that has none, in order,
-  and opens the panel on the first; each still waits for **Send it** unless autopilot is on (part 4c).
+  and opens the panel on the first; each still waits for **Send it**; the daily limit meets each there (4c spec section 7).
 - **Not for me:** hides the card at once and shows the toast; `POST /api/shortlist/:jobId/dismiss` is sent when the
   5 s are up (the API has no un-dismiss), and **Undo** within them cancels it.
 - **Posted:** "9 hours ago", "1 day ago". Users only ever see jobs from the last 72 hours; nothing here widens that.
@@ -216,7 +216,7 @@ On top of the landing and auth rules:
 
 ## 14. Still open
 
-- What "Send all" does under autopilot (part 4c decides the cap and autopilot).
+- What "Send all" does under autopilot, once the API has autopilot (part 4c sets the limit; autopilot is on the API's to-do list).
 - Placeholders for Applications, Inbox and You until 4b and 4c.
 
 ## 15. Build checklist
