@@ -57,6 +57,11 @@ export const SCENES = {
     size: "1024x1536",
     prompt: "Portrait composition. A small open wooden garden gate set in a low, soft, rounded felt hedge at sunrise, with a path of flat clay stepping stones leading through it towards gentle sage-green hills and a low round felt sun in the distance. A small paper lantern hangs from the gate post. Right of the gate, near the right edge, the flat top of a short wooden fence post or a flat stone in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the gate, the path and the empty spot inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is calm sky fading from rice-cream to soft peach, with almost no detail.",
   },
+  // Part 4 (ui-plan.md): the dashboard's greeting strip in dark mode. Light mode reuses the landing footer's hills.
+  night: {
+    size: "1536x1024",
+    prompt: "A very wide, quiet, low horizon of the same rolling felt hills at night: deep seaweed-green and dark sage felt hills under a calm, very dark green-black night sky, a small round felt moon high on the left, a few tiny stitched thread stars. The upper 60 percent is calm dark sky with almost no detail. The hills are low, soft and simple, spread evenly from left to right, with a few tiny felt trees and one tiny warm paper lantern glowing near the middle. On the right third, a small, flat, empty grassy spot on the nearest hill (leave it empty). Keep everything important inside a wide horizontal band across the lower middle; the top and bottom can be cropped. Light is soft and cool, with the lantern as the only warm light.",
+  },
   // Part 3 (ui-plan.md): every onboarding step sits on Nori's workshop, where the career graph is made.
   workshop: {
     size: "1024x1536",

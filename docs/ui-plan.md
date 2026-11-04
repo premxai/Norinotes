@@ -2,7 +2,7 @@
 
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
 Onboarding is built and passed QA as well.
-The dashboard is next to plan.
+The dashboard is planned and part 4a is wireframed (below).
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -16,7 +16,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
-| 4 | Dashboard | `/dashboard` and its views | Not started |
+| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | Planned; 4a wireframed and specified ([dashboard-4a-spec.md](dashboard-4a-spec.md)). Next: build 4a |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -389,4 +389,150 @@ On phones the cards stack in one column and the threads are left out; the count 
 
 ## Dashboard (part 4)
 
-Not planned yet. It replaces `apps/web` when it's ready. Unlike the landing page, it needs both light and dark modes.
+Status: planned (the whole dashboard, and part 4a in detail); 4a is wireframed on the "Dashboard 4a: Today" page of the
+design canvas, desktop and phone, light and dark, with the night strip (`art/scenes.mjs` night, take `night-1`, picked over take 2;
+light mode reuses the landing footer's hills). Specified in [dashboard-4a-spec.md](dashboard-4a-spec.md), which wins
+where it and this plan differ. Next: build 4a.
+
+The everyday app: where the morning shortlist lands, where you approve and watch applications, and where everything Nori
+did is kept. It lives in `apps/landing` like the other parts (route group `(app)`), so the same Nori carries over from
+onboarding, and it replaces `apps/web` once it's done. Unlike the landing page it has a light and a dark mode.
+
+### Decided
+
+| Question | Decision |
+|---|---|
+| Navigation | **A side rail on desktop, bottom tabs on phones.** Four sections: Today, Applications, Inbox, You. Nori docks at the foot of the rail (desktop) or above the tab bar (phones) |
+| Today | **Job cards, each with its own Apply.** Title, company, fit score, the two strongest reasons; **Send all 3** above them. A card opens the full job, the tailored resume and what Nori will answer |
+| Applying | **A live panel.** The card you applied from becomes a panel (a side panel on desktop, a sheet on phones) that steps through the real run log with a timer, and Nori acts it out: the landing page's replay, for real |
+| Dark mode | **Night Dawn.** A deep seaweed-green night that keeps the green accent, so both modes feel like one product. Follows the system, with a switch in You |
+
+### Three parts, one at a time
+
+The dashboard is too big for one pass, so it's planned once and then wireframed, specified and built in three parts.
+
+| Part | Sections | What it covers |
+|---|---|---|
+| **4a** | The shell, Today | The rail and tabs, light and dark, Nori docked; today's shortlist; approving and the live apply panel; the "needs you" moments (questions, codes, captchas, account walls); the daily cap; sign-out; the "confirm your email" reminder |
+| **4b** | Applications, Inbox | Every application with its status, receipt, tailored resume and run log; outcomes (replies, interviews, offers, rejections) and the week view; Nori's inbox of codes and replies |
+| **4c** | You | The career graph (open a card, fix or remove it, add a fact); lanes and preferences; the autopilot daily cap; the answer bank; Telegram; account (email, password, sessions, delete) and the theme switch |
+
+### What the API already does
+
+| Need | Endpoint |
+|---|---|
+| Today's shortlist, and whether it was widened | `GET /api/shortlist`, `GET /api/shortlist/meta`; `POST /api/shortlist/:jobId/dismiss` |
+| A job in full | `GET /api/jobs/:id` |
+| Apply, approve, answer, retry | `POST /api/applications` `{ jobId }`, `POST /:id/approve` `{ answers? }`, `POST /:id/answer` `{ answers }`, `POST /:id/retry` |
+| One application: job, tailored resume, run log | `GET /api/applications/:id` (`events` is the run log the live panel plays) |
+| The daily cap and today's use | `GET /api/agent/status` |
+| What Nori did, newest first | `GET /api/agent/activity` |
+| Outcomes, inbox, lanes, graph, profile, Telegram, account | `/api/outcomes`, `/api/inbox`, `/api/lanes`, `/api/graph`, `/api/profile`, `/api/channels/telegram`, `/api/auth/*` (parts 4b and 4c) |
+
+Application statuses: `queued`, `preparing`, `prepared` (ready for your click), `applying`, `awaiting_code`,
+`needs_user`, `submitted`, `failed`. There's no live push from the API, so open pages poll: every 2 s while an
+application is applying, every 30 s otherwise, and never while the tab is hidden.
+
+### Routes
+
+`/today`, `/applications` (and `/applications/:id`), `/inbox`, `/you`. `/dashboard`, where sign-in and onboarding
+send people today, redirects to `/today`. Signed out: `/signin?next=…`. Onboarding not finished: `/onboarding`.
+
+### Layout
+
+- **Desktop (1024+):** a 248 px rail on the left (logo, the four sections with counts, the cap meter, Nori at the
+  foot), and the section on the right, up to 960 px wide. The live panel slides in on the right at 420 px and the list
+  narrows beside it.
+- **Tablet (768–1023):** the rail collapses to 72 px icons with labels on hover and focus; the live panel overlays.
+- **Phone:** a top bar (logo, the section's name) and a bottom tab bar (64 px plus the safe area) with the four
+  sections. The live panel is a full-height sheet. Nori sits just above the tab bar, small.
+- **Scenes:** the dashboard is for work, so there's no full scene. Today opens with a short greeting band ("Good
+  morning, Alex") over a thin strip of the Dawn hills (light) or a night version (dark), and Nori sleeps on the strip in
+  the evening when there's nothing to do.
+
+### Part 4a: Today
+
+**Top of the page:** the greeting, then one line on the day: "3 for today · 1 needs you · 2 of 5 sent today" (the
+cap). If the search was widened: "Showing similar roles while Nori looks for more" (from `meta`). **Send all 3** on
+the right.
+
+**A job card:**
+- Title, company and location (or Remote), how long ago it was posted (always under 72 hours), and the fit score in
+  Geist Mono.
+- The two strongest reasons in a line each ("Led a design system, like this role asks").
+- **Apply** (primary) and **Not for me** (a quiet text button that dismisses it, with **Undo** for 5 seconds).
+- Opening a card (anywhere but the buttons) shows the job in full: the description, every reason, the tailored resume
+  Nori will send (with the changed lines marked, as on the landing page), and the questions it already knows how to
+  answer.
+
+**The live panel:** opens when you press **Apply** (or **Send all 3**, one panel per job, stacked).
+
+| Status | What the panel shows | Nori |
+|---|---|---|
+| `queued`, `preparing` | "Getting it ready": tailoring the resume, reading the form | `papers` |
+| `prepared` | Ready: the tailored resume and answers to check, then **Send it** (the approval) | `present` |
+| `applying` | Each run-log step as it happens (opening the page, filling fields, uploading, submitting) with a running timer | `scribble`, `type-along` |
+| `awaiting_code` | "Waiting for the email code" and the inbox address it'll arrive at | `wait`, then `catch` when it lands |
+| `needs_user` | The questions nobody could answer, as a short form; **Send answers** carries on. Captchas and account walls: what happened and a link to finish it yourself | `point`, or `deflated` for a wall |
+| `submitted` | "Sent in 18 seconds", the receipt, and a link to the application | `celebrate` |
+| `failed` | What went wrong in words, **Try again** (retry) and the run log | `deflated`, then `comfort` |
+
+**Needs you:** anything waiting on you (prepared or needs-user applications) sits above the shortlist as a highlighted
+row, and the Today tab shows a dot.
+
+**Empty states:** the first morning ("Nori is still finding your first jobs"), a day with nothing new ("Nothing new
+today. Nori checks again overnight"), and every job handled ("That's today done").
+
+**Also in 4a:** the cap meter in the rail ("2 of 5 today", from `agent/status`; autopilot off shows "Nori asks before
+every send"); sign-out under the account name; the "Confirm your email" banner until it's confirmed, with **Send it
+again** (`POST /api/auth/resend-verification`).
+
+### Night Dawn (dark)
+
+| Token | Light (Dawn) | Dark (Night Dawn) |
+|---|---|---|
+| `bg` | `#FBF4EA` | `#0F1A15` |
+| `surface` | `#FFFDF8` | `#16241D` |
+| `surface-2` | `#F5EBDD` | `#13201A` |
+| `tint` | `#F0E2CF` | `#1F3028` |
+| `line` | `#E4D7C4` | `#2B3D34` |
+| `line-strong` | `#857A6A` | `#7D8F85` |
+| `ink` | `#1F2A24` | `#F4EFE4` |
+| `ink-2` | `#55605A` | `#B5C1BA` |
+| `accent` | `#2F5D46` | `#86C4A0` |
+| `accent-hover` | `#244A38` | `#A3D6B8` |
+| `on-accent` | `#FFFDF8` | `#0F1A15` |
+| `danger` | `#B23A2E` | `#F08A7E` |
+| `warning` | `#8A5A00` | `#E8B75C` |
+
+Measured in dark: ink on bg 15.5:1, ink-2 on bg 9.6:1, accent on bg 8.8:1, on-accent on accent 8.8:1, line-strong on
+bg 5.2:1, danger on bg 7.3:1. Every pair passes AA. Nori's sprite is the same in both; nori-pet already themes its
+bubble in dark mode.
+
+### Nori in the dashboard
+
+The agent events nori-pet was made for: `shortlist-ready` (a wave with the count) when new jobs arrive, `preparing`,
+`prepared`, `applying`, `submitting`, `awaiting-code`, `code`, `submitted`, `needs-user`, `captcha`, `failed`, and later
+`reply`, `interview`, `offer`, `rejection` (part 4b) and `cap-reached`. One reaction at a time: the latest application
+the live panel shows. In the evening with nothing waiting, Nori falls asleep on the greeting strip.
+
+### Copy (draft, 4a)
+
+| Place | Words |
+|---|---|
+| Greeting | Good morning, Alex / Good afternoon / Good evening |
+| Day line | 3 for today · 1 needs you · 2 of 5 sent today |
+| Apply | Apply · Not for me · Undo |
+| Ready to send | Ready to send. Check the resume and answers, then send it. · **Send it** |
+| Sent | Sent in 18 seconds · View the application |
+| Needs you | Nori needs 2 answers to finish this one. |
+| Wall | This site asked for a captcha. Nori never gets around those; finish it here: **Open the application** |
+| Nothing today | Nothing new today. Nori checks again overnight. |
+
+### Open
+
+- Pro and autopilot: until billing exists, the cap meter says what the cap is, and autopilot (sending without asking)
+  is set in You (part 4c).
+- Notifications outside the app (email digests, browser notifications): not in part 4; Telegram covers approvals for
+  now.
+- The evening strip and night strip are two small new scenes (about $0.25).
