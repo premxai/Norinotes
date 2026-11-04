@@ -50,12 +50,17 @@ export function takeParam(name: string, { remove = false } = {}): string | null 
   return value;
 }
 
+type NoriWindow = Window & { __noriSeated?: boolean; __noriPending?: { detail: { event?: string; row?: string; say?: string }; at: number } };
+
 /**
  * Asks Nori to react, through the page's seat controller (lib/seat-nori.ts). Resolves when the reaction has played, or
- * after `wait` ms, whichever is first, so a missing or tucked Nori never holds a page up.
+ * after `wait` ms, whichever is first, so a missing or tucked Nori never holds a page up. Asked before Nori has arrived
+ * (data can beat the sprites to the page), the latest request waits for it; see `takePendingReaction`.
  */
 export function noriReact(detail: { event?: string; row?: string; say?: string }, wait = 1200): Promise<void> {
   return new Promise((resolve) => {
+    const w = window as NoriWindow;
+    if (!w.__noriSeated) w.__noriPending = { detail, at: Date.now() };
     const t = window.setTimeout(resolve, wait);
     const done = () => {
       clearTimeout(t);
@@ -63,6 +68,15 @@ export function noriReact(detail: { event?: string; row?: string; say?: string }
     };
     dispatchEvent(new CustomEvent("norinote:react", { detail: { ...detail, done } }));
   });
+}
+
+/** The seat controller arriving: from now on reactions go straight to it, and the last one it missed (in the last 8 s) plays. */
+export function takePendingReaction(seated: boolean) {
+  const w = window as NoriWindow;
+  w.__noriSeated = seated;
+  const p = w.__noriPending;
+  w.__noriPending = undefined;
+  return seated && p && Date.now() - p.at < 8000 ? p.detail : null;
 }
 
 /** Tells the seat controller the form's fields changed, so Nori re-wires reading along and covering its eyes. */

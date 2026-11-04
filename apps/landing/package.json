@@ -18,7 +18,8 @@
     "qa": "node tests/qa.mjs",
     "qa:auth": "node tests/qa-auth.mjs",
     "qa:onboarding": "node tests/qa-onboarding.mjs",
-    "qa:today": "node tests/qa-today.mjs"
+    "qa:today": "node tests/qa-today.mjs",
+    "qa:4b": "node tests/qa-4b.mjs"
   },
   "dependencies": {
     "@norinote/nori-pet": "file:../../nori-pet",

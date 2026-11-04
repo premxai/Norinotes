@@ -29,13 +29,20 @@ Status: decided, except the items under [Still open](#11-still-open).
 | Below 768 | 16 px margin; the tabs scroll sideways; the week strip in 7 narrow columns | One column; What happened? buttons in a 2 by 2 grid | The list; a message opens `/inbox/:id` with "‹ Inbox" |
 
 The rail, tabs and Nori's seats are the shell's (4a section 2). These pages have no greeting strip, so below 1024 px
-Nori docks in nori-pet's default corner and is tucked while a field has focus.
+the title row (`PageHead`) is tall enough for Nori to stand at its right end, beside the title: 84 px with an 80 px Nori
+on phones, 120 px with a 112 px Nori on tablets, and the title keeps 112 to 144 px clear on the right. The page starts
+right under the top bar, so the row costs about 30 px on phones. A floating corner would cover the rows' chips (the
+first build tried one, 8 px above the tabs; QA caught it covering "Reply" and "Rejected"). The shell keeps that corner
+seat only as a fallback for pages with neither a strip nor a title row (You, until 4c).
 
 ## 3. Applications (`/applications`)
 
-**Data:** `GET /api/applications` (30 s, 4 s while one is moving), `GET /api/outcomes/summary` (on load), and for each
-row on screen that was submitted, `GET /api/applications/:id/outcomes` (at most 6 at once, cached for the visit, again
-after a change). `GET /api/inbox` (linked messages) fills in replies while those load.
+**Data:** `GET /api/applications` (30 s, 4 s while one is moving), `GET /api/outcomes/summary` (on load, and again once
+outcomes change), and `GET /api/applications/:id/outcomes` for every sent application. The tab counts and the week
+strip need all of them, not only the rows on screen. They're fetched newest first, at most 6 at once, and kept for the
+visit (`lib/use-outcomes.ts`). An application's outcomes are fetched again when its `updatedAt` or its newest linked
+message (from `GET /api/inbox`, 30 s) changes, and after a mark or an Undo. Until they've all loaded, the Sent, Replied
+and Closed tabs show no count, and a sent row shows "Sent".
 
 **State of a row**, first match wins:
 
@@ -51,7 +58,7 @@ after a change). `GET /api/inbox` (linked messages) fills in replies while those
 **Filter tabs:** All, In progress (Applying and Needs you), Sent (Waiting), Replied (Reply, Interview, Offer), Closed
 (Rejected, No response, Didn't go through). Each shows its count; the choice is kept in the URL (`?show=replied`).
 
-**A row:** a button the full width of the list: title · company (600, 16 px), the line under it (14 px, `ink-2`), the
+**A row:** a link the full width of the list (it goes to a page): the company logo or letter tile (4a section 6), title · company (600, 16 px), the line under it (14 px, `ink-2`), the
 chip on the right. The line: "Applying now", "Nori needs 2 answers", "Replied in 1 day", "Interview invitation, 2 days
 after sending", "Rejected after 1 day", "Sent 4 Nov · no answer in 30 days", or "Sent 4 Nov". Days are from
 `submittedAt` to the first outcome. Newest first by `createdAt`.
@@ -73,7 +80,7 @@ move by a week; there's nothing beyond this week. Each day's name includes what 
 **Data:** `GET /api/applications/:id` (polled as in 4a section 7 while moving), `GET /api/applications/:id/outcomes`,
 and `GET /api/inbox` filtered to this application.
 
-- **Header:** "‹ All applications", the title (serif, 36 px desktop, 28 px phones), company · place · "sent 4 Nov", the
+- **Header:** "‹ All applications", the title (serif, 36 px desktop, 28 px phones), the company logo or letter tile with company · place · "sent 4 Nov", the
   state chip, and **Open the job posting** (`job.applyUrl`, a new tab).
 - **Still moving or waiting on you:** the live panel's content for its status (4a section 7) sits under the header, so
   Send it, answers, Try again and walls work here too.
@@ -95,19 +102,20 @@ and `GET /api/inbox` filtered to this application.
 
 **Data:** `GET /api/inbox` (30 s), `GET /api/inbox/:id` for the open message, `GET /api/inbox/address` (once).
 
-- **Header band:** "Inbox" (serif), "Your Nori inbox:" and the address in Geist Mono with **Copy** ("Copied" for 2 s).
+- **Header band:** "Inbox" (serif), "Your Nori inbox:" and the address (Geist 600) with **Copy** ("Copied" for 2 s).
   Not configured (`configured` false): "Nori's inbox isn't switched on yet. Codes and replies go to your own email for
   now." and no list.
 - **Settings** (a `details`, folded): "Forward a copy to my email" (a checkbox), "My email" (an email field), "Keep
-  messages for" (30 days, 90 days, 365 days, Forever → `retentionDays` 30, 90, 365 or null), **Save**
-  (`PUT /api/inbox/settings`). Folded, its summary reads "Forwarding to … · kept 90 days" or "Not forwarding · kept
-  forever". The API's errors show under Save.
+  messages for" (30, 90 or 365 days → `retentionDays`; the API keeps 1 to 365 days, and no choice means its default of
+  90, so there's no "Forever"), **Save** (`PUT /api/inbox/settings`). Forwarding with no address is caught here ("Add
+  the email to forward to."), because the API would quietly switch it off. Folded, the summary reads "Forwarding to … ·
+  kept 30 days" or "Not forwarding · kept 90 days". The API's errors show under Save.
 - **Filters:** All, Codes (`verification_code`), Replies (`recruiter_reply`, `interview`, `rejection`, `offer`).
 - **A list item:** a button: sender name (or address), the time ("9:12", "Yesterday", "3 Nov"), the subject, the kind
   chip (Code, Confirmation, Reply, Interview, Rejection, Offer, Other) and the linked application ("Product designer ·
   Fernway"). New since the last visit: the sender and subject in 700 and a dot, and "New" for screen readers. Spam:
   "Spam" in place of the kind, `ink-2`.
-- **The message:** subject (22 px), sender and full time; then, if there's a code, the code in Geist Mono 32 px with
+- **The message:** subject (22 px), sender and full time; then, if there's a code, the code in Geist 600 32 px with tabular figures and
   letter spacing, **Copy** and "Nori already entered it" when its application moved on; a verification link as an
   outline button ("Confirm with the employer", a new tab); the body as plain text (`white-space: pre-line`, links
   shown but not followed automatically); attachments as a list of names; **Open the application** when linked.
@@ -125,6 +133,7 @@ and `GET /api/inbox` filtered to this application.
 | `Timeline` | An `ol` with the rule and dots; each entry a title and a time; the newest marked entry has **Undo** |
 | `MarkOutcome` | The four buttons and the note; while a mark is saving, the buttons are `aria-disabled` |
 | `InboxList`, `MessageView`, `InboxSettings` | Section 5 |
+| `CompanyLogo` | 4a section 6: the Brandfetch logo as a plain lazy `<img>`, or a letter tile in the same 36 or 40 px box, on rows and the application's header |
 | `StateChip` | 24 to 26 px pill; the colours in section 3; always words, never colour alone |
 
 ## 7. Nori
@@ -137,6 +146,12 @@ and `GET /api/inbox` filtered to this application.
 | You mark one by hand | the same event, once |
 | A message is open in the Inbox | `email-sent` (check-mail) |
 | A message with a code is open | `code` (catch, then hold) |
+
+A reaction asked for before Nori has arrived (data can load before the sprites) waits for it: the latest one asked
+for in the 8 s before Nori sits plays when it does, in place of the greeting (`takePendingReaction` in
+lib/auth-flow.ts). And on a page's first load, until it has settled (1.5 s after load, as for the greeting) or the
+visitor clicks or presses a key, a reaction waits too (not when Nori arrives from another page of the app), the latest one only, so its sprite strip (about 70 KB) stays off the first screen:
+the Inbox opening on a code was 476 KB with the catch strip, 405 KB without.
 
 At most one per page load for the "since the last visit" ones: the most important (offer, interview, reply, rejection).
 The last visit is kept in `localStorage` (`norinote-last-seen-outcomes`, `norinote-inbox-seen-at`).
@@ -153,11 +168,15 @@ The last visit is kept in `localStorage` (`norinote-last-seen-outcomes`, `norino
 
 ## 9. Performance
 
-- The pages are static shells; data comes after load with fixed-height skeleton rows (no shift).
-- Per-row outcome requests: at most 6 at once, only for rows on screen, cached for the visit.
-- Under 450 KB before the first interaction, LCP under 2.0 s on 4G, CLS under 0.05. No Geist Mono on the first screen
-  of Applications (counts and rates are Geist with tabular figures); the Inbox's address and codes use Mono, which is
-  fine there (it's the point of the page).
+- The pages are static shells; data comes after load into boxes of fixed height, so nothing moves: the week strip is
+  212 px at every width (its legend sits at the foot, so a wrapped legend at 360 px still fits), the numbers have a slot
+  68 px tall on phones and 52 px from 768 (their tallest), the tabs 40 px, and rows 76 px with their line on one line
+  (truncated). The skeleton has the same heights. (The first build shifted by 0.42 on phones: the summary arrived after
+  the list and pushed it down.)
+- Outcome requests: one per sent application, at most 6 at once, kept for the visit (section 3).
+- Under 450 KB before the first interaction, LCP under 2.0 s on 4G, CLS under 0.05. No Geist Mono on 4b's pages at
+  all: counts, rates, codes and confirmation numbers are Geist with tabular figures. With Mono for the address and the
+  code, the Inbox was 466 KB.
 
 ## 10. Copy
 
@@ -171,12 +190,12 @@ The last visit is kept in `localStorage` (`norinote-last-seen-outcomes`, `norino
 | Receipt | Confirmation … · sent in 18 s · A practice run: nothing reached the employer. · See the screenshot |
 | Inbox off | Nori's inbox isn't switched on yet. Codes and replies go to your own email for now. |
 | Inbox empty | Nothing here yet. Codes and replies from employers land here, and Nori uses them to finish applications. |
-| Settings | Forward a copy to my email · My email · Keep messages for · Save |
+| Settings | Forward a copy to my email · My email · Keep messages for · Save · Add the email to forward to. |
 
 ## 11. Still open
 
 - **An API addition** (an `apps/api` task, not this part): the outcome state in `GET /api/applications`, so the list
-  needs no request per row. Until then, section 3's per-row requests.
+  needs no request per sent application. Until then, section 3's requests.
 - **A read flag** for inbox messages, so "new" follows you across devices. Until then, the browser remembers.
 - Interview dates aren't parsed from messages, so rows say "Interview invitation", not a date.
 
@@ -185,23 +204,50 @@ The last visit is kept in `localStorage` (`norinote-last-seen-outcomes`, `norino
 Each phase ends with lint, type check and a look at 390 and 1440. Commit only with an explicit go.
 
 ### Phase 1: data
-- [ ] `lib/api.ts`: outcomes (list, add, remove), the summary, the inbox (list, one, address, settings). A shared
-  row-state function (section 3) with tests.
+- [x] `lib/api.ts`: outcomes (list, add, remove), the summary, the inbox (list, one, address, settings), and
+  `job.companyLogoUrl`. `lib/app-state.ts`: the row state, chips, lines and week marks (section 3), exercised by QA's
+  nine mocked applications, one per state. `lib/use-outcomes.ts`: every sent application's outcomes, 6 at once.
 
 ### Phase 2: Applications
-- [ ] `/applications`: week strip, numbers, tabs (kept in the URL), rows with per-row outcomes, empty state.
-- [ ] `/applications/:id`: header, the live panel's content while moving, What happened? with Undo, timeline, resume,
-  receipt, not found.
+- [x] `/applications`: week strip, numbers, tabs (kept in the URL), rows with their outcomes, logos or letter tiles,
+  empty and offline states. Fixed heights, so the data arriving moves nothing.
+- [x] `/applications/:id`: header with the logo, the live panel's content while moving (`ApplicationBody`, shared
+  with the panel), What happened? with Undo, timeline, resume, receipt, not found.
 
 ### Phase 3: Inbox
-- [ ] `/inbox` and `/inbox/:id`: header band and Copy, Settings, filters, list with "new", the reading pane (pane from
-  1024 px, its own page below), empty and not-configured states.
+- [x] `/inbox` and `/inbox/:id` (the Inbox is their layout, so the list stays put): header band and Copy, Settings,
+  filters, list with "new", the reading pane (pane from 1024 px, its own page below), spam, empty and not-configured
+  states.
 
 ### Phase 4: Nori
-- [ ] The events in section 7, once per new outcome, with the last-visit keys.
+- [x] The events in section 7, once per new outcome, with the last-visit keys; the title-row seat below 1024 px; a
+  reaction asked for before Nori arrives, or before a first load settles, waits for it.
 
 ### Phase 5: QA
-- [ ] `tests/qa-4b.mjs`: the 11 sizes in three engines for each page, light and dark; the row states and filters; the
-  week strip and day filter; marking and Undo (the API mocked); the summary's small sample; the Inbox's list, pane,
-  phone page, Copy, settings and not-configured state; axe in both themes; keyboard; budgets. A real run against a
-  local API: an application marked as an interview by hand shows in the list and the strip.
+- [x] `tests/qa-4b.mjs` (`npm run qa:4b`): the 11 sizes in three engines for each page, light and dark; the row states,
+  logos and tiles, tabs and the day filter; marking and Undo (the API mocked); the small sample; the Inbox's list,
+  pane, new mail, phone page, Copy, settings, spam and switched-off state; Nori's reactions; axe in both themes;
+  keyboard; budgets.
+
+**QA results (4 November 2026):** 982 of 982 checks pass.
+
+| Page, 4G with a 4x slower CPU | First interaction | LCP | CLS |
+|---|---|---|---|
+| `/applications`, 390 px | 388 KB | 1.2 s | 0.001 |
+| `/applications`, 1440 px | 378 KB | 1.6 s | under 0.05 |
+| `/inbox`, 390 px | 398 KB | 1.6 s | under 0.05 |
+| `/inbox`, 1440 px | 381 KB | 1.5 s | under 0.05 |
+
+The earlier suites pass on the same build in three engines: Today 417, auth 726, onboarding 844 and landing 184. These
+are their totals without the real-API runs, which weren't repeated. QA found and fixed:
+
+- Nori's corner covering the rows' chips.
+- A 0.42 layout shift on phones.
+- Geist Mono putting the Inbox over budget.
+- The catch strip loading on the first screen.
+- Reactions lost before Nori arrived.
+- qa-auth mocking the wrong API port, so it was hitting the real QA API's sign-up limit.
+
+**Not covered.** The real-API run (`--e2e`) passes 4 of 4: a new account's empty Applications, the real summary, and the
+Inbox in the QA API's set-up. The plan's real run, an application marked as an interview by hand, needs a sent
+application, and the QA API can't make one without the worker. So marking was tested against the mocked API only.

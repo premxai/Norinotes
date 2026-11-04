@@ -21,7 +21,8 @@
   --color-on-accent: #fffdf8;
   --color-peach: #e8936a;
   --color-danger: #b23a2e;
-  --color-danger-tint: #fbeae6; /* the form error box only (auth spec section 5) */
+  --color-danger-tint: #fbeae6; /* the form error box (auth spec section 5), the Rejected and Didn't go through chips (4b) */
+  --color-peach-tint: #fbe7dc; /* the Interview chip (dashboard 4b spec section 3) */
   --color-accent-tint: #e6efe8; /* the "From your resume" tag (onboarding spec section 5) */
   --color-warning: #8a5a00;
   --color-sky: #fcd8b3; /* the Dawn hero sky's average: the fill shown before the scene loads */
@@ -304,6 +305,7 @@ dialog.sheet[open] > * {
     --color-warning: #e8b75c;
     --color-danger-tint: #3a1f1c;
     --color-accent-tint: #1d3a2b;
+    --color-peach-tint: #3a2a1c;
     color-scheme: dark;
   }
 }
@@ -323,6 +325,7 @@ dialog.sheet[open] > * {
   --color-warning: #e8b75c;
   --color-danger-tint: #3a1f1c;
   --color-accent-tint: #1d3a2b;
+  --color-peach-tint: #3a2a1c;
   color-scheme: dark;
 }
 /* A scene for each theme (the Today strip): only the one for the current theme shows, and lazy loading skips the other. */

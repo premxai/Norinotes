@@ -5,8 +5,8 @@ const dev = process.env.NODE_ENV !== "production";
 const API = new URL(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").origin;
 
 /**
- * The site is static and only loads from its own origin (fonts, scenes and Nori's sprites are all self-hosted); the
- * auth pages also call the API. Next's bootstrap scripts are inline, hence 'unsafe-inline'; 'unsafe-eval' and
+ * The site is static and loads from its own origin (fonts, scenes and Nori's sprites are all self-hosted), except the
+ * dashboard's company logos (Brandfetch's CDN); the auth pages and the dashboard also call the API. Next's bootstrap scripts are inline, hence 'unsafe-inline'; 'unsafe-eval' and
  * websockets only in dev (hot reload).
  */
 const CSP = [
@@ -15,7 +15,8 @@ const CSP = [
   "form-action 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  "img-src 'self' data: blob:",
+  // Company logos come from Brandfetch's CDN, shown as plain <img> (dashboard 4a and 4b specs, CompanyLogo).
+  "img-src 'self' data: blob: https://cdn.brandfetch.io",
   "font-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,

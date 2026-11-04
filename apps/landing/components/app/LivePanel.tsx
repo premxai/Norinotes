@@ -97,11 +97,24 @@ function Answers({ questions, onSend, busy }: { questions: Question[]; onSend: (
   );
 }
 
+/** Every 2 s while the application moves, every 30 s once it waits on you or is done. */
+export const useApplication = (id: string | null) =>
+  usePolling(id ? `app:${id}` : null, () => api.application(id ?? ""), (d: ApplicationDetail | null) => (!d || MOVING.includes(d.application.status) ? 2000 : 30_000));
+
 function ApplicationView({ id }: { id: string }) {
-  // Every 2 s while the application moves, every 30 s once it waits on you or is done.
-  const poll = usePolling(`app:${id}`, () => api.application(id), (d: ApplicationDetail | null) => (!d || MOVING.includes(d.application.status) ? 2000 : 30_000));
-  const detail = poll.data;
-  const status = detail?.application.status;
+  const poll = useApplication(id);
+  if (!poll.data) return <p className="text-small text-ink-2">{poll.error ?? "Loading…"}</p>;
+  return <ApplicationBody detail={poll.data} refresh={poll.refresh} />;
+}
+
+/**
+ * An application's live content: its status, the run log and what it needs (Send it, answers, a wall, Try again).
+ * The panel polls for it; the application's own page (4b spec section 4) passes its own detail in and skips the
+ * receipt, which it shows itself.
+ */
+export function ApplicationBody({ detail, refresh, onPage = false }: { detail: ApplicationDetail; refresh: () => Promise<void>; onPage?: boolean }) {
+  const id = detail.application.id;
+  const status = detail.application.status;
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -109,7 +122,6 @@ function ApplicationView({ id }: { id: string }) {
 
   // Nori plays each status once (section 10).
   useEffect(() => {
-    if (!detail) return;
     const s = detail.application.status;
     const key = `${id}:${s}`;
     if (said.current === key) return;
@@ -131,10 +143,9 @@ function ApplicationView({ id }: { id: string }) {
     const r = await fn();
     setBusy(false);
     if (!r.ok) setFailure(r.error ?? "That didn't work.");
-    void poll.refresh();
+    void refresh();
   }
 
-  if (!detail) return <p className="text-small text-ink-2">{poll.error ?? "Loading…"}</p>;
   const a = detail.application;
   const wall = a.status === "needs_user" && a.pendingQuestions.length === 0;
   const lines = detail.events
@@ -222,7 +233,7 @@ function ApplicationView({ id }: { id: string }) {
         </div>
       )}
 
-      {a.status === "submitted" && (
+      {a.status === "submitted" && !onPage && (
         <>
           <div className={`${box} bg-surface-2`}>
             <p className="mb-1 font-serif text-[1.5rem] leading-[1.1] text-ink">Sent in {took} seconds</p>

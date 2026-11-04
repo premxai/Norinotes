@@ -2,7 +2,7 @@
 
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
 Onboarding is built and passed QA as well.
-The dashboard is planned and part 4a (the shell and Today) is built; 4b is planned and wireframed.
+The dashboard is planned, and parts 4a (the shell and Today) and 4b (Applications and Inbox) are built.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -16,7 +16,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
-| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b planned, wireframed and specified ([dashboard-4b-spec.md](dashboard-4b-spec.md)). Next: build 4b |
+| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)). Next: plan 4c (You) |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -491,7 +491,7 @@ again** (`POST /api/auth/resend-verification`).
 
 Status: planned and wireframed: the "Dashboard 4b: Applications and Inbox" page of the design canvas (Applications
 with one application's page, the Inbox, and a phone board for both; light and dark). Specified in [dashboard-4b-spec.md](dashboard-4b-spec.md), which wins where it and this plan
-differ. Next: build.
+differ. Built and QA'd: 982 checks in three engines (the spec's build checklist).
 
 | Question | Decision |
 |---|---|

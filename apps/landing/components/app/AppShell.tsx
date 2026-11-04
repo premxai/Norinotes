@@ -251,6 +251,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {panel && <LivePanel />}
 
+        {/* Below 1024 px on a page with neither Today's strip nor a 4b title row (You, for now), Nori stands in the
+            bottom-right corner, above the tabs on phones: nori-pet's own corner is on top of them. */}
+        <div aria-hidden="true" data-nori-seat="corner" className="pointer-events-none fixed right-12 bottom-[calc(72px+env(safe-area-inset-bottom))] size-px tablet:right-16 tablet:bottom-4 laptop:hidden" />
+
         <nav aria-label="Dashboard" className="fixed inset-x-0 bottom-0 z-[20] grid h-16 grid-cols-4 border-t-[1.5px] border-line bg-surface-2 pb-[env(safe-area-inset-bottom)] tablet:hidden">
           {SECTIONS.map((s) => {
             const current = path === s.href || path.startsWith(`${s.href}/`);

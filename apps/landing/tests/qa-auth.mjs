@@ -21,7 +21,7 @@ const arg = (name, fallback) => {
   return i > 0 ? process.argv[i + 1] : fallback;
 };
 const BASE = arg("base", "http://localhost:3401");
-const API = arg("api", "http://localhost:4100");
+const API = arg("api", "http://localhost:4101");
 const E2E_LOG = arg("e2e", null);
 const ENGINES = { chromium, firefox, webkit };
 const BROWSERS = arg("browsers", "chromium,firefox,webkit").split(",");

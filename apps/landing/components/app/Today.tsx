@@ -8,6 +8,7 @@ import { api, type Application, type ShortlistEntry } from "@/lib/api";
 import { noriReact } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
+import { CompanyLogo } from "./CompanyLogo";
 import { STATUS_LABEL } from "./LivePanel";
 
 /* /today (4a spec section 8): the greeting, the day line, what needs you, and today's job cards. */
@@ -49,6 +50,7 @@ function Card({ e, app, onApply, onOpen, onDismiss }: { e: ShortlistEntry; app?:
   return (
     <li className="flex flex-col gap-2.5 rounded-card border-[1.5px] border-line bg-surface p-4 tablet:px-5 tablet:py-[18px]">
       <div className="flex items-start justify-between gap-3 tablet:gap-4">
+        <CompanyLogo name={e.job.companyName} url={e.job.companyLogoUrl} />
         {/* Its name is what it shows (voice control users say what they see), with the fit added for screen readers. */}
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
           <span className="block text-[1.0625rem] font-semibold text-ink tablet:text-[1.125rem]">{e.job.title}</span>

@@ -1,4 +1,5 @@
 import type { NoriPet } from "@norinote/nori-pet";
+import { takePendingReaction } from "@/lib/auth-flow";
 
 /*
  * Nori on a page with one scene seat: the auth pages (auth spec section 8) and onboarding (onboarding spec section 10).
@@ -93,8 +94,21 @@ export function startSeatNori(pet: NoriPet, { seat, arrived, greet, fieldRows, l
   wire();
   listen(window, "norinote:fields", wire);
 
-  listen(window, "norinote:react", (e) => {
-    const { event, row, say, done } = (e as CustomEvent<{ event?: string; row?: string; say?: string; done?: () => void }>).detail;
+  let reacted = false;
+  // Until the page has settled (or the visitor does something), a reaction waits, the latest one only: its sprite strip
+  // (about 70 KB) stays off the first screen, as the greeting's does. Data arriving early (a code in the Inbox, news on
+  // Applications) still plays, a moment later. Arriving from another page of the app, the page is already loaded.
+  let settled = arrived;
+  let deferred: Parameters<typeof play>[0] | null = null;
+  function play(detail: { event?: string; row?: string; say?: string; done?: () => void }) {
+    if (!settled) {
+      deferred?.done?.();
+      deferred = detail;
+      reacted = true;
+      return;
+    }
+    const { event, row, say, done } = detail;
+    reacted = true;
     // Words alone are a bubble; rows go through react() too, so celebrate and deflated end a running loop (signing-in's
     // key, loading's sway).
     const played = !row && !event && say ? pet.say(say) : pet.react(row ?? event ?? "idle", say ? { say } : undefined);
@@ -102,7 +116,20 @@ export function startSeatNori(pet: NoriPet, { seat, arrived, greet, fieldRows, l
       () => done?.(),
       () => done?.(),
     );
-  });
+  }
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    const d = deferred;
+    deferred = null;
+    if (d) play(d);
+  };
+  listen(document, "pointerdown", settle, { once: true });
+  listen(document, "keydown", settle, { once: true });
+  listen(window, "norinote:react", (e) => play((e as CustomEvent<{ event?: string; row?: string; say?: string; done?: () => void }>).detail));
+  const missed = takePendingReaction(true);
+  if (missed) play(missed);
+  offs.push(() => void takePendingReaction(false));
 
   // Rows: the field set on the first focus, everything else once the page has gone quiet. The greeting waits for then
   // too (its strip is about 70 KB, kept off the first screen), and is skipped once the visitor has started typing.
@@ -115,7 +142,9 @@ export function startSeatNori(pet: NoriPet, { seat, arrived, greet, fieldRows, l
     idle = window.setTimeout(() => {
       fetchRows(fieldRows);
       fetchRows(laterRows);
-      if ((!greet.onlyFresh || !arrived) && !typing && once(greet.key)) void pet.react(greet.event);
+      // The page's own reaction wins over the greeting.
+      if ((!greet.onlyFresh || !arrived) && !typing && !reacted && once(greet.key)) void pet.react(greet.event);
+      settle();
     }, 1500);
   };
   if (document.readyState === "complete") later();
@@ -151,14 +180,15 @@ export const startOnboardingNori = (pet: NoriPet, { arrived }: { arrived: boolea
   });
 
 /**
- * The dashboard (4a spec section 10): Nori sits at the rail's foot from 1024 px and on Today's strip below that; the
- * panel and Today ask for the agent events. No greeting of its own: Today waves when new jobs are in.
+ * The dashboard (4a spec section 10, 4b section 7): Nori sits at the rail's foot from 1024 px and on Today's strip below
+ * that (beside a 4b page's title, or a corner seat above the tabs on pages with neither); the panel, Today, Applications and the Inbox ask for their events. No
+ * greeting of its own: Today waves when new jobs are in.
  */
 export const startAppNori = (pet: NoriPet, { arrived }: { arrived: boolean }) =>
   startSeatNori(pet, {
-    seat: ["rail", "strip"],
+    seat: ["rail", "strip", "head", "corner"],
     arrived,
     greet: { event: "idle", key: "norinote-app-greet", onlyFresh: true },
     fieldRows: [],
-    laterRows: ["wave", "papers", "present", "scribble", "dash", "wait", "catch", "point", "deflated", "comfort", "celebrate", "sleep"],
+    laterRows: ["wave", "papers", "present", "scribble", "dash", "wait", "catch", "hold", "point", "deflated", "comfort", "celebrate", "sleep", "check-mail"],
   });

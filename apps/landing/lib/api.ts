@@ -59,8 +59,8 @@ export type Ingest = {
 
 export type Lane = { id: string; name: string; titles: string[]; locations: string[]; remote: boolean };
 
-/** A job as the API sends it (`toJob`). */
-export type Job = { id: string; companyName: string; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null };
+/** A job as the API sends it (`toJob`). `companyLogoUrl`: a Brandfetch CDN logo, or null (see CompanyLogo). */
+export type Job = { id: string; companyName: string; companyLogoUrl?: string | null; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null };
 
 /** One row of today's shortlist (`GET /api/shortlist`). */
 export type ShortlistEntry = {
@@ -97,6 +97,53 @@ export type RunEvent = { id: string; ts: string; level: string; step: string; me
 export type ResumeView = { changes: { before: string; after: string; reason: string }[] };
 export type ApplicationDetail = { application: Application; job: Job; resume: ResumeView | null; events: RunEvent[] };
 export type AgentStatus = { dailyCap: number; usedToday: number; liveSubmit: boolean };
+
+// Part 4b: outcomes, the numbers and the inbox (4b spec sections 3 to 5).
+export type OutcomeKind = "reply" | "interview" | "rejection" | "offer";
+export type OutcomeState = "pending" | OutcomeKind | "no_response";
+export type Outcome = { id: string; kind: OutcomeKind; at: string; source: string; messageId: string | null };
+/** `GET /api/applications/:id/outcomes`; `state` is null until it's submitted. */
+export type Outcomes = { applicationId: string; submittedAt: string | null; confirmedAt: string | null; state: OutcomeState | null; outcomes: Outcome[] };
+export type OutcomeStats = {
+  key: string;
+  applications: number;
+  settled: number;
+  pending: number;
+  responses: number;
+  interviews: number;
+  rejections: number;
+  offers: number;
+  noResponse: number;
+  /** Null when fewer than 5 are settled. */
+  responseRate: number | null;
+  interviewRate: number | null;
+  rejectionRate: number | null;
+  /** Null when fewer than 5 got a reply. */
+  medianDaysToFirstReply: number | null;
+  smallSample: boolean;
+};
+export type OutcomeSummary = { overall: OutcomeStats; minSample: number; noResponseDays: number };
+/** A row of the applications list (`GET /api/applications`). */
+export type ApplicationRow = { application: Application; job: Job; resume: ResumeView | null };
+
+export type InboxKind = "verification_code" | "confirmation" | "recruiter_reply" | "interview" | "rejection" | "offer" | "other";
+export type InboxMessage = {
+  id: string;
+  applicationId: string | null;
+  application: { id: string; status: string; jobTitle: string; companyName: string } | null;
+  fromAddress: string;
+  fromName: string | null;
+  subject: string;
+  bodyText: string;
+  receivedAt: string;
+  kind: InboxKind;
+  code: string | null;
+  verificationLink: string | null;
+  links: string[];
+  attachments: { filename: string; contentType: string; size: number }[];
+  spam: boolean;
+};
+export type InboxSettings = { forwardTo: string | null; forwardEnabled: boolean; retentionDays: number | null };
 
 export type Result<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string };
 
@@ -141,7 +188,7 @@ export const api = {
   resumeText: (text: string) => call<Ingest>("/profile/resume", { json: { text } }),
   graph: () => call<{ nodes: GraphNode[] }>("/graph"),
   lanes: () => call<Lane[]>("/lanes"),
-  inboxAddress: () => call<{ address: string | null; configured: boolean }>("/inbox/address"),
+  inboxAddress: () => call<{ address: string | null; configured: boolean; settings: InboxSettings }>("/inbox/address"),
   shortlist: () => call<ShortlistEntry[]>("/shortlist"),
   // The dashboard (4a spec sections 7 and 8).
   me: () => call<{ user: User; profile: Profile }>("/me"),
@@ -150,11 +197,19 @@ export const api = {
   shortlistMeta: () => call<{ total: number; widened: string[]; lanesMatched: number; poolUsed: boolean }>("/shortlist/meta"),
   dismiss: (jobId: string) => call<{ ok: true }>(`/shortlist/${encodeURIComponent(jobId)}/dismiss`, { json: {} }),
   job: (id: string) => call<Job>(`/jobs/${encodeURIComponent(id)}`),
-  applications: () => call<{ application: Application; job: Job }[]>("/applications"),
+  applications: () => call<ApplicationRow[]>("/applications"),
   application: (id: string) => call<ApplicationDetail>(`/applications/${encodeURIComponent(id)}`),
   apply: (jobId: string) => call<Application>("/applications", { json: { jobId } }),
   approve: (id: string, answers?: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/approve`, { json: answers ? { answers } : {} }),
   answer: (id: string, answers: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/answer`, { json: { answers } }),
   retry: (id: string) => call<Application>(`/applications/${encodeURIComponent(id)}/retry`, { json: {} }),
   agentStatus: () => call<AgentStatus>("/agent/status"),
+  // Part 4b.
+  outcomes: (id: string) => call<Outcomes>(`/applications/${encodeURIComponent(id)}/outcomes`),
+  addOutcome: (id: string, kind: OutcomeKind) => call<Outcomes & { outcome: Outcome; created: boolean }>(`/applications/${encodeURIComponent(id)}/outcomes`, { json: { kind } }),
+  removeOutcome: (id: string, outcomeId: string) => call<Outcomes & { ok: true }>(`/applications/${encodeURIComponent(id)}/outcomes/${encodeURIComponent(outcomeId)}`, { method: "DELETE" }),
+  summary: () => call<OutcomeSummary>("/outcomes/summary"),
+  inbox: () => call<InboxMessage[]>("/inbox?limit=200"),
+  message: (id: string) => call<InboxMessage>(`/inbox/${encodeURIComponent(id)}`),
+  inboxSettings: (settings: InboxSettings) => call<{ settings: InboxSettings }>("/inbox/settings", { method: "PUT", json: settings }),
 };
