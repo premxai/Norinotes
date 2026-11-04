@@ -209,6 +209,9 @@ describe("request guards", () => {
     const site = await makeApi({ config: { landingUrl: "https://norinote.example" } });
     const pre = await site.app.request("/api/auth/session", { method: "OPTIONS", headers: { origin: "https://norinote.example", "access-control-request-method": "POST" } });
     expect(pre.headers.get("access-control-allow-origin")).toBe("https://norinote.example");
+    // Every method the routes use, so the browser's preflight passes for edits (PATCH) and deletes too.
+    const methods = (pre.headers.get("access-control-allow-methods") ?? "").split(",").map((m) => m.trim());
+    expect(methods).toEqual(expect.arrayContaining(["GET", "POST", "PUT", "PATCH", "DELETE"]));
     const res = await site.call("POST", "/api/auth/signup", { body: { email: "landing@example.com", password: "long enough pw" }, headers: { origin: "https://norinote.example" } });
     expect(res.status).toBeLessThan(300);
     expect(site.mails.at(-1)?.text).toContain("https://norinote.example/verify-email?token=");

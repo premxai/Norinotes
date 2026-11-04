@@ -50,7 +50,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
 
   const app = new Hono<AppEnv>();
   app.use("*", securityHeaders);
-  app.use("/api/*", cors({ origin: browserOrigins(config), credentials: true, allowHeaders: ["Content-Type"], allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], maxAge: 600 }));
+  app.use("/api/*", cors({ origin: browserOrigins(config), credentials: true, allowHeaders: ["Content-Type"], allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], maxAge: 600 }));
   app.use("/api/*", originGuard(config));
   app.use("/api/*", (c, next) => bodyLimit({
     maxSize: maxBody(c.req.path, config.maxResumeBytes),
