@@ -33,6 +33,8 @@ export interface NoriOptions {
   blinkEveryMs?: [number, number];
   storageKey?: string;
   reducedMotion?: boolean;
+  /** "all" (default) fetches every row once the page is idle, about 2.6 MB; "lazy" fetches a row when it's preloaded or first played. */
+  preload?: "all" | "lazy";
   /** Line Nori says when petted (today's summary, for example). */
   onPet?: () => string | null | undefined;
 }
@@ -53,6 +55,13 @@ export declare class NoriPet {
   readonly muted: boolean;
   readonly tucked: { x: number; y: number } | null;
   readonly size: number;
+  /** Where Nori is: the top-left corner of its box, in viewport pixels. */
+  readonly x: number;
+  readonly y: number;
+  /** Moves Nori to a point (top-left corner, viewport pixels); smooth glides over about 0.45 s. */
+  moveTo(x: number, y: number, smooth?: boolean): void;
+  /** Fetches a row's strip ahead of time, so its first frame shows at once. */
+  preload(row: string): Promise<void>;
   play(row: string, options?: { loop?: boolean; then?: string }): Promise<void>;
   react<T = unknown>(event: NoriEvent | string, options?: { say?: string; note?: string | null; tone?: NoriTone; ms?: number; actions?: NoriAction<T>[] }): Promise<T | void>;
   say(text: string, options?: { tone?: NoriTone; ms?: number; title?: string }): Promise<void>;

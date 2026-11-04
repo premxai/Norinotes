@@ -1,0 +1,13 @@
+.next/
+.next-qa/
+out/
+next-env.d.ts
+*.tsbuildinfo
+# Copied from nori-pet by `npm run nori-assets` before dev and build.
+public/nori/
+# Raw image takes and build scratch; only the processed files in public/scenes/ are committed.
+art/raw/
+art/work/
+
+# QA output (npm run qa)
+test-results/

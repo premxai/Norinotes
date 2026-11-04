@@ -1,0 +1,159 @@
+{
+  "hero": {
+    "aspect": 1.5,
+    "color": "#f8e8c8",
+    "preview": "data:image/webp;base64,UklGRmwAAABXRUJQVlA4IGAAAACwAwCdASoYABAAPu1iqk2ppaQiMAgBMB2JYgCdACHWgcEqfWxtgAD+6nKCbuyKCXMREXgkqk9KRE+NJ4yPDuq3U1znuj/vp+k3XS2muSADD7nEvcuPRhQfzbFZRHcAAAA=",
+    "seat": {
+      "x": 0.64,
+      "y": 0.675
+    },
+    "sources": [
+      {
+        "width": 768,
+        "height": 512,
+        "avif": "/scenes/hero-768.avif",
+        "webp": "/scenes/hero-768.webp"
+      },
+      {
+        "width": 1280,
+        "height": 853,
+        "avif": "/scenes/hero-1280.avif",
+        "webp": "/scenes/hero-1280.webp"
+      },
+      {
+        "width": 1920,
+        "height": 1280,
+        "avif": "/scenes/hero-1920.avif",
+        "webp": "/scenes/hero-1920.webp"
+      },
+      {
+        "width": 2560,
+        "height": 1707,
+        "avif": "/scenes/hero-2560.avif",
+        "webp": "/scenes/hero-2560.webp"
+      }
+    ]
+  },
+  "hero-phone": {
+    "aspect": 0.6667,
+    "color": "#f8e8d8",
+    "preview": "data:image/webp;base64,UklGRswAAABXRUJQVlA4IMAAAADwBQCdASoYACQAPu1gqk+ppSOiKrgN+TAdiUAW33tZI90o0TRl0Iz97apj99xxum9qLazTf4wgAAD+8TUfv17D9YqXVCbswMcPGMCQKHdUNzUl02YdyHlxMlp4nNG34ZajgiRWM3AsFgDdLmqutS6c/3HPtzpKUK7qQ4XYGMbPj1wzQ7f5v+1Au7X8bD7mD+abqub8uw4y7pmVeODnMZHlmsSBKGwH6AV1Fds5MJP6tfeYqa8NwYuSHvUXqAPMKAA=",
+    "seat": {
+      "x": 0.42,
+      "y": 0.69
+    },
+    "sources": [
+      {
+        "width": 480,
+        "height": 720,
+        "avif": "/scenes/hero-phone-480.avif",
+        "webp": "/scenes/hero-phone-480.webp"
+      },
+      {
+        "width": 780,
+        "height": 1170,
+        "avif": "/scenes/hero-phone-780.avif",
+        "webp": "/scenes/hero-phone-780.webp"
+      },
+      {
+        "width": 1080,
+        "height": 1620,
+        "avif": "/scenes/hero-phone-1080.avif",
+        "webp": "/scenes/hero-phone-1080.webp"
+      }
+    ]
+  },
+  "desk": {
+    "aspect": 1.333,
+    "color": "#d8b8a8",
+    "preview": "data:image/webp;base64,UklGRqwAAABXRUJQVlA4IKAAAACwBACdASoYABIAPu1ur1KppiQiqAgBMB2JYwAAJWypBX44BqjgabSVBDvQI3MAAOJ+Qg714jRbDrErn/07/9GtEhQXhFw593HDvyBeVdpe2/z/e5aKRX6rJjF1UWx8tqsDX/36OU5aFDmsynN7Y3M3WLr3frrHxN/CV5BQVSzWMAxU//OIeDqh8CRnkizAMmNPzbL4ZryfP6iRdi42gAAA",
+    "seat": {
+      "x": 0.3,
+      "y": 0.69
+    },
+    "sources": [
+      {
+        "width": 640,
+        "height": 480,
+        "avif": "/scenes/desk-640.avif",
+        "webp": "/scenes/desk-640.webp"
+      },
+      {
+        "width": 960,
+        "height": 720,
+        "avif": "/scenes/desk-960.avif",
+        "webp": "/scenes/desk-960.webp"
+      },
+      {
+        "width": 1280,
+        "height": 960,
+        "avif": "/scenes/desk-1280.avif",
+        "webp": "/scenes/desk-1280.webp"
+      }
+    ]
+  },
+  "horizon": {
+    "aspect": 2,
+    "color": "#f8d8b8",
+    "preview": "data:image/webp;base64,UklGRnYAAABXRUJQVlA4IGoAAADwAwCdASoYAAwAPu1iqU2ppaOiMAgBMB2JYgCsACHcU2RTLMkT5WAAAP7eq8ZPeLDLi6/BPnl9X4eoS8tDzf0rc5QL8bLJ3lLT342a2om3ISUDhgekq2C1AFuD0jjJc6XqDOKheDbXFuAA",
+    "seat": {
+      "x": 0.5,
+      "y": 0.85
+    },
+    "sources": [
+      {
+        "width": 768,
+        "height": 384,
+        "avif": "/scenes/horizon-768.avif",
+        "webp": "/scenes/horizon-768.webp"
+      },
+      {
+        "width": 1280,
+        "height": 640,
+        "avif": "/scenes/horizon-1280.avif",
+        "webp": "/scenes/horizon-1280.webp"
+      },
+      {
+        "width": 1920,
+        "height": 960,
+        "avif": "/scenes/horizon-1920.avif",
+        "webp": "/scenes/horizon-1920.webp"
+      },
+      {
+        "width": 2560,
+        "height": 1280,
+        "avif": "/scenes/horizon-2560.avif",
+        "webp": "/scenes/horizon-2560.webp"
+      }
+    ]
+  },
+  "footer": {
+    "aspect": 4,
+    "color": "#f8f8e8",
+    "preview": "data:image/webp;base64,UklGRmgAAABXRUJQVlA4IFwAAADwAwCdASoYAAYAPu1iqU2ppaQiMAgBMB2JQBOmUABp8szCIEwDsiQAAP6YX1cE1n2ZpKWKKGAiJCESR1FIjlaZ9NDfwtNqAOCxXFAIflzUryBuV4bIOtKVmM0gAA==",
+    "seat": {
+      "x": 0.8,
+      "y": 0.55
+    },
+    "sources": [
+      {
+        "width": 768,
+        "height": 192,
+        "avif": "/scenes/footer-768.avif",
+        "webp": "/scenes/footer-768.webp"
+      },
+      {
+        "width": 1280,
+        "height": 320,
+        "avif": "/scenes/footer-1280.avif",
+        "webp": "/scenes/footer-1280.webp"
+      },
+      {
+        "width": 1920,
+        "height": 480,
+        "avif": "/scenes/footer-1920.avif",
+        "webp": "/scenes/footer-1920.webp"
+      }
+    ]
+  }
+}

@@ -100,7 +100,7 @@ nori.react("thanks");            // felt heart, for the call to action
 
 | Member | What it does |
 |---|---|
-| `NoriPet.create(options)` | Loads `nori.json`, preloads idle, mounts Nori. Options: `assets`, `size` (`s`, `m`, `l`), `parent`, `onPet`, `sleepAfterMs`, `reducedMotion`, `storageKey` |
+| `NoriPet.create(options)` | Loads `nori.json`, preloads idle, mounts Nori. Options: `assets`, `size` (`s`, `m`, `l`), `parent`, `onPet`, `sleepAfterMs`, `reducedMotion`, `storageKey`, `preload` (`"all"`, the default, fetches every row once the page is idle; `"lazy"` fetches rows as they're preloaded or played, for pages with a weight budget) |
 | `react(event, { say, note, tone, ms, actions })` | Plays an event's animation and effects, optionally with a bubble, a note in hand, or a question (resolves with the answer) |
 | `play(row, { loop })` | Plays any row by id (see the gallery) |
 | `say(text, { tone, ms, title })` | A bubble that closes itself; tones `info`, `alert`, `success`, `error` |

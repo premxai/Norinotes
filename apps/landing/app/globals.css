@@ -1,0 +1,282 @@
+@import "tailwindcss";
+
+/*
+ * Norinote design tokens (Dawn). The source of truth is docs/landing-design-spec.md, sections 2 to 6 and 10; change it
+ * there first. The default Tailwind palette, fonts, radii, shadows, breakpoints and easings are cleared, so only these
+ * exist. Spacing keeps Tailwind's 4 px step: p-1 = 4, p-2 = 8, p-3 = 12, p-4 = 16, p-6 = 24, p-8 = 32, p-12 = 48,
+ * p-16 = 64, p-24 = 96, p-32 = 128 are the spec's space-1 to space-10.
+ */
+@theme {
+  --color-*: initial;
+  --color-bg: #fbf4ea;
+  --color-surface: #fffdf8;
+  --color-surface-2: #f5ebdd;
+  --color-tint: #f0e2cf;
+  --color-line: #e4d7c4;
+  --color-line-strong: #857a6a;
+  --color-ink: #1f2a24;
+  --color-ink-2: #55605a;
+  --color-accent: #2f5d46;
+  --color-accent-hover: #244a38;
+  --color-on-accent: #fffdf8;
+  --color-peach: #e8936a;
+  --color-danger: #b23a2e;
+  --color-warning: #8a5a00;
+  --color-sky: #fcd8b3; /* the Dawn hero sky's average: the fill shown before the scene loads */
+
+  --font-*: initial;
+  --font-serif: var(--font-geist-serif-triangle), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  /* Type roles (spec section 4). Sizes run from 390 px to 1440 px wide; the display size also respects short screens. */
+  --text-*: initial;
+  --text-display: min(clamp(2.875rem, 1.436rem + 5.905vw, 6.75rem), 11.5vh);
+  --text-display--line-height: 0.97;
+  --text-display--letter-spacing: -0.025em;
+  --text-cta: clamp(2.5rem, 1.757rem + 3.048vw, 4.5rem);
+  --text-cta--line-height: 1;
+  --text-cta--letter-spacing: -0.02em;
+  --text-h2: clamp(2.125rem, 1.614rem + 2.095vw, 3.5rem);
+  --text-h2--line-height: 1.05;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h3: clamp(1.25rem, 1.157rem + 0.381vw, 1.5rem);
+  --text-h3--line-height: 1.3;
+  --text-h3--letter-spacing: -0.01em;
+  --text-lead: clamp(1.0625rem, 0.993rem + 0.286vw, 1.25rem);
+  --text-lead--line-height: 1.55;
+  --text-body: 1rem;
+  --text-body--line-height: 1.55;
+  --text-ui: 1rem;
+  --text-ui--line-height: 1;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.45;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.4;
+  --text-label--letter-spacing: 0.02em;
+  --text-tag: 0.6875rem;
+  --text-tag--line-height: 1.3;
+
+  --breakpoint-*: initial;
+  --breakpoint-tablet: 48rem;
+  --breakpoint-laptop: 64rem;
+  --breakpoint-desktop: 80rem;
+  --breakpoint-wide: 120rem;
+
+  --container-*: initial;
+  --container-content: 75rem;
+  --container-headline: 70rem;
+  --container-lead: 40rem;
+  --container-faq: 53.75rem;
+  --container-pricing: 51.25rem;
+  --container-note: 25rem;
+
+  --spacing-section: clamp(4rem, 2.7rem + 5.333vw, 7.5rem);
+
+  --radius-*: initial;
+  --radius-input: 10px;
+  --radius-row: 12px;
+  --radius-card: 18px;
+  --radius-bubble: 18px;
+  --radius-sheet: 22px;
+  --radius-panel: 24px;
+  --radius-full: 9999px;
+
+  --shadow-*: initial;
+  --shadow-e1: 0 1px 2px rgb(31 42 36 / 0.06), 0 8px 24px rgb(31 42 36 / 0.1);
+  --shadow-e2: 0 16px 48px rgb(31 42 36 / 0.16);
+
+  --ease-*: initial;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+:root {
+  --page-x: 1rem;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --dur-reveal: 600ms;
+  /* Layers (spec section 9). Nori's own layers are set by nori-pet. */
+  --z-nav: 50;
+  --z-nori: 60;
+  --z-sheet: 70;
+  --z-toast: 80;
+}
+
+@media (width >= 48rem) {
+  :root {
+    --page-x: 2rem;
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  @media (width >= 64rem) {
+    body {
+      font-size: 1.0625rem;
+    }
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: var(--color-tint);
+    color: var(--color-ink);
+  }
+
+  /* One focus ring everywhere: ink, with a surface halo so it shows on the sky and on green buttons. */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 3px var(--color-surface);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* The page container: content up to 1200 px plus the side margin (16 px on phones, 32 px from 768 px). */
+@utility wrap {
+  width: 100%;
+  max-width: calc(var(--container-content) + 2 * var(--page-x));
+  margin-inline: auto;
+  padding-inline: var(--page-x);
+  box-sizing: border-box;
+}
+
+/*
+ * A seat on a scene (components/Seat.tsx). The scene covers its box, so the drawn image is as wide as the larger of the
+ * box's width and its height times the image's aspect; the seat is placed on that drawn image. The box must be a size
+ * container (`container-type: size`), which the scene boxes are.
+ */
+.nori-seat {
+  --rw: max(100cqw, 100cqh * var(--a));
+  --rh: calc(var(--rw) / var(--a));
+  position: absolute;
+  left: calc((100cqw - var(--rw)) * var(--px) + var(--sx) * var(--rw));
+  top: calc((100cqh - var(--rh)) * var(--py) + var(--sy) * var(--rh));
+  width: 1px;
+  height: 1px;
+}
+
+/*
+ * Until the page has loaded and gone quiet, the browser skips the layout and paint of sections below the hero (spec
+ * section 13): on a slow phone the first frame otherwise waits on all 10,000 px of the page (LCP 2.4 s, against
+ * 0.6 s with this). Then components/Settle.tsx adds .settled and everything renders once, so focus, anchors and
+ * Nori's seats never land on a section that's still a placeholder.
+ */
+html:not(.settled) main > section:not(#hero),
+html:not(.settled) body > footer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+/*
+ * On short phone screens (360 × 640) the hero's subhead lands on the distant hills, where half the pixels give ink
+ * under 4.5:1. There it gets a flat rice-cream backing (88%, no blur), which keeps ink above 9:1. Taller phones keep
+ * it in the sky without one.
+ */
+@media (width < 48rem) and (height < 47.5rem) {
+  .hero-lead {
+    background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+    border-radius: var(--radius-row);
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* Reveal (components/Reveal.tsx): hidden only once the script has decided the block starts below the fold. */
+.reveal[data-reveal="hidden"] {
+  opacity: 0;
+  translate: 0 12px;
+}
+.reveal[data-reveal="shown"] {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--dur-reveal) var(--ease-out) var(--delay, 0ms),
+    translate var(--dur-reveal) var(--ease-out) var(--delay, 0ms);
+}
+
+/* Native dialogs used as sheets (the phone menu and Nori's note on phones). */
+dialog.sheet {
+  margin: auto 0 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: 92svh;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-ink);
+}
+dialog.sheet::backdrop {
+  background: rgb(31 42 36 / 0.4);
+}
+dialog.sheet[open] > * {
+  animation: sheet-up var(--dur-slow) var(--ease-out);
+}
+@keyframes sheet-up {
+  from {
+    translate: 0 24px;
+    opacity: 0;
+  }
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  25% {
+    rotate: -4deg;
+  }
+  75% {
+    rotate: 4deg;
+  }
+}
+
+/* Visible only when focused: the skip link. */
+@utility skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-input);
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font-weight: 600;
+  &:focus {
+    top: 1rem;
+  }
+}

@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/node_modules/**", "**/dist/**", "**/.next/**", "data/**", "test-results/**", "packages/db/migrations/**", "apps/web/**"] },
+  { ignores: ["**/node_modules/**", "**/dist/**", "**/.next/**", "data/**", "test-results/**", "packages/db/migrations/**", "apps/web/**", "apps/landing/**", "nori-pet/work/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { files: ["**/*.mjs"], languageOptions: { globals: { process: "readonly", console: "readonly" } } },

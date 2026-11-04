@@ -7,10 +7,10 @@
 //   nori.react("code", { note: "482 913", say: "Acme sent a code. Typing it in." });
 //   const yes = await nori.ask("Open to relocating to New York?", [{ label: "Yes", value: true }, { label: "No", value: false }]);
 
-// Default assets sit next to this file in the package. Apps should pass `assets` (a public URL); the indirection keeps
-// bundlers from treating the folder as a file import.
+// Default assets sit next to this file in the package. Apps should pass `assets` (a public URL). The one-argument
+// `new URL` keeps bundlers (Turbopack, webpack) from trying to resolve the folder as a file import at build time.
 const ASSETS_DIR = "../assets/";
-const defaultAssets = () => new URL(ASSETS_DIR, import.meta.url).href;
+const defaultAssets = () => new URL(import.meta.url.slice(0, import.meta.url.lastIndexOf("/") + 1) + ASSETS_DIR).href;
 const SIZES = { s: 80, m: 112, l: 148 };
 // How much of Nori shows when tucked away: enough for the eyes to peek over the edge.
 const PEEK = 0.52;
@@ -79,7 +79,7 @@ export class NoriPet {
 
   constructor(options) {
     const saved = store.get(options.storageKey ?? "nori-pet") ?? {};
-    this.opts = { size: "m", sleepAfterMs: 120_000, blinkEveryMs: [6000, 12_000], parent: document.body, storageKey: "nori-pet", ...options };
+    this.opts = { size: "m", sleepAfterMs: 120_000, blinkEveryMs: [6000, 12_000], parent: document.body, storageKey: "nori-pet", preload: "all", ...options };
     this.manifest = options.manifest;
     this.base = options.assets;
     this.size = SIZES[saved.size ?? (options.size ? this.opts.size : vw() < 520 ? "s" : this.opts.size)] ?? this.opts.size;
@@ -94,6 +94,8 @@ export class NoriPet {
     this.ready = this.preload("idle").then(() => {
       this.play("idle", { loop: true });
       this.root.classList.add("is-ready");
+      // "all" fetches every row once the page is idle (about 2.6 MB); "lazy" leaves it to `preload` and first plays.
+      if (this.opts.preload !== "all") return;
       if ("requestIdleCallback" in window) requestIdleCallback(() => this.preloadAll());
       else setTimeout(() => this.preloadAll(), 1500);
     });
