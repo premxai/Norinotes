@@ -22,6 +22,7 @@
   --color-peach: #e8936a;
   --color-danger: #b23a2e;
   --color-danger-tint: #fbeae6; /* the form error box only (auth spec section 5) */
+  --color-accent-tint: #e6efe8; /* the "From your resume" tag (onboarding spec section 5) */
   --color-warning: #8a5a00;
   --color-sky: #fcd8b3; /* the Dawn hero sky's average: the fill shown before the scene loads */
 
@@ -75,6 +76,7 @@
   --container-faq: 53.75rem;
   --container-pricing: 51.25rem;
   --container-note: 25rem;
+  --container-step: 35rem;
 
   --spacing-section: clamp(4rem, 2.7rem + 5.333vw, 7.5rem);
 
@@ -277,6 +279,13 @@ dialog.sheet[open] > * {
   }
   75% {
     rotate: 4deg;
+  }
+}
+
+/* Onboarding on phones: the Back / Continue bar is fixed to the bottom, so a focused field scrolls clear of it. */
+@media (width < 48rem) {
+  html:has([data-step-footer]) {
+    scroll-padding-bottom: 92px;
   }
 }
 

@@ -271,5 +271,63 @@
         "webp": "/scenes/nook-band-1080.webp"
       }
     ]
+  },
+  "workshop": {
+    "aspect": 0.6667,
+    "color": "#d8b8a8",
+    "preview": "data:image/webp;base64,UklGRhoBAABXRUJQVlA4IA4BAACQBgCdASoYACQAPu1wrlMppiQipWmZMB2JYwDBzY1m4r/ijGGn1wUAEaHfmELVOMMHXXbURK/kzPlJO0YAAPlwAbzKyxR//yaHTWO/MCSaHRDVVAQHF1sgJzqKZGPpgLApCRPiJfGE1rxwwTXaoQxARkMdoSkZB1lW4VfJHyCNJTiYoj7EWncQWax9AowuEseKrl7QKURLZYR0o+fbeRPcJuVh9t1ujmOovqBxPLzb/5n3BhgZ2yEWLxj6KWsF6LLv71wRoVVw8kamoNp7H/f/BkJujILHjke83vmKdztE9fh87gkEMM4jgxQKx1MoPZUVMYcKV3H6FHFsVMe9Nd9IghiFRASfH+HHQDKJIAA=",
+    "seat": {
+      "x": 0.844,
+      "y": 0.648
+    },
+    "sources": [
+      {
+        "width": 640,
+        "height": 960,
+        "avif": "/scenes/workshop-640.avif",
+        "webp": "/scenes/workshop-640.webp"
+      },
+      {
+        "width": 960,
+        "height": 1440,
+        "avif": "/scenes/workshop-960.avif",
+        "webp": "/scenes/workshop-960.webp"
+      },
+      {
+        "width": 1280,
+        "height": 1920,
+        "avif": "/scenes/workshop-1280.avif",
+        "webp": "/scenes/workshop-1280.webp"
+      }
+    ]
+  },
+  "workshop-band": {
+    "aspect": 1.4993,
+    "color": "#784828",
+    "preview": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAABQBACdASoYABAAPu1iqU2ppaOiMAgBMB2JZACdMoADAI8MPSkmaMBXKCGgAP5rOJqobydJe1D4XE72lUDTIw8zVW9EK1bItfyGZpkPhcLUTKvIEGNT+zuX0W90X4nuVP72vIQY06opFApVm/Vnj1QaD/G8qKIX68Ru8ea8q+ejLZon7qj8epX7KO0gxiGT+9oL4xrLPB0f9cxD+AK/HX1hgAA=",
+    "seat": {
+      "x": 0.844,
+      "y": 0.7
+    },
+    "sources": [
+      {
+        "width": 480,
+        "height": 320,
+        "avif": "/scenes/workshop-band-480.avif",
+        "webp": "/scenes/workshop-band-480.webp"
+      },
+      {
+        "width": 780,
+        "height": 520,
+        "avif": "/scenes/workshop-band-780.avif",
+        "webp": "/scenes/workshop-band-780.webp"
+      },
+      {
+        "width": 1080,
+        "height": 720,
+        "avif": "/scenes/workshop-band-1080.avif",
+        "webp": "/scenes/workshop-band-1080.webp"
+      }
+    ]
   }
 }

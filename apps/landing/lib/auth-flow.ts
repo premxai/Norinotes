@@ -50,7 +50,7 @@ export function takeParam(name: string, { remove = false } = {}): string | null 
 }
 
 /**
- * Asks Nori to react, through the auth seat controller (lib/auth-nori.ts). Resolves when the reaction has played, or
+ * Asks Nori to react, through the page's seat controller (lib/seat-nori.ts). Resolves when the reaction has played, or
  * after `wait` ms, whichever is first, so a missing or tucked Nori never holds a page up.
  */
 export function noriReact(detail: { event?: string; row?: string; say?: string }, wait = 1200): Promise<void> {

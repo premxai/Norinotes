@@ -330,7 +330,7 @@ Each phase ends with lint, type check and a look at 390 and 1440. Commit only wi
   and token clean-up (`lib/auth-flow.ts`).
 
 ### Phase 4: Nori
-- [x] `lib/auth-nori.ts`, picked by route in `NoriStage`: the seat, `watchFields`, the `norinote:react` reactions, the
+- [x] `lib/auth-nori.ts` (now `startAuthNori` in `lib/seat-nori.ts`, shared with onboarding), picked by route in `NoriStage`: the seat, `watchFields`, the `norinote:react` reactions, the
   glide in from the landing page, row prefetching and the delayed hello.
 
 ### Phase 5: QA

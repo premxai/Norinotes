@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useNori } from "@norinote/nori-pet/react";
 import "@norinote/nori-pet/style.css";
 import { isAuthPath } from "@/lib/auth-flow";
-import { startAuthNori } from "@/lib/auth-nori";
+import { startAuthNori, startOnboardingNori } from "@/lib/seat-nori";
 import { startChoreo } from "@/lib/choreo";
 
 /**
@@ -28,9 +28,9 @@ export function NoriStage() {
     if (process.env.NODE_ENV !== "production") (window as unknown as { nori: typeof pet }).nori = pet;
     const arrived = previous.current !== null && previous.current !== path;
     previous.current = path;
-    if (isAuthPath(path)) {
-      const auth = startAuthNori(pet, { arrived });
-      return () => auth.destroy();
+    if (isAuthPath(path) || path.startsWith("/onboarding")) {
+      const seat = (isAuthPath(path) ? startAuthNori : startOnboardingNori)(pet, { arrived });
+      return () => seat.destroy();
     }
     const choreo = startChoreo(pet, { onSignup: () => router.push("/signup") });
     const offPet = pet.on("pet", () => {

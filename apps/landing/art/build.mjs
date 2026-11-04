@@ -36,6 +36,9 @@ export const PICKS = {
   // x 0.90 rather than the post's middle (0.914) so it stays inside the column. The band is the phone and tablet crop.
   gate: { file: "gate-2.png", widths: [640, 960, 1280], seat: { x: 0.9, y: 0.619 }, budgetKB: 120 },
   "gate-band": { file: "gate-2.png", crop: { aspect: 1.5, y: 0.594 }, widths: [480, 780, 1080], seat: { x: 0.89, y: 0.65 }, budgetKB: 80 },
+  // Onboarding (onboarding spec section 15): the workshop. Nori sits on the bench between the paper stack and the plant.
+  workshop: { file: "workshop-1.png", widths: [640, 960, 1280], seat: { x: 0.844, y: 0.648 }, budgetKB: 120 },
+  "workshop-band": { file: "workshop-1.png", crop: { aspect: 1.5, y: 0.606 }, widths: [480, 780, 1080], seat: { x: 0.844, y: 0.7 }, budgetKB: 80 },
   // Sign-in, forgot and reset: the desk nook. Nori sits on the cushion at the desk's right end.
   nook: { file: "nook-2.png", widths: [640, 960, 1280], seat: { x: 0.765, y: 0.678 }, budgetKB: 120 },
   "nook-band": { file: "nook-2.png", crop: { aspect: 1.5, y: 0.648 }, widths: [480, 780, 1080], seat: { x: 0.765, y: 0.715 }, budgetKB: 80 },

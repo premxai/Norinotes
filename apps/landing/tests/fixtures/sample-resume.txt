@@ -1,0 +1,33 @@
+Alex Rivera
+Brooklyn, NY · alex.rivera@example.test · (555) 014-2290 · linkedin.com/in/alexrivera-sample
+
+SUMMARY
+Product designer with six years of experience in research, interaction design and design systems.
+
+EXPERIENCE
+Product Designer, Fernway — Brooklyn, NY
+Jan 2022 – Present
+- Led research and design for the checkout redesign, lifting completed orders by 12%.
+- Ran 40 customer interviews and turned them into a shared research library.
+- Prototyped new onboarding flows in Figma with engineering.
+
+UX Designer, Halden Labs — New York, NY
+Jun 2019 – Dec 2021
+- Built the design system used by four product teams.
+- Designed the analytics dashboard used by 2,000 customers.
+
+Design Intern, Mirro — Remote
+Jun 2018 – Aug 2018
+- Prototyped onboarding flows and illustrated the help center.
+
+PROJECTS
+Open-source icon set (2021): 240 icons used by about 3,000 developers.
+
+EDUCATION
+BFA, Interaction Design, Riverside College of Art, 2015 – 2019
+
+CERTIFICATIONS
+UX Research Certificate, 2020
+
+SKILLS
+Figma, User research, Prototyping, Design systems, Illustration, Typography, Usability testing, Accessibility, HTML, CSS

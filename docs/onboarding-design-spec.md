@@ -32,7 +32,7 @@ Status: decided, except the items under [Still open](#14-still-open).
 | Below 768 | The logo bar, the band (200 to 260 px), then the step content with the 16 px page margin. **Back** and **Continue** sit in a bar fixed to the bottom of the screen (76 px, `bg`, a `line` top border); the page leaves 76 px clear beneath its last field |
 
 - **Top bar:** the logo (no prefetch, as on the auth pages) on the left; "Saved as you go" on the right, `ink-2`, small.
-- **Progress header,** above the headline: "Step 2 of 5 · Contact" in Geist Mono 13 px `ink-2`, then a five-part bar
+- **Progress header,** above the headline: "Step 2 of 5 · Contact" in Geist 13 px `ink-2`, then a five-part bar
   (6 px tall, 6 px gaps, pill ends): done and current parts `accent`, the rest `line`. It's a `progressbar` with
   `aria-valuenow` 1 to 5. The done page has no header.
 - **Field grid:** one column, except pairs of short fields side by side from 390 px (city and state, start date and
@@ -61,9 +61,9 @@ field errors 14 px. Additions:
 
 | Element | Style |
 |---|---|
-| Progress label | Geist Mono 13 px, `ink-2` |
+| Progress label | Geist 500, 13 px, `ink-2`, tabular figures. Not Mono: it would load the mono font (70 KB) on every step's first screen |
 | "(optional)" after a label | Geist 400, `ink-2`, same size as the label |
-| "From your resume" tag | Geist Mono 11 px 500, `accent` on `accent-tint`, pill |
+| "From your resume" tag | Geist 600, 11 px, `accent` on `accent-tint`, pill (Geist for the same reason) |
 | Card kind tag (Role, Project…) | The landing's Tag: Mono 11 px, `tint` fill, `ink-2` |
 | Card dates | Geist Mono 12 px, `ink-2` |
 | Card title | Geist 600, 15 px, line height 1.3, at most 2 lines (then an ellipsis) |
@@ -204,24 +204,38 @@ On top of the landing and auth rules:
 Each phase ends with lint, type check and a look at 390 and 1440. Commit only with an explicit go.
 
 ### Phase 1: scene
-- [ ] `build.mjs` picks `workshop` (whole image, seat x 0.844, y 0.648) and `workshop-band` (`crop: { aspect: 1.5,
-  y: 0.606 }`, seat x 0.844, y 0.70). Check the seats.
+- [x] `build.mjs` picks `workshop` (seat x 0.844, y 0.648) and `workshop-band` (`crop: { aspect: 1.5, y: 0.606 }`, seat
+  x 0.844, y 0.70). Largest AVIFs: 71 KB and 42 KB.
 
 ### Phase 2: shell and components
-- [ ] Token `--color-accent-tint`. `OnboardingFrame`, the progress header, the step footer (fixed on phones), choice
-  groups, chips input, drop zone, paste panel, reading panel, graph board and card, self-ID fold, done list.
-- [ ] `lib/api.ts` gains `onboarding.get`, `onboarding.save(step, data)`, `resumeFile(file)`, `resumeText(text)`,
-  `graph`, `lanes`, `inboxAddress`, `shortlist`.
+- [x] Tokens `--color-accent-tint`, `--container-step`. The auth shell became `components/SceneFrame.tsx`, shared by
+  `AuthFrame` and `OnboardingFrame`. `components/onboarding/controls.tsx`: the step shell and progress header, the step
+  footer (fixed on phones), choice groups, selects, the chips input, labels with "(optional)" and the resume tag.
+- [x] `lib/api.ts` gains the onboarding, resume, graph, lanes, inbox and shortlist calls; `lib/onboarding.ts` holds the
+  saved progress, the profile, the resume just read and each step's drafts.
 
 ### Phase 3: steps
-- [ ] The six routes, the data each saves (section 8), checks, the error box, Back's in-memory values, focus on arrival,
-  and the routing in section 9 (replacing the `/onboarding` placeholder).
+- [x] The six routes in `app/(onboarding)/onboarding/`, `components/onboarding/ResumeStep.tsx` and `steps.tsx`: every
+  save in section 8, the checks, the error box, Back's drafts, focus on the next headline, and the routing in section 9
+  (`/onboarding` itself replaces the placeholder).
 
 ### Phase 4: Nori
-- [ ] `lib/onboarding-nori.ts`, picked by route in `NoriStage`: the seat, the reactions in section 10, row prefetching.
+- [x] `lib/seat-nori.ts`: one seat controller for the auth pages and onboarding (it replaces `lib/auth-nori.ts`),
+  picked by route in `NoriStage`. It can now show words on their own (`say`), for "Filled these from your resume."
 
 ### Phase 5: QA
-- [ ] `tests/qa-onboarding.mjs`: the 11 sizes in three engines for each step; every save and resume error mocked; the
-  graph reveal (order, cap of 12, reduced motion); routing; axe on every step and state; keyboard (choice groups, chips,
-  the drop zone, the fold); budgets. One real run against a local API: sign up, upload a sample resume, finish
-  every step, land on done with the lane shown.
+- [x] `tests/qa-onboarding.mjs` (`npm run qa:onboarding`): 852 checks pass in Chromium, Firefox and WebKit, with the real
+  end-to-end run (sign up, upload the sample resume, every step, the lane on the done page) against a local API. The
+  API ran with `NODE_ENV=test`, so its AI was the built-in fake model and no OpenAI spend was used.
+  On the same build the auth QA (730 of 730, with its end-to-end run) and the landing QA (184 of 184) still pass; the
+  landing page's first screen measured 500 KB, exactly its budget.
+- [x] Budgets: LCP 0.50 to 0.51 s on a phone over 4G with a 4x slower CPU, CLS 0, 389 to 415 KB before the first
+  interaction.
+
+What QA changed:
+- **Geist Mono loaded on every step's first screen** (70 KB, which took the steps to 459 to 485 KB). The progress label,
+  the "From your resume" tag and the self-ID hint are now Geist (section 4); the graph's cards keep Mono, after an
+  action.
+
+Still needs a person: a real resume through the real AI read (the fake model's parse is rough), VoiceOver and NVDA on
+the choice groups, chips and fold, a real phone keyboard with the fixed footer, and real Safari.

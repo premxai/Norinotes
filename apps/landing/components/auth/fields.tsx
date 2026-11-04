@@ -30,7 +30,7 @@ export function AuthHeading({ title, lead, headingRef }: { title: string; lead: 
 
 type FieldProps = Omit<ComponentProps<"input">, "id" | "ref"> & {
   id: string;
-  label: string;
+  label: ReactNode;
   error?: string | null;
   hint?: string;
   /** Beside the label on the right, such as "Forgot password?". */
