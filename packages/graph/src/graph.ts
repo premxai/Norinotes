@@ -1,8 +1,8 @@
 import { and, asc, careerPoints, eq, type Db } from "@norinote/db";
 import type { CareerPoint } from "@norinote/shared";
-import { skillParents } from "./skills.js";
+import { normalizeSkills, skillParents } from "./skills.js";
 import { toCareerPoint } from "./store.js";
-import { currentMonthIndex, monthIndex } from "./text.js";
+import { currentMonthIndex, extractMetrics, monthIndex } from "./text.js";
 
 export type SkillSummary = {
   skill: string;
@@ -76,6 +76,53 @@ export async function getGraph(db: Db, userId: string, now = new Date()): Promis
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** What can change on a point. Dates are `YYYY` or `YYYY-MM`, null for none (an open end date means current). */
+export type CareerPointPatch = {
+  title?: string;
+  org?: string | null;
+  text?: string;
+  skills?: string[];
+  startDate?: string | null;
+  endDate?: string | null;
+};
+
+export class CareerPointPatchError extends Error {}
+
+/**
+ * Edits one of the user's points in place and returns it, or null when it is not theirs or does not exist. Skills are
+ * normalised as the resume's are, and a changed text gets its metrics read again. The point keeps its source: a newer
+ * resume still replaces points that came from a resume, edited or not. Its embedding is stale until the next
+ * `embedCareerPoints` (matching runs it). Throws `CareerPointPatchError` when the end date is before the start date.
+ */
+export async function updateCareerPoint(db: Db, userId: string, id: string, patch: CareerPointPatch): Promise<CareerPoint | null> {
+  if (!UUID.test(id)) return null;
+  const [row] = await db.select().from(careerPoints).where(and(eq(careerPoints.id, id), eq(careerPoints.userId, userId))).limit(1);
+  if (!row) return null;
+  const set: Partial<typeof careerPoints.$inferInsert> = {};
+  if (patch.title !== undefined) set.title = patch.title;
+  if (patch.org !== undefined) set.org = patch.org || null;
+  if (patch.skills !== undefined) set.skills = normalizeSkills(patch.skills);
+  if (patch.startDate !== undefined) set.startDate = patch.startDate;
+  if (patch.endDate !== undefined) set.endDate = patch.endDate;
+  if (patch.text !== undefined && patch.text !== row.text) {
+    set.text = patch.text;
+    const seen = new Set<string>();
+    const items = patch.text.split("\n").flatMap(extractMetrics).filter((m) => {
+      const key = `${m.value}|${m.unit}|${m.measures}`;
+      return seen.has(key) ? false : (seen.add(key), true);
+    });
+    set.metrics = { ...row.metrics, items };
+  }
+  const start = set.startDate !== undefined ? set.startDate : row.startDate;
+  const end = set.endDate !== undefined ? set.endDate : row.endDate;
+  if (start && end && (monthIndex(end, "end") ?? Infinity) < (monthIndex(start, "start") ?? -Infinity)) {
+    throw new CareerPointPatchError("The end date is before the start date");
+  }
+  if (Object.keys(set).length === 0) return toCareerPoint(row);
+  const [updated] = await db.update(careerPoints).set(set).where(and(eq(careerPoints.id, id), eq(careerPoints.userId, userId))).returning();
+  return updated ? toCareerPoint(updated) : null;
+}
 
 /** Deletes one of the user's points (its embedding goes with it). False when it was not theirs or does not exist. */
 export async function deleteCareerPoint(db: Db, userId: string, id: string): Promise<boolean> {

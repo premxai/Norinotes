@@ -15,12 +15,22 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 ## Onboarding and profile
 - GET `/api/onboarding`; PUT `/api/onboarding` with body `{ step, data }`, steps: resume, contact, authorization,
   screening, preferences. Finishing creates a first lane from the preferences.
-- GET `/api/me`, PUT `/api/profile`
+- GET `/api/me`, PUT `/api/profile`. `autoApplyDailyCap` (0 to 100) is the daily limit: applications approved per UTC
+  day, by any channel; 0 = no limit.
 - POST `/api/profile/resume` (pasted text), POST `/api/profile/resume-file` (upload)
+- The answer bank (answers Nori remembered from forms, and the user's own): GET `/api/profile/answers` returning
+  `[{ id, questionText, answer, source, lastUsedAt }]` (`source` is `user`, `default` or `model`; most recently used
+  first); PATCH `/api/profile/answers/:id` with `{ answer }` (1 to 2000 characters) returning the row, now `source:
+  "user"` so nothing overwrites it; DELETE `/api/profile/answers/:id`. Another user's id is 404.
 
 ## Career graph
 - GET `/api/graph` returning `{ nodes, edges }`
 - POST `/api/graph/facts`, DELETE `/api/graph/nodes/:id`
+- PATCH `/api/graph/nodes/:id` edits a card in place with any of `{ title, org, statement, skills, startDate, endDate }`
+  (dates `YYYY` or `YYYY-MM`, null clears; `org: null` clears; skills normalised like the resume's). Returns `{ node }`
+  in the graph's node shape and re-runs matching. 400 for an empty or invalid edit (including an end before the start),
+  422 for a skill node (skills change through the cards that name them), 404 for another user's card. The card keeps
+  its source: a newer resume still replaces cards that came from a resume. 120 edits an hour.
 
 ## Lanes
 - GET `/api/lanes`; PUT `/api/lanes` with the whole array (new lanes have no `id`). Shape is the shared `Lane`
@@ -45,13 +55,17 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   and `updatedAt`.
 - POST `/api/applications/:id/approve` (optional `{ answers }`), `/api/applications/:id/answer` (`{ answers }` keyed
   by pending question id), `/api/applications/:id/retry`.
+- Approve is refused with 429 when the daily limit is used up (`autoApplyDailyCap` above 0 and that many already
+  approved today, UTC); nothing changes and the application stays prepared. An application approved earlier (from
+  Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
 
 ## Resumes and artifacts
 - GET `/api/resumes/:id` returning `{ id, applicationId, content, changes, pages, atsChecks }`
 - GET `/api/resumes/:id.pdf` (the PDF), GET `/api/artifacts/*` (receipt screenshots, owner only)
 
 ## Agent
-- GET `/api/agent/status` returning `{ dailyCap, usedToday, liveSubmit?, lastTickAt?, nextTickAt? }`
+- GET `/api/agent/status` returning `{ dailyCap, usedToday, liveSubmit?, lastTickAt?, nextTickAt? }`; `usedToday`
+  counts applications approved since midnight UTC, the same count the limit is enforced on.
 - GET `/api/agent/activity?limit=` returning events of kind discovered, scored, queued, skipped, prepared, approved,
   submitted, needs_user, reply, interview.
 

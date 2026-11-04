@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { and, applications, companies, desc, eq, gte, inArray, jobs, outcomes, profiles, runEvents, shortlist, sql } from "@norinote/db";
+import { dailyCapUse } from "@norinote/apply";
+import { and, applications, companies, desc, eq, inArray, jobs, outcomes, runEvents, shortlist } from "@norinote/db";
 import { requireUser } from "../auth/session.js";
 import { intParam } from "../http.js";
 import type { AppEnv, Ctx } from "../types.js";
@@ -21,15 +22,11 @@ export function agentRoutes(ctx: Ctx): Hono<AppEnv> {
   const { db } = ctx;
 
   r.get("/status", auth, async (c) => {
-    const userId = c.get("user").id;
-    const now = ctx.now();
-    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const [profile] = await db.select({ cap: profiles.dailyCap }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
-    // An application counts against today's cap from the moment it is approved (a click or autopilot).
-    const [used] = await db.select({ n: sql<number>`count(*)::int` }).from(applications).where(and(eq(applications.userId, userId), gte(applications.approvedAt, dayStart)));
+    // An application counts against today's limit from the moment it is approved (0 = no limit). Approvals over it are refused.
+    const use = await dailyCapUse(db, c.get("user").id, ctx.now());
     return c.json({
-      dailyCap: profile?.cap ?? 0,
-      usedToday: used?.n ?? 0,
+      dailyCap: use.cap,
+      usedToday: use.used,
       liveSubmit: ctx.config.allowRealSubmit,
       lastTickAt: null,
       nextTickAt: null,

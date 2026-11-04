@@ -171,7 +171,7 @@ export const profiles = pgTable("profiles", {
   eeo: jsonb("eeo").$type<Record<string, string>>().notNull().default({}),
   preferences: jsonb("preferences").$type<Record<string, unknown>>().notNull().default({}),
   resumeText: text("resume_text"),
-  /** One shared daily cap for all lanes. 0 = autopilot off. */
+  /** Applications approved per day (UTC), across lanes and channels. 0 = no limit. */
   dailyCap: integer("daily_cap").notNull().default(0),
   updatedAt: updatedAt(),
 });

@@ -1,5 +1,5 @@
-import { and, applications, companies, eq, gte, isNull, jobs, profiles, sql } from "@norinote/db";
-import { logEvent } from "@norinote/apply";
+import { and, applications, companies, eq, isNull, jobs } from "@norinote/db";
+import { dailyCapReached, logEvent } from "@norinote/apply";
 import {
   createBotClient, createUpdateHandler, recordApplyIntent, SendQueue, webhookSecret,
   type BotClient, type TelegramActions, type TgUpdate,
@@ -22,16 +22,8 @@ export const telegramConfigured = (ctx: Ctx): boolean => !!ctx.config.telegramBo
 
 const reason = (err: unknown) => (err instanceof HttpError ? err.message : "Something went wrong. Try again in the app.");
 
-/** Today's approvals (UTC day, as GET /api/agent/status counts them) against the daily cap. */
-async function capReached(ctx: Ctx, userId: string): Promise<{ cap: number; used: number } | null> {
-  const [profile] = await ctx.db.select({ cap: profiles.dailyCap }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
-  const cap = profile?.cap ?? 0;
-  if (cap <= 0) return null;
-  const now = ctx.now();
-  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const [used] = await ctx.db.select({ n: sql<number>`count(*)::int` }).from(applications).where(and(eq(applications.userId, userId), gte(applications.approvedAt, dayStart)));
-  return (used?.n ?? 0) >= cap ? { cap, used: used?.n ?? 0 } : null;
-}
+/** Today's approvals (UTC day, as GET /api/agent/status counts them) against the daily limit. */
+const capReached = (ctx: Ctx, userId: string) => dailyCapReached(ctx.db, userId, ctx.now());
 
 /** Telegram's buttons, through the same functions as the web routes. */
 export function telegramActions(ctx: Ctx): TelegramActions {
@@ -59,6 +51,7 @@ export function telegramActions(ctx: Ctx): TelegramActions {
           case "needs_user": {
             const res = await approveApplication(ctx, app);
             if (res.ok) return { ok: true, message: `Applying to ${label}.` };
+            if (res.cap) return { ok: false, message: `Today's limit of ${res.cap.cap} applications is used up. Raise it in Settings, or apply in the app.` };
             return { ok: true, message: `Approved ${label}. It needs your answers first; they come in a separate message.` };
           }
           case "applying":

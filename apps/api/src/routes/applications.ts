@@ -149,6 +149,7 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
     const body = await parseBody(c, Approve);
     const res = await approveApplication(ctx, app, body.answers);
+    if (!res.ok && res.cap) throw new HttpError(429, "Today's limit is used up", `Your limit is ${res.cap.cap} applications a day. Raise it in You, or send this one tomorrow.`);
     if (!res.ok) throw new HttpError(409, "This application is not ready to submit", res.reason);
     return c.json({ ok: true, status: res.status, started: res.started });
   });

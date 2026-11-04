@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { deleteAnswer, listAnswers, updateAnswer } from "@norinote/answers";
 import { eq, profiles } from "@norinote/db";
 import { extractResumeText } from "@norinote/graph";
 import { parseContact } from "@norinote/graph";
 import { JOBS } from "@norinote/queue";
 import { accountName, ensureProfile, requireUser } from "../auth/session.js";
-import { HttpError, parseBody } from "../http.js";
+import { HttpError, notFound, parseBody, uuidParam } from "../http.js";
 import { buildUpdate, ProfilePatch, toProfile } from "../profile-model.js";
 import { ingestResume } from "../resume-ingest.js";
 import { userView } from "./auth.js";
@@ -13,6 +14,7 @@ import { enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
 const ResumeText = z.object({ text: z.string().min(20, "Paste the full resume text").max(200_000), replace: z.boolean().optional() });
 const HOUR = 3_600_000;
+const AnswerEdit = z.object({ answer: z.string().trim().min(1, "Write an answer").max(2000) });
 
 export function profileRoutes(ctx: Ctx): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
@@ -34,6 +36,21 @@ export function profileRoutes(ctx: Ctx): Hono<AppEnv> {
     // Work authorisation and location feed the match gates.
     if (patch.workAuth || patch.securityClearance !== undefined || update.location !== undefined) await enqueueSoft(ctx, JOBS.matchUser, { userId: user.id, reason: "profile" });
     return c.json(toProfile(row ?? current, user.email));
+  });
+
+  // The answer bank: answers Nori remembered from applications (and the user's own), reused on later forms.
+  r.get("/profile/answers", auth, async (c) => c.json(await listAnswers(db, c.get("user").id)));
+
+  r.patch("/profile/answers/:id", auth, async (c) => {
+    const { answer } = await parseBody(c, AnswerEdit);
+    const updated = await updateAnswer(db, c.get("user").id, uuidParam(c), answer);
+    if (!updated) throw notFound("That answer was not found");
+    return c.json(updated);
+  });
+
+  r.delete("/profile/answers/:id", auth, async (c) => {
+    if (!(await deleteAnswer(db, c.get("user").id, uuidParam(c)))) throw notFound("That answer was not found");
+    return c.json({ ok: true });
   });
 
   r.post("/profile/resume", auth, async (c) => {

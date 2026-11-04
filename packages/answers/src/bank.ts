@@ -1,5 +1,5 @@
 import { embed } from "@norinote/ai";
-import { and, answerBank, asc, cosineDistance, eq, inArray, isNotNull, sql, type Db } from "@norinote/db";
+import { and, answerBank, asc, cosineDistance, desc, eq, inArray, isNotNull, sql, type Db } from "@norinote/db";
 import type { Answer } from "@norinote/shared";
 import { normalizeQuestion } from "./text.js";
 
@@ -39,6 +39,31 @@ export async function markUsed(db: Db, ids: string[]): Promise<void> {
 }
 
 const toAnswer = (r: BankRow): Answer => ({ id: r.id, questionText: r.questionText, answer: r.answer, source: r.source, lastUsedAt: r.lastUsedAt ? r.lastUsedAt.toISOString() : null });
+
+const bankColumns = { id: answerBank.id, questionText: answerBank.questionText, answer: answerBank.answer, source: answerBank.source, lastUsedAt: answerBank.lastUsedAt };
+
+/** The user's remembered answers for the You page: most recently used first, then newest. */
+export async function listAnswers(db: Db, userId: string, limit = 1000): Promise<Answer[]> {
+  const rows = await db.select(bankColumns).from(answerBank).where(eq(answerBank.userId, userId))
+    .orderBy(sql`${answerBank.lastUsedAt} desc nulls last`, desc(answerBank.createdAt)).limit(limit);
+  return rows.map(toAnswer);
+}
+
+/**
+ * The user's own change to a remembered answer. It becomes theirs (`user`), so defaults and model drafts never
+ * overwrite it. Null when the row is not theirs or does not exist. The question stays as asked (its vector matches it).
+ */
+export async function updateAnswer(db: Db, userId: string, id: string, answer: string): Promise<Answer | null> {
+  const [row] = await db.update(answerBank).set({ answer, source: "user" })
+    .where(and(eq(answerBank.id, id), eq(answerBank.userId, userId))).returning(bankColumns);
+  return row ? toAnswer(row) : null;
+}
+
+/** Forgets one remembered answer. False when it was not the user's or does not exist. */
+export async function deleteAnswer(db: Db, userId: string, id: string): Promise<boolean> {
+  const gone = await db.delete(answerBank).where(and(eq(answerBank.id, id), eq(answerBank.userId, userId))).returning({ id: answerBank.id });
+  return gone.length > 0;
+}
 
 /**
  * Remember an answer for a question. The same question (ignoring case and punctuation) updates its row instead of

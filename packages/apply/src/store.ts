@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from "@norinote/shared";
-import { and, applications, companies, eq, gte, jobs, or, runEvents } from "@norinote/db";
+import { and, applications, companies, eq, gte, jobs, ne, or, profiles, runEvents, sql } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import { checkTransition, transitionPatch, type AppSnapshot, type TransitionOptions } from "./state.js";
 import { canonicalJobUrl } from "./schema.js";
@@ -147,17 +147,46 @@ export async function createApplication(db: Db, userId: string, jobId: string, o
 
 export type ApproveResult =
   | { ok: true; status: ApplicationStatus; /** True when this call started the apply step; the caller should enqueue `apply.run`. */ started: boolean }
-  | { ok: false; status: ApplicationStatus | null; reason: string };
+  | { ok: false; status: ApplicationStatus | null; reason: string; /** Set when today's limit stopped it. */ cap?: DailyCap };
+
+/** The user's daily limit and today's approvals against it. */
+export type DailyCap = { cap: number; used: number };
+
+/** Midnight UTC of `now`'s day: the daily limit's day. */
+export const capDayStart = (now: Date): Date => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+/**
+ * The daily limit (`profiles.daily_cap`, 0 = no limit) and how many applications were approved today (UTC day; an
+ * application counts from its approval, by a click, Telegram or later autopilot). `except` leaves one application out.
+ */
+export async function dailyCapUse(db: Db, userId: string, now: Date, except?: string): Promise<DailyCap> {
+  const [profile] = await db.select({ cap: profiles.dailyCap }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  const [used] = await db.select({ n: sql<number>`count(*)::int` }).from(applications)
+    .where(and(eq(applications.userId, userId), gte(applications.approvedAt, capDayStart(now)), except ? ne(applications.id, except) : undefined));
+  return { cap: profile?.cap ?? 0, used: used?.n ?? 0 };
+}
+
+/** The limit and today's use when one more approval would go over it; null when there is room (or no limit). */
+export async function dailyCapReached(db: Db, userId: string, now: Date, except?: string): Promise<DailyCap | null> {
+  const use = await dailyCapUse(db, userId, now, except);
+  return use.cap > 0 && use.used >= use.cap ? use : null;
+}
 
 /**
  * A user click on a prepared application: approve it and move it to `applying`. Safe to call twice (a double click):
  * the second call finds it already underway and changes nothing. The caller enqueues `apply.run` when `started` is true.
+ * A first approval counts against the daily limit; when the limit is used up nothing changes and `cap` says so. One
+ * approved earlier (Telegram before it was prepared, or before its questions were answered) has already counted.
  */
 export async function approveAndSubmit(db: Db, applicationId: string, opts: { now?: Date } = {}): Promise<ApproveResult> {
   const row = await loadApplication(db, applicationId);
   if (!row) return { ok: false, status: null, reason: "application not found" };
   if (row.status === "applying" || row.status === "awaiting_code" || row.status === "submitted") return { ok: true, status: row.status, started: false };
   if (row.status !== "prepared" && row.status !== "needs_user") return { ok: false, status: row.status, reason: `not ready to submit (${row.status})` };
+  if (!row.approvedAt) {
+    const cap = await dailyCapReached(db, row.userId, opts.now ?? new Date(), row.id);
+    if (cap) return { ok: false, status: row.status, reason: `today's limit of ${cap.cap} applications is used up`, cap };
+  }
 
   const res = await transitionApplication(db, applicationId, "applying", {
     now: opts.now, approve: true, from: row.status,

@@ -3,9 +3,9 @@ export { TRANSITIONS, MAX_ATTEMPTS, canTransition, checkTransition, transitionPa
 export type { AppSnapshot, TransitionOptions, TransitionCheck } from "./state.js";
 export {
   createApplication, approveAndSubmit, retryApplication, saveAnswers, transitionApplication, loadApplication, logEvent,
-  normalizeTitle, normalizeCompany, DUPLICATE_WINDOW_DAYS,
+  normalizeTitle, normalizeCompany, DUPLICATE_WINDOW_DAYS, capDayStart, dailyCapUse, dailyCapReached,
 } from "./store.js";
-export type { ApplicationRow, CreateApplicationResult, ApproveResult, TransitionResult } from "./store.js";
+export type { ApplicationRow, CreateApplicationResult, ApproveResult, DailyCap, TransitionResult } from "./store.js";
 export { runApplication, driveApplication, createApplyHandler, createPrepareHandler } from "./runner.js";
 export type { ApplyDeps, StepResult, WaitingFor } from "./runner.js";
 export { createBrowserPool, PoolRunError } from "./pool.js";

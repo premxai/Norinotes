@@ -1,6 +1,6 @@
 export { answerQuestions, fitAnswer, pickBankAnswer } from "./answers.js";
 export type { AnswerQuestionsInput, AnswerQuestionsResult, AnswerSourceKind } from "./answers.js";
-export { saveAnswer, loadBank, findSimilar, DEFAULT_MATCH_THRESHOLD } from "./bank.js";
+export { saveAnswer, loadBank, findSimilar, listAnswers, updateAnswer, deleteAnswer, DEFAULT_MATCH_THRESHOLD } from "./bank.js";
 export type { AnswerSource, BankRow, SimilarRow } from "./bank.js";
 export { pendingDigest } from "./digest.js";
 export type { PendingDigest, PendingGroup } from "./digest.js";
