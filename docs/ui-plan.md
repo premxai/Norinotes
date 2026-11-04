@@ -18,6 +18,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
 | 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c built and QA'd ([dashboard-4c-spec.md](dashboard-4c-spec.md)) |
+| 5 | Error pages | Page not found, something broke, and the app failing to start | Planned, wireframed and specified ([error-pages-spec.md](error-pages-spec.md)). Next: build |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -760,3 +761,79 @@ the live panel shows. In the evening with nothing waiting, Nori falls asleep on 
 - Notifications outside the app (email digests, browser notifications): not in part 4; Telegram covers approvals for
   now.
 - The evening strip and night strip are two small new scenes (about $0.25).
+
+## Error pages (part 5)
+
+Status: planned and wireframed: the "Error pages" page of the design canvas (desktop and phone, the five pages, Try
+again working or not, the dashboard versions in light and dark). The fork scene is take 1 of 2 (`art/raw/fork-1.png`,
+built as `fork` and `fork-band`; take 2 was more photographic, with a lake and houses). Specified in
+[error-pages-spec.md](error-pages-spec.md), which wins where it and this plan differ. Next: build.
+
+What a visitor sees when an address doesn't exist or something breaks. Today there's nothing of ours: a wrong address
+gets Next's plain default 404, and a crash its default error screen. Inside the dashboard, an application or message
+that isn't there already has its own "not found" state (4b), and every dashboard page already says when it can't reach
+Norinote, so those stay as they are.
+
+### Decided
+
+| Question | Decision |
+|---|---|
+| Which pages | **Three:** page not found (`not-found`), something broke on a page (`error`, with Try again) and the app failing to start (`global-error`). Signed-out and onboarding redirects already work; no offline page |
+| Look | **A new small scene** for the full-page versions, made with the same model, style prompt and pipeline as the others |
+| Inside the dashboard | **Inside the shell:** under `/today`, `/applications`, `/inbox` and `/you`, a 404 or an error keeps the rail and tabs, so Today is one click away. Everywhere else, the full page |
+| Reporting a problem | **Not yet:** Try again and Go home only. There's no support address or error reporting yet; a way to report comes with hosting and support (landing Phase 6) |
+
+### The pages
+
+- **Page not found, full page** (any address that isn't ours outside the dashboard): the scene, then a short card:
+  "This page isn't here", "The link may be old, or the address may have a typo.", **Go to the home page** (primary) and
+  **Open your dashboard** (outline; signed-out visitors land on sign-in from there, as now). HTTP 404, not indexed.
+- **Page not found, in the shell** (an unknown address under a dashboard section, such as `/today/old` or
+  `/you/settings`): the rail and tabs, then a card in the content area with the same words and **Go to Today**. No
+  scene: the dashboard has no scenes in its content area, and the Dawn scene would clash with Night Dawn.
+- **Something broke** (an error thrown while showing a page): "Something went wrong on this page", "It's not you.
+  Try again; if it keeps happening, come back in a little while.", **Try again** (re-renders the page) and **Go to the
+  home page**. Full page with the scene outside the dashboard; in the shell inside it. The error's details never show;
+  the page has no stack traces, messages or codes.
+- **The app failing to start** (an error in the root layout itself, so neither the fonts, the scene nor Nori can be
+  relied on): a plain page with its own styles inline, the Dawn colours and system fonts, "Norinote couldn't load",
+  "Check your connection, then try again." and **Try again** (reloads). No Nori, no images.
+
+### The scene
+
+**Fork (not found, something broke):** a felt garden path splitting in two at a small wooden signpost whose arrows are
+blank, low hedges on either side, the landing page's hills soft in the distance in morning light. A flat stone at the
+foot of the post, in sharp focus and empty, for Nori. A portrait crop for the column and a wide crop for phones, as for
+the auth scenes, so the page uses the auth layout (scene beside the card from 1024 px, a band above it below).
+
+Budget: about 3 images including retries, roughly $0.25 to $0.75 from the ledger ($4.57 of $24 spent so far). Spent:
+2 takes, $0.11 ($4.68 of $24).
+
+### Nori
+
+- **Not found:** `look` (looks around), then sits on the stone; "Hmm, nothing here." in a bubble. In the shell, the
+  same at Nori's usual seat.
+- **Something broke:** `dizzy`, then `comfort`; "Sorry about that." Try again plays `nod` on the way.
+- **Failing to start:** no Nori (the sprites may be what failed).
+
+### Copy (draft)
+
+| Place | Words |
+|---|---|
+| Not found | This page isn't here · The link may be old, or the address may have a typo. · Go to the home page · Open your dashboard |
+| Not found, in the shell | This page isn't here · The link may be old, or the address may have a typo. · Go to Today |
+| Something broke | Something went wrong on this page · It's not you. Try again; if it keeps happening, come back in a little while. · Try again · Go to the home page |
+| Failing to start | Norinote couldn't load · Check your connection, then try again. · Try again |
+| Nori | Hmm, nothing here. · Sorry about that. |
+
+### Budgets and checks
+
+- The same budgets as the auth pages: under 450 KB before the first interaction, LCP under 2.0 s on 4G, CLS under 0.05.
+  The failing-to-start page loads nothing but itself.
+- QA: every page at the 11 sizes in three engines; the 404's status code; Try again recovering from a thrown error; the
+  in-shell versions in light and dark; axe; keyboard; and that no error detail ever reaches the page.
+
+### Open
+
+- Wording for when the API itself is down on a full page (not part of this: pages that need the API already say so).
+- A reference code to quote, once there's somewhere to report a problem.

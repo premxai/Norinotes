@@ -1,5 +1,5 @@
 // Generates the landing page's painted scenes with the image model, from one shared style (spec section 8).
-//   node art/scenes.mjs hero-phone desk horizon footer [--takes 2]
+//   node art/scenes.mjs hero-phone desk horizon footer fork [--takes 2]
 //   node art/scenes.mjs --status
 // Raw takes land in art/raw/ (not committed). Spend goes to the same ledger as Nori's sprites, under one cap.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -66,6 +66,11 @@ export const SCENES = {
   workshop: {
     size: "1024x1536",
     prompt: "Portrait composition of a tiny cosy craft workshop in soft morning light: a low wooden workbench seen from the front, with a few small paper cards pinned to a cork board behind it, joined by thin red and sage threads, a spool of thread, a pincushion, a small pair of scissors and a little stack of paper. Near the right edge of the workbench, a small flat empty spot on the bench top in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the bench, the cork board and the empty spot inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is a calm, softly blurred warm cream wall with almost no detail. The cards are blank, with no writing on them.",
+  },
+  // Part 5 (ui-plan.md): page not found and something broke, outside the dashboard.
+  fork: {
+    size: "1024x1536",
+    prompt: "Portrait composition. A soft felt garden path of flat clay stepping stones that splits in two, one branch curving left and one curving right, between low rounded felt hedges in morning light. At the fork stands a small wooden signpost with two plain blank wooden arrow boards pointing different ways (completely blank wood, no writing or marks). In the distance, the same gentle sage-green felt hills under a soft peach sky. At the foot of the signpost on the right, a small flat empty stone in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the fork, the signpost and the empty stone inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is calm sky fading from rice-cream to soft peach, with almost no detail.",
   },
   nook: {
     size: "1024x1536",

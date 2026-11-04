@@ -45,6 +45,10 @@ export const PICKS = {
   // Sign-in, forgot and reset: the desk nook. Nori sits on the cushion at the desk's right end.
   nook: { file: "nook-2.png", widths: [640, 960, 1280], seat: { x: 0.765, y: 0.678 }, budgetKB: 120 },
   "nook-band": { file: "nook-2.png", crop: { aspect: 1.5, y: 0.648 }, widths: [480, 780, 1080], seat: { x: 0.765, y: 0.715 }, budgetKB: 80 },
+  // Page not found and something broke (ui-plan.md part 5): the fork in the path. Nori sits on the flat stone at the
+  // foot of the signpost; the band keeps the signpost's arms and the stone.
+  fork: { file: "fork-1.png", widths: [640, 960, 1280], seat: { x: 0.61, y: 0.7 }, budgetKB: 120 },
+  "fork-band": { file: "fork-1.png", crop: { aspect: 1.5, y: 0.681 }, widths: [480, 780, 1080], seat: { x: 0.61, y: 0.723 }, budgetKB: 80 },
 };
 
 const NOISE = 3; // ± levels of triangular noise (about 1.2% of the range): enough to break gradient banding, too faint to see
