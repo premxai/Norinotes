@@ -1,7 +1,7 @@
 # Norinote UI plan
 
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
-Onboarding and the dashboard follow, in that order.
+Onboarding is planned and wireframed (below); the dashboard follows.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -14,7 +14,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 |---|---|---|---|
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
-| 3 | Onboarding | `/onboarding` (steps to be planned) | Not started |
+| 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Planned, wireframed and specified ([onboarding-design-spec.md](onboarding-design-spec.md)). Next: build |
 | 4 | Dashboard | `/dashboard` and its views | Not started |
 
 Rules for every part:
@@ -285,7 +285,106 @@ against a local API.
 
 ## Onboarding (part 3)
 
-Not planned yet. Same theme, Nori and scenes.
+Status: planned and wireframed: the "Onboarding" page of the design canvas, desktop and phone, every step, with the
+workshop scene (`art/scenes.mjs` workshop, take `workshop-1`, picked over take 2). Specified in [onboarding-design-spec.md](onboarding-design-spec.md), which wins where it and this plan
+differ. Next: build.
+
+It lives in `apps/landing` as well, so the same Nori walks in from sign-up. Signing up opens it; signing in opens it
+until it's finished.
+
+### Decided
+
+| Question | Decision |
+|---|---|
+| Structure | **Step screens.** Five short steps, one topic each, with a progress bar, **Back** and **Continue**. Each step is saved when you continue, so leaving halfway resumes where you stopped |
+| Resume step | **The graph builds live.** Once the upload is read, your roles, projects, education and skills appear one by one as small cards that join into your career graph, with Nori arranging them |
+| Voluntary self-identification | **Optional and folded away** in the questions step, with "I don't wish to answer" as the default |
+| Scene | **One new scene:** Nori's workshop (take 1), a felt workbench under a cork board of cards joined by threads, where the graph is made. Nori sits on the bench between the paper stack and the plant (x 0.844, y 0.648). One scene for every step, plus a phone band |
+
+### What the API already does
+
+The steps are the API's (`apps/api/src/profile-model.ts`, `ONBOARDING_STEPS`): `PUT /api/onboarding` with
+`{ step, data }` saves one step, writes only that step's fields, and moves the saved progress forward (never back).
+`GET /api/onboarding` returns the step to resume at and the profile so far.
+
+- **Resume:** `POST /api/profile/resume-file` (PDF, DOCX or text, up to 10 MB) or `POST /api/profile/resume` (pasted
+  text) reads the resume, builds the career graph and returns its nodes plus the contact details found in it. The
+  request waits for the whole read; the cards are then revealed one at a time. If the AI service is down, the API reads
+  it with a basic parser and says so (`note`).
+- **After the last step** the API creates the first lane from the job titles, gives the account its own inbox address
+  (once an inbound domain is set), and starts the first shortlist run.
+
+### Pages
+
+One route per step, so the browser's Back works and a link can reopen a step.
+
+| # | Route | Step (API) | What it asks |
+|---|---|---|---|
+| 1 | `/onboarding/resume` | `resume` | Upload a PDF or DOCX (drag and drop, or choose), or paste the text. Then the graph builds |
+| 2 | `/onboarding/contact` | `contact` | Full name, email (the account's by default), phone, city, state, country, LinkedIn, GitHub, website, pronouns (optional). Filled from the resume where it could be |
+| 3 | `/onboarding/work` | `authorization` | Authorized to work in the US? Need sponsorship? Status (citizen, permanent resident, visa, other) and visa type. Open to relocating? Remote, hybrid or on-site |
+| 4 | `/onboarding/questions` | `screening` | What applications ask: salary expectation, earliest start date, notice period, security clearance, over 18, how you heard about the job. Folded away: voluntary self-identification |
+| 5 | `/onboarding/preferences` | `preferences` | Job titles, locations, remote, minimum salary, companies to skip |
+| | `/onboarding/done` | | What happens now: the lane Nori made, the inbox address, the first shortlist on its way. **Open my dashboard** |
+
+- `/onboarding` alone opens the step to resume at. Signed out: `/signin?next=/onboarding`. Already finished:
+  `/dashboard`.
+- Steps 2 to 5 can be left with only what's required. Step 1 is required: there's no shortlist without a resume.
+- **Back** never loses what you typed: going back shows what's saved, and the current step keeps its unsaved values in
+  memory.
+- Not asked here: the daily cap for sending without asking (autopilot). Until it's set in the dashboard, Nori asks
+  before every application.
+
+### Layout
+
+The sign-in shell, a little wider: the scene on the left (5/12) from 1024 px, a band above the form below that. The form
+column holds up to 560 px, so short fields can pair up (city and state, start date and notice period). Above the form:
+"Step 2 of 5", the step's name and a five-part progress bar. **Back** and **Continue** sit at the bottom; on phones they
+stick to the bottom of the screen.
+
+### The resume step
+
+1. **Before:** a drop zone ("Drop your resume here, or choose a file", PDF or DOCX up to 10 MB) and "Paste the text
+   instead".
+2. **Reading:** the file name, then "Nori is reading your resume…" with what it's looking for ticking past (roles,
+   skills, dates). Nori reads (`read`, then `papers`). It can take a while, so the wording says so.
+3. **The graph:** cards appear one by one, grouped as roles, projects, education and certifications, each with its dates
+   and a few skill chips. Skills shared between cards are drawn as threads between them. Nori points at each group as
+   it arrives (`point`, then `present`). A count sums it up: "4 roles, 2 projects, 23 skills".
+4. **Check it:** every card opens to show the line of the resume it came from. **Continue** moves on;
+   **Use a different file** starts over. If the basic parser was used, a calm line says the detailed read will follow.
+
+On phones the cards stack in one column and the threads are left out; the count and the groups stay.
+
+### Nori
+
+| Moment | What Nori does |
+|---|---|
+| Arriving from sign-up | Glides from the gate to the workbench seat, then bows (`welcome`) once |
+| Resume: reading | `read`, then `papers`, until the answer |
+| Resume: cards arriving | `point` at each group, `present` at the end |
+| Contact filled from the resume | Says "Filled these from your resume." once |
+| Work authorization saved | `nod` |
+| Self-identification unfolded | Covers its eyes (`cover`): "Only used where an application asks." Uncovers when it's folded again |
+| Titles typed in preferences | `search` |
+| Done | `celebrate`, then `searching` while the first shortlist runs |
+| A step's save fails | The gentle no (`auth-failed`), with the error in the form |
+
+### Copy (draft)
+
+| Step | Headline | Lead |
+|---|---|---|
+| Resume | Start with your resume | Nori reads it once and turns it into your career graph. That's how it knows which jobs you'll likely get. |
+| Contact | How can employers reach you? | Filled from your resume where we could. Check it's right. |
+| Work | Where can you work? | Applications ask this every time. Answer once and Nori fills it in. |
+| Questions | The usual questions | Reused on every application. Skip what you'd rather answer case by case. |
+| Preferences | What are you looking for? | Nori builds your first search from this. You can change it any time. |
+| Done | You're all set | Nori is finding your first jobs now. They'll be on your dashboard as soon as they're in. |
+
+### Open
+
+- The done page links to the dashboard placeholder until part 4 exists.
+- The inbox address only exists once the API has an inbound email domain set; the done page leaves it out until then.
 
 ## Dashboard (part 4)
 

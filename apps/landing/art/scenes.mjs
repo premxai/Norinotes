@@ -57,6 +57,11 @@ export const SCENES = {
     size: "1024x1536",
     prompt: "Portrait composition. A small open wooden garden gate set in a low, soft, rounded felt hedge at sunrise, with a path of flat clay stepping stones leading through it towards gentle sage-green hills and a low round felt sun in the distance. A small paper lantern hangs from the gate post. Right of the gate, near the right edge, the flat top of a short wooden fence post or a flat stone in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the gate, the path and the empty spot inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is calm sky fading from rice-cream to soft peach, with almost no detail.",
   },
+  // Part 3 (ui-plan.md): every onboarding step sits on Nori's workshop, where the career graph is made.
+  workshop: {
+    size: "1024x1536",
+    prompt: "Portrait composition of a tiny cosy craft workshop in soft morning light: a low wooden workbench seen from the front, with a few small paper cards pinned to a cork board behind it, joined by thin red and sage threads, a spool of thread, a pincushion, a small pair of scissors and a little stack of paper. Near the right edge of the workbench, a small flat empty spot on the bench top in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the bench, the cork board and the empty spot inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is a calm, softly blurred warm cream wall with almost no detail. The cards are blank, with no writing on them.",
+  },
   nook: {
     size: "1024x1536",
     prompt: "Portrait composition of a cosy indoor reading nook in early morning light: a low wooden desk under a round window with soft peach light coming through, a steaming clay mug, a folded paper note and a tiny potted felt plant on the desk, all kept small. Near the right edge of the desktop, a small flat empty felt cushion in sharp focus, as if waiting for a little character to sit there (leave it empty). Keep the desk, the mug and the empty cushion inside a horizontal band across the lower middle, so the picture can also be cropped to a wide strip. The top third is a calm, softly blurred warm cream wall with almost no detail.",
