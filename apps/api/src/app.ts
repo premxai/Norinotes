@@ -2,9 +2,10 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { addJobByUrl } from "@norinote/ingest";
-import { createConsoleMailer } from "./mailer.js";
+import { fileStoreFromEnv } from "@norinote/shared/files";
+import { createMailer } from "./mailer.js";
 import { errorHandler, HttpError } from "./http.js";
-import { originGuard, RateLimiter, securityHeaders } from "./security.js";
+import { browserOrigins, originGuard, RateLimiter, securityHeaders } from "./security.js";
 import type { ApiDeps, AppEnv, Ctx } from "./types.js";
 import { agentRoutes } from "./routes/agent.js";
 import { applicationRoutes } from "./routes/applications.js";
@@ -38,17 +39,18 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
     db: deps.db,
     enqueue: deps.enqueue,
     config,
-    mailer: deps.mailer ?? createConsoleMailer({ production: config.production, log: deps.log }),
+    mailer: deps.mailer ?? createMailer(config, deps.log),
     now: deps.now ?? (() => new Date()),
     addJob: deps.addJob ?? addJobByUrl,
     log: deps.log ?? ((line) => console.log(line)),
     limiter: deps.limiter ?? new RateLimiter(),
+    files: deps.files === undefined ? fileStoreFromEnv() : deps.files,
     ...(deps.telegram ? { telegram: deps.telegram } : {}),
   };
 
   const app = new Hono<AppEnv>();
   app.use("*", securityHeaders);
-  app.use("/api/*", cors({ origin: config.webUrl, credentials: true, allowHeaders: ["Content-Type"], allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], maxAge: 600 }));
+  app.use("/api/*", cors({ origin: browserOrigins(config), credentials: true, allowHeaders: ["Content-Type"], allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], maxAge: 600 }));
   app.use("/api/*", originGuard(config));
   app.use("/api/*", (c, next) => bodyLimit({
     maxSize: maxBody(c.req.path, config.maxResumeBytes),

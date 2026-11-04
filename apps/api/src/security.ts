@@ -62,8 +62,13 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
  * Unsafe requests that carry an Origin must come from the web app (or the API itself). A browser always sends Origin on
  * cross-site POSTs, so this closes the gap SameSite=Lax leaves for sibling sites. Server-to-server callers send none.
  */
-export function originGuard(config: Pick<ApiConfig, "webUrl" | "apiUrl">): MiddlewareHandler {
-  const allowed = new Set([config.webUrl, config.apiUrl].filter((v): v is string => !!v));
+/** Browser origins allowed to call the API with credentials: the dashboard and, when set, the landing site. */
+export function browserOrigins(config: Pick<ApiConfig, "webUrl" | "landingUrl">): string[] {
+  return [config.webUrl, config.landingUrl].filter((v): v is string => !!v);
+}
+
+export function originGuard(config: Pick<ApiConfig, "webUrl" | "landingUrl" | "apiUrl">): MiddlewareHandler {
+  const allowed = new Set([...browserOrigins(config), config.apiUrl].filter((v): v is string => !!v));
   return async (c, next) => {
     if (c.req.method !== "GET" && c.req.method !== "HEAD" && c.req.method !== "OPTIONS") {
       const origin = c.req.header("origin");

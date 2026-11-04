@@ -95,6 +95,28 @@ board, of unknown age, so those undated jobs never count. Older jobs stay in the
 The one exception is a job the user added by pasting its link (`saved_jobs`): it always shows for that user, whatever its age
 or lane fit.
 
+## Lean storage
+
+A full collection is about 1.3M open jobs, and almost all of their size is `description_text`. A job nobody can be shown
+needs only its small row, so the collector still knows it has seen it. Job rows are never deleted (an undated job inserted
+again would count as new).
+
+- At write time (`upsertJobs`, packages/ingest/src/store.ts): a job that is not fresh when written (posted more than 72
+  hours ago, or undated and listed on the board's first read; `isFreshJob` in packages/db/src/fresh.ts mirrors
+  `freshJobSql`) is stored without its description. A known job that is not fresh keeps whatever text it has, so later
+  polls neither refill a trimmed job nor wipe one a user needs. Such jobs are never queued for understanding: the worker
+  only queues new jobs that are fresh and fit a lane.
+- The sweep (`sweepStaleJobs`, packages/ingest/src/sweep.ts; worker, every `JOB_SWEEP_EVERY_MINUTES`, default 60): jobs out
+  of the window by more than 6 hours that no user refers to get an empty description and lose their `job_specs` and
+  `job_embeddings` rows. A user refers to a job when it is in their `saved_jobs`, `applications` or `shortlist` (any
+  status); those keep everything. Batches of `JOB_SWEEP_BATCH` (500), one short transaction each that skips rows a poll is
+  writing, at most 200 batches per run; idempotent; one `jobs.sweep` log line with the counts.
+- Reading the text again: a pasted link (`addJobByUrl`) stores the posting's text whatever its age. Before preparing an
+  application the worker reads the posting again when the job has no text (`fillJobDescription`, any job system with a
+  single-posting read) and understands it when it has no spec, so tailoring and answers have the job to work from.
+- Freed space is reused by Postgres, but the table file does not shrink by itself. After the first sweep of a large
+  existing database, run `VACUUM FULL jobs` once (it locks the table) to give the space back.
+
 ## Never empty
 
 1. Precomputed pools per (role family x metro or remote), refreshed hourly from the shared index.

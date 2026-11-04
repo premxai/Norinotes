@@ -126,7 +126,9 @@ describe("match.user boosts the companies a user is waiting on", () => {
 
     const pool = { artifactsDir: "/tmp/a", run: async () => { throw new Error("no browser"); }, warmUp: async () => {}, stats: () => ({ size: 1, active: 0, waiting: 0, browserLaunched: false, launches: 0 }), close: async () => {} } as unknown as BrowserPool;
     const queue = new MemoryQueue();
-    worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool });
+    // No network: the jobs have no text and understand.job would read their postings.
+    const fetch = (async () => new Response("not found", { status: 404 })) as typeof globalThis.fetch;
+    worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, fetch });
     await queue.enqueue(JOBS.matchUser, { userId, reason: "lanes" });
     await queue.drain();
     expect(queue.failures()).toEqual([]);

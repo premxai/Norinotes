@@ -205,6 +205,16 @@ describe("request guards", () => {
     expect(other.headers.get("access-control-allow-origin")).not.toBe("https://evil.example");
   });
 
+  it("also allows the landing site, and points account-email links at it", async () => {
+    const site = await makeApi({ config: { landingUrl: "https://norinote.example" } });
+    const pre = await site.app.request("/api/auth/session", { method: "OPTIONS", headers: { origin: "https://norinote.example", "access-control-request-method": "POST" } });
+    expect(pre.headers.get("access-control-allow-origin")).toBe("https://norinote.example");
+    const res = await site.call("POST", "/api/auth/signup", { body: { email: "landing@example.com", password: "long enough pw" }, headers: { origin: "https://norinote.example" } });
+    expect(res.status).toBeLessThan(300);
+    expect(site.mails.at(-1)?.text).toContain("https://norinote.example/verify-email?token=");
+    await site.close();
+  });
+
   it("serves the health check without a session", async () => {
     const res = await api.call("GET", "/api/health");
     expect(res.status).toBe(200);

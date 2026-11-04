@@ -1,0 +1,45 @@
+# API at api.norinote.xyz. Deploy: fly deploy -c fly.api.toml
+# `app` is a placeholder until the new Fly app is created. Secrets (see docs/deploy.md) are set with
+# `fly secrets set`, never here.
+app = "norinote-api"
+primary_region = "sjc"
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[build]
+  dockerfile = "Dockerfile"
+  build-target = "api"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "4000"
+  TRUST_PROXY = "true"
+  WEB_URL = "https://jobs.norinote.xyz"
+  API_URL = "https://api.norinote.xyz"
+  MAIL_FROM = "Norinote <hello@norinote.xyz>"
+  INBOUND_EMAIL_DOMAIN = "in.norinote.xyz"
+  LANDING_URL = "https://norinote.xyz"
+  # Generated files: written here, copied to Supabase Storage (S3 API). Both apps must use the same ARTIFACTS_DIR so
+  # the keys match. S3_ENDPOINT is https://<project-ref>.supabase.co/storage/v1/s3; the keys are secrets.
+  ARTIFACTS_DIR = "/app/data/artifacts"
+  S3_REGION = "us-west-1"
+  S3_BUCKET = "artifacts"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  # Always on: Telegram and inbound-email webhooks arrive at any time.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "20s"
+    interval = "30s"
+    method = "GET"
+    path = "/api/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

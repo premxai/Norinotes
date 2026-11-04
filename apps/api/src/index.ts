@@ -11,6 +11,7 @@ export { loadConfig } from "./config.js";
 export type { ApiConfig } from "./config.js";
 export type { ApiDeps, EnqueueFn } from "./types.js";
 export type { Mailer, Mail } from "./mailer.js";
+export { createResendMailer } from "./mailer.js";
 
 export type RunningApi = { port: number; stop(): Promise<void> };
 
@@ -23,6 +24,7 @@ export async function startApi(env: Record<string, string | undefined> = process
 
   const queue = createQueue(url ? { connectionString: url } : { adapter: "memory" });
   await queue.start();
+  if (config.production && !(config.resendApiKey && config.mailFrom)) console.warn("[api] RESEND_API_KEY or MAIL_FROM is not set: verification and password-reset emails will not be delivered.");
   if (!url) console.warn("[api] DATABASE_URL is not set: embedded database and in-memory queue. A separate worker process will not see these jobs.");
 
   const app = createApp({ db: handle.db, enqueue: (name, payload, opts) => queue.enqueue(name, payload, opts), config });

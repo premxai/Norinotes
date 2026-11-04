@@ -1,0 +1,28 @@
+# Worker: collection, matching, tailoring and applying. No public ports. Deploy: fly deploy -c fly.worker.toml
+# `app` is a placeholder until the new Fly app is created. Secrets are set with `fly secrets set`, never here.
+app = "norinote-worker"
+primary_region = "sjc"
+kill_signal = "SIGTERM"
+kill_timeout = "60s"
+
+[build]
+  dockerfile = "Dockerfile"
+  build-target = "worker"
+
+[env]
+  NODE_ENV = "production"
+  WEB_URL = "https://jobs.norinote.xyz"
+  API_URL = "https://api.norinote.xyz"
+  # Dry runs only until real submission is switched on deliberately.
+  ALLOW_REAL_SUBMIT = "false"
+  BROWSER_POOL_SIZE = "2"
+  # Generated files: written here, copied to Supabase Storage (S3 API). Both apps must use the same ARTIFACTS_DIR so
+  # the keys match. S3_ENDPOINT is https://<project-ref>.supabase.co/storage/v1/s3; the keys are secrets.
+  ARTIFACTS_DIR = "/app/data/artifacts"
+  S3_REGION = "us-west-1"
+  S3_BUCKET = "artifacts"
+
+[[vm]]
+  # Chromium needs the memory; collection needs steady CPU.
+  size = "shared-cpu-2x"
+  memory = "2gb"

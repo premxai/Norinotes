@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { chromium, type Browser, type BrowserContext, type Page, type Route } from "playwright";
+import { artifactsRoot, fileStoreFromEnv, uploadFile, type FileStore } from "@norinote/shared/files";
 
 /** Sent with every page request: the project's polite identifier, appended to the browser's own user agent. */
 export const POLITE_UA_SUFFIX = "NorinoteJobAgent/1.0 (+https://norinote.xyz)";
@@ -48,6 +49,8 @@ export type BrowserPoolOptions = {
   headless?: boolean;
   /** Where failure screenshots and traces go. Default: a `norinote-artifacts` folder in the OS temp dir. */
   artifactsDir?: string;
+  /** Object storage screenshots and traces are also copied to (keys relative to ARTIFACTS_DIR). Default: from S3_*. */
+  fileStore?: FileStore | null;
   /** Per-run limit in ms (default 180 000). Applies to the function, not to the wait in the queue. */
   timeoutMs?: number;
   viewport?: { width: number; height: number };
@@ -159,12 +162,19 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
     else active--;
   }
 
+  const store = options.fileStore === undefined ? fileStoreFromEnv() : options.fileStore;
+  /** Copies a saved file to object storage. Best effort: a receipt without its copy is better than a lost result. */
+  async function copyToStore(file: string): Promise<void> {
+    if (store) await uploadFile(store, file, artifactsRoot()).catch(() => false);
+  }
+
   async function takeScreenshot(page: Page | undefined, label: string, tag: string): Promise<string | undefined> {
     if (!page || page.isClosed()) return undefined;
     try {
       await mkdir(artifactsDir, { recursive: true });
       const file = path.join(artifactsDir, `${safe(label)}-${tag}-${Date.now()}.png`);
       await page.screenshot({ path: file, fullPage: true, timeout: 8000 });
+      await copyToStore(file);
       return file;
     } catch {
       return undefined;
@@ -188,6 +198,7 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
           const file = path.join(artifactsDir, `${safe(label)}-trace-${Date.now()}.zip`);
           await context.tracing.stop({ path: file });
           artifacts.tracePath = file;
+          await copyToStore(file);
         } catch {
           // The trace is a debugging aid; losing it must not hide the real error.
         }

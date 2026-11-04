@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { companies, eq, type Db } from "@norinote/db";
+import { companies, eq, jobSpecs, type Db } from "@norinote/db";
 import { PendingQuestion } from "@norinote/shared";
 import { answerQuestions } from "@norinote/answers";
 import {
@@ -7,7 +7,9 @@ import {
 } from "@norinote/apply";
 import { AiUnavailableError } from "@norinote/ai";
 import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
-import { feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, type DueBoard } from "@norinote/ingest";
+import {
+  feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, sweepStaleJobs, type DueBoard,
+} from "@norinote/ingest";
 import { createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
 import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
 import { JOBS, type Handler, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
@@ -34,6 +36,10 @@ export type Consumers = {
   enqueueValidations(): Promise<number>;
   /** Matches the jobs understood so far right now instead of waiting for the quiet period. */
   flushMatchBatch(): Promise<void>;
+  /** One run of the storage sweep (see `sweepStaleJobs`); logs and returns how many jobs it trimmed. A run already going is not doubled. */
+  sweepJobs(): Promise<number>;
+  /** Ends a running sweep after its current batch and waits for it. */
+  stopSweep(): Promise<void>;
 };
 
 /** Ids in a payload, for the one log line per job. Never the payload itself. */
@@ -187,6 +193,37 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return queued;
   }
 
+  /** The job of an application gets back what lean storage dropped: its description and its spec (and embedding). */
+  async function restoreJob(applicationId: string): Promise<LogFields> {
+    const app = await loadApplication(db, applicationId);
+    if (!app) return {};
+    let described = "n/a";
+    try { described = await fillJobDescription(db, app.jobId, { fetch: deps.fetch }); } catch (err) { described = "failed"; log.warn("prepare.describe_failed", { jobId: app.jobId, error: err instanceof Error ? err.message : String(err) }); }
+    const [spec] = await db.select({ id: jobSpecs.id }).from(jobSpecs).where(eq(jobSpecs.jobId, app.jobId)).limit(1);
+    if (spec) return described === "has_text" ? {} : { described };
+    try { await understandJob(db, app.jobId); } catch (err) { log.warn("prepare.understand_failed", { jobId: app.jobId, error: err instanceof Error ? err.message : String(err) }); return { described, understood: false }; }
+    return { described, understood: true };
+  }
+
+  let sweeping: Promise<number> | null = null;
+  const sweepAbort = new AbortController();
+  /** Lean storage: blank the text and drop specs and embeddings of jobs that aged out and nobody refers to. */
+  function sweepJobs(): Promise<number> {
+    return (sweeping ??= (async () => {
+      const started = Date.now();
+      try {
+        const r = await sweepStaleJobs(db, { now: now(), batchSize: config.jobSweepBatch, signal: sweepAbort.signal });
+        log.info("jobs.sweep", { ok: true, ms: Date.now() - started, ...r });
+        return r.jobs;
+      } catch (err) {
+        log.error("jobs.sweep", { ok: false, ms: Date.now() - started, error: err instanceof Error ? err.message : String(err) });
+        return 0;
+      } finally {
+        sweeping = null;
+      }
+    })());
+  }
+
   // ingest.poll-board: one board's feed into `jobs`. A new job is understood (one model call) only when it could be shown
   // to somebody: it fits an enabled lane of some user. The rest wait until a lane that fits them exists (match.user below).
   await queue.work(JOBS.ingestPollBoard, instrument(log, JOBS.ingestPollBoard, async ({ companyId }) => {
@@ -208,7 +245,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     const wanted = await jobsFittingLanes(db, result.newJobIds, { now: now() });
     const understand = await enqueueUnderstand(wanted);
     return {
-      board: `${company.atsType}/${company.atsToken}`, added: result.added, updated: result.updated, closed: result.closed, total: result.total,
+      board: `${company.atsType}/${company.atsToken}`, added: result.added, updated: result.updated, closed: result.closed, total: result.total, trimmed: result.trimmed,
       understand, notWanted: result.newJobIds.length - wanted.length, skipped: result.skipped,
       status: result.status, demand,
       ...(result.previousStatus === "candidate" ? { validated: result.status } : {}),
@@ -262,9 +299,13 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     };
   }));
 
-  // prepare.application: tailored resume and standard answers, ready before the click.
+  // prepare.application: tailored resume and standard answers, ready before the click. An older job may have been
+  // stored without its description, or trimmed by the sweep (it was nobody's until now): read the posting again and
+  // understand it first, so tailoring and answers have the job to work from. Neither failing stops the preparation.
   await queue.work(JOBS.prepareApplication, instrument(log, JOBS.prepareApplication, async (payload) => {
+    const restored = await restoreJob(payload.applicationId);
     await createPrepareHandler(db, apply)(payload);
+    return restored;
   }));
 
   // apply.run: the browser step; afterwards, questions the form asked get answered from the bank when they can be.
@@ -282,5 +323,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
   const forwarder = createStubForwarder((line) => log.info("inbox.forward", { line }));
   await queue.work(JOBS.inboxReceive, instrument(log, JOBS.inboxReceive, async ({ messageId }) => handleInboxReceive(db, messageId, { model: smallModel, forwarder })));
 
-  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush() };
+  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs,
+    stopSweep: async () => { sweepAbort.abort(); await sweeping; },
+  };
 }

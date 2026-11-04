@@ -16,10 +16,10 @@ async function seed(atsType: "workday" | "greenhouse", text: string) {
   return j!.id;
 }
 
-async function withFetchJob<T>(fetchJob: Connector["fetchJob"], fn: () => Promise<T>): Promise<T> {
-  const original = CONNECTORS.workday;
-  CONNECTORS.workday = { ...original, ready: true, fetchJob };
-  try { return await fn(); } finally { CONNECTORS.workday = original; }
+async function withFetchJob<T>(fetchJob: Connector["fetchJob"], fn: () => Promise<T>, atsType: "workday" | "greenhouse" = "workday"): Promise<T> {
+  const original = CONNECTORS[atsType];
+  CONNECTORS[atsType] = { ...original, ready: true, fetchJob };
+  try { return await fn(); } finally { CONNECTORS[atsType] = original; }
 }
 const posting = (text: string) => ({
   atsType: "workday" as const, externalId: "R-1", companyName: "Acme", companyToken: "acme|wd5|S", title: "Engineer", location: null, remote: false,
@@ -36,13 +36,21 @@ describe("fillJobDescription", () => {
     expect((await t.db.select().from(jobs).where(eq(jobs.id, id)))[0]?.descriptionText).toBe("Build things.");
   });
 
-  it("does nothing when the job already has text, and never reads systems whose list carries the text", async () => {
+  it("does nothing when the job already has text", async () => {
     const has = await seed("workday", "already here");
     const never = async () => { throw new Error("must not be called"); };
     expect(await withFetchJob(never, () => fillJobDescription(t.db, has))).toBe("has_text");
-    const gh = await seed("greenhouse", "");
-    expect(await fillJobDescription(t.db, gh)).toBe("unsupported");
     expect(await fillJobDescription(t.db, "00000000-0000-4000-8000-000000000000")).toBe("missing");
+  });
+
+  it("refills a job stored without its text (not fresh when collected, or swept) on a system whose list carries text", async () => {
+    const id = await seed("greenhouse", "");
+    const calls: string[] = [];
+    const res = await withFetchJob(async (token, externalId) => { calls.push(`${token}/${externalId}`); return { ...posting("Back again."), atsType: "greenhouse" as const }; },
+      () => fillJobDescription(t.db, id), "greenhouse");
+    expect(res).toBe("filled");
+    expect(calls).toEqual(["acme/R-1"]);
+    expect((await t.db.select().from(jobs).where(eq(jobs.id, id)))[0]?.descriptionText).toBe("Back again.");
   });
 
   it("reports a posting that is gone and leaves an empty description alone", async () => {

@@ -75,7 +75,8 @@ export async function addJobByUrl(db: Db, url: string, opts: AddJobOptions = {})
 
   const now = opts.now ?? new Date();
   const companyId = await ensureCompany(db, connector.atsType, token, fetched.companyName, "url");
-  const { ids, newIds } = await upsertJobs(db, companyId, connector.atsType, [fetched], now);
+  // Whatever its age: the user picked this job, and an older one stored without its text gets it back here.
+  const { ids, newIds } = await upsertJobs(db, companyId, connector.atsType, [fetched], now, { keepText: true });
   const id = ids[0];
   if (!id) throw new Error("the job was not stored");
   const [job] = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);

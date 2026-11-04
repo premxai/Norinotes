@@ -47,6 +47,32 @@ describe("resumes", () => {
     expect((await api.call("GET", "/api/resumes/not-an-id", { cookie: a.cookie })).status).toBe(404);
   });
 
+  it("serves a PDF from object storage when this machine does not have it, and deletes it with the account", async () => {
+    const stored = new Map<string, Uint8Array>();
+    const files = {
+      async put(key: string, body: Uint8Array) { stored.set(key, body); },
+      async get(key: string) { return stored.get(key) ?? null; },
+      async deletePrefix(prefix: string) { let n = 0; for (const k of [...stored.keys()]) if (k.startsWith(prefix)) { stored.delete(k); n++; } return n; },
+    };
+    const remote = await makeApi({ files });
+    const c = await remote.signup("files-c@example.com");
+    const { job } = await seedJob(remote.db);
+    const app = await seedApplication(remote.db, c.user.id, job.id);
+    // Made by the worker on another machine: recorded under the same ARTIFACTS_DIR, present only in storage.
+    const pdfPath = path.join(remote.artifactsDir, "resumes", c.user.id, "r9.pdf");
+    stored.set(`resumes/${c.user.id}/r9.pdf`, new TextEncoder().encode("%PDF-1.4 stored"));
+    const [resume] = await remote.db.insert(resumes).values({ applicationId: app.id, content: { name: "Ada" }, pdfPath, pages: 1 }).returning();
+
+    const res = await remote.app.request(`/api/resumes/${resume!.id}.pdf`, { headers: { cookie: c.cookie } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    expect(await res.text()).toBe("%PDF-1.4 stored");
+
+    expect((await remote.call("DELETE", "/api/auth/account", { cookie: c.cookie, body: { confirm: "files-c@example.com" } })).status).toBe(200);
+    expect(stored.size).toBe(0);
+    await remote.close();
+  });
+
   it("does not serve a PDF that is recorded outside the artifacts directory", async () => {
     const { job } = await seedJob(api.db);
     const app = await seedApplication(api.db, a.user.id, job.id);

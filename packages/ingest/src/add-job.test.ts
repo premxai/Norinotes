@@ -35,6 +35,16 @@ describe("addJobByUrl", () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 
+  it("gives an older job that was stored without its text (not fresh, or swept) its description back", async () => {
+    const f = routeFetch({ [GH_ONE]: () => json(ghJob) });
+    const first = await addJobByUrl(t.db, "https://boards.greenhouse.io/acme/jobs/4001", opts(f));
+    await t.db.update(jobs).set({ descriptionText: "" }).where(eq(jobs.id, first.job.id));
+    const again = await addJobByUrl(t.db, "https://boards.greenhouse.io/acme/jobs/4001", opts(f));
+    expect(again).toMatchObject({ created: false, job: { id: first.job.id, descriptionText: "Build UI." } });
+    // Posted long before `now`: a poll alone would have stored it without text.
+    expect(again.job.postedAt!.getTime()).toBeLessThan(now.getTime() - 72 * 3_600_000);
+  });
+
   it("handles the Greenhouse embedded-form link and a scheme-less link", async () => {
     const f = routeFetch({ [GH_ONE]: () => json(ghJob) });
     const a = await addJobByUrl(t.db, "https://job-boards.greenhouse.io/embed/job_app?for=acme&token=4001", opts(f));

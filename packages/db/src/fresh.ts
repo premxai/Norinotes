@@ -14,3 +14,13 @@ export function freshJobSql(now: Date, hours: number = MAX_JOB_AGE_HOURS): SQL {
   const since = new Date(now.getTime() - Math.min(hours, MAX_JOB_AGE_HOURS) * HOUR_MS).toISOString();
   return sql`(${jobs.postedAt} >= ${since}::timestamptz OR (${jobs.postedAt} IS NULL AND ${jobs.firstSeenAt} >= ${since}::timestamptz AND ${jobs.firstSeenAt} > ${companies.firstReadAt}))`;
 }
+
+/**
+ * `freshJobSql` for one job in memory, for code that decides before a row is written (the collector stores jobs that are
+ * not fresh without their description). `firstReadAt` null means this read is the board's first.
+ */
+export function isFreshJob(job: { postedAt: Date | null; firstSeenAt: Date; firstReadAt: Date | null }, now: Date, hours: number = MAX_JOB_AGE_HOURS): boolean {
+  const since = now.getTime() - Math.min(hours, MAX_JOB_AGE_HOURS) * HOUR_MS;
+  if (job.postedAt) return job.postedAt.getTime() >= since;
+  return job.firstSeenAt.getTime() >= since && job.firstReadAt !== null && job.firstSeenAt.getTime() > job.firstReadAt.getTime();
+}

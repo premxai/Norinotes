@@ -127,6 +127,14 @@ describe("tailorResume", () => {
     expect(r.report.coverage.after.pct).toBe(100);
   });
 
+  it("copies the PDF to object storage under its path inside the artifacts directory", async () => {
+    const w = await seedWorld(t.db, "store");
+    const put: { key: string; type: string; bytes: number }[] = [];
+    const fileStore = { put: async (key: string, body: Uint8Array, type: string) => { put.push({ key, type, bytes: body.byteLength }); }, get: async () => null, deletePrefix: async () => 0 };
+    const r = await run(w, { fileStore });
+    expect(put).toEqual([{ key: `resumes/${w.userId}/${r.resumeId}.pdf`, type: "application/pdf", bytes: (await readFile(r.pdfPath)).byteLength }]);
+  });
+
   it("for a job the person does not fit: gaps are reported, and the facts summary never lists the posting's skills", async () => {
     const w = await seedWorld(t.db, "misfit", { withShortlist: false });
     const { jobSpecs } = await import("@norinote/db");

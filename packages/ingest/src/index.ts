@@ -7,6 +7,8 @@
  * - `pollBoard` reads one board, upserts its jobs, closes the ones missing from two complete reads, keeps the company registry row current and reports `newJobIds` so the
  *   worker can enqueue `understand.job`. Ingest never calls the queue itself.
  * - `addJobByUrl` adds one job from a pasted link (SSRF-guarded).
+ * - Lean storage: jobs that are not fresh are stored without their description, and `sweepStaleJobs` trims jobs that
+ *   aged out and nobody refers to (description, specs, embeddings); `fillJobDescription` reads the text back on demand.
  */
 
 export type { Connector, ConnectorCapabilities, HttpOptions, ListOptions, ListResult, NormalizedJob } from "./types.js";
@@ -54,6 +56,10 @@ export type { PollOptions, PollResult } from "./poll.js";
 
 export { fillJobDescription } from "./detail.js";
 export type { FillDescriptionResult } from "./detail.js";
+
+export { sweepStaleJobs, SWEEP_BATCH_SIZE, SWEEP_MAX_BATCHES, SWEEP_GRACE_HOURS } from "./sweep.js";
+export type { SweepOptions, SweepResult } from "./sweep.js";
+export type { UpsertOptions, UpsertResult } from "./store.js";
 
 export { addJobByUrl, UnsupportedJobUrlError, JobNotFoundError } from "./add-job.js";
 export type { AddJobOptions, AddJobResult } from "./add-job.js";

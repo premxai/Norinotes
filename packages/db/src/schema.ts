@@ -96,6 +96,8 @@ export const jobs = pgTable("jobs", {
   index("jobs_closed_posted_idx").on(t.closedAt, t.postedAt),
   index("jobs_dedupe_key_idx").on(t.dedupeKey),
   index("jobs_company_idx").on(t.companyId),
+  // Only jobs that still carry their text (fresh or referenced ones, a small share): the storage sweep walks these.
+  index("jobs_with_text_idx").on(t.id).where(sql`${t.descriptionText} <> ''`),
 ]);
 
 export const jobSpecs = pgTable("job_specs", {
@@ -225,6 +227,7 @@ export const shortlist = pgTable("shortlist", {
 }, (t) => [
   uniqueIndex("shortlist_user_job_uq").on(t.userId, t.jobId),
   index("shortlist_user_status_fit_idx").on(t.userId, t.status, t.fit.desc()),
+  index("shortlist_job_idx").on(t.jobId),
 ]);
 
 /**
@@ -235,7 +238,7 @@ export const savedJobs = pgTable("saved_jobs", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
   createdAt: createdAt(),
-}, (t) => [primaryKey({ columns: [t.userId, t.jobId] })]);
+}, (t) => [primaryKey({ columns: [t.userId, t.jobId] }), index("saved_jobs_job_idx").on(t.jobId)]);
 
 export const applications = pgTable("applications", {
   id: id(),
@@ -267,6 +270,7 @@ export const applications = pgTable("applications", {
   uniqueIndex("applications_user_job_uq").on(t.userId, t.jobId),
   uniqueIndex("applications_user_canonical_url_uq").on(t.userId, t.canonicalUrl),
   index("applications_user_status_idx").on(t.userId, t.status),
+  index("applications_job_idx").on(t.jobId),
 ]);
 
 export const resumes = pgTable("resumes", {

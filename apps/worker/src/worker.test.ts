@@ -9,7 +9,7 @@ import { assignInboxAddress, receiveInbound } from "@norinote/inbox";
 import type { JobSpecModelOutput } from "@norinote/match";
 import { MemoryQueue, JOBS } from "@norinote/queue";
 import { loadConfig, type WorkerConfig } from "./config.js";
-import { silentLogger } from "./log.js";
+import { createLogger, silentLogger } from "./log.js";
 import { startWorker, type Worker } from "./worker.js";
 
 const NOW = new Date("2026-10-31T12:00:00Z");
@@ -199,8 +199,8 @@ function stubPreparer(db: Db): Preparer & { calls: string[] } {
   };
 }
 
-async function seedApplication(db: Db, userId: string, title = "Backend Engineer"): Promise<string> {
-  const [c] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: `apply${n++}`, name: "Acme Robotics" }).returning();
+async function seedApplication(db: Db, userId: string, title = "Backend Engineer", token = `apply${n++}`): Promise<string> {
+  const [c] = await db.insert(companies).values({ atsType: "greenhouse", atsToken: token, name: "Acme Robotics" }).returning();
   const [j] = await db.insert(jobs).values({
     companyId: c!.id, atsType: "greenhouse", externalId: `e${n++}`, title, location: "Remote", remote: true, descriptionText: "", applyUrl: "https://boards.greenhouse.io/acme/jobs/1", dedupeKey: `d${n++}`,
   }).returning();
@@ -215,15 +215,43 @@ describe("worker: prepare and apply", () => {
   let queue: MemoryQueue;
   afterEach(async () => { await worker?.stop(); });
 
-  async function boot(driver: Driver, preparer: Preparer) {
+  /** No network: the seeded jobs have no text, so preparing reads their postings; every posting is gone unless `fetch` says otherwise. */
+  const gone = (async () => new Response("not found", { status: 404 })) as typeof globalThis.fetch;
+
+  async function boot(driver: Driver, preparer: Preparer, fetch: typeof globalThis.fetch = gone) {
     queue = new MemoryQueue();
     const pool = stubPool();
     worker = await startWorker({
-      db: t.db, queue, config: config(), log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool: pool.pool, preparer,
+      db: t.db, queue, config: config(), log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool: pool.pool, preparer, fetch,
       applyOverrides: { drivers: [driver] },
     });
     return pool;
   }
+
+  it("gives an older job back its description and spec before preparing it", async () => {
+    // Lean storage: the job was collected (or swept) without its text, and was understood by nobody.
+    const userId = await seedUser(t.db);
+    const appId = await seedApplication(t.db, userId, "Backend Engineer", "lean-acme");
+    const [app] = await t.db.select().from(applications).where(eq(applications.id, appId));
+    const [job] = await t.db.select().from(jobs).where(eq(jobs.id, app!.jobId));
+    const posting = (async (input: string | URL | Request) => {
+      if (String(input) !== `https://boards-api.greenhouse.io/v1/boards/lean-acme/jobs/${job!.externalId}?content=true`) return new Response("not found", { status: 404 });
+      return new Response(JSON.stringify({
+        id: job!.externalId, title: "Backend Engineer", absolute_url: "https://boards.greenhouse.io/lean-acme/jobs/1", location: { name: "Remote" },
+        company_name: "Acme Robotics", content: "&lt;p&gt;Build backend APIs in Python.&lt;/p&gt;",
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+    const preparer = stubPreparer(t.db);
+    await boot(stubDriver(() => filled()).driver, preparer, posting);
+
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: appId });
+    await queue.drain();
+    expect(queue.failures()).toEqual([]);
+    expect(preparer.calls).toEqual([appId]);
+    expect((await t.db.select().from(jobs).where(eq(jobs.id, job!.id)))[0]?.descriptionText).toBe("Build backend APIs in Python.");
+    expect(await t.db.select().from(jobSpecs).where(eq(jobSpecs.jobId, job!.id))).toHaveLength(1);
+    expect(await statusOf(t.db, appId)).toMatchObject({ status: "prepared" });
+  });
 
   it("prepares a queued application with the Preparer, then a click runs a dry-run apply on the pool", async () => {
     const userId = await seedUser(t.db);
@@ -306,6 +334,33 @@ describe("worker: inbox and lifecycle", () => {
     await worker.stop(); // stopping twice is harmless
   });
 
+  it("runs the storage sweep: trims a job out of the window that nobody refers to, keeps an applied one, logs the counts", async () => {
+    const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: `sweep${n++}`, name: "Old Co", firstReadAt: new Date(NOW.getTime() - 30 * 86_400_000) }).returning();
+    const posted = new Date(NOW.getTime() - 100 * 3_600_000);
+    const old = async (id: string) => (await t.db.insert(jobs).values({
+      companyId: c!.id, atsType: "greenhouse", externalId: id, title: "Engineer", descriptionText: "Long text.", applyUrl: `https://example.test/${id}`,
+      postedAt: posted, firstSeenAt: posted, dedupeKey: id,
+    }).returning())[0]!.id;
+    const nobodys = await old(`sweep-a${n++}`);
+    const applied = await old(`sweep-b${n++}`);
+    await t.db.insert(applications).values({ userId: await seedUser(t.db), jobId: applied, status: "submitted" });
+
+    const lines: Array<Record<string, unknown>> = [];
+    const worker = await startWorker({
+      db: t.db, queue: new MemoryQueue(), config: config(), log: createLogger((l) => lines.push(JSON.parse(l)), () => NOW), now: () => NOW,
+      scheduler: false, seed: false, pool: stubPool().pool,
+    });
+    try {
+      expect(await worker.consumers.sweepJobs()).toBeGreaterThanOrEqual(1);
+      expect(lines.find((l) => l.event === "jobs.sweep")).toMatchObject({ ok: true, more: false });
+      const text = async (id: string) => (await t.db.select().from(jobs).where(eq(jobs.id, id)))[0]?.descriptionText;
+      expect(await text(nobodys)).toBe("");
+      expect(await text(applied)).toBe("Long text.");
+    } finally {
+      await worker.stop();
+    }
+  });
+
   it("seeds the board registry and starts without a browser", async () => {
     const db = (await createTestDb());
     try {
@@ -325,5 +380,7 @@ describe("config", () => {
     expect(loadConfig({})).toMatchObject({ browserPoolSize: 3, scheduleEveryMs: 180_000, pollsPerHost: 4, hostBoardsPerRun: 8, validatePerRun: 50, databaseUrl: undefined });
     expect(loadConfig({ BROWSER_POOL_SIZE: "4", DATABASE_URL: "postgres://x", SCHEDULE_EVERY_MINUTES: "5" })).toMatchObject({ browserPoolSize: 4, scheduleEveryMs: 300_000, databaseUrl: "postgres://x" });
     expect(loadConfig({ BROWSER_POOL_SIZE: "nope" }).browserPoolSize).toBe(3);
+    expect(loadConfig({})).toMatchObject({ jobSweepEveryMs: 3_600_000, jobSweepBatch: 500 });
+    expect(loadConfig({ JOB_SWEEP_EVERY_MINUTES: "0", JOB_SWEEP_BATCH: "50" })).toMatchObject({ jobSweepEveryMs: 0, jobSweepBatch: 50 });
   });
 });

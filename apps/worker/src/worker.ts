@@ -95,6 +95,14 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     timer.unref();
   }
 
+  // Lean job storage: trim jobs that aged out of the 72-hour window and nobody refers to, every JOB_SWEEP_EVERY_MINUTES (60).
+  let sweepTimer: ReturnType<typeof setInterval> | null = null;
+  if (opts.scheduler !== false && config.jobSweepEveryMs > 0) {
+    void consumers.sweepJobs();
+    sweepTimer = setInterval(() => { void consumers.sweepJobs(); }, config.jobSweepEveryMs);
+    sweepTimer.unref();
+  }
+
   // Inbox retention: delete messages past INBOX_RETENTION_DAYS (default 90) or the user's own setting, every 6 hours.
   const stopRetention = opts.scheduler !== false ? startInboxRetention(db, { log: (event, fields) => log.info(event, fields) }) : () => undefined;
   // Telegram: daily shortlist, questions and events for linked chats (only with TELEGRAM_BOT_TOKEN). See docs/telegram.md.
@@ -105,6 +113,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
   let stopped: Promise<void> | null = null;
   const stop = () => (stopped ??= (async () => {
     if (timer) clearInterval(timer);
+    if (sweepTimer) clearInterval(sweepTimer);
+    await consumers.stopSweep();
     stopRetention();
     stopTelegram();
     await consumers.flushMatchBatch().catch(() => {});

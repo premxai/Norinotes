@@ -22,6 +22,10 @@ export type WorkerConfig = {
   matchBatchMs: number;
   /** One small-model sentence for the best matches of a rebuilt shortlist. Default on. */
   explainTop: number;
+  /** How often the storage sweep trims jobs that aged out and nobody refers to, in ms. 0 = off. Default 60 minutes. */
+  jobSweepEveryMs: number;
+  /** Jobs per sweep batch (one short transaction each). Default 500. */
+  jobSweepBatch: number;
   /** Where screenshots and resumes go. Unset = the packages' own defaults. */
   artifactsDir: string | undefined;
 };
@@ -44,6 +48,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     understandConcurrency: int(env.UNDERSTAND_CONCURRENCY, 4, 1),
     matchBatchMs: int(env.MATCH_BATCH_MS, 5000),
     explainTop: int(env.MATCH_EXPLAIN_TOP, 3),
+    jobSweepEveryMs: int(env.JOB_SWEEP_EVERY_MINUTES, 60) * 60_000,
+    jobSweepBatch: int(env.JOB_SWEEP_BATCH, 500, 1),
     artifactsDir: env.ARTIFACTS_DIR?.trim() || undefined,
   };
 }

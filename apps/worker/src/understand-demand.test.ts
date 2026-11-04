@@ -118,7 +118,10 @@ describe("understand on demand: after a board poll", () => {
     expect(titlesUnderstood).toEqual(["Backend Engineer", "Senior Backend Engineer, Payments"]);
     expect(queue.stats(JOBS.understandJob)).toMatchObject({ completed: 2, failed: 0 });
     const poll = lines.find((l) => l.queue === JOBS.ingestPollBoard);
-    expect(poll).toMatchObject({ ok: true, added: 5, understand: 2, notWanted: 3 });
+    expect(poll).toMatchObject({ ok: true, added: 5, understand: 2, notWanted: 3, trimmed: 1 });
+    // Lean storage: the job nobody can be shown was stored without its description.
+    expect(mine.find((j) => j.title === "Backend Engineer, Legacy")?.descriptionText).toBe("");
+    expect(mine.find((j) => j.title === "Marketing Manager")?.descriptionText).toContain("Marketing Manager");
   });
 
   it("enqueues nothing while nobody has a lane", async () => {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
-import { MAX_JOB_AGE_HOURS, freshJobSql } from "./fresh.js";
+import { MAX_JOB_AGE_HOURS, freshJobSql, isFreshJob } from "./fresh.js";
 import { companies, jobs } from "./schema.js";
 import { createTestDb, type TestDb } from "./testing.js";
 
@@ -70,5 +70,24 @@ describe("freshJobSql", () => {
     expect(await fresh(all)).toEqual([today, yesterday, undatedToday]);
     // Asking for more than 72 hours gets 72 hours.
     expect(await fresh(all, 24 * 365)).toEqual([today, yesterday, undatedToday]);
+  });
+});
+
+describe("isFreshJob", () => {
+  it("agrees with freshJobSql on dated, undated, first-read and never-read jobs", async () => {
+    const firstRead = hoursAgo(24 * 10);
+    const cases: { postedAt: Date | null; firstSeenAt: Date; firstReadAt: Date | null }[] = [
+      { postedAt: hoursAgo(71), firstSeenAt: hoursAgo(71), firstReadAt: firstRead },
+      { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(1), firstReadAt: firstRead },
+      { postedAt: null, firstSeenAt: hoursAgo(71), firstReadAt: firstRead },
+      { postedAt: null, firstSeenAt: hoursAgo(73), firstReadAt: firstRead },
+      { postedAt: null, firstSeenAt: firstRead, firstReadAt: firstRead },
+      { postedAt: null, firstSeenAt: hoursAgo(5), firstReadAt: null },
+    ];
+    const ids: string[] = [];
+    for (const c of cases) ids.push(await job(await company(c.firstReadAt), c.postedAt, c.firstSeenAt));
+    const kept = new Set(await fresh(ids));
+    expect(cases.map((c) => isFreshJob(c, NOW))).toEqual(ids.map((id) => kept.has(id)));
+    expect(cases.map((c) => isFreshJob(c, NOW))).toEqual([true, false, true, false, false, false]);
   });
 });

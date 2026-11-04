@@ -7,6 +7,9 @@ export type ApiConfig = {
   production: boolean;
   /** The only browser origin allowed to call the API with credentials. */
   webUrl: string;
+  /** LANDING_URL: the marketing site, which hosts sign-in and sign-up. Also allowed as a browser origin, and the base of
+   * the links in account emails when set. */
+  landingUrl: string | null;
   /** Public URL of the API; also accepted as an Origin on unsafe requests. */
   apiUrl: string | null;
   cookieName: string;
@@ -26,6 +29,9 @@ export type ApiConfig = {
   /** SESSION_SECRET: signs Telegram button data and derives the Telegram webhook secret. A fixed value in development. */
   sessionSecret: string | undefined;
   maxResumeBytes: number;
+  /** RESEND_API_KEY and MAIL_FROM: both set means account emails are really sent. */
+  resendApiKey: string | undefined;
+  mailFrom: string | undefined;
 };
 
 const clean = (v: string | undefined): string | undefined => v?.trim() || undefined;
@@ -37,6 +43,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     port: Number.isInteger(port) && port > 0 ? port : 4000,
     production,
     webUrl: (clean(env.WEB_URL) ?? "http://localhost:3000").replace(/\/+$/, ""),
+    landingUrl: clean(env.LANDING_URL)?.replace(/\/+$/, "") ?? null,
     apiUrl: clean(env.API_URL)?.replace(/\/+$/, "") ?? null,
     cookieName: clean(env.SESSION_COOKIE_NAME) ?? "norinote_session",
     secureCookies: production,
@@ -50,5 +57,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     telegramBotUsername: clean(env.TELEGRAM_BOT_USERNAME)?.replace(/^@/, "") ?? null,
     sessionSecret: clean(env.SESSION_SECRET) ?? (production ? undefined : DEV_SESSION_SECRET),
     maxResumeBytes: 10 * 1024 * 1024,
+    resendApiKey: clean(env.RESEND_API_KEY),
+    mailFrom: clean(env.MAIL_FROM),
   };
 }

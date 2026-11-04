@@ -8,6 +8,7 @@ import {
   and, applications, careerPointEmbeddings, careerPoints, companies, desc, eq, jobSpecs, jobs, profiles, resumes, shortlist, users, type Db,
 } from "@norinote/db";
 import { CareerPoint, FitMapEntry, JobSpec, type CareerPoint as CareerPointT } from "@norinote/shared";
+import { artifactsRoot, fileStoreFromEnv, storageKey, type FileStore } from "@norinote/shared/files";
 import { aliasGroupOf } from "./aliases.js";
 import { atsChecks } from "./ats.js";
 import { buildEvidence, buildRequirements, coverageScore, pointCorpus, type EvidenceIndex, type SimilarityFn } from "./evidence.js";
@@ -30,6 +31,8 @@ export type TailorInput = {
   applicationId?: string;
   /** Where PDFs are written (`<dir>/resumes/<userId>/<resumeId>.pdf`). Default: $ARTIFACTS_DIR or ./data/artifacts. */
   artifactsDir?: string;
+  /** Object storage the PDF is also copied to. Default: from S3_* (none when unset). */
+  fileStore?: FileStore | null;
   template?: ResumeTemplate;
   font?: FontId;
   size?: PageSize;
@@ -294,10 +297,13 @@ export async function tailorResume(db: Db, input: TailorInput): Promise<TailorRe
   const ats: AtsReport = { ...atsChecks(finalContent, rendered.html, spec, rendered.pages), tailoring: report };
 
   const resumeId = randomUUID();
-  const dir = path.resolve(input.artifactsDir ?? process.env.ARTIFACTS_DIR ?? path.join("data", "artifacts"), "resumes", userId);
+  const root = input.artifactsDir ? path.resolve(input.artifactsDir) : artifactsRoot();
+  const dir = path.join(root, "resumes", userId);
   await mkdir(dir, { recursive: true });
   const pdfPath = path.join(dir, `${resumeId}.pdf`);
   await writeFile(pdfPath, rendered.pdf);
+  const store = input.fileStore === undefined ? fileStoreFromEnv() : input.fileStore;
+  if (store) await store.put(storageKey(pdfPath, root)!, rendered.pdf, "application/pdf");
 
   await db.insert(resumes).values({
     id: resumeId, applicationId, content: finalContent as unknown as Record<string, unknown>, changes, pdfPath,

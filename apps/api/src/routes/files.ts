@@ -4,6 +4,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { and, applications, eq, resumes, sql } from "@norinote/db";
+import { storageKey, type FileStore } from "@norinote/shared/files";
 import { requireUser } from "../auth/session.js";
 import { notFound } from "../http.js";
 import { toResume } from "../serialize.js";
@@ -19,19 +20,23 @@ export function isInside(root: string, target: string): boolean {
   return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
 }
 
-/** Streams a file as the response. 404 when it is missing or not a regular file. */
-async function sendFile(file: string, inline: boolean, name: string): Promise<Response> {
-  const info = await stat(file).catch(() => null);
-  if (!info?.isFile()) throw notFound("File not found");
-  const type = TYPES[path.extname(file).toLowerCase()] ?? "application/octet-stream";
-  return new Response(Readable.toWeb(createReadStream(file)) as unknown as ReadableStream, {
-    headers: {
-      "Content-Type": type,
-      "Content-Length": String(info.size),
-      "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${name.replace(/[^\w.-]/g, "_")}"`,
-      "Cache-Control": "private, no-store",
-    },
+/**
+ * Sends a file under `root` as the response: from this machine's disk, or else from object storage (the worker that
+ * made it runs elsewhere). 404 when neither has it.
+ */
+async function sendFile(file: string, inline: boolean, name: string, root: string, store: FileStore | null): Promise<Response> {
+  const headers = (size: number) => ({
+    "Content-Type": TYPES[path.extname(file).toLowerCase()] ?? "application/octet-stream",
+    "Content-Length": String(size),
+    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${name.replace(/[^\w.-]/g, "_")}"`,
+    "Cache-Control": "private, no-store",
   });
+  const info = await stat(file).catch(() => null);
+  if (info?.isFile()) return new Response(Readable.toWeb(createReadStream(file)) as unknown as ReadableStream, { headers: headers(info.size) });
+  const key = store ? storageKey(file, root) : null;
+  const body = key ? await store!.get(key) : null;
+  if (!body) throw notFound("File not found");
+  return new Response(body, { headers: headers(body.byteLength) });
 }
 
 export function resumeRoutes(ctx: Ctx): Hono<AppEnv> {
@@ -54,7 +59,7 @@ export function resumeRoutes(ctx: Ctx): Hono<AppEnv> {
     if (!stored) throw notFound("This resume has no PDF yet");
     const target = path.resolve(stored);
     if (!isInside(ctx.config.artifactsDir, target)) throw notFound("Resume not found");
-    return sendFile(target, true, "resume.pdf");
+    return sendFile(target, true, "resume.pdf", ctx.config.artifactsDir, ctx.files);
   });
 
   return r;
@@ -90,7 +95,7 @@ export function artifactRoutes(ctx: Ctx): Hono<AppEnv> {
       return path.resolve(root, p.replace(/^.*artifacts[\\/]/, "")) === target;
     });
     if (!mine) throw notFound("File not found");
-    return sendFile(target, TYPES[path.extname(target).toLowerCase()] !== "application/zip", path.basename(target));
+    return sendFile(target, TYPES[path.extname(target).toLowerCase()] !== "application/zip", path.basename(target), root, ctx.files);
   });
 
   return r;

@@ -40,7 +40,7 @@ export function deviceName(ua: string | null): string {
 async function sendVerification(ctx: Ctx, userId: string, to: string): Promise<void> {
   try {
     const token = await issueToken(ctx, userId, "email_verification", 3 * 24 * HOUR);
-    await ctx.mailer.send({ to, ...verificationEmail(`${ctx.config.webUrl}/verify-email?token=${encodeURIComponent(token)}`) });
+    await ctx.mailer.send({ to, ...verificationEmail(`${ctx.config.landingUrl ?? ctx.config.webUrl}/verify-email?token=${encodeURIComponent(token)}`) });
   } catch (err) {
     ctx.log(`[api] could not send verification email: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -106,7 +106,7 @@ export function authRoutes(ctx: Ctx): Hono<AppEnv> {
     if (user) {
       try {
         const token = await issueToken(ctx, user.id, "password_reset", HOUR);
-        await ctx.mailer.send({ to: user.email, ...resetEmail(`${ctx.config.webUrl}/reset-password?token=${encodeURIComponent(token)}`) });
+        await ctx.mailer.send({ to: user.email, ...resetEmail(`${ctx.config.landingUrl ?? ctx.config.webUrl}/reset-password?token=${encodeURIComponent(token)}`) });
       } catch (err) {
         ctx.log(`[api] could not send reset email: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -181,6 +181,7 @@ export function authRoutes(ctx: Ctx): Hono<AppEnv> {
     // Every table that holds the user's data cascades from users.
     await db.delete(users).where(eq(users.id, user.id));
     await rm(path.join(ctx.config.artifactsDir, "resumes", user.id), { recursive: true, force: true }).catch(() => undefined);
+    if (ctx.files) await ctx.files.deletePrefix(`resumes/${user.id}/`).catch((err: unknown) => ctx.log(`[api] could not delete stored resumes: ${err instanceof Error ? err.message : String(err)}`));
     clearSessionCookie(ctx, c);
     return c.json({ ok: true });
   });

@@ -29,6 +29,9 @@ const t5 = new Date("2026-10-31T22:00:00Z");
 const board = { atsType: "greenhouse", token: "acme" } as const;
 const ghFetch = (body: unknown) => routeFetch({ [GH]: () => json(body) });
 const withJobs = (...ids: number[]) => ({ jobs: ghBoard.jobs.filter((j) => ids.includes(j.id)) });
+/** The fixture's dated jobs published 2 hours before t1, so they are fresh and keep their text. */
+const RECENT = "2026-10-31T08:00:00Z";
+const recent = <J extends { first_published?: string }>(body: { jobs: J[] }) => ({ jobs: body.jobs.map((j) => (j.first_published ? { ...j, first_published: RECENT } : j)) });
 
 async function allJobs() {
   return t.db.select().from(jobs).orderBy(jobs.externalId);
@@ -49,7 +52,7 @@ const serving = (read: () => ListResult): Partial<Connector> => ({ ready: true, 
 
 describe("pollBoard", () => {
   it("adds new jobs, creates the company row and reports newJobIds", async () => {
-    const res = await pollBoard(t.db, board, { now: t1, fetch: ghFetch(ghBoard) });
+    const res = await pollBoard(t.db, board, { now: t1, fetch: ghFetch(recent(ghBoard)) });
     expect(res).toMatchObject({ added: 3, updated: 0, closed: 0, total: 3, skipped: null, complete: true, notFound: false, notModified: false });
     const rows = await allJobs();
     expect(rows).toHaveLength(3);
@@ -70,7 +73,7 @@ describe("pollBoard", () => {
     expect(first?.descriptionText).not.toContain("<");
     expect(first?.firstSeenAt.getTime()).toBe(t1.getTime());
     expect(first?.lastSeenAt.getTime()).toBe(t1.getTime());
-    expect(first?.postedAt?.toISOString()).toBe("2025-02-10T14:00:00.000Z");
+    expect(first?.postedAt?.toISOString()).toBe("2026-10-31T08:00:00.000Z");
     expect(first?.dedupeKey).toBe("acme robotics|senior frontend engineer|remote us");
   });
 
@@ -86,9 +89,9 @@ describe("pollBoard", () => {
   });
 
   it("updates known jobs without duplicating, keeping first_seen_at and moving last_seen_at", async () => {
-    await pollBoard(t.db, board, { now: t1, fetch: ghFetch(ghBoard) });
+    await pollBoard(t.db, board, { now: t1, fetch: ghFetch(recent(ghBoard)) });
     const before = await allJobs();
-    const edited = { jobs: ghBoard.jobs.map((j) => (j.id === 4002 ? { ...j, title: "Senior Data Engineer", content: "&lt;p&gt;New text&lt;/p&gt;" } : j)) };
+    const edited = recent({ jobs: ghBoard.jobs.map((j) => (j.id === 4002 ? { ...j, title: "Senior Data Engineer", content: "&lt;p&gt;New text&lt;/p&gt;" } : j)) });
     const res = await pollBoard(t.db, board, { now: t2, fetch: ghFetch(edited) });
     expect(res).toMatchObject({ added: 0, updated: 3, closed: 0, total: 3, newJobIds: [] });
     const after = await allJobs();
@@ -112,8 +115,8 @@ describe("pollBoard", () => {
   });
 
   it("does not wipe a stored description when a later list read has none (Workday lists carry no text)", async () => {
-    await pollBoard(t.db, board, { now: t1, fetch: ghFetch(ghBoard) });
-    const textless = { jobs: ghBoard.jobs.map((j) => ({ ...j, content: "" })) };
+    await pollBoard(t.db, board, { now: t1, fetch: ghFetch(recent(ghBoard)) });
+    const textless = recent({ jobs: ghBoard.jobs.map((j) => ({ ...j, content: "" })) });
     await pollBoard(t.db, board, { now: t2, fetch: ghFetch(textless) });
     expect((await allJobs()).find((r) => r.externalId === "4001")?.descriptionText).toContain("Build UI with React");
   });
@@ -415,7 +418,7 @@ describe("pollBoard", () => {
   });
 
   it("strips NUL characters that Postgres text cannot store", async () => {
-    const feed = { jobs: [{ ...ghBoard.jobs[0]!, title: "Eng\u0000ineer", content: "&lt;p&gt;a\u0000b&lt;/p&gt;" }] };
+    const feed = { jobs: [{ ...ghBoard.jobs[0]!, first_published: RECENT, title: "Eng\u0000ineer", content: "&lt;p&gt;a\u0000b&lt;/p&gt;" }] };
     await pollBoard(t.db, board, { now: t1, fetch: ghFetch(feed) });
     expect((await allJobs())[0]).toMatchObject({ title: "Engineer", descriptionText: "ab" });
   });
@@ -452,5 +455,35 @@ describe("pollBoard", () => {
     const job = feedJob("R-1", { atsType: "workday", companyToken: wd.token, title: "Engineer" });
     await withConnector("workday", serving(() => ({ jobs: [job], complete: true })), () => pollBoard(t.db, wd, { now: t1 }));
     expect((await t.db.select().from(jobs))[0]?.dedupeKey).toBe(dedupeKey({ companyName: "Initech Systems", title: "Engineer", location: null }));
+  });
+});
+
+describe("pollBoard: only fresh jobs keep their description", () => {
+  const old = new Date(t1.getTime() - 100 * HOUR);
+  const fresh = new Date(t1.getTime() - 2 * HOUR);
+  const texts = async () => Object.fromEntries((await allJobs()).map((r) => [r.externalId, r.descriptionText]));
+  const read = (list: NormalizedJob[], now: Date) => withConnector("greenhouse", serving(() => ({ jobs: list, complete: true })), () => pollBoard(t.db, board, { now }));
+
+  it("stores a job posted more than 72 hours ago, or undated on the board's first read, without its description", async () => {
+    const res = await read([feedJob("old", { postedAt: old }), feedJob("new", { postedAt: fresh }), feedJob("undated")], t1);
+    expect(res).toMatchObject({ added: 3, trimmed: 2 });
+    expect(await texts()).toEqual({ new: "text", old: "", undated: "" });
+  });
+
+  it("does not refill a trimmed job on later polls, and keeps the text of an undated job first seen on a later read", async () => {
+    const list = [feedJob("old", { postedAt: old }), feedJob("undated")];
+    await read(list, t1);
+    const res = await read([...list, feedJob("later")], t2);
+    expect(res).toMatchObject({ added: 1, updated: 2, trimmed: 2 });
+    expect(await read([...list, feedJob("later")], t3)).toMatchObject({ trimmed: 2 });
+    expect(await texts()).toEqual({ later: "text", old: "", undated: "" });
+  });
+
+  it("keeps the text an older job got back for a user, and refills a job whose feed dates it recently again", async () => {
+    await read([feedJob("needed", { postedAt: old }), feedJob("reposted", { postedAt: old })], t1);
+    // A pasted link or an application read the posting again (addJobByUrl, fillJobDescription).
+    await t.db.update(jobs).set({ descriptionText: "read again" }).where(eq(jobs.externalId, "needed"));
+    await read([feedJob("needed", { postedAt: old }), feedJob("reposted", { postedAt: t2 })], t2);
+    expect(await texts()).toEqual({ needed: "read again", reposted: "text" });
   });
 });

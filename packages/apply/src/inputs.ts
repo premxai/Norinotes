@@ -2,6 +2,7 @@ import { applications, asc, companies, eq, inboxAddresses, jobs, profiles, resum
 import { loadRecipe, type WidgetStrategy } from "./recipes.js";
 import type { Db } from "@norinote/db";
 import { parseWorkAuthMap } from "@norinote/shared";
+import { artifactsRoot, ensureLocalFile, fileStoreFromEnv } from "@norinote/shared/files";
 import type { ApplicantProfile } from "./types.js";
 
 /** Everything the driver needs, read from the database at the moment the browser step starts. */
@@ -86,6 +87,8 @@ export async function loadApplyInputs(db: Db, applicationId: string): Promise<Ap
   if (!row.app.resumeId) throw new MissingInputError("no tailored resume is attached to this application");
   const [resume] = await db.select().from(resumes).where(eq(resumes.id, row.app.resumeId)).limit(1);
   if (!resume?.pdfPath) throw new MissingInputError("the tailored resume has no PDF yet");
+  // The PDF may have been made before this machine started (a restarted worker): fetch it back from object storage.
+  await ensureLocalFile(fileStoreFromEnv(), resume.pdfPath, artifactsRoot());
 
   const fingerprint = typeof (row.app.receipt?.prepared as { fingerprint?: unknown } | undefined)?.fingerprint === "string"
     ? (row.app.receipt!.prepared as { fingerprint: string }).fingerprint : undefined;

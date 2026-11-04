@@ -35,6 +35,8 @@ export type PollResult = {
   total: number;
   /** Ids of the added jobs. The worker enqueues `understand.job` for each; ingest never touches the queue. */
   newJobIds: string[];
+  /** Jobs in the feed that are not fresh, so their description was not stored (see `upsertJobs`). */
+  trimmed: number;
   /** Set (and nothing else done) when the board belongs to a blocked reposting aggregator. */
   skipped: "blocked" | null;
   /** The feed answered 304: nothing changed, no job was touched. */
@@ -67,7 +69,7 @@ export type PollOptions = {
 type CompanyRow = typeof companies.$inferSelect;
 
 const emptyResult = (skipped: PollResult["skipped"]): PollResult => ({
-  added: 0, updated: 0, closed: 0, total: 0, newJobIds: [], skipped,
+  added: 0, updated: 0, closed: 0, total: 0, newJobIds: [], trimmed: 0, skipped,
   notModified: false, notFound: false, complete: true, status: null, previousStatus: null, nextPollAt: null,
 });
 
@@ -102,7 +104,7 @@ async function recordBlockedByHost(db: Db, row: CompanyRow, now: Date, err: Bloc
  * Read one board's public feed and bring the `jobs` table and the company's registry row in line with it.
  *
  * - New jobs are inserted (`first_seen_at`), known jobs refreshed (`last_seen_at`, description, `posted_at` kept when
- *   the feed has no date) and reopened if they had closed. Postings that name a blocked aggregator are dropped; a
+ *   the feed has no date) and reopened if they had closed. Jobs that are not fresh are stored without their description. Postings that name a blocked aggregator are dropped; a
  *   blocked board is skipped without any request.
  * - A job closes only after two complete reads in a row that do not list it (`jobs.missing_reads`). An incomplete read
  *   never closes or counts anything; a job seen again resets its counter.
@@ -196,7 +198,7 @@ export async function pollBoard(db: Db, board: { atsType: AtsType; token: string
   }
 
   return db.transaction(async (tx) => {
-    const { ids, newIds, updated } = await upsertJobs(tx as unknown as Db, company.id, atsType, kept, now);
+    const { ids, newIds, updated, trimmed } = await upsertJobs(tx as unknown as Db, company.id, atsType, kept, now);
 
     // Two complete reads in a row must miss a job before it closes; an incomplete read counts nothing.
     let closed = 0;
@@ -244,7 +246,7 @@ export async function pollBoard(db: Db, board: { atsType: AtsType; token: string
     }).where(eq(companies.id, company.id));
 
     return {
-      added: newIds.length, updated, closed, total: count, newJobIds: newIds, skipped: null,
+      added: newIds.length, updated, closed, total: count, newJobIds: newIds, trimmed, skipped: null,
       notModified: false, notFound: false, complete: listed.complete, status, previousStatus, nextPollAt,
     };
   });
