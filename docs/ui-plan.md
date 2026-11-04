@@ -2,7 +2,7 @@
 
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
 Onboarding is built and passed QA as well.
-The dashboard is planned and part 4a (the shell and Today) is built; 4b is next.
+The dashboard is planned and part 4a (the shell and Today) is built; 4b is planned and wireframed.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -16,7 +16,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
-| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)). Next: plan 4b |
+| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b planned, wireframed and specified ([dashboard-4b-spec.md](dashboard-4b-spec.md)). Next: build 4b |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -486,6 +486,89 @@ today. Nori checks again overnight"), and every job handled ("That's today done"
 **Also in 4a:** the cap meter in the rail ("2 of 5 today", from `agent/status`; autopilot off shows "Nori asks before
 every send"); sign-out under the account name; the "Confirm your email" banner until it's confirmed, with **Send it
 again** (`POST /api/auth/resend-verification`).
+
+### Part 4b: Applications and Inbox
+
+Status: planned and wireframed: the "Dashboard 4b: Applications and Inbox" page of the design canvas (Applications
+with one application's page, the Inbox, and a phone board for both; light and dark). Specified in [dashboard-4b-spec.md](dashboard-4b-spec.md), which wins where it and this plan
+differ. Next: build.
+
+| Question | Decision |
+|---|---|
+| Applications | **A list with filters.** Newest first; tabs for All, In progress, Sent, Replied and Closed with counts; each row's state as a chip. A row opens the application's own page, `/applications/:id` |
+| Results | **A week strip and a few numbers** at the top of Applications: this week's days with what happened on each, then honest numbers, shown as counts until there are 5 or more |
+| Inbox | **A list and a reading pane.** Messages on the left with a kind chip, the open one on the right; codes large with **Copy**; each message links to its application. Phones: the list, then the message on its own page |
+| Inbox settings | **In the Inbox:** your Nori address, forwarding a copy to your own email, and how long messages are kept |
+
+#### What the API already does
+
+| Need | Endpoint |
+|---|---|
+| Every application, newest first | `GET /api/applications` (up to 200, with the job and tailored resume) |
+| One application in full | `GET /api/applications/:id` (job, tailored resume with changes, run log, receipt) |
+| Its outcomes, and marking one by hand | `GET /api/applications/:id/outcomes` (state: pending, reply, interview, offer, rejection, no_response); `POST` `{ kind }`; `DELETE /:outcomeId` |
+| The numbers | `GET /api/outcomes/summary`: sent, settled, responses, interviews, rejections, offers, no response, rates and the median days to a first reply. Rates are null below 5 settled applications |
+| The inbox | `GET /api/inbox` (newest first, with the linked application), `GET /api/inbox/:id` (the full message) |
+| The address and settings | `GET /api/inbox/address`, `PUT /api/inbox/settings` `{ forwardTo, forwardEnabled, retentionDays }` |
+
+An application counts as **no response** after 30 days without an outcome. Replies that go to the person's own mailbox
+can't be seen by the Nori inbox, which is why outcomes can be marked by hand.
+
+#### Applications (`/applications`)
+
+- **The week strip:** Monday to Sunday of the current week, one column per day with small marks for what happened
+  (sent, reply, interview, offer, rejection), today outlined. Tapping a day filters the list to it. Previous and next
+  week buttons.
+- **The numbers, under the strip:** "12 sent · 3 replies · 1 interview", and once there are 5 or more settled
+  applications, "Response rate 25%" and "Median 3 days to a first reply". Below 5: counts only, with "Rates show once 5
+  applications have had an answer or 30 days."
+- **Filter tabs:** All, In progress (queued to awaiting a code, and needs you), Sent (submitted, no outcome yet),
+  Replied (reply, interview or offer), Closed (rejection, no response, failed). Each with its count.
+- **A row:** the job title and company, the state chip (Applying, Needs you, Waiting, Reply, Interview, Offer, Rejected,
+  No response, Didn't go through), when it was sent, and one line of what happened last ("Replied in 2 days",
+  "Interview on 12 Nov" when the message says so, or "Sent 4 Nov").
+- **Empty:** "Nothing sent yet. Applications you send from Today show up here."
+
+#### One application (`/applications/:id`)
+
+- **Header:** title, company, place, the state chip and when it was sent; **Open the job posting**.
+- **What happened, newest first:** outcomes and inbox messages for this application, then the run log, then "Created".
+  Messages open in the Inbox.
+- **Mark what happened:** Reply, Interview, Offer, Rejection, as buttons (the API's manual outcomes), each undoable from
+  the timeline. "Replies that go to your own email don't reach Nori's inbox, so you can mark them here."
+- **The resume sent:** the tailored resume's changed lines with their reasons (as on the landing page), and a link to
+  the full document when the API has one.
+- **The receipt:** the confirmation number, a dry-run note when it was a practice run, and the screenshot when there is
+  one.
+- **Still in progress:** the live panel's content in place (the same states as Today's panel).
+
+#### Inbox (`/inbox`)
+
+- **Top:** "Your Nori inbox: alex.r@inbox.norinote.com" with **Copy**, and **Settings** (a disclosure): forward a copy to
+  your own email (on or off, and the address), keep messages for 30, 90 or 365 days or forever.
+- **The list:** sender, subject, when, a kind chip (Code, Confirmation, Reply, Interview, Rejection, Offer, Other) and
+  the application it belongs to ("Product designer · Fernway"). Unread in bold. Filter: All, Codes, Replies.
+- **The reading pane:** subject, sender, time; a code shown large in Geist Mono with **Copy**; a verification link as a
+  button; the body as plain text; attachments listed; **Open the application** when it's linked. Spam marked as such.
+- **Empty:** "Nothing here yet. Codes and replies from employers land here, and Nori uses them to finish applications."
+  Not configured (no inbound domain): "Nori's inbox isn't switched on yet."
+
+#### Nori in 4b
+
+`reply` (a wave) when a reply arrives, `interview` and `offer` (celebrate with confetti), `rejection` (deflated, then
+comfort), each once per new outcome since the last visit. In the Inbox, `check-mail` while a message is open, and
+`catch` for a code.
+
+#### Copy (draft, 4b)
+
+| Place | Words |
+|---|---|
+| Numbers | 12 sent · 3 replies · 1 interview · Response rate 25% · Median 3 days to a first reply |
+| Small sample | Rates show once 5 applications have had an answer or 30 days. |
+| Mark | What happened? Reply · Interview · Offer · Rejection · Undo |
+| Mark note | Replies that go to your own email don't reach Nori's inbox, so you can mark them here. |
+| Inbox empty | Nothing here yet. Codes and replies from employers land here, and Nori uses them to finish applications. |
+| Forwarding | Forward a copy to my email · Keep messages for 90 days |
 
 ### Night Dawn (dark)
 
