@@ -149,7 +149,8 @@ nori.react("thanks");            // felt heart, for the call to action
 | Hover nearby | looks at the cursor |
 | Quiet for 2 minutes | falls asleep; any event or a pet wakes it |
 
-Accessibility: Nori is a focusable button with a label; every bubble is announced once through a polite live region
+Accessibility: Nori sits in its own landmark (`role="complementary"`, named "Nori"), so its bubbles aren't text outside
+the page's landmarks; Nori itself is a focusable button with a label; every bubble is announced once through a polite live region
 (questions name their answers); answers are real buttons; reduced motion shows still poses with no movement or effects.
 
 Theming: override `--nori-*` properties (bubble, text, accent, alert, success, danger, font) on `.nori` or an ancestor.

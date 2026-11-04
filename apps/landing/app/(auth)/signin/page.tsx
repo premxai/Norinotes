@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { ComingNext } from "@/components/ComingNext";
+import { SignInForm } from "@/components/auth/SignInForm";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default function SignIn() {
-  return <ComingNext title="Welcome back" part="Part 2 · Sign-in" />;
+  return <SignInForm />;
 }

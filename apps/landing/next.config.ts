@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
 
 const dev = process.env.NODE_ENV !== "production";
+/** apps/api, which sign-in and sign-up call from the browser (auth-design-spec.md section 9). */
+const API = new URL(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").origin;
 
 /**
- * The landing page is static and only loads from its own origin (fonts, scenes and Nori's sprites are all self-hosted).
- * Next's bootstrap scripts are inline, hence 'unsafe-inline'; 'unsafe-eval' and websockets only in dev (hot reload).
+ * The site is static and only loads from its own origin (fonts, scenes and Nori's sprites are all self-hosted); the
+ * auth pages also call the API. Next's bootstrap scripts are inline, hence 'unsafe-inline'; 'unsafe-eval' and
+ * websockets only in dev (hot reload).
  */
 const CSP = [
   "default-src 'self'",
@@ -16,7 +19,7 @@ const CSP = [
   "font-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
-  `connect-src 'self'${dev ? " ws: wss:" : ""}`,
+  `connect-src 'self' ${API}${dev ? " ws: wss:" : ""}`,
   // Only on an https site: on http://localhost, Safari would upgrade every asset to https and load nothing.
   ...(!dev && (process.env.NEXT_PUBLIC_SITE_URL ?? "").startsWith("https://") ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
@@ -37,6 +40,8 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
         ],
       },
+      // The email links carry a one-time token in the query string: never pass the URL on to anyone.
+      ...["/reset-password", "/verify-email"].map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "no-referrer" }] })),
     ];
   },
   turbopack: {

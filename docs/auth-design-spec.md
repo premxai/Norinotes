@@ -101,10 +101,10 @@ No text sits on the scenes at any size. Nori's bubble is a `surface` card.
 | Auth layout | `AuthShell`: the scene (column or band), Nori's seat, the top bar, and a slot for the page. One per route group, so moving between auth pages keeps the shell and only swaps the form |
 | Top bar | Logo (to `/`) on the left. From 768 px, the switch link on the right: "Have an account? **Sign in**", "New here? **Create an account**", or "Remembered it? **Sign in**" |
 | Field | Label, input, then a hint or an error, all wired with `aria-describedby`. Input: 48 px tall, 10 px radius, 1.5 px `line-strong` border, `surface` fill, 14 px horizontal padding. Invalid: `danger` border plus `aria-invalid`, and the error text replaces the hint |
-| Password field | A Field with a **Show** / **Hide** text button inside the right edge: 44 × 44, `aria-pressed`, `aria-controls`, `aria-label` "Show password" / "Hide password". It switches `type` between `password` and `text` and keeps focus in place |
+| Password field | A Field with a **Show** / **Hide** text button inside the right edge: 44 × 44, `aria-pressed`, `aria-controls`, `aria-label` "Show password" / "Hide password". It switches `type` between `password` and `text` and keeps focus in place. Chrome moves the caret to the start when the type changes, so the field puts it back where it was |
 | Form error | A box above the button: `danger-tint`, 1.5 px `danger` border, 12 px radius, padding 12 × 14, an icon, the API's message in words. `role="alert"`. "Email taken" ends with a **Sign in instead** link |
 | Submit button | The landing's primary button, full width, 48 px. While a request runs: its label becomes the busy wording ("Creating your account…"), it gets `aria-disabled="true"`, and repeat presses are ignored. Its width never changes. No spinner; Nori turns its key |
-| Status line | Under the button, `aria-live="polite"`, 22 px reserved so nothing jumps. Busy wording while waiting, then "Account created. Opening onboarding…" or "Signed in. Opening today's shortlist…" with a check icon |
+| Status line | Under the button, `aria-live="polite"`, 22 px reserved so nothing jumps. Busy wording while waiting, then "Account created. Opening onboarding…", or "Signed in. Opening onboarding…" / "…today's shortlist…" depending on where sign-in goes, with a check icon |
 | Plan chip | Sign-up only, with `?plan=pro`: a `tint` pill, "**Pro selected** · you'll add payment after setup" |
 | Result panel | Replaces the form on forgot (sent), reset (done) and verify: the headline, one or two lines and one primary button. Focus moves to its headline (`tabindex="-1"`) |
 | Small print | Sign-up only, under the status line: "By creating an account you agree to the **Terms** and **Privacy**." |
@@ -138,7 +138,7 @@ be dragged, tucked and muted, and reduced motion gets still poses.
 | Moment | Call | Row |
 |---|---|---|
 | Arrives from the landing page | `sitOn(seat)` with a glide (`moveTo(x, y, true)`), then the page's idle | |
-| Opened directly | Appears on the seat, then `react("hello")` once per visit | wave |
+| Opened directly | Appears on the seat. Once the page has settled, `react("hello")` once per visit, unless the visitor is already typing (the wave strip is 70 KB, kept off the first screen) | wave |
 | Email focused or typed in | `watchFields({ text: [email], password, reveal })` | type-along, following the caret |
 | Password focused | (watchFields) `password` | cover, then covered |
 | **Show** pressed | (watchFields) `password-show` | peek |
@@ -149,7 +149,7 @@ be dragged, tucked and muted, and reduced motion gets still poses.
 | Sign-in succeeds | `react("signed-in", { say: "Welcome back!" })`, then go on (same timing) | nod, wave |
 | Any error | `react("auth-failed", { say })`, at most 40 characters. The full message is in the form | shake-no |
 | Reset link sent | `react("email-sent", { say: "Check your inbox." })` | check-mail |
-| Password saved | `play("nod")` | nod |
+| Password saved | `react("signed-in", { say: "Password saved." })`. A bare `nod` would hand back to the key loop; `signed-in` ends it | nod, wave |
 | Verifying a link | `react("loading")` until the answer, then `play("celebrate")` or `play("deflated")`, then `play("comfort")` | sway |
 
 - **Seat controller.** `NoriStage` picks a controller by route: the landing choreography on `/`, and a small auth
@@ -162,6 +162,8 @@ be dragged, tucked and muted, and reduced motion gets still poses.
   celebrate, deflated, comfort) are fetched after the page settles, password rows first as soon as any field is
   focused. About 850 KB of sprites in all, never on the first screen.
 - **Never the only signal.** Every outcome Nori shows is also in words in the form.
+- **A landmark.** nori-pet gives Nori's root `role="complementary"` and the name "Nori", so its bubble isn't text outside
+  the page's landmarks (axe `region`) and screen-reader users can jump to it.
 
 ## 9. Behaviour
 
@@ -201,7 +203,9 @@ After a failed check, focus moves to the first invalid field. An error clears as
 | `POST verify-email` `{ token }` | 200 → "Email confirmed" → **Continue** (`/onboarding` or `/dashboard` if signed in, else `/signin`) | 400 → "This link has expired" panel · 429 |
 | `GET session` | 200 `{ user }` | 401 means signed out (not an error) |
 
-- Any other status, or a network failure: "Couldn't reach Norinote. Check your connection and try again."
+- Any other status: the API's own `error` text when it sends one (its 500 reads "Something went wrong on our side. Try
+  again in a moment."). A network failure, or a response that isn't the API's JSON: "Couldn't reach Norinote. Check your
+  connection and try again."
 - A 400 from validation (`{ error, detail }`) shouldn't happen after the client checks. If it does, show `error`.
 - Responses are read as `{ user }` or `{ error, detail? }`. The types live in the app (`lib/api.ts`);
   `@norinote/shared` has no auth contracts to reuse (landing spec section 16 now says so).
@@ -227,9 +231,10 @@ After a failed check, focus moves to the first invalid field. An error clears as
 - Nothing on the form animates in: it's usable on the first frame.
 - The scene paints over its blurred preview, as on the landing page.
 - The form error and the field errors appear without movement. No shaking forms; Nori does the head shake.
-- The result panel cross-fades with the form (`dur-base`). Under reduced motion, it swaps instantly.
+- The result panel replaces the form in place, and focus moves to its headline.
 - Between auth pages, only the form block changes; the shell, the scene (if the same) and Nori stay put. Between gate and
-  nook pages, the scene cross-fades (`dur-slow`) and Nori glides to the new seat.
+  nook pages, the new scene fades up over its blurred preview (`dur-slow`, `.scene-in`) and Nori glides to the new seat.
+  Under reduced motion, both are instant.
 
 ## 11. Responsive behaviour
 
@@ -262,7 +267,10 @@ On top of landing spec section 12:
 - Each page is static. The only client code is the form and the auth seat controller: under 15 KB gzip of our own
   JavaScript.
 - LCP: the scene column on desktop, the headline on phones. Target under 2.0 s on 4G, as on the landing page.
-- Before the first interaction: under 350 KB (fonts, the scene, Nori's idle rows).
+- Before the first interaction: under 450 KB. Measured on a phone (3 Nov 2026): Next and React 167 KB, the serif and
+  sans fonts 108 KB, the band scene 50 KB, Nori's idle strip 68 KB, HTML and CSS 27 KB, about 420 KB in all. The
+  earlier 350 KB was a guess; the framework and fonts alone are 275 KB, the same as on the landing page.
+- The logo's link to `/` doesn't prefetch: the home page's payload carries the hero's image preloads (about 50 KB).
 - CLS under 0.05: the status line, error areas and hint keep their space or push content below the button only.
 
 ## 14. Copy
@@ -277,6 +285,9 @@ On top of landing spec section 12:
 | Reset, done | Password changed | You're signed out on every device. Sign in with your new password. | Sign in | |
 | Verify, ok | Email confirmed | Thanks. You're all set. | Continue | |
 | Verify, expired | This link has expired | Confirmation links last 3 days. Sign in, and Nori can send you a new one. | Sign in | |
+| Verify, checking | Confirming your email | One moment… | | |
+| Verify, failed | Couldn't check the link | The API's message | Try again | |
+| Reset, no or used link | This link has expired | Reset links work for one hour, once. Ask for a new one and use the newest email. | Send a new link | |
 
 Nori's bubbles: "Welcome! Let's add your resume." · "Welcome back!" · "Check your inbox." · "That didn't match." ·
 "You already have an account!" · "Let's wait a little." · "I can't reach Norinote." · "Just one thing to fix." ·
@@ -298,32 +309,48 @@ numbers only.
 Each phase ends with lint, type check and a look at 390 and 1440. Commit only with an explicit go.
 
 ### Phase 0: wiring
-- [ ] `NEXT_PUBLIC_API_URL` in `.env.example` and `next.config.ts` (CSP `connect-src`); `lib/api.ts` with typed calls and
-  one error type.
-- [ ] A local run against `apps/api` with `WEB_URL=http://localhost:3400`: session, sign-up, sign-in and log-out work from
-  the browser console.
+- [x] `NEXT_PUBLIC_API_URL` in `apps/landing/.env.example` and `next.config.ts` (CSP `connect-src`); `lib/api.ts` with
+  typed calls and one result type. (The app's own `.env.example`: the root one belongs to the API work.)
+- [x] A local run against `apps/api` on a throwaway database (`PGLITE_DIR=:memory:`): CORS, the httpOnly cookie,
+  sign-up, the duplicate answer, sign-in and onboarding all answer as section 9 expects.
 
 ### Phase 1: scenes
-- [ ] `build.mjs` picks `gate`, `gate-band`, `nook` and `nook-band` (section 7). Check the seats with the preview overlay.
-- [ ] Measure the scenes' fills, and check that no text needs to sit on them.
+- [x] `build.mjs` picks `gate`, `gate-band`, `nook` and `nook-band`. Largest AVIFs: 81, 50, 60 and 34 KB.
+- [x] No text sits on the scenes; the phone logo moved to its own bar (section 2).
 
 ### Phase 2: shell and components
-- [ ] Tokens: `--text-auth`, `--color-danger-tint`.
-- [ ] `AuthShell` (column, band, logo bar, top bar, seat), `Field`, `PasswordField`, `FormError`, `StatusLine`,
-  `ResultPanel`, `PlanChip`.
-- [ ] The `(auth)` layout replaces the placeholders, plus `/forgot-password`, `/reset-password` and `/verify-email`.
-  `/onboarding` and `/dashboard` placeholders.
+- [x] Tokens `--text-auth`, `--color-danger-tint`, and `.scene-in`.
+- [x] `components/auth/`: `AuthFrame` (column, band, logo bar, top bar, seat, switch link), `fields.tsx` (`Field`,
+  `PasswordField`, `FormError`, `SubmitButton`, `StatusLine`, `PlanChip`, `ResultPanel`), `useAuthForm`.
+- [x] The `(auth)` layout replaces the placeholders, plus `/forgot-password`, `/reset-password` and `/verify-email`;
+  `(app)/onboarding` and `(app)/dashboard` placeholders.
 
 ### Phase 3: pages and API
-- [ ] The five pages with validation, the API answers from section 9, routing, `?next=`, `?plan=pro`, the email carry-over
-  and token clean-up.
+- [x] The five pages with validation, every answer in section 9, routing, `?next=`, `?plan=pro`, the email carry-over
+  and token clean-up (`lib/auth-flow.ts`).
 
 ### Phase 4: Nori
-- [ ] The auth seat controller in `NoriStage` (by route), `watchFields`, reactions, the glide in from the landing page,
-  row prefetching.
+- [x] `lib/auth-nori.ts`, picked by route in `NoriStage`: the seat, `watchFields`, the `norinote:react` reactions, the
+  glide in from the landing page, row prefetching and the delayed hello.
 
 ### Phase 5: QA
-- [ ] The landing QA script grows an auth suite: the 11 sizes in three engines, axe, keyboard only, reduced motion, text
-  spacing, every error from section 9 (the API mocked with Playwright routes), and one real end-to-end run against a
-  local API: sign up, sign out, sign in, forgot and reset with the link from the API's console.
-- [ ] Budgets from section 13.
+- [x] `tests/qa-auth.mjs` (`npm run qa:auth`): 730 checks pass on the final build in Chromium, Firefox and WebKit, as
+  they did on the two builds before it. The real end-to-end run (sign up, forgot, reset with the emailed link, sign in with the new
+  password) passes against a local API. The landing QA still passes (184 of 184).
+- [x] Budgets (section 13), on a phone over 4G with a 4x slower CPU: LCP 0.48 to 0.53 s (the scene band), CLS 0,
+  400 to 422 KB before the first interaction. Desktop: LCP 0.50 s.
+
+What QA changed:
+- **Show / Hide put typing in front.** Switching the input's type moved Chrome's caret to the start. The field restores
+  it (`PasswordField`).
+- **The hero's images loaded on the auth pages.** The logo's prefetch of `/` brought the hero's preload hints. The
+  logo no longer prefetches, and neither does the landing nav's own logo (9 KB off the landing page's first screen,
+  which a fuller sign-up prefetch had pushed to 508 KB).
+- **Nori's bubble was outside every landmark** (axe `region`). nori-pet now makes Nori a named complementary landmark.
+- **Nori kept turning its key after a password was saved.** Reactions go through `react()`, and saving uses
+  `signed-in`, which ends the loop.
+- **"Opening today's shortlist" while going to onboarding.** The sign-in status names where it actually goes.
+- **The weight budget** was a guess (350 KB); it's now the measured 450 KB, and the hello waits until the page settles.
+
+Still needs a person: VoiceOver and NVDA on the forms, a real phone keyboard over the band, real Safari, and password
+managers (1Password, iCloud Keychain, Chrome) saving and filling both fields.

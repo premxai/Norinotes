@@ -15,9 +15,9 @@ export function seatStyle(id: SceneId, px = 0.5, py = 1): CSSProperties {
  * Where Nori sits on a scene: a 1 px marker at the seat point, named for the seat controller (`data-nori-seat`).
  * Anything inside it (Nori's note in the hero) is positioned from the seat.
  */
-export function Seat({ name, scene, py = 1, className = "", children }: { name: string; scene: SceneId; py?: number; className?: string; children?: ReactNode }) {
+export function Seat({ name, scene, px = 0.5, py = 1, className = "", children }: { name: string; scene: SceneId; px?: number; py?: number; className?: string; children?: ReactNode }) {
   return (
-    <div data-nori-seat={name} className={`nori-seat ${className}`} style={seatStyle(scene, 0.5, py)}>
+    <div data-nori-seat={name} className={`nori-seat ${className}`} style={seatStyle(scene, px, py)}>
       {children}
     </div>
   );

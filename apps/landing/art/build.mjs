@@ -32,6 +32,13 @@ export const PICKS = {
   horizon: { file: "horizon-2.png", crop: { aspect: 2, y: 0.25 }, widths: [768, 1280, 1920, 2560], seat: { x: 0.5, y: 0.85 }, budgetKB: 120 },
   // A low strip of hills for the footer, where Nori falls asleep on the right.
   footer: { file: "footer-1.png", crop: { aspect: 4, y: 1 }, widths: [768, 1280, 1920], seat: { x: 0.8, y: 0.55 }, budgetKB: 60 },
+  // Sign-up and verify (auth spec section 7): the open garden gate. Nori sits on the fence post at the right edge, at
+  // x 0.90 rather than the post's middle (0.914) so it stays inside the column. The band is the phone and tablet crop.
+  gate: { file: "gate-2.png", widths: [640, 960, 1280], seat: { x: 0.9, y: 0.619 }, budgetKB: 120 },
+  "gate-band": { file: "gate-2.png", crop: { aspect: 1.5, y: 0.594 }, widths: [480, 780, 1080], seat: { x: 0.89, y: 0.65 }, budgetKB: 80 },
+  // Sign-in, forgot and reset: the desk nook. Nori sits on the cushion at the desk's right end.
+  nook: { file: "nook-2.png", widths: [640, 960, 1280], seat: { x: 0.765, y: 0.678 }, budgetKB: 120 },
+  "nook-band": { file: "nook-2.png", crop: { aspect: 1.5, y: 0.648 }, widths: [480, 780, 1080], seat: { x: 0.765, y: 0.715 }, budgetKB: 80 },
 };
 
 const NOISE = 3; // ± levels of triangular noise (about 1.2% of the range): enough to break gradient banding, too faint to see

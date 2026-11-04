@@ -21,6 +21,7 @@
   --color-on-accent: #fffdf8;
   --color-peach: #e8936a;
   --color-danger: #b23a2e;
+  --color-danger-tint: #fbeae6; /* the form error box only (auth spec section 5) */
   --color-warning: #8a5a00;
   --color-sky: #fcd8b3; /* the Dawn hero sky's average: the fill shown before the scene loads */
 
@@ -40,6 +41,10 @@
   --text-h2: clamp(2.125rem, 1.614rem + 2.095vw, 3.5rem);
   --text-h2--line-height: 1.05;
   --text-h2--letter-spacing: -0.02em;
+  /* The sign-in and sign-up headline (auth spec section 4): 36 px at 390 to 48 px at 1440. */
+  --text-auth: clamp(2.25rem, 1.971rem + 1.143vw, 3rem);
+  --text-auth--line-height: 1.05;
+  --text-auth--letter-spacing: -0.02em;
   --text-h3: clamp(1.25rem, 1.157rem + 0.381vw, 1.5rem);
   --text-h3--line-height: 1.3;
   --text-h3--letter-spacing: -0.01em;
@@ -248,6 +253,16 @@ dialog.sheet[open] > * {
 @keyframes sheet-up {
   from {
     translate: 0 24px;
+    opacity: 0;
+  }
+}
+
+/* A scene swapping in on the auth pages (gate and nook) fades up over its blurred preview. */
+.scene-in {
+  animation: scene-in var(--dur-slow) var(--ease-out);
+}
+@keyframes scene-in {
+  from {
     opacity: 0;
   }
 }

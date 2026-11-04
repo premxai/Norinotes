@@ -155,5 +155,121 @@
         "webp": "/scenes/footer-1920.webp"
       }
     ]
+  },
+  "gate": {
+    "aspect": 0.6667,
+    "color": "#f8e8d8",
+    "preview": "data:image/webp;base64,UklGRvgAAABXRUJQVlA4IOwAAAAQBgCdASoYACQAPu1wrlMppiQipWmZMB2JQBXEAQByABtM46/IfYTQf4ztsIpUceIAJzLJJJw1NtAA/vYLe1lOsbLYFl0PRZJjbux1cIVXNph5UuWtr2PHD1aBf33/IkoyiYwE7F+EsnuIJLmZsaHaikhaP0nosT6ZlluqjnZtR1ZiWMWhGKQ2u69T5pPULStBF7vAXwRWY/+EzQb20S72S0OKwGIUAVMpI+rsprDI6RhAFP5DNX2p1iRnGfPhqTNbsQFRVuaqnr1UQ0L/QsUQqoV4E22gairTO/VQbe+IXxnU7pbKczvbArSAAA==",
+    "seat": {
+      "x": 0.9,
+      "y": 0.619
+    },
+    "sources": [
+      {
+        "width": 640,
+        "height": 960,
+        "avif": "/scenes/gate-640.avif",
+        "webp": "/scenes/gate-640.webp"
+      },
+      {
+        "width": 960,
+        "height": 1440,
+        "avif": "/scenes/gate-960.avif",
+        "webp": "/scenes/gate-960.webp"
+      },
+      {
+        "width": 1280,
+        "height": 1920,
+        "avif": "/scenes/gate-1280.avif",
+        "webp": "/scenes/gate-1280.webp"
+      }
+    ]
+  },
+  "gate-band": {
+    "aspect": 1.4993,
+    "color": "#483818",
+    "preview": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAADwBACdASoYABAAPu1iqU2ppaOiMAgBMB2JZgCdMoMYJn/AeUK4Q5+IBAOiYKTklgAA9jzCuWoRfif9us45Pp/9bbQX9RK9WJ1nA0Nnm/sk54EQuvd9l25dPDc5X62T5pURbgu7daPirtZojrgz8cLoVwzbBybvWXoifMDz6m3cYQDD2Xebj6jXFsnF84VABxdRQIzdZdZqi2hgHJJWmdbxqAA=",
+    "seat": {
+      "x": 0.89,
+      "y": 0.65
+    },
+    "sources": [
+      {
+        "width": 480,
+        "height": 320,
+        "avif": "/scenes/gate-band-480.avif",
+        "webp": "/scenes/gate-band-480.webp"
+      },
+      {
+        "width": 780,
+        "height": 520,
+        "avif": "/scenes/gate-band-780.avif",
+        "webp": "/scenes/gate-band-780.webp"
+      },
+      {
+        "width": 1080,
+        "height": 720,
+        "avif": "/scenes/gate-band-1080.avif",
+        "webp": "/scenes/gate-band-1080.webp"
+      }
+    ]
+  },
+  "nook": {
+    "aspect": 0.6667,
+    "color": "#c8a898",
+    "preview": "data:image/webp;base64,UklGRu4AAABXRUJQVlA4IOIAAABQBgCdASoYACQAPu1qq1GppaOipWzJMB2JQBcGBzv5lPrr0tHtR+/YeA1Vym5S3a7auTZi5cBfnaol0AD+5x4OCm/lQMynHsz8RAMNjjUmhr+LU4nvz2x5ON7lqoK+qsmMMpMUG1ryGUMLKBjH8ldfG9XsRgRPxU3FquwC8ZI3NuxENtAnaC7WXMxOT7hGYK0ZOSRss07Vud7Ko6FWA6h/BR1ANlWj4GYVFR8DbSc6S/lBKRxSgx/yedEyAqF6lGqb8w5G2taMWnxlIaEFY3uPrOhFCOh+xQK7Cg4McXeSAAAA",
+    "seat": {
+      "x": 0.765,
+      "y": 0.678
+    },
+    "sources": [
+      {
+        "width": 640,
+        "height": 960,
+        "avif": "/scenes/nook-640.avif",
+        "webp": "/scenes/nook-640.webp"
+      },
+      {
+        "width": 960,
+        "height": 1440,
+        "avif": "/scenes/nook-960.avif",
+        "webp": "/scenes/nook-960.webp"
+      },
+      {
+        "width": 1280,
+        "height": 1920,
+        "avif": "/scenes/nook-1280.avif",
+        "webp": "/scenes/nook-1280.webp"
+      }
+    ]
+  },
+  "nook-band": {
+    "aspect": 1.4993,
+    "color": "#c8a898",
+    "preview": "data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAADwAwCdASoYABAAPu1iqU2ppaOiMAgBMB2JYgCdACIAZj3dKnla8e4gAOJ3xt+nQs5r+Xi2kzg6QsFsDiTNa1QogbiLwNJpakJEJfrA0OT84+NYWz7vzcls+uFtbhWvFN0Qb3TeDq7KDFzu0V0KL8N0MyVMp4ffI/GyiLVulRF5z9fW0TJz9BGwNWJ3TfIwQAwAAA==",
+    "seat": {
+      "x": 0.765,
+      "y": 0.715
+    },
+    "sources": [
+      {
+        "width": 480,
+        "height": 320,
+        "avif": "/scenes/nook-band-480.avif",
+        "webp": "/scenes/nook-band-480.webp"
+      },
+      {
+        "width": 780,
+        "height": 520,
+        "avif": "/scenes/nook-band-780.avif",
+        "webp": "/scenes/nook-band-780.webp"
+      },
+      {
+        "width": 1080,
+        "height": 720,
+        "avif": "/scenes/nook-band-1080.avif",
+        "webp": "/scenes/nook-band-1080.webp"
+      }
+    ]
   }
 }

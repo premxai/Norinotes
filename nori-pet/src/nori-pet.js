@@ -306,6 +306,9 @@ export class NoriPet {
   mount(saved) {
     const root = document.createElement("div");
     root.className = "nori";
+    // A landmark of its own: the bubble's words sit outside the page's landmarks, and screen readers can jump to Nori.
+    root.setAttribute("role", "complementary");
+    root.setAttribute("aria-label", "Nori");
     root.style.setProperty("--nori-size", `${this.size}px`);
     root.innerHTML = `
       <div class="nori-bubble" hidden></div>

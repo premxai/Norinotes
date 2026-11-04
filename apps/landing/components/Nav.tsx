@@ -35,7 +35,8 @@ export function Nav() {
       }`}
     >
       <div className="wrap flex h-full items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2.5 text-ink no-underline" aria-label="Norinote, home">
+        {/* No prefetch: on the home page it would fetch the page it's already on (9 KB of the first screen). */}
+        <Link href="/" prefetch={false} className="flex items-center gap-2.5 text-ink no-underline" aria-label="Norinote, home">
           {/* eslint-disable-next-line @next/next/no-img-element -- a 32 px static icon; next/image adds nothing here */}
           <img src="/icon-32.png" alt="" width={32} height={32} className="size-8" />
           <span className="text-[1.125rem] font-bold tracking-[-0.01em]">Norinote</span>

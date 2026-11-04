@@ -1,0 +1,86 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+import { preload } from "react-dom";
+import { Scene } from "@/components/Scene";
+import { Seat } from "@/components/Seat";
+import { AUTH_PAGES, type AuthScene } from "@/lib/auth-flow";
+import { scenes, srcSet } from "@/lib/scenes";
+
+/** Where each scene is anchored when the column isn't exactly 2:3; the seats use the same values (spec section 7). */
+const POSITION: Record<AuthScene, { px: number; py: number }> = { gate: { px: 0.9, py: 0.62 }, nook: { px: 0.78, py: 0.62 } };
+
+function SceneBox({ scene, band }: { scene: AuthScene; band: boolean }) {
+  const id = band ? (`${scene}-band` as const) : scene;
+  const { px, py } = band ? { px: 0.5, py: 0.5 } : POSITION[scene];
+  const sizes = band ? "100vw" : "42vw";
+  // The column and the band are both in the page, one hidden by CSS; both images are lazy, so the hidden one is never
+  // fetched, and the visible one is preloaded for its own screen widths, so it still comes first.
+  const s = scenes[id];
+  preload(s.sources.at(-1)?.avif ?? "", { as: "image", type: "image/avif", imageSrcSet: srcSet(s, "avif"), imageSizes: sizes, fetchPriority: "high", media: band ? "(max-width: 1023px)" : "(min-width: 1024px)" });
+  return (
+    <>
+      {/* Keyed on the scene, so moving between a gate page and a nook page fades the new one in. */}
+      <Scene key={id} id={id} position={`${px * 100}% ${py * 100}%`} sizes={sizes} className="scene-in" />
+      <div className="pointer-events-none absolute inset-0 [container-type:size]">
+        <Seat name="auth" scene={id} px={px} py={py} />
+      </div>
+    </>
+  );
+}
+
+export function SwitchLink({ className = "" }: { className?: string }) {
+  const page = AUTH_PAGES[usePathname()];
+  if (!page?.switch) return null;
+  return (
+    <p className={`text-small text-ink-2 ${className}`}>
+      {page.switch.text}{" "}
+      <Link href={page.switch.href} className="inline-block py-3 font-semibold text-ink underline decoration-1 underline-offset-[3px] hover:decoration-accent">
+        {page.switch.label}
+      </Link>
+    </p>
+  );
+}
+
+/**
+ * The shell every auth page shares (auth spec sections 2 and 6): from 1024 px the scene fills the left 5/12 and stays
+ * put while the form column scrolls; narrower, a logo bar, then the scene as a band, then the form. Only the form
+ * changes between auth pages, so Nori and the scene stay where they are.
+ */
+export function AuthFrame({ children }: { children: ReactNode }) {
+  const scene = AUTH_PAGES[usePathname()]?.scene ?? "nook";
+  return (
+    <div className="min-h-svh bg-bg laptop:grid laptop:grid-cols-[5fr_7fr]">
+      <div className="relative max-laptop:hidden">
+        <div className="sticky top-0 h-svh min-h-[640px] overflow-hidden">
+          <SceneBox scene={scene} band={false} />
+        </div>
+      </div>
+
+      <div className="flex min-h-svh flex-col">
+        <header className="flex h-14 flex-none items-center justify-between px-[var(--page-x)] tablet:h-[72px] laptop:px-12">
+          {/* No prefetch: the home page's payload carries the hero's image preloads, which this page doesn't need. */}
+          <Link href="/" prefetch={false} className="flex min-h-11 items-center gap-2 no-underline" aria-label="Norinote, home">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a 32 px static icon; next/image adds nothing here */}
+            <img src="/icon-32.png" alt="" width={28} height={28} className="size-7" />
+            <span className="text-[1.0625rem] font-bold text-ink">Norinote</span>
+          </Link>
+          <SwitchLink className="max-tablet:hidden" />
+        </header>
+
+        <div className="relative h-[clamp(200px,30svh,260px)] flex-none overflow-hidden tablet:h-[clamp(220px,34svh,320px)] laptop:hidden">
+          <SceneBox scene={scene} band />
+        </div>
+
+        <main
+          id="main"
+          className="flex flex-1 justify-center px-[var(--page-x)] pt-7 pb-12 tablet:pt-10 laptop:items-center laptop:px-12 laptop:pt-0 laptop:pb-[72px] laptop:[@media(height<700px)]:items-start laptop:[@media(height<700px)]:pt-6"
+        >
+          <div className="w-full max-w-note">{children}</div>
+        </main>
+      </div>
+    </div>
+  );
+}

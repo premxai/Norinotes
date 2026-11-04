@@ -1,7 +1,7 @@
 # Norinote UI plan
 
-Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are planned, wireframed and
-specified, and are next to build. Onboarding and the dashboard follow, in that order.
+Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
+Onboarding and the dashboard follow, in that order.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -13,7 +13,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | # | Part | Pages | Status |
 |---|---|---|---|
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
-| 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Planned, wireframed and specified ([auth-design-spec.md](auth-design-spec.md)). Next: build |
+| 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding` (steps to be planned) | Not started |
 | 4 | Dashboard | `/dashboard` and its views | Not started |
 
@@ -139,7 +139,8 @@ lantern scene could come back later as a night variant, such as the footer where
 
 Status: planned and wireframed: the "Sign-in and sign-up" page of the design canvas
 (https://claude.ai/artifact/WtzZgiFAkh9ef64jW6iLFr), desktop and phone, every page and state, with the gate and nook scenes
-(`art/scenes.mjs` gate and nook, takes `gate-2` and `nook-2`). Specified in [auth-design-spec.md](auth-design-spec.md), which wins where it and this plan differ. Next: build.
+(`art/scenes.mjs` gate and nook, takes `gate-2` and `nook-2`). Specified in [auth-design-spec.md](auth-design-spec.md), which wins where it and this plan differ. Built and
+passed QA (spec section 16).
 
 They live in `apps/landing` under the `(auth)` route group, so the same Nori stays mounted from the landing page into
 sign-up and on into onboarding.

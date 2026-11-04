@@ -15,7 +15,8 @@
     "art:build": "node art/build.mjs",
     "art:icons": "node art/icons.mjs",
     "art:og": "node art/og.mjs",
-    "qa": "node tests/qa.mjs"
+    "qa": "node tests/qa.mjs",
+    "qa:auth": "node tests/qa-auth.mjs"
   },
   "dependencies": {
     "@norinote/nori-pet": "file:../../nori-pet",
