@@ -329,5 +329,34 @@
         "webp": "/scenes/workshop-band-1080.webp"
       }
     ]
+  },
+  "night": {
+    "aspect": 4,
+    "color": "#081818",
+    "preview": "data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAACwAwCdASoYAAYAPu1iqU2ppaQiMAgBMB2JZwDE2CHf5nIUUavGgAD+7omWG3xHozrOHMDaZN187PiK+XgAAA==",
+    "seat": {
+      "x": 0.8,
+      "y": 0.55
+    },
+    "sources": [
+      {
+        "width": 768,
+        "height": 192,
+        "avif": "/scenes/night-768.avif",
+        "webp": "/scenes/night-768.webp"
+      },
+      {
+        "width": 1280,
+        "height": 320,
+        "avif": "/scenes/night-1280.avif",
+        "webp": "/scenes/night-1280.webp"
+      },
+      {
+        "width": 1920,
+        "height": 480,
+        "avif": "/scenes/night-1920.avif",
+        "webp": "/scenes/night-1920.webp"
+      }
+    ]
   }
 }

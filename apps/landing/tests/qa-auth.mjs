@@ -55,14 +55,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function mockApi(context, answers = {}) {
   const cors = { "access-control-allow-origin": BASE, "access-control-allow-credentials": "true", "access-control-allow-headers": "Content-Type", "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" };
   const calls = [];
+  let signedIn = false;
   await context.route(`${API}/api/**`, async (route) => {
     const req = route.request();
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
     const key = `${req.method()} ${new URL(req.url()).pathname.replace(/^\/api/, "")}`;
     calls.push({ key, body: req.postData() });
-    const fallback = key === "GET /auth/session" ? { status: 401, body: { error: "Not signed in" } } : key === "GET /onboarding" ? { status: 200, body: { step: "resume" } } : { status: 200, body: { ok: true, user: { id: "u1", email: "qa@example.test" } } };
+    const fallback = key === "GET /auth/session" ? (signedIn ? { status: 200, body: { user: { id: "u1", email: "qa@example.test" } } } : { status: 401, body: { error: "Not signed in" } }) : key === "GET /onboarding" ? { status: 200, body: { step: "resume" } } : { status: 200, body: { ok: true, user: { id: "u1", email: "qa@example.test" } } };
     const a = answers[key] ?? fallback;
     if (a === "abort") return route.abort("connectionrefused");
+    // A successful sign-in or sign-up signs the browser in, as the API's cookie would.
+    if ((key === "POST /auth/login" || key === "POST /auth/signup") && a.status < 300) signedIn = true;
     return route.fulfill({ status: a.status, headers: { ...cors, "content-type": "application/json" }, body: JSON.stringify(a.body) });
   });
   return calls;
@@ -216,8 +219,8 @@ async function flows(browser) {
   }
   for (const [label, path, step, dest] of [
     ["onboarding not finished", "/signin", "resume", "/onboarding"],
-    ["onboarding done", "/signin", "done", "/dashboard"],
-    ["a safe ?next=", "/signin?next=/dashboard", "resume", "/dashboard"],
+    ["onboarding done", "/signin", "done", "/today"],
+    ["a safe ?next=", "/signin?next=/privacy", "resume", "/privacy"],
     ["an unsafe ?next=", "/signin?next=//evil.example", "resume", "/onboarding"],
   ]) {
     const { context, page } = await open(browser, path, { "POST /auth/login": { status: 200, body: { user: { id: "u1", email: "qa@example.test" } } }, "GET /onboarding": { status: 200, body: { step } } });
@@ -229,7 +232,7 @@ async function flows(browser) {
   }
   {
     const { context, page } = await open(browser, "/signup", { "GET /auth/session": { status: 200, body: { user: { id: "u1" } } }, "GET /onboarding": { status: 200, body: { step: "done" } } });
-    check(W, "signed in already: /signup moves on to the dashboard", await landsOn(page, "/dashboard"), page.url());
+    check(W, "signed in already: /signup moves on to the dashboard", await landsOn(page, "/today"), page.url());
     await context.close();
   }
   // The email carries over between sign-in, sign-up and forgot (client-side navigation).

@@ -4,9 +4,8 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useNori } from "@norinote/nori-pet/react";
 import "@norinote/nori-pet/style.css";
-import { isAuthPath } from "@/lib/auth-flow";
-import { startAuthNori, startOnboardingNori } from "@/lib/seat-nori";
 import { startChoreo } from "@/lib/choreo";
+import { isAppPath, isAuthPath, isOnboardingPath } from "@/lib/routes";
 
 /**
  * Mounts Nori once, from the root layout, so it carries over between pages. Its sprites are copied into public/nori/
@@ -28,9 +27,20 @@ export function NoriStage() {
     if (process.env.NODE_ENV !== "production") (window as unknown as { nori: typeof pet }).nori = pet;
     const arrived = previous.current !== null && previous.current !== path;
     previous.current = path;
-    if (isAuthPath(path) || path.startsWith("/onboarding")) {
-      const seat = (isAuthPath(path) ? startAuthNori : startOnboardingNori)(pet, { arrived });
-      return () => seat.destroy();
+    // The auth, onboarding and dashboard pages sit Nori on their scene's seat. That code is loaded only there, so it
+    // never weighs on the landing page's first screen.
+    const kind = isAuthPath(path) ? "auth" : isOnboardingPath(path) ? "onboarding" : isAppPath(path) ? "app" : null;
+    if (kind) {
+      let seat: { destroy: () => void } | null = null;
+      let gone = false;
+      void import("@/lib/seat-nori").then((m) => {
+        if (gone) return;
+        seat = (kind === "auth" ? m.startAuthNori : kind === "onboarding" ? m.startOnboardingNori : m.startAppNori)(pet, { arrived });
+      });
+      return () => {
+        gone = true;
+        seat?.destroy();
+      };
     }
     const choreo = startChoreo(pet, { onSignup: () => router.push("/signup") });
     const offPet = pet.on("pet", () => {

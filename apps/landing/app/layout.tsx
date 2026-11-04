@@ -10,6 +10,8 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3400";
 const TITLE = "Norinote: a few jobs you're likely to get, every morning";
 const DESCRIPTION = "Nori finds jobs you're likely to get, tailors your resume and applies when you say so, in about 20 seconds each.";
 
+const THEME_SCRIPT = `try{var t=localStorage.getItem("norinote-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-app-theme",t)}catch(e){}`;
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: { default: TITLE, template: "%s · Norinote" },
@@ -29,7 +31,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-US" className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSerifTriangle.variable}`}>
+    // suppressHydrationWarning: the theme script below may set data-app-theme before React hydrates.
+    <html lang="en-US" className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSerifTriangle.variable}`} suppressHydrationWarning>
+      <head>
+        {/* The dashboard's saved theme, applied before the first paint so dark never flashes light (4a spec section 5). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <a href="#main" className="skip-link">
           Skip to content

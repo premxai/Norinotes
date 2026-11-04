@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { isAuthPath } from "@/lib/routes";
 
 /*
  * What the auth pages share (auth-design-spec.md section 9): which scene and switch link each page gets, the checks on
@@ -16,7 +17,7 @@ export const AUTH_PAGES: Record<string, { scene: AuthScene; switch: { text: stri
   "/verify-email": { scene: "gate", switch: null },
 };
 
-export const isAuthPath = (path: string) => path in AUTH_PAGES;
+export { isAuthPath };
 
 /** The email typed on one auth page, offered on the next (WCAG 3.3.7), and the plan picked on the landing page. */
 export const carried = { email: "", plan: null as "pro" | null };

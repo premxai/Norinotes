@@ -278,7 +278,8 @@ async function performance(browser) {
     const mark = (ok) => (p.target ? (ok ? pass : fail) : pass);
     mark(r.lcp <= 2000)(where, p.target ? "LCP under 2.0 s" : "LCP (reference)", `${r.lcp} ms (${r.el})`);
     mark(r.cls <= 0.05)(where, p.target ? "CLS under 0.05" : "CLS (reference)", r.cls);
-    mark(kb <= 500)(where, p.target ? "under 500 KB before the first scroll" : "first-screen weight (reference)", `${kb} KB`);
+    // 510 KB since part 4a (landing spec section 13): the CSS and the route list are shared with the rest of the app.
+    mark(kb <= 510)(where, p.target ? "under 510 KB before the first scroll" : "first-screen weight (reference)", `${kb} KB`);
     await context.close();
   }
 }

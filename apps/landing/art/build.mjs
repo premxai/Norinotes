@@ -36,6 +36,9 @@ export const PICKS = {
   // x 0.90 rather than the post's middle (0.914) so it stays inside the column. The band is the phone and tablet crop.
   gate: { file: "gate-2.png", widths: [640, 960, 1280], seat: { x: 0.9, y: 0.619 }, budgetKB: 120 },
   "gate-band": { file: "gate-2.png", crop: { aspect: 1.5, y: 0.594 }, widths: [480, 780, 1080], seat: { x: 0.89, y: 0.65 }, budgetKB: 80 },
+  // The dashboard's greeting strip in dark mode and in the evening (4a spec section 2): the hills and the lantern run
+  // through the middle band. Light mode reuses `footer`. Nori doesn't sit on it, so the seat is only nominal.
+  night: { file: "night-1.png", crop: { aspect: 4, y: 0.594 }, widths: [768, 1280, 1920], seat: { x: 0.8, y: 0.55 }, budgetKB: 60 },
   // Onboarding (onboarding spec section 15): the workshop. Nori sits on the bench between the paper stack and the plant.
   workshop: { file: "workshop-1.png", widths: [640, 960, 1280], seat: { x: 0.844, y: 0.648 }, budgetKB: 120 },
   "workshop-band": { file: "workshop-1.png", crop: { aspect: 1.5, y: 0.606 }, widths: [480, 780, 1080], seat: { x: 0.844, y: 0.7 }, budgetKB: 80 },

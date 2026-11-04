@@ -282,6 +282,72 @@ dialog.sheet[open] > * {
   }
 }
 
+/*
+ * Night Dawn (dashboard 4a spec section 5): the dashboard's dark mode. Only `.app-theme` (the dashboard's shell) follows
+ * it; the landing, auth and onboarding pages stay Dawn, so their scenes keep working. It follows the system unless
+ * `data-app-theme` on <html> says light or dark (the switch in the account menu, applied before first paint).
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-app-theme="light"]) .app-theme {
+    --color-bg: #0f1a15;
+    --color-surface: #16241d;
+    --color-surface-2: #13201a;
+    --color-tint: #1f3028;
+    --color-line: #2b3d34;
+    --color-line-strong: #7d8f85;
+    --color-ink: #f4efe4;
+    --color-ink-2: #b5c1ba;
+    --color-accent: #86c4a0;
+    --color-accent-hover: #a3d6b8;
+    --color-on-accent: #0f1a15;
+    --color-danger: #f08a7e;
+    --color-warning: #e8b75c;
+    --color-danger-tint: #3a1f1c;
+    --color-accent-tint: #1d3a2b;
+    color-scheme: dark;
+  }
+}
+:root[data-app-theme="dark"] .app-theme {
+  --color-bg: #0f1a15;
+  --color-surface: #16241d;
+  --color-surface-2: #13201a;
+  --color-tint: #1f3028;
+  --color-line: #2b3d34;
+  --color-line-strong: #7d8f85;
+  --color-ink: #f4efe4;
+  --color-ink-2: #b5c1ba;
+  --color-accent: #86c4a0;
+  --color-accent-hover: #a3d6b8;
+  --color-on-accent: #0f1a15;
+  --color-danger: #f08a7e;
+  --color-warning: #e8b75c;
+  --color-danger-tint: #3a1f1c;
+  --color-accent-tint: #1d3a2b;
+  color-scheme: dark;
+}
+/* A scene for each theme (the Today strip): only the one for the current theme shows, and lazy loading skips the other. */
+.app-theme .theme-dark-only {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-app-theme="light"]) .app-theme .theme-dark-only {
+    display: block;
+  }
+  :root:not([data-app-theme="light"]) .app-theme .theme-light-only {
+    display: none;
+  }
+}
+:root[data-app-theme="dark"] .app-theme .theme-dark-only {
+  display: block;
+}
+:root[data-app-theme="dark"] .app-theme .theme-light-only {
+  display: none;
+}
+.app-theme :focus-visible {
+  outline-color: var(--color-ink);
+  box-shadow: 0 0 0 3px var(--color-surface);
+}
+
 /* Onboarding on phones: the Back / Continue bar is fixed to the bottom, so a focused field scrolls clear of it. */
 @media (width < 48rem) {
   html:has([data-step-footer]) {

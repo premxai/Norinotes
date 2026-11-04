@@ -20,7 +20,7 @@ Status: decided, except the items under [Still open](#14-still-open).
 | Today | A greeting with a thin scene strip, a one-line summary, the "needs you" row, then job cards, each with **Apply** and **Not for me** |
 | Applying | The live panel: a 420 px side panel from 1024 px, a full-height sheet below, playing the application's real status and run log |
 | Updates | Polling: 2 s while an application is moving, 30 s otherwise, paused while the tab is hidden |
-| Nori | Docked at the foot of the rail (desktop) or above the tab bar (phones); reacts to the application the panel shows |
+| Nori | At the foot of the rail from 1024 px; below that, standing in the corner of Today's greeting strip (above the tab bar it covered card buttons). Reacts to the application the panel shows |
 
 ## 2. Layout
 
@@ -31,11 +31,13 @@ Status: decided, except the items under [Still open](#14-still-open).
 | Below 768 | Top bar 56 px (logo, the section's name); bottom tabs 64 px plus `env(safe-area-inset-bottom)` | Content with the 16 px page margin, 96 px clear above the tabs | A modal sheet from 32 px below the top of the screen, 22 px top corners, a grab handle |
 
 - **Rail contents, top to bottom:** the logo (to `/today`); the four sections (Today, Applications, Inbox, You) as
-  44 px rows with an icon, a label and a count in Geist Mono; the cap meter; then at the foot Nori's seat and the
-  account row (name, a menu with the theme switch and **Sign out**).
+  44 px rows with an icon, a label and a count; the cap meter; then at the foot Nori's seat and the
+  account row (name, a menu with the theme switch and **Sign out**). The menu opens beside the rail (desktop) or below
+  the top bar (phones), never upward over Nori's seat.
 - **Tabs:** the same four, icon over label, 12 px labels; the current one in `ink`, the rest in `ink-2`; a dot on Today
   when something needs you.
-- **Greeting strip:** 112 px tall (72 px on phones), 20 px radius (16 px on phones), `object-fit: cover` at
+- **Greeting strip:** 112 px tall from 1024 px, 132 px from 768 and 112 px on phones (tall enough for Nori to stand in
+  its bottom-right corner below 1024 px), 20 px radius (16 px on phones), `object-fit: cover` at
   `50% 60%`. Light: the landing footer's hills (`footer`). Dark, and after 6 pm in light: the night strip (`night`).
   It's decoration (`alt=""`), with no text on it.
 
@@ -60,10 +62,10 @@ Status: decided, except the items under [Still open](#14-still-open).
 | List header ("3 for today", `h2`) | Geist 600, 18 / 20 px |
 | Card title | Geist 600, 17 / 18 px |
 | Card meta (company · place · posted) | Small 13 / 14 px, `ink-2` |
-| Fit score | Geist Mono 500, 18 / 20 px, with "fit" for screen readers |
+| Fit score | Geist 600, 18 / 20 px, tabular figures, with "fit" for screen readers. Not Mono: on the first screen it would load the mono font (70 KB) |
 | Reasons | Small 14 px, `ink-2`, line height 1.45, an `accent` dot before each |
 | Rail rows | Geist 500 15 px; current 600 |
-| Counts | Geist Mono 12 px, `ink-2` |
+| Counts | Geist 500 12 px, tabular figures, `ink-2` (Geist for the same reason) |
 | Panel title | Geist 600, 21 / 22 px |
 | Timer | Geist Mono 500, 18 / 20 px |
 | Run-log lines | Small 14 px |
@@ -162,7 +164,8 @@ Signed out (401 anywhere): `/signin?next=<this page>`. Onboarding not finished: 
 ## 10. Nori
 
 An `app` controller in `NoriStage` for the `(app)` routes, using `lib/seat-nori.ts` with the seat
-`data-nori-seat="rail"` (the rail's foot) from 1024 px, and `data-nori-seat="tabs"` (above the tab bar, right) below.
+`data-nori-seat="rail"` (the rail's foot) from 1024 px, and `data-nori-seat="strip"` (the greeting strip's bottom-right
+corner) below. It sits again whenever the page content above the seat changes height.
 It plays the agent events nori-pet was made for, for the application the panel shows, once per status change:
 
 | When | Event |
@@ -220,24 +223,40 @@ On top of the landing and auth rules:
 Each phase ends with lint, type check and a look at 390 and 1440. Commit only with an explicit go.
 
 ### Phase 1: theme and scene
-- [ ] Night Dawn tokens and the theme switch (system, light, dark), set before first paint; `(app)` pages only.
-- [ ] `build.mjs` picks `night` (take `night-1`, 4:1 strip); the light strip reuses `footer`.
+- [x] Night Dawn tokens on `.app-theme` (the dashboard only), the switch (System, Light, Dark) in the account menu,
+  set before first paint by an inline script in the root layout (`data-app-theme`). The two dark tints pass: ink on
+  `danger-tint` 13.1:1, `accent` on `accent-tint` 6.2:1.
+- [x] `build.mjs` picks `night` (take `night-1`, a 4:1 strip; 30 KB AVIF at its widest); light reuses `footer`.
 
 ### Phase 2: shell
-- [ ] `AppShell`: rail, icon rail, top bar and tabs, counts, cap meter, account menu with sign-out and the theme
-  switch, email banner, Nori's seats. Routes: `/today`, placeholders for `/applications`, `/inbox`, `/you`,
-  `/dashboard` redirecting. The session and onboarding guards.
+- [x] `components/app/AppShell.tsx`: rail, icon rail, top bar and tabs, the Today count and "needs you" dot, the cap
+  meter, the account menu (theme, sign-out), the email banner with resend, Nori's rail seat, and the panel's slot.
+  `/today`, placeholders for `/applications`, `/inbox`, `/you`; `/dashboard` redirects (`next.config.ts`). The session
+  and onboarding guards.
 
 ### Phase 3: Today and the live panel
-- [ ] The greeting, day line and strip; cards; the needs-you row; Apply, Send all, Not for me with the delayed dismiss
-  and Undo; the job view; the live panel's states (section 7) with polling, focus and announcements; empty and error
-  states.
+- [x] `components/app/Today.tsx` and `LivePanel.tsx`, with `lib/use-polling.ts` (2 s while moving, 30 s otherwise,
+  paused while hidden): every state in sections 7 to 9, Send all with the switcher, the delayed dismiss and Undo.
 
 ### Phase 4: Nori
-- [ ] The `app` controller and its events (section 10).
+- [x] `startAppNori` in `lib/seat-nori.ts` (seats `rail` and `strip`); the panel and Today ask for the agent events.
+  The seat controller is now loaded only on the pages that use it, and sits Nori again when the content above changes.
 
 ### Phase 5: QA
-- [ ] `tests/qa-today.mjs`: the 11 sizes in three engines in light and dark; every panel state with the API mocked
-  (including a run log that grows); dismiss and Undo; Send all; polling stops when hidden; axe in both themes; the
-  keyboard (rail, cards, the panel's focus and the sheet's trap); budgets. One real run against a local API: sign up,
-  onboard, see the shortlist (seeded), apply with the worker in its dry-run mode.
+- [x] `tests/qa-today.mjs` (`npm run qa:today`): 420 checks in Chromium, Firefox and WebKit, light and dark, with the
+  API mocked as a state machine, and a real run against a local API (sign up, onboard, land on Today; no worker, so the
+  first morning shows). Applying for real needs the worker and is left to a person with it running.
+- [x] Budgets: LCP 1.0 to 1.1 s (the strip), CLS 0.002 to 0.004, 401 KB before the first interaction.
+- [x] On the same build: auth 730 of 730, onboarding 852 of 852, landing 184 of 184 once its first-screen budget was
+  raised from 500 to 510 KB by decision (it measured 501 KB; landing spec section 13 says why).
+
+What QA changed:
+- **The account menu opened over Nori's seat.** It opens beside the rail now.
+- **Visible text and accessible names didn't match** (rail counts, the card title button). The names are the visible
+  text, with the fit score added for screen readers.
+- **`aside` can't be a dialog.** The panel is a `div` with the dialog role.
+- **On phones Nori stood over the greeting.** It stands inside the strip's corner, and the strip is taller below 1024.
+- **Card chips lagged the panel.** Today checks applications every 4 s while one is moving.
+- **Geist Mono on the first screen** (fit scores, counts): 70 KB, which took Today to 471 KB. Now Geist with tabular
+  figures (section 4).
+- **The weight check read 0 KB** under the test's fixed clock; it now runs on the real clock and fails on 0.

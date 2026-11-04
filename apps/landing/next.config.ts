@@ -29,6 +29,10 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   poweredByHeader: false,
   transpilePackages: ["@norinote/nori-pet"],
+  // Sign-in and onboarding send people to /dashboard; the dashboard's first page is Today (4a spec section 1).
+  async redirects() {
+    return [{ source: "/dashboard", destination: "/today", permanent: false }];
+  },
   async headers() {
     return [
       {

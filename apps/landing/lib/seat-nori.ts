@@ -18,7 +18,8 @@ const once = (key: string) => {
 };
 
 export type SeatNoriOptions = {
-  seat: string;
+  /** Seat names in order of preference; the first one visible at this width is used. */
+  seat: string | string[];
   /** Nori came from another page of the app, so it glides to the seat. */
   arrived: boolean;
   /** The reaction played once per visit after the page settles, and whether it waits for a fresh visit. */
@@ -38,8 +39,9 @@ export function startSeatNori(pet: NoriPet, { seat, arrived, greet, fieldRows, l
   };
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // The visible seat: the other one sits inside a box hidden at this width.
-  const seatEl = () => [...document.querySelectorAll(`[data-nori-seat="${seat}"]`)].find((el) => el.getClientRects().length > 0) ?? null;
+  // The visible seat: the others sit inside boxes hidden at this width.
+  const names = Array.isArray(seat) ? seat : [seat];
+  const seatEl = () => names.flatMap((n) => [...document.querySelectorAll(`[data-nori-seat="${n}"]`)]).find((el) => el.getClientRects().length > 0) ?? null;
 
   /** Sits Nori on the seat; with glide it travels there from wherever it was, as on the landing page. */
   const sit = (glide: boolean) => {
@@ -61,6 +63,22 @@ export function startSeatNori(pet: NoriPet, { seat, arrived, greet, fieldRows, l
   const onWidth = () => sit(false);
   wide.addEventListener("change", onWidth);
   offs.push(() => wide.removeEventListener("change", onWidth));
+
+  // Content above the seat can change height after Nori sits (data arriving, a banner, fonts): sit again when it does.
+  // nori-pet follows scroll and window resizes by itself, but not the page reflowing under it.
+  const main = document.getElementById("main");
+  if (main && "ResizeObserver" in window) {
+    let frame = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => sit(false));
+    });
+    ro.observe(main);
+    offs.push(() => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+    });
+  }
 
   // Reading along and covering its eyes, re-wired whenever a form's fields change.
   let unwire: (() => void) | null = null;
@@ -130,4 +148,17 @@ export const startOnboardingNori = (pet: NoriPet, { arrived }: { arrived: boolea
     greet: { event: "welcome", key: "norinote-onboarding-welcome", onlyFresh: false },
     fieldRows: ["read", "papers", "point-right", "present"],
     laterRows: ["bow", "nod", "search", "celebrate", "cover", "covered", "uncover", "shake-no"],
+  });
+
+/**
+ * The dashboard (4a spec section 10): Nori sits at the rail's foot from 1024 px and on Today's strip below that; the
+ * panel and Today ask for the agent events. No greeting of its own: Today waves when new jobs are in.
+ */
+export const startAppNori = (pet: NoriPet, { arrived }: { arrived: boolean }) =>
+  startSeatNori(pet, {
+    seat: ["rail", "strip"],
+    arrived,
+    greet: { event: "idle", key: "norinote-app-greet", onlyFresh: true },
+    fieldRows: [],
+    laterRows: ["wave", "papers", "present", "scribble", "dash", "wait", "catch", "point", "deflated", "comfort", "celebrate", "sleep"],
   });

@@ -2,7 +2,7 @@
 
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
 Onboarding is built and passed QA as well.
-The dashboard is planned and part 4a is wireframed (below).
+The dashboard is planned and part 4a (the shell and Today) is built; 4b is next.
 
 Nori, the plush rice ball, is the guide on every surface. It ships as `nori-pet/` (`@norinote/nori-pet`); its README
 lists every animation (row), event and API call this plan uses.
@@ -16,7 +16,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 1 | Landing | `/` (plus `/privacy` and `/terms`) | Built and QA'd in `apps/landing` ([landing-design-spec.md](landing-design-spec.md)). Phase 6 (launch) waits on its open items |
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
-| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | Planned; 4a wireframed and specified ([dashboard-4a-spec.md](dashboard-4a-spec.md)). Next: build 4a |
+| 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)). Next: plan 4b |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -402,7 +402,7 @@ onboarding, and it replaces `apps/web` once it's done. Unlike the landing page i
 
 | Question | Decision |
 |---|---|
-| Navigation | **A side rail on desktop, bottom tabs on phones.** Four sections: Today, Applications, Inbox, You. Nori docks at the foot of the rail (desktop) or above the tab bar (phones) |
+| Navigation | **A side rail on desktop, bottom tabs on phones.** Four sections: Today, Applications, Inbox, You. Nori docks at the foot of the rail (desktop) or stands in the corner of Today's greeting strip (narrower) |
 | Today | **Job cards, each with its own Apply.** Title, company, fit score, the two strongest reasons; **Send all 3** above them. A card opens the full job, the tailored resume and what Nori will answer |
 | Applying | **A live panel.** The card you applied from becomes a panel (a side panel on desktop, a sheet on phones) that steps through the real run log with a timer, and Nori acts it out: the landing page's replay, for real |
 | Dark mode | **Night Dawn.** A deep seaweed-green night that keeps the green accent, so both modes feel like one product. Follows the system, with a switch in You |
@@ -445,7 +445,7 @@ send people today, redirects to `/today`. Signed out: `/signin?next=…`. Onboar
   narrows beside it.
 - **Tablet (768–1023):** the rail collapses to 72 px icons with labels on hover and focus; the live panel overlays.
 - **Phone:** a top bar (logo, the section's name) and a bottom tab bar (64 px plus the safe area) with the four
-  sections. The live panel is a full-height sheet. Nori sits just above the tab bar, small.
+  sections. The live panel is a full-height sheet. Nori stands in the corner of the greeting strip, small.
 - **Scenes:** the dashboard is for work, so there's no full scene. Today opens with a short greeting band ("Good
   morning, Alex") over a thin strip of the Dawn hills (light) or a night version (dark), and Nori sleeps on the strip in
   the evening when there's nothing to do.

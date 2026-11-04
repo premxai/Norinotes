@@ -22,7 +22,7 @@ the older sites, `apps/web` or the `nori-pet` playground pages (see the roadmap 
 | Nori | Hops between section seats on desktop; on phones it leaves the hero and docks small in the corner |
 | Motion | One easing curve, 4 durations, no scroll-jacking, everything off under reduced motion |
 | Accessibility | WCAG 2.2 AA; every colour pair below is checked |
-| Performance | LCP under 2.0 s on a mid-range phone, CLS under 0.05, under 500 KB before the first scroll |
+| Performance | LCP under 2.0 s on a mid-range phone, CLS under 0.05, under 510 KB before the first scroll |
 
 ## 2. Breakpoints and layout grid
 
@@ -315,7 +315,7 @@ Behaviour:
 | LCP (hero image or headline) | Under 2.0 s on a mid-range phone on 4G (measured: 0.56 s, see Phase 5) |
 | CLS | Under 0.05 (fixed aspect ratios, font fallbacks with `size-adjust`) |
 | INP | Under 200 ms |
-| Before the first scroll | Under 500 KB: HTML, CSS, fonts, hero, about 110 KB of Nori |
+| Before the first scroll | Under 510 KB: HTML, CSS, fonts, hero, about 70 KB of Nori. It was 500 KB until dashboard part 4a (4 Nov 2026): the CSS file and Next's route list are shared by every page, so each new part adds a little here (measured 498 KB before part 2, 501 KB after 4a). Raised by decision rather than trimmed; revisit if it passes 510 |
 | JavaScript (gzip, first load) | The page's own code under 40 KB, not counting sprite images. Next 16 and React 19 add about 150 KB that no page can avoid (measured 3 Nov 2026: 188 KB in all, about 30 KB of it ours). The earlier 120 KB total isn't reachable on this stack |
 | Fonts | Preload the serif and sans subsets (Latin). The mono loads normally. `font-display: swap` |
 

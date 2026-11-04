@@ -59,6 +59,45 @@ export type Ingest = {
 
 export type Lane = { id: string; name: string; titles: string[]; locations: string[]; remote: boolean };
 
+/** A job as the API sends it (`toJob`). */
+export type Job = { id: string; companyName: string; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null };
+
+/** One row of today's shortlist (`GET /api/shortlist`). */
+export type ShortlistEntry = {
+  id: string;
+  jobId: string;
+  fit: number;
+  reasons: string[];
+  status: string;
+  createdAt: string;
+  widenedBy: string | null;
+  locationNames: string[];
+  job: Job;
+};
+
+export type AppStatus = "queued" | "preparing" | "prepared" | "applying" | "awaiting_code" | "submitted" | "needs_user" | "failed";
+export type Question = { id: string; text: string; type: string; options: string[]; required: boolean };
+
+/** An application (`toApplication`). */
+export type Application = {
+  id: string;
+  jobId: string;
+  status: AppStatus;
+  pendingQuestions: Question[];
+  receipt: Record<string, unknown> | null;
+  error: string | null;
+  preparedAt: string | null;
+  approvedAt: string | null;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RunEvent = { id: string; ts: string; level: string; step: string; message: string };
+export type ResumeView = { changes: { before: string; after: string; reason: string }[] };
+export type ApplicationDetail = { application: Application; job: Job; resume: ResumeView | null; events: RunEvent[] };
+export type AgentStatus = { dailyCap: number; usedToday: number; liveSubmit: boolean };
+
 export type Result<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string };
 
 async function call<T>(path: string, { method, json, form }: { method?: string; json?: unknown; form?: FormData } = {}): Promise<Result<T>> {
@@ -103,5 +142,19 @@ export const api = {
   graph: () => call<{ nodes: GraphNode[] }>("/graph"),
   lanes: () => call<Lane[]>("/lanes"),
   inboxAddress: () => call<{ address: string | null; configured: boolean }>("/inbox/address"),
-  shortlist: () => call<unknown[]>("/shortlist"),
+  shortlist: () => call<ShortlistEntry[]>("/shortlist"),
+  // The dashboard (4a spec sections 7 and 8).
+  me: () => call<{ user: User; profile: Profile }>("/me"),
+  logout: () => call<{ ok: true }>("/auth/logout", { json: {} }),
+  resendVerification: () => call<{ ok: true; verified?: boolean }>("/auth/resend-verification", { json: {} }),
+  shortlistMeta: () => call<{ total: number; widened: string[]; lanesMatched: number; poolUsed: boolean }>("/shortlist/meta"),
+  dismiss: (jobId: string) => call<{ ok: true }>(`/shortlist/${encodeURIComponent(jobId)}/dismiss`, { json: {} }),
+  job: (id: string) => call<Job>(`/jobs/${encodeURIComponent(id)}`),
+  applications: () => call<{ application: Application; job: Job }[]>("/applications"),
+  application: (id: string) => call<ApplicationDetail>(`/applications/${encodeURIComponent(id)}`),
+  apply: (jobId: string) => call<Application>("/applications", { json: { jobId } }),
+  approve: (id: string, answers?: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/approve`, { json: answers ? { answers } : {} }),
+  answer: (id: string, answers: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/answer`, { json: { answers } }),
+  retry: (id: string) => call<Application>(`/applications/${encodeURIComponent(id)}/retry`, { json: {} }),
+  agentStatus: () => call<AgentStatus>("/agent/status"),
 };
