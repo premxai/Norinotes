@@ -4,8 +4,8 @@ A fresh stack, separate from the old Nori apps, which keep running until the new
 
 | Piece | Where | Config |
 |---|---|---|
-| Landing page | `norinote.xyz` on Vercel | `apps/landing` |
-| Dashboard | `jobs.norinote.xyz` on Vercel | `apps/web` |
+| The app: landing page, sign-in, onboarding, dashboard, Privacy and Terms | `norinote.xyz` on Vercel | `apps/landing` |
+| Old dashboard address | `jobs.norinote.xyz`, redirects to `norinote.xyz` | a redirect domain on the same Vercel project |
 | API | `api.norinote.xyz` on Fly (sjc) | `fly.api.toml`, `Dockerfile` target `api` |
 | Worker | Fly (sjc), no public ports | `fly.worker.toml`, `Dockerfile` target `worker` |
 | Database | Supabase Pro, us-west-1 (paid from the account's credits) | `DATABASE_URL` |
@@ -15,7 +15,8 @@ A fresh stack, separate from the old Nori apps, which keep running until the new
 | Telegram | A new bot from BotFather | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` |
 | Company logos | Brandfetch Logo API (free, no attribution) | `BRANDFETCH_CLIENT_ID` |
 
-Code is in the public repository `premxai/Norinotes`.
+Code is in the public repository `premxai/Norinotes`. `apps/web` (the temporary dashboard) is not deployed: the dashboard
+lives in `apps/landing` (route group `(app)`: `/today`, `/applications`, `/inbox`, `/you`).
 
 ## DNS
 
@@ -27,27 +28,42 @@ Vercel and Fly issue and renew their own certificates.
 | Name | Type | Points at |
 |---|---|---|
 | `norinote.xyz` | A | Vercel (`76.76.21.21`, or what Vercel shows) |
-| `jobs` | CNAME | `cname.vercel-dns.com` |
+| `jobs` | CNAME | `cname.vercel-dns.com` (the redirect domain) |
 | `api` | A and AAAA, or CNAME | the API Fly app (`fly certs add api.norinote.xyz` prints them) |
 | `in` | MX | Cloudflare Email Routing (added by Cloudflare when routing is turned on) |
 | (root) | TXT/MX for Resend | the records Resend shows when verifying `norinote.xyz` |
 
 Copy every existing record (the current `jobs` record points at the old Vercel project) into Cloudflare before
-switching nameservers, so nothing goes dark during the move.
+switching nameservers, so nothing goes dark during the move. The `jobs` record moves to the new project only at the
+switch (step 5 below).
+
+## The app on Vercel
+
+One Vercel project, root directory `apps/landing`, framework Next.js. Its environment:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | `https://api.norinote.xyz` (the browser calls it; the Content-Security-Policy allows only this API) |
+| `NEXT_PUBLIC_SITE_URL` | `https://norinote.xyz` |
+
+Domains: `norinote.xyz` (and `www.norinote.xyz` redirecting to it), and `jobs.norinote.xyz` as a redirect to
+`norinote.xyz` that keeps the path, so links to the old dashboard still land: `/applications/<id>` exists in the new app,
+and the old `/jobs`, `/profile`, `/settings` and `/login` paths redirect inside it.
+
+The site and the API are on the same site (`norinote.xyz`), so the API's session cookie (httpOnly, `SameSite=Lax`,
+`Secure`) is sent with the app's calls. `WEB_URL` and `LANDING_URL` on the API are both `https://norinote.xyz`: it is the
+allowed browser origin, account-email links point at its `/verify-email` and `/reset-password`, and Telegram links open
+`/today?job=<id>`, `/applications/<id>` and `/inbox`.
 
 ## Files
 
 Tailored resume PDFs, apply screenshots and traces are written under `ARTIFACTS_DIR` on the worker and copied to object
 storage under the same relative key (`packages/shared/src/files.ts`). The API serves a file from its own disk when it
 has it, otherwise from storage; a restarted worker fetches a resume PDF back before applying. Deleting an account
-deletes the user's stored resumes. Both apps must use the same `ARTIFACTS_DIR` (`/app/data/artifacts` in the toml files).
-Create the bucket `artifacts` as private in Supabase, and an S3 access key under Storage settings.
-
-## The landing site
-
-Sign-in and sign-up live on the landing site (`apps/landing`). `LANDING_URL` adds it to the allowed browser origins, and
-the links in verification and reset emails point at its pages. Both sites call `api.norinote.xyz` with credentials;
-they are on the same site (`norinote.xyz`), so the session cookie works for both.
+deletes the user's files: resumes under `resumes/<userId>/`, screenshots and traces under `applications/<userId>/`, and
+older files found through the account's receipts and run log. Both apps must use the same `ARTIFACTS_DIR`
+(`/app/data/artifacts` in the toml files). Create the bucket `artifacts` as private in Supabase, and an S3 access key
+under Storage settings.
 
 ## Lean storage
 
@@ -82,18 +98,32 @@ Set once per app with `fly secrets set NAME=value -a <app>`, never in the toml f
 
 ## Order
 
-1. Create the accounts and apps: Cloudflare (move the nameservers), Supabase
-   project in us-west-1 (enable the `vector` extension, create the `artifacts` bucket and an S3 key), Fly apps (rename
-   `app` in both toml files), Resend (verify `norinote.xyz`), two Vercel projects (`apps/landing`, `apps/web`),
-   Telegram bot, Brandfetch developer account (client id).
-2. Deploy to temporary subdomains of `norinote.xyz`, for example `next.norinote.xyz` (landing), `jobs-next.norinote.xyz`
-   (dashboard) and `api-next.norinote.xyz` (API), with `LANDING_URL`, `WEB_URL` and `API_URL` pointing at them. They
-   must be on `norinote.xyz`: the session cookie is `SameSite=Lax`, so sign-in does not stick across the unrelated
-   `vercel.app` and `fly.dev` addresses. The old apps keep the real names meanwhile.
+1. Create the accounts and apps: Cloudflare (add the site and copy the records; switch the nameservers when they are
+   all there), Supabase project in us-west-1 (enable the `vector` extension, create the `artifacts` bucket and an S3
+   key), two Fly apps (rename `app` in both toml files if the names are taken), Resend (verify `norinote.xyz`), one
+   Vercel project (`apps/landing`), Telegram bot, Brandfetch developer account (client id).
+2. Deploy to temporary subdomains of `norinote.xyz`: `next.norinote.xyz` (the app) and `api-next.norinote.xyz` (the
+   API). They must be on `norinote.xyz`: the session cookie is `SameSite=Lax`, so sign-in does not stick across the
+   unrelated `vercel.app` and `fly.dev` addresses. The toml files hold the real names; override them for this step:
+
+   ```bash
+   fly deploy -c fly.api.toml -e WEB_URL=https://next.norinote.xyz -e LANDING_URL=https://next.norinote.xyz -e API_URL=https://api-next.norinote.xyz
+   fly deploy -c fly.worker.toml -e WEB_URL=https://next.norinote.xyz -e API_URL=https://api-next.norinote.xyz
+   ```
+
+   and on Vercel set `NEXT_PUBLIC_API_URL=https://api-next.norinote.xyz` and `NEXT_PUBLIC_SITE_URL=https://next.norinote.xyz`
+   for the deployment on `next.norinote.xyz`. The old apps keep the real names meanwhile.
 3. Load the boards (`scripts/import-seeds.mts`) and let the worker collect for a day.
-4. Test end to end: sign up, verify email, upload a resume, see today's jobs, tailor a resume, dry-run an application,
-   Telegram digest, inbox address.
-5. Point the real names at the new apps and set `LANDING_URL`, `WEB_URL` and `API_URL` to them.
+4. Test end to end. `scripts/smoke.mts` checks the wiring (pages, headers, CORS, cookie, a throwaway account from
+   sign-up to deletion); then by hand in a browser: sign up, verify email, upload a resume, see today's jobs, tailor a
+   resume, dry-run an application, mark an outcome, Telegram digest, inbox address.
+
+   ```bash
+   npx tsx scripts/smoke.mts --site https://next.norinote.xyz --api https://api-next.norinote.xyz
+   ```
+
+5. Point the real names at the new apps (`norinote.xyz`, `jobs.norinote.xyz` as the redirect, `api.norinote.xyz`),
+   redeploy with the toml values and the real `NEXT_PUBLIC_*` values, and run the smoke test against them.
 6. Stop the old Fly app and Vercel project. The old Neon database is kept until it is deliberately deleted.
 
 Real submission stays off (`ALLOW_REAL_SUBMIT=false`) until it is switched on on purpose.

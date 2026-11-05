@@ -97,6 +97,6 @@ export async function summaryEvent(db: Db, userId: string, dayStart: Date, date:
   ].filter(Boolean);
   return {
     kind: "summary", dedupeKey: `summary:${date}`, applicationId: null, urgent: false,
-    payload: { text: `<b>Today</b>: ${esc(parts.join(", "))}.`, keyboard: button("Open Norinote", `${webUrl}/dashboard`) },
+    payload: { text: `<b>Today</b>: ${esc(parts.join(", "))}.`, keyboard: button("Open Norinote", `${webUrl}/today`) },
   };
 }

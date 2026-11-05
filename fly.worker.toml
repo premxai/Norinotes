@@ -11,7 +11,8 @@ kill_timeout = "60s"
 
 [env]
   NODE_ENV = "production"
-  WEB_URL = "https://jobs.norinote.xyz"
+  # The app is one site now: apps/landing serves the landing page, sign-in, onboarding and the dashboard.
+  WEB_URL = "https://norinote.xyz"
   API_URL = "https://api.norinote.xyz"
   # Dry runs only until real submission is switched on deliberately.
   ALLOW_REAL_SUBMIT = "false"

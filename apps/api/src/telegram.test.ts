@@ -110,7 +110,7 @@ describe("daily shortlist buttons", () => {
     const digest = fake.lastSent()!;
     expect(digest.text).toContain("Staff Engineer");
     const kb = digest.reply_markup!.inline_keyboard!;
-    expect(kb[0]![2]!.url).toBe(`${api.config.webUrl}/jobs?job=${a.job.id}`);
+    expect(kb[0]![2]!.url).toBe(`${api.config.webUrl}/today?job=${a.job.id}`);
     const [row] = await api.db.select().from(channelMessages).where(eq(channelMessages.dedupeKey, `digest:${new Date().toISOString().slice(0, 10)}`));
     const messageId = row!.telegramMessageId!;
 

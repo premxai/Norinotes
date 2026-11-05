@@ -171,7 +171,7 @@ describe("daily shortlist", () => {
     const kb = msgs[0]!.reply_markup!.inline_keyboard!;
     expect(kb).toHaveLength(2);
     expect(kb[0]!.map((b) => b.text)).toEqual(["Apply 1", "Skip 1", "Details 1"]);
-    expect(kb[0]![2]!.url).toBe(`https://app.test/jobs?job=${best.id}`);
+    expect(kb[0]![2]!.url).toBe(`https://app.test/today?job=${best.id}`);
 
     await runTelegramTick(deps(fake, () => new Date("2026-11-02T05:00:00Z")));
     expect(fake.sent()).toHaveLength(1);

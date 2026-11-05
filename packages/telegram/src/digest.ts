@@ -59,7 +59,8 @@ export async function selectDigest(db: Db, userId: string, count: number, now: D
   return out;
 }
 
-export const jobLink = (webUrl: string, jobId: string) => `${webUrl}/jobs?job=${jobId}`;
+/** Opens the job on Today (the app reads `?job=`). */
+export const jobLink = (webUrl: string, jobId: string) => `${webUrl}/today?job=${jobId}`;
 
 export function digestText(items: DigestItem[]): string {
   const lines = [`<b>Your shortlist for today</b> (${items.length} new)`, ""];
