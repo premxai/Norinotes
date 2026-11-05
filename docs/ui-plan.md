@@ -18,7 +18,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 2 | Sign-in and sign-up | `/signin`, `/signup`, plus `/forgot-password`, `/reset-password`, `/verify-email` | Built and QA'd in `apps/landing` ([auth-design-spec.md](auth-design-spec.md)) |
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
 | 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c built and QA'd ([dashboard-4c-spec.md](dashboard-4c-spec.md)) |
-| 5 | Error pages | Page not found, something broke, and the app failing to start | Planned, wireframed and specified ([error-pages-spec.md](error-pages-spec.md)). Next: build |
+| 5 | Error pages | Page not found, something broke, and the app failing to start | Built and QA'd ([error-pages-spec.md](error-pages-spec.md)) |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -767,7 +767,8 @@ the live panel shows. In the evening with nothing waiting, Nori falls asleep on 
 Status: planned and wireframed: the "Error pages" page of the design canvas (desktop and phone, the five pages, Try
 again working or not, the dashboard versions in light and dark). The fork scene is take 1 of 2 (`art/raw/fork-1.png`,
 built as `fork` and `fork-band`; take 2 was more photographic, with a lake and houses). Specified in
-[error-pages-spec.md](error-pages-spec.md), which wins where it and this plan differ. Next: build.
+[error-pages-spec.md](error-pages-spec.md), which wins where it and this plan differ. Built and QA'd: 1148 checks in three
+engines (the spec's build checklist).
 
 What a visitor sees when an address doesn't exist or something breaks. Today there's nothing of ours: a wrong address
 gets Next's plain default 404, and a crash its default error screen. Inside the dashboard, an application or message

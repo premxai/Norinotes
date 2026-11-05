@@ -235,6 +235,8 @@ async function open(browser, path, o = {}, ctx = {}) {
   await context.addInitScript(() => {
     window.__rows = [];
     window.__opened = [];
+    window.__log = [];
+    for (const ev of ["norinote:react", "norinote:seats", "norinote:seated"]) addEventListener(ev, (e) => window.__log.push(`${ev.slice(9)} ${e.detail ? JSON.stringify({ event: e.detail.event, row: e.detail.row }) : ""}`));
     window.open = (u) => (window.__opened.push(String(u)), null);
     setInterval(() => {
       const sprite = [...document.querySelectorAll(".nori *")].find((el) => el.style?.backgroundImage.includes("rows/"));
@@ -522,11 +524,12 @@ async function noriFlows(browser) {
     check(W, "then waits", await shows(page, "Waiting for you in Telegram…"), null);
     const zone = JSON.parse(calls.find((c) => c.key === "POST /channels/telegram/link")?.body ?? "{}");
     check(W, "with the browser's time zone", typeof zone.timezone === "string" && zone.timezone.length > 0, zone);
-    await page.clock.runFor(7000).catch(() => {});
+    // Real time, not the page clock: fast-forwarding it left the page's timers frozen afterwards, so Nori's wave (which
+    // loads its strip in real time) could no longer be seen. The page checks every 3 s.
     check(W, "linked once Start is pressed", await shows(page, "Connected 4 Nov", 9000), await page.locator("section[aria-labelledby=tg-h]").innerText());
     // The wave's strip loads when it's first played, so give it a moment to show.
     await page.waitForFunction(() => window.__rows.includes("wave"), null, { timeout: 4000 }).catch(() => {});
-    check(W, "Nori waves", (await played(page)).includes("wave"), await played(page));
+    check(W, "Nori waves", (await played(page)).includes("wave"), { rows: await played(page), log: await page.evaluate(() => window.__log), strips: await page.evaluate(() => performance.getEntriesByType("resource").filter((e) => e.name.includes("/rows/")).map((e) => e.name.split("/").pop())), nori: await page.evaluate(() => { const n = document.querySelector(".nori"); return n ? { cls: n.className, box: n.getBoundingClientRect().toJSON() } : null; }) });
     await context.close();
   }
   {

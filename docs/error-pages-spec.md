@@ -36,6 +36,10 @@ Next's file conventions, so the right page shows wherever a visitor ends up:
 - **Unknown dashboard addresses** reach the in-shell 404 through catch-all pages that call `notFound()`:
   `app/(app)/today/[...rest]`, `app/(app)/you/[...rest]`, `app/(app)/applications/[id]/[...rest]` and
   `app/(app)/inbox/[id]/[...rest]`. Static routes win over catch-alls, so `/you/search` and the others are unaffected.
+  Next streams the dashboard's responses, so a page's `notFound()` comes too late to change the status, and these
+  answered 200 (QA caught it). `proxy.ts` marks the same addresses 404 before rendering (a rewrite to itself with
+  `status: 404`), so they're real 404s and the shell still shows. (Declaring the catch-alls as having no valid
+  addresses, `dynamicParams = false`, also gave a 404 but showed the full page instead of the shell.)
   `/applications/:id` and `/inbox/:id` with an unknown id keep their own "not found" states (4b), since the address
   is right and only the record is missing.
 - **Signed out on a dashboard 404:** the shell sends them to sign-in as now (`/signin?next=…`), then back to the 404.
@@ -108,8 +112,13 @@ The not-found and error files are a few lines each around these.
 - **Full pages:** Nori sits on the stone (`data-nori-seat="error"`). `NoriStage` chooses its controller by the
   address, and a 404 can be any address, so it treats a page with an `error` seat as an error page whatever the path
   (a new `startErrorNori`: the seat, no greeting, the rows below).
+- **Reseating.** An error page can replace a page without the address changing, after Nori chose that page's
+  controller. So each error page asks for a new seat (`norinote:seats`); `NoriStage` chooses again, and a controller
+  says when it has its seat (`norinote:seated`). The page's reaction waits for that (or a second), so it isn't lost to
+  the controller being replaced. On leaving (Try again worked), the page underneath gets its seat back.
 - **Not found:** `look` (it steps through looking around), then idle; the bubble "Hmm, nothing here."
-- **Something broke:** `dizzy`, then `comfort` with "Sorry about that."; Try again plays `nod`.
+- **Something broke:** `dizzy`, then `comfort` with "Sorry about that." Try again plays nothing of its own: what comes
+  back (the page, or the error again) plays its reaction at once, so a nod never showed.
 - **In the shell:** the same reactions through the dashboard's controller, at its usual seat (rail or head). `look`
   and `dizzy` join its rows fetched later.
 - **Failing to start:** no Nori.
@@ -127,7 +136,11 @@ The not-found and error files are a few lines each around these.
 ## 9. Performance
 
 - Full pages: under 450 KB before the first interaction, LCP under 2.0 s on 4G, CLS under 0.05 (the auth pages'
-  budget; the scene is the largest thing on them).
+  budget; the scene is the largest thing on them). Something broke is measured as what it adds to the page that broke:
+  under 120 KB at the same point.
+- **The error boundaries load their pages only when something breaks** (`next/dynamic`). A boundary is part of every
+  page it covers, and imported directly the full page's frame (with every scene's preview) put about 20 KB on every
+  first screen: the sign-up page went to 454 KB and the landing page to 527 KB before this.
 - In the shell: the dashboard's budgets (4a).
 - Failing to start: its own HTML and Next's runtime only.
 
@@ -152,24 +165,55 @@ The not-found and error files are a few lines each around these.
 Each phase ends with lint, type check and a look at 390 and 1440. Commit only with an explicit go.
 
 ### Phase 1: scene and frame
-- [ ] `fork` in `SceneFrame` (`FrameScene`, anchor), its seat, and the built crops (done: `public/scenes/fork-*`,
+- [x] `fork` in `SceneFrame` (`FrameScene`, anchor), its seat, and the built crops (`public/scenes/fork-*`,
   `lib/scenes.json`).
 
 ### Phase 2: full pages
-- [ ] `app/not-found.tsx`, `app/error.tsx` and `app/global-error.tsx` with `ErrorCard` and `GlobalError`; titles and
-  `noindex`.
+- [x] `app/not-found.tsx`, `app/error.tsx` and `app/global-error.tsx` (`components/ErrorPages.tsx`, loaded through
+  `components/LazyErrors.tsx` and `next/dynamic`); titles and `noindex`.
 
 ### Phase 3: the dashboard
-- [ ] `app/(app)/not-found.tsx` and `app/(app)/error.tsx` with `ShellError`; the four catch-all pages.
+- [x] `app/(app)/not-found.tsx` and `app/(app)/error.tsx` with `ShellError`; the four catch-all pages; `proxy.ts` for
+  their 404 status.
 
 ### Phase 4: Nori
-- [ ] `startErrorNori` and `NoriStage` recognising the `error` seat; the reactions in section 7.
+- [x] `startErrorNori` and `NoriStage` recognising the `error` seat, reseating, and the reactions in section 7.
 
 ### Phase 5: QA
-- [ ] `tests/qa-errors.mjs` (`npm run qa:errors`): an unknown address outside the dashboard and under each section, at
+- [x] `tests/qa-errors.mjs` (`npm run qa:errors`): an unknown address outside the dashboard and under each section, at
   the 11 sizes in three engines, light and dark for the shell; their HTTP 404s; something broke, caused the way it
   happens for real (a mocked API answering with a malformed body, so a page throws), outside and inside the
   dashboard, with Try again recovering once the API answers properly and failing again when it doesn't; focus on the
   heading; that no error text reaches the page; Nori's reactions; axe; keyboard; budgets. Failing to start can't be
   caused from a browser in a working build, so `GlobalError` is rendered on its own (React's server renderer) and
   checked for its words, colours, contrast and that it loads nothing.
+
+**QA results (4 November 2026):** 1148 of 1148 checks in three engines on the QA build, with the API mocked: the last
+full run passed 1146, and its two misses were the "adds" measurement counting Nori's strips, which every page loads once
+it settles; the budget checks passed 18 of 18 once it compared the broken visit with the same page unbroken.
+
+| Page, 4G with a 4x slower CPU | First interaction | LCP |
+|---|---|---|
+| Not found, 390 px | 415 KB | 0.7 s |
+| Not found, 1440 px | 392 KB | 0.7 s |
+| Something broke (onboarding's done page) | the error page adds 11 to 34 KB (its code and the fork scene) | 0.4 to 1.5 s |
+| Not found in the shell (`/today/old`) | 394 KB | 1.1 s |
+
+The earlier suites pass on the same build in full: landing 184, auth 726, onboarding 844, Today 417, 4b 982 and 4c 1240.
+The 4c run first missed "Nori waves" after Telegram links. The test fast-forwarded the page's clock while waiting for
+the link, which left the page's timers frozen afterwards, so the wave (its strip loads in real time) was never seen. It
+now waits in real time and passes; by hand, Nori waves. QA found and fixed:
+
+- **Dashboard 404s answered 200.** A nested `notFound()` comes after the response has started streaming. `proxy.ts`
+  now marks those addresses 404 before rendering, and the shell still shows (`dynamicParams = false` also gave a 404,
+  but the full page).
+- **The error pages on every first screen.** The root error boundary and not-found page are part of every page, and
+  importing the full page directly put the scene frame and every scene's preview there: the landing page went to 527 KB
+  (budget 510) and sign-up to 454 (450). They now load only when shown (`next/dynamic`, still rendered on the server
+  for a 404); landing is back to 509 KB and sign-up to 445.
+- **The home link's prefetch.** **Go to the home page** prefetched the home page, whose payload preloads the hero
+  image (48 to 61 KB); it no longer prefetches, as on the auth pages.
+- **Nori off its seat on a broken page.** Loaded after the break, the error page appeared once Nori had already chosen
+  the broken page's controller; it now asks for a new seat and reacts once Nori has it (section 7). Before that, Nori
+  sat over the phone's "You" tab, which axe reported as a covered target.
+- **Nori's nod on Try again** never showed (what comes back plays its own reaction at once), so it was dropped.

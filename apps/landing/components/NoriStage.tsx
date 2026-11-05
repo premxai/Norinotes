@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useNori } from "@norinote/nori-pet/react";
 import "@norinote/nori-pet/style.css";
@@ -20,6 +20,13 @@ export function NoriStage() {
 
   // The page Nori was last on, so the auth pages know whether it walked in from another page or this is a fresh visit.
   const previous = useRef<string | null>(null);
+  // A full error page can replace a page without the address changing; it says so, and Nori chooses its seat again.
+  const [seats, setSeats] = useState(0);
+  useEffect(() => {
+    const again = () => setSeats((n) => n + 1);
+    addEventListener("norinote:seats", again);
+    return () => removeEventListener("norinote:seats", again);
+  }, []);
 
   useEffect(() => {
     if (!pet) return;
@@ -29,13 +36,16 @@ export function NoriStage() {
     previous.current = path;
     // The auth, onboarding and dashboard pages sit Nori on their scene's seat. That code is loaded only there, so it
     // never weighs on the landing page's first screen.
-    const kind = isAuthPath(path) ? "auth" : isOnboardingPath(path) ? "onboarding" : isAppPath(path) ? "app" : null;
+    // An error page can be at any address (a 404 is wherever the visitor typed), so it's known by its seat, not its path
+    // (error pages spec section 7). In the dashboard the shell's own seats are used instead.
+    const errorPage = !!document.querySelector('[data-nori-seat="error"]');
+    const kind = errorPage ? "error" : isAuthPath(path) ? "auth" : isOnboardingPath(path) ? "onboarding" : isAppPath(path) ? "app" : null;
     if (kind) {
       let seat: { destroy: () => void } | null = null;
       let gone = false;
       void import("@/lib/seat-nori").then((m) => {
         if (gone) return;
-        seat = (kind === "auth" ? m.startAuthNori : kind === "onboarding" ? m.startOnboardingNori : m.startAppNori)(pet, { arrived });
+        seat = (kind === "error" ? m.startErrorNori : kind === "auth" ? m.startAuthNori : kind === "onboarding" ? m.startOnboardingNori : m.startAppNori)(pet, { arrived });
       });
       return () => {
         gone = true;
@@ -50,7 +60,7 @@ export function NoriStage() {
       choreo?.destroy();
       offPet();
     };
-  }, [pet, path, router]);
+  }, [pet, path, router, seats]);
 
   return null;
 }

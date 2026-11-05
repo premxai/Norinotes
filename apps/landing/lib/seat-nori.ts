@@ -150,6 +150,8 @@ export function startSeatNori(pet: NoriPet, { seat, arrived, greet, fieldRows, l
   if (document.readyState === "complete") later();
   else listen(window, "load", later, { once: true });
   offs.push(() => clearTimeout(idle));
+  // For pages that asked for a new seat (the error pages) and wait to react until Nori has it.
+  queueMicrotask(() => dispatchEvent(new Event("norinote:seated")));
 
   return {
     destroy() {
@@ -190,5 +192,18 @@ export const startAppNori = (pet: NoriPet, { arrived }: { arrived: boolean }) =>
     arrived,
     greet: { event: "idle", key: "norinote-app-greet", onlyFresh: true },
     fieldRows: [],
-    laterRows: ["wave", "papers", "present", "scribble", "dash", "wait", "catch", "hold", "point", "deflated", "comfort", "celebrate", "sleep", "check-mail", "think", "hop", "search", "nod"],
+    laterRows: ["wave", "papers", "present", "scribble", "dash", "wait", "catch", "hold", "point", "deflated", "comfort", "celebrate", "sleep", "check-mail", "think", "hop", "search", "nod", "look", "dizzy"],
+  });
+
+/**
+ * The full error pages (error pages spec section 7): Nori sits on the fork scene's stone; the page asks for its
+ * reaction (looking around for a missing page, dizzy then comforting for a broken one). No greeting of its own.
+ */
+export const startErrorNori = (pet: NoriPet, { arrived }: { arrived: boolean }) =>
+  startSeatNori(pet, {
+    seat: ["error"],
+    arrived,
+    greet: { event: "idle", key: "norinote-error-greet", onlyFresh: true },
+    fieldRows: [],
+    laterRows: ["look", "dizzy", "comfort"],
   });

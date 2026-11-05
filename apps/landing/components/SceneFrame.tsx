@@ -7,13 +7,15 @@ import { Scene } from "@/components/Scene";
 import { Seat } from "@/components/Seat";
 import { scenes, srcSet } from "@/lib/scenes";
 
-export type FrameScene = "gate" | "nook" | "workshop";
+export type FrameScene = "gate" | "nook" | "workshop" | "fork";
 
 /** Where each scene is anchored when the column isn't exactly 2:3; the seats use the same values (auth spec section 7). */
 const POSITION: Record<FrameScene, { px: number; py: number }> = {
   gate: { px: 0.9, py: 0.62 },
   nook: { px: 0.78, py: 0.62 },
   workshop: { px: 0.84, py: 0.62 },
+  // The error pages' fork (error pages spec section 5): Nori's stone is just right of centre.
+  fork: { px: 0.61, py: 0.62 },
 };
 
 function SceneBox({ scene, band, seat }: { scene: FrameScene; band: boolean; seat: string }) {
