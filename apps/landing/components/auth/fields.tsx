@@ -160,7 +160,7 @@ export function PlanChip() {
   return (
     <p className="flex flex-wrap items-center gap-x-2 self-start rounded-[14px] bg-tint px-3 py-1.5 text-small text-ink">
       <span className="font-semibold">Pro selected</span>
-      <span className="text-ink-2">· you&rsquo;ll add payment after setup</span>
+      <span className="text-ink-2">· free until Pro launches</span>
     </p>
   );
 }

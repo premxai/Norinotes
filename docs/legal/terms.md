@@ -1,6 +1,6 @@
 # Terms of service
 
-Draft for `/terms` (part 6). Every statement about what Norinote does is checked against the code; see
+Draft for `/terms` (part 6). For people in the United States only. Every statement about what Norinote does is checked against the code; see
 [ui-plan.md](../ui-plan.md). Text in `[[double brackets]]` is not settled and must be filled in before publishing (the
 build refuses to ship a page that still has one).
 
@@ -13,13 +13,14 @@ Last updated: [[the date it's published]]
 
 ## 1. These terms
 
-These terms are an agreement between you and Norinote, operated by [[the operator's legal name and address]] ("we",
+These terms are an agreement between you and Norinote, operated by Nori, 34010 10th Street, Union City, California 94587 ("we",
 "us"). By creating an account you accept them, and the [privacy policy](/privacy), which says what we do with your
 data.
 
 ## 2. Who can use Norinote
 
-You must be 18 or older. Use one account, for yourself, with true details, and keep your password to yourself: you're
+You must be 18 or older and in the United States: Norinote isn't offered in the European Union or the
+United Kingdom yet. Use one account, for yourself, with true details, and keep your password to yourself: you're
 responsible for what happens in your account. If you think someone else has got into it, change your password and sign
 out your other devices on the Account page, and tell us.
 
@@ -99,7 +100,8 @@ employer will receive, read or answer an application.
 
 To the extent the law allows, we're not liable for indirect or consequential losses, such as a lost opportunity, and
 our total liability to you is limited to what you've paid us in the 12 months before the claim (today, nothing). None
-of this limits liability that the law doesn't let us limit, or rights you have as a consumer where you live.
+of this limits liability that the law doesn't let us limit, or rights you have as a consumer under the law of your
+state.
 
 ## 12. Changes, law and contact
 
@@ -107,7 +109,9 @@ of this limits liability that the law doesn't let us limit, or rights you have a
 email at least 30 days before it applies; carrying on using Norinote after that means you accept it. If you don't, you
 can delete your account.
 
-**Law.** These terms are governed by [[the law that applies, and where disputes go]]. If you're a consumer in the EU or
-UK, you also keep the protection of your own country's laws and can bring a claim in its courts.
+**Law.** These terms are governed by the laws of the State of California and the federal laws of the United States
+that apply there. Disputes go to the state or federal courts in Alameda County, California, unless the law of your state
+gives you the right to bring them where you live. Before going to court, please email us first: most problems can be
+fixed that way.
 
-**Contact.** **support@norinote.xyz**. [[The operator's legal name and postal address.]]
+**Contact.** **support@norinote.xyz**, or by post to Nori, 34010 10th Street, Union City, California 94587.

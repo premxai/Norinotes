@@ -105,7 +105,7 @@ No text sits on the scenes at any size. Nori's bubble is a `surface` card.
 | Form error | A box above the button: `danger-tint`, 1.5 px `danger` border, 12 px radius, padding 12 × 14, an icon, the API's message in words. `role="alert"`. "Email taken" ends with a **Sign in instead** link |
 | Submit button | The landing's primary button, full width, 48 px. While a request runs: its label becomes the busy wording ("Creating your account…"), it gets `aria-disabled="true"`, and repeat presses are ignored. Its width never changes. No spinner; Nori turns its key |
 | Status line | Under the button, `aria-live="polite"`, 22 px reserved so nothing jumps. Busy wording while waiting, then "Account created. Opening onboarding…", or "Signed in. Opening onboarding…" / "…today's shortlist…" depending on where sign-in goes, with a check icon |
-| Plan chip | Sign-up only, with `?plan=pro`: a `tint` pill, "**Pro selected** · you'll add payment after setup" |
+| Plan chip | Sign-up only, with `?plan=pro`: a `tint` pill, "**Pro selected** · free until Pro launches" (there's no billing yet) |
 | Result panel | Replaces the form on forgot (sent), reset (done) and verify: the headline, one or two lines and one primary button. Focus moves to its headline (`tabindex="-1"`) |
 | Small print | Sign-up only, under the status line: "By creating an account you agree to the **Terms** and **Privacy**." |
 

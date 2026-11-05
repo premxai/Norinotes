@@ -4,7 +4,7 @@ import { SectionHead } from "@/components/SectionHead";
 import { Seat } from "@/components/Seat";
 
 const POINTS = [
-  { title: "You approve every send", body: "Or turn on autopilot, and Nori sends only up to the daily cap you set." },
+  { title: "You approve every send", body: "Nothing goes out without your click. Autopilot, coming with Pro, sends only up to the daily cap you set." },
   { title: "Asked once, remembered", body: "Questions only you can answer come to you in one batch. Nori reuses your answer next time." },
   { title: "Stops where you should step in", body: "Captchas and account walls come to you. Nori never gets around them." },
 ];

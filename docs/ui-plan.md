@@ -19,7 +19,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
 | 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c built and QA'd ([dashboard-4c-spec.md](dashboard-4c-spec.md)) |
 | 5 | Error pages | Page not found, something broke, and the app failing to start | Built and QA'd ([error-pages-spec.md](error-pages-spec.md)) |
-| 6 | Privacy and Terms | `/privacy`, `/terms` | Planned, texts drafted ([privacy](legal/privacy.md), [terms](legal/terms.md)) and wireframed. Next: settle the open items, then the spec |
+| 6 | Privacy and Terms | `/privacy`, `/terms` | Planned, texts drafted ([privacy](legal/privacy.md), [terms](legal/terms.md)) and wireframed. Next: the spec |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -843,8 +843,9 @@ Budget: about 3 images including retries, roughly $0.25 to $0.75 from the ledger
 ## Privacy and Terms (part 6)
 
 Status: planned, texts drafted in [legal/privacy.md](legal/privacy.md) and [legal/terms.md](legal/terms.md), and wireframed
-(the design canvas, page "Privacy and Terms"). Next: settle the open items below, then the spec. Unsettled text is
-marked `[[like this]]`; the build must refuse to ship a page that still has one.
+(the design canvas, page "Privacy and Terms"); the drafts win where they and this plan differ. Next: the spec. The only
+unsettled text left is the date, marked `[[like this]]` and filled in when the pages are published; the build must
+refuse to ship a page that still has one.
 
 Today `/privacy` and `/terms` are placeholders ("being written"); sign-up already links to both. This part writes the two
 texts and the pages that hold them. They say only what the code does: every claim below is checked against the repo,
@@ -854,9 +855,10 @@ and where something isn't decided, the text doesn't pretend it is.
 
 | Question | Decision |
 |---|---|
-| Who "we" are | **Norinote**, with Nori as its voice. (Nori can't be the legal operator: see Open) |
-| Contact | **support@norinote.xyz** for everything: help, data requests, the terms |
-| Who it's for | **Anyone 18 or older, anywhere.** So the privacy policy covers the EU and UK (GDPR) and California (CCPA/CPRA) as well |
+| Who "we" are | **Norinote, operated by Nori, 34010 10th Street, Union City, California 94587** (for now; see Open), with Nori as its voice |
+| Contact | **support@norinote.xyz** for everything: help, data requests, the terms; and that postal address |
+| Who it's for | **Anyone 18 or older in the United States.** Not offered in the EU or UK yet, so no GDPR sections, representative or transfer safeguards; the privacy policy covers California (CCPA/CPRA and CalOPPA's Do Not Track statement) |
+| Law | **California**, with disputes in the state or federal courts of Alameda County (where the address is), unless the user's own state gives them the right to sue where they live |
 | Review | **Published as written,** without a lawyer's review. (Recommended against: these carry legal weight, and the mistakes that matter are the ones a non-lawyer can't see) |
 | Voice | Plain English, short sections, the same honesty rules as the landing page. A summary at the top of each, then the full text |
 
@@ -936,24 +938,19 @@ the other. Both are indexed.
 
 ### Open
 
-- **Who the legal operator is.** For EU and UK users the privacy policy must name the controller (a person or a
-  company) and their contact details; "Norinote" or Nori alone doesn't meet that. Until it's settled the text says
-  Norinote and the gap is listed here.
-- **An EU and a UK representative.** A controller outside the EU or UK that offers its service to people there usually
-  has to appoint one (GDPR article 27). Not set up.
-- **Transfers and processor agreements.** The EU and UK transfers to the US rely on the providers' standard contractual
-  clauses or the Data Privacy Framework, through their data processing agreements; those agreements need signing with
-  each provider (OpenAI, Supabase, Fly, Vercel, Resend, Cloudflare).
-- **The law that applies to the terms** (a country or state, and where disputes go). Not decided.
-- **support@norinote.xyz** needs setting up (Cloudflare Email Routing, as for the inbox) before it's published.
+- **The operator's name.** "Nori" at the Union City address is a placeholder for now. Replace it with the legal name of
+  the person or company running Norinote before launch.
+- **Data processing agreements** with OpenAI, Supabase, Fly, Vercel, Resend and Cloudflare: the user is accepting them.
+- **support@norinote.xyz** must deliver before the pages are published: the user is setting it up.
 - **Billing terms** (renewal, cancellation, refunds) before Pro charges anyone.
-- **Deleting an account leaves the application screenshots and traces.** They're stored in Supabase Storage (and on the
-  worker's disk) at the top level, named by job and time, not under the user, and `DELETE /api/account` removes only
-  `resumes/<user>/`. The privacy text says deleting the account deletes the screenshots, so this must be fixed in
-  `apps/api` and `packages/apply` before publishing (not this part's files).
 - **Inbox forwarding isn't sent yet** (the worker uses a stub forwarder that only logs). The texts leave forwarding out;
-  add it back (Resend, consent) when it's real.
+  add it back (Resend) when it's real.
 - **No export in the app.** The privacy text offers a copy of your data by email; an export button would make that
   self-service.
-- **The landing page's Pro card** says "autopilot within your daily cap", which doesn't exist yet (follow-up, not part of
-  this part).
+- **EU and UK users later.** Serving them brings back GDPR's legal bases, a controller identity, an EU and a UK
+  representative, and transfer safeguards.
+
+Settled since the plan: deleting an account now deletes its application screenshots and traces too (`8333ef9`), as the
+privacy text says; and the landing page no longer promises autopilot or payment as if they existed (the Pro card says
+"Coming soon · nothing is charged yet", the FAQ and "You stay in charge" say autopilot is coming, and the sign-up chip
+says "free until Pro launches").

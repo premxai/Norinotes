@@ -1,6 +1,6 @@
 # Privacy policy
 
-Draft for `/privacy` (part 6). Every statement is checked against the code; see "What Norinote handles" in
+Draft for `/privacy` (part 6). For people in the United States only. Every statement is checked against the code; see "What Norinote handles" in
 [ui-plan.md](../ui-plan.md). Text in `[[double brackets]]` is not settled and must be filled in before publishing (the
 build refuses to ship a page that still has one).
 
@@ -14,8 +14,9 @@ Last updated: [[the date it's published]]
 ## 1. Who we are
 
 Norinote is a job agent: Nori, its assistant, finds jobs that fit you, tailors your resume and answers from your own
-facts, and applies only with your OK. "We" and "us" in this policy mean Norinote, operated by [[the operator's legal
-name and address]].
+facts, and applies only with your OK. "We" and "us" in this policy mean Norinote, operated by Nori, 34010 10th Street, Union City, California 94587.
+
+Norinote is offered to people in the United States. It isn't offered in the European Union or the United Kingdom yet.
 
 Questions about this policy, or about your data, go to **support@norinote.xyz**.
 
@@ -38,18 +39,14 @@ elsewhere.
 | **Nori's inbox:** email sent to your Nori address: the sender, subject and text; for attachments, only their names and sizes (never the files) | Verification codes and replies about your applications | 90 days by default; you can choose 1 to 365 |
 | **Telegram, if you connect it:** your Telegram chat id | Sending you the messages you chose (the daily list, questions, updates) | Until you disconnect |
 
-The lawful basis for each (for the EU and UK):
-
-- **Running the service you signed up for** (contract): your account, sessions, resume, career graph, profile, job
-  search, remembered answers, applications and inbox.
-- **Your consent:** voluntary self-identification, and connecting Telegram. You can withdraw it
-  any time in the app, which stops that use from then on.
-- **Legitimate interests:** keeping the service secure and preventing abuse, for example the sessions list and limits
-  on sign-in attempts.
+Voluntary self-identification and Telegram are up to you: you can leave them out, or remove them any time in the
+app, which stops that use from then on. We also use what's above to keep Norinote secure and prevent abuse, for example
+the sessions list and limits on sign-in attempts.
 
 **In your browser.** The site keeps a few settings in your browser's local storage, such as the theme and which inbox
 messages you've seen. They stay on your device and aren't sent to us. The only cookie is the session cookie above:
-there are no analytics, advertising or tracking cookies, so there's nothing to accept.
+there are no analytics, advertising or tracking cookies, so there's nothing to accept. Because we don't track you
+across other sites, there's nothing for a browser's Do Not Track signal to change.
 
 ## 3. Who else handles it
 
@@ -77,10 +74,6 @@ OK.
 We don't sell your personal information, share it for advertising, or give it to anyone else, except where the law
 requires us to.
 
-**Transfers.** Norinote is run from the United States. If you're in the EU, UK or Switzerland, your data is transferred
-there under [[the safeguard: the EU-US Data Privacy Framework and its UK extension, or the standard contractual clauses,
-as each provider's data processing terms set out]].
-
 ## 4. How long we keep it
 
 As the table in section 2 says: most things until you change them or delete your account, sessions for 30 days, and
@@ -92,13 +85,12 @@ already received stays with that employer.
 
 ## 5. Your rights
 
-Wherever you live, you can:
+You can:
 
 - **See and correct** your data: most of it is on the You and Applications pages, where you can change it.
 - **Delete** it: remove any fact, answer or lane in the app, or delete your account.
 - **Get a copy** of it in a machine-readable form: email us and we'll send it.
-- **Object** to a use of it, or **withdraw consent** you gave (section 2).
-- **Complain** to your data protection authority, if you're in the EU or UK.
+- **Stop** an optional use: remove your voluntary self-identification, or disconnect Telegram.
 
 **California.** You have the right to know what personal information we collect, use and disclose (this policy sets it
 out), to delete it, and to correct it, and not to be treated differently for using these rights. We don't sell or
@@ -106,9 +98,7 @@ share personal information, as the CCPA defines those words, and we don't use se
 anything other than providing the service you asked for.
 
 To use a right the app doesn't cover, email **support@norinote.xyz** from your account's email address. We'll answer
-within a month (45 days for California requests), and we may ask you to confirm it's you.
-
-[[If an EU or UK representative is appointed: "Our representative in the EU is …, and in the UK …"]]
+within 45 days, and we may ask you to confirm it's you.
 
 ## 6. Security
 
@@ -116,8 +106,7 @@ Passwords are stored only as scrypt hashes. The session cookie can't be read by 
 between your browser, Norinote and its providers is sent encrypted (HTTPS). Files are kept in a private store that
 only Norinote's servers can read, and the API gives each file only to the account it belongs to.
 
-No system is perfectly secure. If a breach puts your data at risk, we'll tell you and the authorities as the law
-requires.
+No system is perfectly secure. If a breach puts your data at risk, we'll tell you as the law requires.
 
 ## 7. AI
 
@@ -140,4 +129,4 @@ by email before it takes effect.
 
 ## 10. Contact
 
-**support@norinote.xyz**. [[The operator's legal name and postal address.]]
+**support@norinote.xyz**, or by post to Nori, 34010 10th Street, Union City, California 94587.

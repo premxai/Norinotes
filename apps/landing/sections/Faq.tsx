@@ -4,7 +4,7 @@ import { SectionHead } from "@/components/SectionHead";
 const FAQ = [
   {
     q: "Does Nori apply without asking me?",
-    a: "Only if you turn on autopilot, and only up to the daily cap you set. Otherwise every application waits for your click.",
+    a: "No. Today every application waits for your click. Autopilot is coming with Pro: then Nori sends on its own only if you turn it on, and only up to the daily cap you set.",
   },
   {
     q: "Will it make things up on my resume?",
@@ -20,11 +20,11 @@ const FAQ = [
   },
   {
     q: "What happens to my email?",
-    a: "Nori uses its own inbox address for codes and replies, so your personal email stays out of it. It keeps the text of those messages for 90 days by default (you can shorten that) and never keeps attachments. Deleting your account deletes them.",
+    a: "Nori uses its own inbox address for codes and replies, so your personal email stays out of it. It keeps the text of those messages for 90 days by default (you can change that) and never keeps attachments. Deleting your account deletes them.",
   },
   {
     q: "How much does it cost?",
-    a: "It's free to start. Pro is $9 a month and adds autopilot.",
+    a: "It's free to start. Pro will be $9 a month and adds autopilot when it's ready. Nothing is charged yet.",
   },
   {
     q: "Is it open source?",
