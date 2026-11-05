@@ -19,6 +19,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
 | 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c built and QA'd ([dashboard-4c-spec.md](dashboard-4c-spec.md)) |
 | 5 | Error pages | Page not found, something broke, and the app failing to start | Built and QA'd ([error-pages-spec.md](error-pages-spec.md)) |
+| 6 | Privacy and Terms | `/privacy`, `/terms` | Planned, texts drafted ([privacy](legal/privacy.md), [terms](legal/terms.md)) and wireframed. Next: settle the open items, then the spec |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -838,3 +839,121 @@ Budget: about 3 images including retries, roughly $0.25 to $0.75 from the ledger
 
 - Wording for when the API itself is down on a full page (not part of this: pages that need the API already say so).
 - A reference code to quote, once there's somewhere to report a problem.
+
+## Privacy and Terms (part 6)
+
+Status: planned, texts drafted in [legal/privacy.md](legal/privacy.md) and [legal/terms.md](legal/terms.md), and wireframed
+(the design canvas, page "Privacy and Terms"). Next: settle the open items below, then the spec. Unsettled text is
+marked `[[like this]]`; the build must refuse to ship a page that still has one.
+
+Today `/privacy` and `/terms` are placeholders ("being written"); sign-up already links to both. This part writes the two
+texts and the pages that hold them. They say only what the code does: every claim below is checked against the repo,
+and where something isn't decided, the text doesn't pretend it is.
+
+### Decided
+
+| Question | Decision |
+|---|---|
+| Who "we" are | **Norinote**, with Nori as its voice. (Nori can't be the legal operator: see Open) |
+| Contact | **support@norinote.xyz** for everything: help, data requests, the terms |
+| Who it's for | **Anyone 18 or older, anywhere.** So the privacy policy covers the EU and UK (GDPR) and California (CCPA/CPRA) as well |
+| Review | **Published as written,** without a lawyer's review. (Recommended against: these carry legal weight, and the mistakes that matter are the ones a non-lawyer can't see) |
+| Voice | Plain English, short sections, the same honesty rules as the landing page. A summary at the top of each, then the full text |
+
+### What Norinote handles (from the code)
+
+| Data | Why | Where | How long |
+|---|---|---|---|
+| Account: email, password (hashed), name | Sign-in, account emails | Supabase (Postgres, us-west-1) | Until the account is deleted |
+| Sessions: a cookie (`norinote_session`, httpOnly) and the device it was made on | Staying signed in | Supabase | 30 days, or until signed out |
+| Resume (the text and the file) | Building the career graph, tailoring | Supabase (Postgres and Storage) | Until replaced or the account is deleted |
+| Career graph, facts you add | Matching and tailoring | Supabase | Until removed or the account is deleted |
+| Profile: contact details, work authorisation, salary, start date, notice, relocation, clearance, over 18 | Filling in application forms | Supabase | Until changed or the account is deleted |
+| Voluntary self-identification (gender, race or ethnicity, veteran status, disability) | Only where an application asks, and only as you chose | Supabase | Until changed or the account is deleted |
+| Lanes and preferences | Finding jobs | Supabase | Until changed or the account is deleted |
+| Answers Nori remembered | Reusing your answers on later forms | Supabase | Until edited, deleted, or the account is deleted |
+| Applications: what was sent, the tailored resume, screenshots of the form, the run log | Your record, and showing what Nori did | Supabase (Postgres and Storage) | Until the account is deleted |
+| Nori's inbox: messages to your Nori address (text, sender, subject; attachments' names and sizes, never their content) | Codes and replies for applications | Supabase | 90 days by default (you can shorten it), forwarded to your email if you turn that on |
+| Telegram (if you connect it): your chat id | Sending you the messages you chose | Supabase | Until you disconnect |
+| In your browser: the theme, what's new in the inbox, what you last saw | Remembering your choices on that device | Your browser (local storage) | Until you clear it |
+
+**Who else handles it (processors):** OpenAI (reading resumes and job posts, scoring, tailoring, drafting answers),
+Supabase (database and files), Fly.io (the API and the worker), Vercel (the website), Resend (account emails),
+Cloudflare (receiving mail for Nori's inbox, DNS), Telegram (if you connect it). Your browser loads company logos from
+Brandfetch's image server, which sees your IP address and the page's origin. **Employers** receive what an application
+sends, through their own application systems (Greenhouse, Lever, Ashby), and only after your OK.
+
+**What it doesn't do:** no analytics or tracking, no advertising, no selling or sharing data for ads, no cookies other
+than the session. Deleting the account deletes everything above (stored resumes included); what an employer already
+received is theirs, under their own policy.
+
+### The privacy policy
+
+1. A summary in a few lines: what we keep, why, who else sees it, that we don't sell it, and how to delete it.
+2. Who we are and how to reach us (support@norinote.xyz).
+3. What we collect and why, as the table above, with the legal basis for each use (GDPR): the contract (running the
+   service you signed up for), your consent (voluntary self-identification, Telegram, forwarding), legitimate interests
+   (security, preventing abuse).
+4. Who else handles it: the processors and employers above, and that the data is stored and processed in the United
+   States, with the safeguard used for transfers from the EU and UK.
+5. How long we keep it, and what deleting the account does.
+6. Your rights: access, correction, deletion, export, objecting, withdrawing consent; and for California, the right
+   to know, delete and correct, and that we don't sell or share personal information. How to use them (the app's own
+   controls first, then support@norinote.xyz), and that you can complain to your data protection authority.
+7. AI: what's sent to OpenAI and why; that it isn't used to train their models under OpenAI's API terms (as stated
+   by OpenAI for API data); that Nori only writes from your own facts.
+8. Security, in plain terms: passwords hashed, sessions httpOnly, data encrypted in transit; no promise beyond that.
+9. Children: not for anyone under 18.
+10. Changes to the policy, and the date it last changed.
+
+### The terms
+
+1. A summary in a few lines.
+2. Who can use Norinote: 18 or older; one account each; true details.
+3. What Norinote does: finds jobs, tailors your resume and answers from your own facts, and applies **only with your
+   OK**, on the systems it supports; it never creates accounts with employers or gets around captchas. No promise of
+   interviews, jobs or any result.
+4. What you agree to: that what you give Nori is true and yours to give; that you've checked what's sent (you OK
+   every application); that you're responsible for applications sent in your name; that you'll follow the employers'
+   and job sites' own terms.
+5. Acceptable use: no misrepresentation, no applying for someone else, no attacking or overloading the service, no
+   scraping it.
+6. Plans: Free, and Pro at $9 a month as the landing page says. Until billing exists there's nothing to pay; billing,
+   renewal and cancellation terms are added before anyone is charged. Nothing about autopilot until it exists.
+7. The code is open source (MIT, `premxai/Norinotes`); the licence covers the code, these terms cover the service.
+8. Your content stays yours; you let Norinote use it only to run the service for you.
+9. Third-party services (employers' systems, job boards, Telegram): not ours, their terms apply.
+10. Ending: delete your account any time; we may suspend accounts that break these terms.
+11. The service as it is: no warranties beyond what the law requires; the limits of liability the law allows.
+12. Changes, the law that applies (see Open), and contact.
+
+### The pages
+
+`/privacy` and `/terms`, outside the dashboard, in the Dawn theme: the landing page's nav and footer, then a readable
+column (about 680 px) with the title, "Last updated …", the summary in a tinted box, a list of sections that jumps to
+each, and the full text. No scene; Nori sits beside the title, reading (`read`), and says nothing. Each page links to
+the other. Both are indexed.
+
+### Open
+
+- **Who the legal operator is.** For EU and UK users the privacy policy must name the controller (a person or a
+  company) and their contact details; "Norinote" or Nori alone doesn't meet that. Until it's settled the text says
+  Norinote and the gap is listed here.
+- **An EU and a UK representative.** A controller outside the EU or UK that offers its service to people there usually
+  has to appoint one (GDPR article 27). Not set up.
+- **Transfers and processor agreements.** The EU and UK transfers to the US rely on the providers' standard contractual
+  clauses or the Data Privacy Framework, through their data processing agreements; those agreements need signing with
+  each provider (OpenAI, Supabase, Fly, Vercel, Resend, Cloudflare).
+- **The law that applies to the terms** (a country or state, and where disputes go). Not decided.
+- **support@norinote.xyz** needs setting up (Cloudflare Email Routing, as for the inbox) before it's published.
+- **Billing terms** (renewal, cancellation, refunds) before Pro charges anyone.
+- **Deleting an account leaves the application screenshots and traces.** They're stored in Supabase Storage (and on the
+  worker's disk) at the top level, named by job and time, not under the user, and `DELETE /api/account` removes only
+  `resumes/<user>/`. The privacy text says deleting the account deletes the screenshots, so this must be fixed in
+  `apps/api` and `packages/apply` before publishing (not this part's files).
+- **Inbox forwarding isn't sent yet** (the worker uses a stub forwarder that only logs). The texts leave forwarding out;
+  add it back (Resend, consent) when it's real.
+- **No export in the app.** The privacy text offers a copy of your data by email; an export button would make that
+  self-service.
+- **The landing page's Pro card** says "autopilot within your daily cap", which doesn't exist yet (follow-up, not part of
+  this part).
