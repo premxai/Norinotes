@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { buttonClass } from "@/components/Button";
 import { FormError } from "@/components/auth/fields";
 import { Scene } from "@/components/Scene";
-import { api, type Application, type ShortlistEntry } from "@/lib/api";
-import { noriReact } from "@/lib/auth-flow";
+import { api, type Application, type Job, type ShortlistEntry } from "@/lib/api";
+import { noriReact, takeParam } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
 import { CompanyLogo } from "./CompanyLogo";
@@ -106,6 +106,8 @@ export function Today() {
   const dismissTimers = useRef(new Map<string, number>());
   const [failure, setFailure] = useState<string | null>(null);
   const [hour] = useState(() => new Date().getHours());
+  const linked = useRef<string | null | undefined>(undefined);
+  const [gone, setGone] = useState<Job | "unknown" | null>(null);
 
   // Refresh the list when the panel closes or changes, so the cards' chips follow what happened.
   const refreshApps = apps.refresh;
@@ -148,6 +150,20 @@ export function Today() {
     const t = window.setTimeout(() => void noriReact({ row: "sleep" }), 20_000);
     return () => clearTimeout(t);
   }, [quiet]);
+
+  // A Telegram "Details" link, /today?job=<jobId>: once the lists are in, that job opens as its card would. A job that's
+  // no longer on today's list gets a note instead.
+  useEffect(() => {
+    if (linked.current === undefined) linked.current = takeParam("job", { remove: true });
+    const jobId = linked.current;
+    if (!jobId || !list.data || (!apps.data && !apps.error)) return;
+    linked.current = null;
+    const app = apps.data?.find((r) => r.application.jobId === jobId)?.application;
+    const entry = list.data.find((e) => e.jobId === jobId);
+    if (app) open({ kind: "apps", ids: [app.id], index: 0 });
+    else if (entry) open({ kind: "job", entry });
+    else void api.job(jobId).then((r) => setGone(r.ok ? r.data : "unknown"));
+  }, [list.data, apps.data, apps.error, open]);
 
   async function applyTo(jobIds: string[]) {
     setFailure(null);
@@ -214,6 +230,28 @@ export function Today() {
           </span>
           <span className="font-semibold">Open</span>
         </button>
+      )}
+
+      {gone && (
+        <div role="status" className="flex items-start gap-3 rounded-[14px] border-[1.5px] border-line bg-surface py-1.5 pr-1.5 pl-4 text-small text-ink tablet:text-body">
+          <p className="flex-1 py-2">
+            {gone === "unknown" ? (
+              "That job isn’t on today’s list any more."
+            ) : (
+              <>
+                <b>{gone.title}</b> at {gone.companyName} isn&rsquo;t on today&rsquo;s list any more.{" "}
+                <a href={gone.applyUrl} target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-[3px]">
+                  See the posting
+                </a>
+              </>
+            )}
+          </p>
+          <button type="button" onClick={() => setGone(null)} aria-label="Close this note" className="flex size-11 flex-none items-center justify-center rounded-full text-ink-2 hover:bg-tint">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       )}
 
       {failure && <FormError>{failure}</FormError>}

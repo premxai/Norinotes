@@ -52,7 +52,8 @@ const STEPS = ["Opened the application page", "Filled 9 fields", "Uploaded your 
 
 /**
  * The API as a state machine. `o.outcome`: sent | needs | wall | failed. `o.entries`, `o.apps` (already existing),
- * `o.signedOut`, `o.onboarding`, `o.unverified`, `o.offline` (the shortlist fails).
+ * `o.signedOut`, `o.onboarding`, `o.unverified`, `o.offline` (the shortlist fails). `o.oldJob`: what GET /jobs/<id> sends
+ * for a job not on the list (a job, or null for a 404).
  */
 async function mockApi(context, o = {}) {
   const cors = { "access-control-allow-origin": BASE, "access-control-allow-credentials": "true", "access-control-allow-headers": "Content-Type", "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" };
@@ -108,7 +109,11 @@ async function mockApi(context, o = {}) {
     if (key === "GET /shortlist") return o.offline ? route.abort("connectionrefused") : reply(200, entries);
     if (key === "GET /shortlist/meta") return reply(200, { total: entries.length, widened: o.widened ? ["role_pool"] : [], lanesMatched: 3, poolUsed: false });
     if (/^POST \/shortlist\/.+\/dismiss$/.test(key)) return reply(200, { ok: true });
-    if (/^GET \/jobs\//.test(key)) return reply(200, entries.find((e) => key.endsWith(e.jobId))?.job ?? ENTRIES[0].job);
+    if (/^GET \/jobs\//.test(key)) {
+      const listed = entries.find((e) => key.endsWith(`/${e.jobId}`))?.job;
+      if (!listed && "oldJob" in o) return o.oldJob ? reply(200, o.oldJob) : reply(404, { error: "Job not found" });
+      return reply(200, listed ?? ENTRIES[0].job);
+    }
     if (key === "GET /applications") return reply(200, [...apps.values()].reverse().map((a) => ({ application: a.app, job: a.job, resume: null })));
     if (key === "POST /applications") return reply(201, add(JSON.parse(body ?? "{}").jobId).app);
     const m = key.match(/^(GET|POST) \/applications\/(a\d+)(?:\/(approve|answer|retry))?$/);
@@ -343,6 +348,33 @@ async function flows(browser) {
   ]) {
     const { context, page } = await open(browser, "/today", o);
     check(W, label, await test(page), page.url());
+    await context.close();
+  }
+  // Telegram's Details links (/today?job=<jobId>) and the old dashboard's addresses (next.config.ts redirects).
+  const OLD = job("j9", "Brand designer", "Quill & Co", "Austin, TX", false, 80);
+  for (const [label, path, o, test] of [
+    ["?job= opens that job's panel", "/today?job=j3", {}, async (page) => (await waitPanel(page, "Design systems designer")) && (await panelText(page)).startsWith("Job")],
+    ["?job= opens its application when there is one", "/today?job=j1", { apps: [["j1", "prepared"]] }, async (page) => (await waitPanel(page, "Product designer")) && (await panelText(page)).startsWith("Application")],
+    ["?job= leaves the address", "/today?job=j3", {}, async (page) => (await waitPanel(page, "Design systems designer")) && new URL(page.url()).search === ""],
+    ["?job= not on today's list: a note with the posting", "/today?job=j9", { oldJob: OLD }, async (page) => {
+      const note = page.getByRole("status").filter({ hasText: "isn’t on today’s list any more" });
+      const ok = (await note.innerText().catch(() => "")).includes("Brand designer at Quill & Co") && (await note.getByRole("link", { name: "See the posting" }).getAttribute("href")) === OLD.applyUrl;
+      await note.getByRole("button", { name: "Close this note" }).click();
+      return ok && !(await page.locator("[data-live-panel]").count()) && (await note.count()) === 0 && (await page.locator("main li").count()) === 3;
+    }],
+    ["?job= unknown: a plain note", "/today?job=nope", { oldJob: null }, async (page) => page.getByRole("status").filter({ hasText: "That job isn’t on today’s list any more." }).isVisible()],
+    ["signed out keeps ?job= through sign-in", "/today?job=j3", { signedOut: true }, async (page) => (await landsOn(page, "/signin")) && new URL(page.url()).searchParams.get("next") === "/today?job=j3"],
+    ["/jobs?job= opens Today with that job", "/jobs?job=j3", {}, async (page) => (await landsOn(page, "/today")) && (await waitPanel(page, "Design systems designer"))],
+    ["/login goes to sign-in", "/login", { signedOut: true }, async (page) => landsOn(page, "/signin")],
+    ["/profile goes to You", "/profile", {}, async (page) => landsOn(page, "/you")],
+    ["/settings goes to You", "/settings", {}, async (page) => landsOn(page, "/you")],
+    ["/graph goes to You", "/graph", {}, async (page) => landsOn(page, "/you")],
+    ["/resume/<id> goes to Applications", "/resume/r1", {}, async (page) => landsOn(page, "/applications")],
+  ]) {
+    const { context, page, errors } = await open(browser, path, o);
+    check(W, label, await test(page), page.url());
+    // Only where the page is Today: this file's API mock doesn't serve the You and Applications pages' data.
+    if (/^\/(today|jobs)(\?|$)/.test(path)) check(W, `${label}: no errors`, errors.filter((e) => !/401|404/.test(e)).length === 0, errors);
     await context.close();
   }
   // Polling stops while the tab is hidden, and picks up on return.
