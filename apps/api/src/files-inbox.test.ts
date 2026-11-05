@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -70,6 +70,45 @@ describe("resumes", () => {
 
     expect((await remote.call("DELETE", "/api/auth/account", { cookie: c.cookie, body: { confirm: "files-c@example.com" } })).status).toBe(200);
     expect(stored.size).toBe(0);
+    await remote.close();
+  });
+
+  it("deletes the account's screenshots and traces from disk and storage, and nobody else's", async () => {
+    const stored = new Map<string, Uint8Array>();
+    const files = {
+      async put(key: string, body: Uint8Array) { stored.set(key, body); },
+      async get(key: string) { return stored.get(key) ?? null; },
+      async deletePrefix(prefix: string) { let n = 0; for (const k of [...stored.keys()]) if (k.startsWith(prefix)) { stored.delete(k); n++; } return n; },
+    };
+    const remote = await makeApi({ files });
+    const gone = await remote.signup("files-gone@example.com");
+    const stays = await remote.signup("files-stays@example.com");
+    const { job } = await seedJob(remote.db);
+    const app = await seedApplication(remote.db, gone.user.id, job.id);
+    const other = await seedApplication(remote.db, stays.user.id, job.id);
+    const put = (rel: string) => {
+      const file = path.join(remote.artifactsDir, rel);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, PNG);
+      stored.set(rel, PNG);
+      return file;
+    };
+    // From before files were kept per user: at the top of the folder, found through the receipt and the run log.
+    const shot = put(`${app.id}-filled-1.png`);
+    const trace = put(`${app.id}-trace-2.zip`);
+    await remote.db.update(applications).set({ receipt: { screenshotPath: shot } }).where(eq(applications.id, app.id));
+    await remote.db.insert(runEvents).values({ applicationId: app.id, step: "apply_retry", level: "warn", message: "retry", data: { tracePath: trace } });
+    // Per user, recorded nowhere (an earlier attempt's screenshot).
+    const unrecorded = put(`applications/${gone.user.id}/${app.id}-failure-3.png`);
+    // Someone else's.
+    const theirs = put(`${other.id}-filled-4.png`);
+    const theirsPerUser = put(`applications/${stays.user.id}/${other.id}-filled-5.png`);
+    await remote.db.update(applications).set({ receipt: { screenshotPath: theirs } }).where(eq(applications.id, other.id));
+
+    expect((await remote.call("DELETE", "/api/auth/account", { cookie: gone.cookie, body: { confirm: "files-gone@example.com" } })).status).toBe(200);
+    for (const f of [shot, trace, unrecorded]) expect(existsSync(f)).toBe(false);
+    expect([...stored.keys()].sort()).toEqual([`${other.id}-filled-4.png`, `applications/${stays.user.id}/${other.id}-filled-5.png`].sort());
+    expect(existsSync(theirs) && existsSync(theirsPerUser)).toBe(true);
     await remote.close();
   });
 

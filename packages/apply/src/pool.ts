@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { chromium, type Browser, type BrowserContext, type Page, type Route } from "playwright";
-import { artifactsRoot, fileStoreFromEnv, uploadFile, type FileStore } from "@norinote/shared/files";
+import { artifactsRoot, fileStoreFromEnv, uploadFile, userApplicationsDir, type FileStore } from "@norinote/shared/files";
 
 /** Sent with every page request: the project's polite identifier, appended to the browser's own user agent. */
 export const POLITE_UA_SUFFIX = "NorinoteJobAgent/1.0 (+https://norinote.xyz)";
@@ -43,6 +43,9 @@ export class PoolRunError extends Error {
   }
 }
 
+/** Per-run options. `owner` is the user the run works for: their screenshots and traces go under their own folder. */
+export type PoolRunOptions = { timeoutMs?: number; owner?: string };
+
 export type BrowserPoolOptions = {
   /** Parallel pages. Clamped to 1..4; default 3. */
   size?: number;
@@ -66,7 +69,7 @@ export type PoolStats = { size: number; active: number; waiting: number; browser
 
 export interface BrowserPool {
   /** Run `fn` with a page from a fresh context. Waits in a queue when all slots are busy. */
-  run<T>(label: string, fn: (page: Page, run: RunHandle) => Promise<T>, opts?: { timeoutMs?: number }): Promise<PoolRunResult<T>>;
+  run<T>(label: string, fn: (page: Page, run: RunHandle) => Promise<T>, opts?: PoolRunOptions): Promise<PoolRunResult<T>>;
   /** Launch the browser now so the first run does not pay for it. */
   warmUp(): Promise<void>;
   stats(): PoolStats;
@@ -168,11 +171,11 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
     if (store) await uploadFile(store, file, artifactsRoot()).catch(() => false);
   }
 
-  async function takeScreenshot(page: Page | undefined, label: string, tag: string): Promise<string | undefined> {
+  async function takeScreenshot(page: Page | undefined, dir: string, label: string, tag: string): Promise<string | undefined> {
     if (!page || page.isClosed()) return undefined;
     try {
-      await mkdir(artifactsDir, { recursive: true });
-      const file = path.join(artifactsDir, `${safe(label)}-${tag}-${Date.now()}.png`);
+      await mkdir(dir, { recursive: true });
+      const file = path.join(dir, `${safe(label)}-${tag}-${Date.now()}.png`);
       await page.screenshot({ path: file, fullPage: true, timeout: 8000 });
       await copyToStore(file);
       return file;
@@ -181,7 +184,9 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
     }
   }
 
-  async function run<T>(label: string, fn: (page: Page, run: RunHandle) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<PoolRunResult<T>> {
+  async function run<T>(label: string, fn: (page: Page, run: RunHandle) => Promise<T>, opts: PoolRunOptions = {}): Promise<PoolRunResult<T>> {
+    // A user's files (filled-in forms carry their personal data) go under their folder, which account deletion removes.
+    const dir = opts.owner ? path.join(artifactsDir, userApplicationsDir(opts.owner)) : artifactsDir;
     await acquire();
     let context: BrowserContext | undefined;
     let page: Page | undefined;
@@ -190,12 +195,12 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
     const artifacts: PoolArtifacts = {};
 
     const saveArtifacts = async (): Promise<void> => {
-      artifacts.screenshotPath ??= await takeScreenshot(page, label, "failure");
+      artifacts.screenshotPath ??= await takeScreenshot(page, dir, label, "failure");
       if (context && tracing) {
         tracing = false;
         try {
-          await mkdir(artifactsDir, { recursive: true });
-          const file = path.join(artifactsDir, `${safe(label)}-trace-${Date.now()}.zip`);
+          await mkdir(dir, { recursive: true });
+          const file = path.join(dir, `${safe(label)}-trace-${Date.now()}.zip`);
           await context.tracing.stop({ path: file });
           artifacts.tracePath = file;
           await copyToStore(file);
@@ -222,7 +227,7 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
       const handle: RunHandle = {
         context: ctx,
         keepArtifacts: () => { keep = true; },
-        screenshot: (tag) => takeScreenshot(pg, label, tag),
+        screenshot: (tag) => takeScreenshot(pg, dir, label, tag),
       };
 
       const timeoutMs = opts.timeoutMs ?? defaultTimeout;

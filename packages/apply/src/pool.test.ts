@@ -101,6 +101,13 @@ describe.skipIf(!run)("browser pool (real Chromium)", () => {
       expect(kept.value).toBe(2);
       expect(kept.artifacts.screenshotPath && existsSync(kept.artifacts.screenshotPath)).toBe(true);
       expect(kept.artifacts.tracePath && existsSync(kept.artifacts.tracePath)).toBe(true);
+      // A run for a user keeps its files in that user's folder, which account deletion removes.
+      const owned = await pool.run("owned", async (page, handle) => { await page.goto(`${server.origin}/hello`); handle.keepArtifacts(); return await handle.screenshot("filled"); }, { owner: "user-1" });
+      const folder = path.join(dir, "applications", "user-1");
+      for (const f of [owned.value, owned.artifacts.screenshotPath, owned.artifacts.tracePath]) {
+        expect(f && existsSync(f)).toBe(true);
+        expect(path.dirname(f!)).toBe(folder);
+      }
     } finally {
       await pool.close();
     }

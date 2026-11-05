@@ -1,5 +1,3 @@
-import { rm } from "node:fs/promises";
-import path from "node:path";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
@@ -11,6 +9,7 @@ import { HttpError, iso, parseBody } from "../http.js";
 import { resetEmail, verificationEmail } from "../mailer.js";
 import { clientIp, enforce } from "../security.js";
 import type { AppEnv, Ctx, SessionUser } from "../types.js";
+import { accountFiles, deleteAccountFiles } from "./files.js";
 
 const HOUR = 3_600_000;
 const email = z.string().trim().toLowerCase().max(320).pipe(z.email());
@@ -178,10 +177,11 @@ export function authRoutes(ctx: Ctx): Hono<AppEnv> {
     const user = c.get("user");
     const body = await parseBody(c, Delete);
     if (body.confirm.trim().toLowerCase() !== user.email) throw new HttpError(400, "Type your account email to confirm");
+    // The files go too: screenshots and traces of filled-in forms, and resumes. Their paths are read before the rows go.
+    const files = await accountFiles(db, user.id, ctx.config.artifactsDir);
     // Every table that holds the user's data cascades from users.
     await db.delete(users).where(eq(users.id, user.id));
-    await rm(path.join(ctx.config.artifactsDir, "resumes", user.id), { recursive: true, force: true }).catch(() => undefined);
-    if (ctx.files) await ctx.files.deletePrefix(`resumes/${user.id}/`).catch((err: unknown) => ctx.log(`[api] could not delete stored resumes: ${err instanceof Error ? err.message : String(err)}`));
+    await deleteAccountFiles(ctx, user.id, files);
     clearSessionCookie(ctx, c);
     return c.json({ ok: true });
   });

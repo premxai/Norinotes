@@ -9,7 +9,7 @@ export type { ApplicationRow, CreateApplicationResult, ApproveResult, DailyCap, 
 export { runApplication, driveApplication, createApplyHandler, createPrepareHandler } from "./runner.js";
 export type { ApplyDeps, StepResult, WaitingFor } from "./runner.js";
 export { createBrowserPool, PoolRunError } from "./pool.js";
-export type { BrowserPool, BrowserPoolOptions, PoolArtifacts, PoolRunResult, PoolStats, RunHandle } from "./pool.js";
+export type { BrowserPool, BrowserPoolOptions, PoolArtifacts, PoolRunOptions, PoolRunResult, PoolStats, RunHandle } from "./pool.js";
 export { DRIVERS, detectDriver, defaultUnknownFormHandler, UNSUPPORTED_FORM_REASON, greenhouseDriver, leverDriver, ashbyDriver, greenhouseFormUrl, leverFormUrl, ashbyFormUrl } from "./drivers/index.js";
 export { submitAllowed } from "./flow.js";
 export { buildReceipt, formatReceipt, groupFields, sectionFor, RECEIPT_SECTIONS } from "./receipt.js";

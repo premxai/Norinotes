@@ -26,6 +26,12 @@ export function artifactsRoot(env: Record<string, string | undefined> = process.
   return path.resolve(env.ARTIFACTS_DIR?.trim() || path.join("data", "artifacts"));
 }
 
+/**
+ * Where one user's application screenshots and traces go, relative to the artifacts root (and the storage key prefix):
+ * deleting the account deletes everything under it, including files no receipt points at any more.
+ */
+export const userApplicationsDir = (userId: string): string => `applications/${userId.replace(/[^a-zA-Z0-9-]+/g, "_")}`;
+
 /** `file`'s key: its path relative to `root`, with forward slashes. Null when it is not inside `root`. */
 export function storageKey(file: string, root: string): string | null {
   const rel = path.relative(root, path.resolve(file));

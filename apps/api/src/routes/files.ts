@@ -1,10 +1,10 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
-import { and, applications, eq, resumes, sql } from "@norinote/db";
-import { storageKey, type FileStore } from "@norinote/shared/files";
+import { and, applications, eq, resumes, runEvents, sql, type Db } from "@norinote/db";
+import { storageKey, userApplicationsDir, type FileStore } from "@norinote/shared/files";
 import { requireUser } from "../auth/session.js";
 import { notFound } from "../http.js";
 import { toResume } from "../serialize.js";
@@ -18,6 +18,46 @@ const TYPES: Record<string, string> = {
 export function isInside(root: string, target: string): boolean {
   const rel = path.relative(root, target);
   return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+}
+
+/** Where a recorded path points: an absolute path as it is, a relative one ("artifacts/x.png" or "x.png") under `root`. */
+export function recordedTarget(root: string, p: string): string {
+  return path.isAbsolute(p) ? path.resolve(p) : path.resolve(root, p.replace(/^.*artifacts[\\/]/, ""));
+}
+
+/** Every file recorded on this user's applications: receipt screenshots and traces, resume PDFs. */
+export async function recordedFiles(db: Db, userId: string): Promise<string[]> {
+  const receipts = await db.select({ shot: sql<string | null>`${applications.receipt}->>'screenshotPath'`, trace: sql<string | null>`${applications.receipt}->>'tracePath'` })
+    .from(applications).where(eq(applications.userId, userId));
+  const pdfs = await db.select({ p: resumes.pdfPath }).from(resumes).innerJoin(applications, eq(applications.id, resumes.applicationId)).where(eq(applications.userId, userId));
+  return [...receipts.flatMap((x) => [x.shot, x.trace]), ...pdfs.map((x) => x.p)].filter((p): p is string => !!p);
+}
+
+/**
+ * The account's files, read before its rows are deleted: what receipts and run logs point at, inside `root` only.
+ * Files from before screenshots were kept per user sit at the top of `root`, so they are found this way.
+ */
+export async function accountFiles(db: Db, userId: string, root: string): Promise<string[]> {
+  const logged = await db.select({ shot: sql<string | null>`${runEvents.data}->>'screenshotPath'`, trace: sql<string | null>`${runEvents.data}->>'tracePath'` })
+    .from(runEvents).innerJoin(applications, eq(applications.id, runEvents.applicationId)).where(eq(applications.userId, userId));
+  const all = [...(await recordedFiles(db, userId)), ...logged.flatMap((x) => [x.shot, x.trace]).filter((p): p is string => !!p)];
+  return [...new Set(all.map((p) => recordedTarget(root, p)))].filter((f) => isInside(root, f));
+}
+
+/**
+ * Removes an account's files from this disk and from object storage: the ones listed, and the user's resume and
+ * application folders. Best effort, each one on its own: a failure is logged and the rest still go.
+ */
+export async function deleteAccountFiles(ctx: Pick<Ctx, "config" | "files" | "log">, userId: string, files: string[]): Promise<void> {
+  const root = ctx.config.artifactsDir;
+  const fail = (what: string) => (err: unknown) => ctx.log(`[api] could not delete ${what}: ${err instanceof Error ? err.message : String(err)}`);
+  const folders = [`resumes/${userId}`, userApplicationsDir(userId)];
+  for (const f of files) await rm(f, { force: true }).catch(fail("a file"));
+  for (const d of folders) await rm(path.join(root, d), { recursive: true, force: true }).catch(fail("a folder"));
+  if (!ctx.files) return;
+  // Keys are timestamped file names, so a file's own key as a prefix matches only that file.
+  for (const key of files.map((f) => storageKey(f, root)).filter((k): k is string => !!k)) await ctx.files.deletePrefix(key).catch(fail("a stored file"));
+  for (const d of folders) await ctx.files.deletePrefix(`${d}/`).catch(fail("stored files"));
 }
 
 /**
@@ -72,14 +112,6 @@ export function artifactRoutes(ctx: Ctx): Hono<AppEnv> {
   const root = ctx.config.artifactsDir;
   const PREFIX = "/api/artifacts/";
 
-  /** Every file recorded on this user's applications: receipt screenshots and traces, resume PDFs. */
-  async function recordedFiles(userId: string): Promise<string[]> {
-    const receipts = await db.select({ shot: sql<string | null>`${applications.receipt}->>'screenshotPath'`, trace: sql<string | null>`${applications.receipt}->>'tracePath'` })
-      .from(applications).where(eq(applications.userId, userId));
-    const pdfs = await db.select({ p: resumes.pdfPath }).from(resumes).innerJoin(applications, eq(applications.id, resumes.applicationId)).where(eq(applications.userId, userId));
-    return [...receipts.flatMap((x) => [x.shot, x.trace]), ...pdfs.map((x) => x.p)].filter((p): p is string => !!p);
-  }
-
   r.get("/*", auth, async (c) => {
     const raw = c.req.path.startsWith(PREFIX) ? c.req.path.slice(PREFIX.length) : "";
     let rel: string;
@@ -89,11 +121,7 @@ export function artifactRoutes(ctx: Ctx): Hono<AppEnv> {
     const target = path.resolve(root, rel);
     if (!isInside(root, target)) throw notFound("File not found");
 
-    const mine = (await recordedFiles(c.get("user").id)).some((p) => {
-      if (path.isAbsolute(p)) return path.resolve(p) === target;
-      // A relative record ("artifacts/x.png" or "x.png") is under the artifacts directory.
-      return path.resolve(root, p.replace(/^.*artifacts[\\/]/, "")) === target;
-    });
+    const mine = (await recordedFiles(db, c.get("user").id)).some((p) => recordedTarget(root, p) === target);
     if (!mine) throw notFound("File not found");
     return sendFile(target, TYPES[path.extname(target).toLowerCase()] !== "application/zip", path.basename(target), root, ctx.files);
   });

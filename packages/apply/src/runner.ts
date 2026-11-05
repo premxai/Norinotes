@@ -276,7 +276,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
       if (submit.status === "failed") handle.keepArtifacts();
       const after = await handle.screenshot(submit.status === "submitted" ? "submitted" : "after-submit");
       return { fill, submit, screenshotPath: after ?? screenshotPath, driverName } satisfies BrowserOutcome;
-    }, { timeoutMs: (deps.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + (deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS) });
+    }, { timeoutMs: (deps.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + (deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS), owner: row.userId });
     outcome = run.value;
     artifacts = run.artifacts;
   } catch (err) {
