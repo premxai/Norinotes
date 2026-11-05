@@ -1,10 +1,6 @@
 # Terms of service
 
-Draft for `/terms` (part 6). For people in the United States only. Every statement about what Norinote does is checked against the code; see
-[ui-plan.md](../ui-plan.md). Text in `[[double brackets]]` is not settled and must be filled in before publishing (the
-build refuses to ship a page that still has one).
-
-Last updated: [[the date it's published]]
+Last updated: 2026-11-04
 
 > **In short.** Norinote finds jobs for you, tailors your resume and answers from your own facts, and applies only when
 > you say so. What you give it must be true and yours, and you're responsible for what's sent in your name, which is

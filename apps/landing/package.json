@@ -21,7 +21,8 @@
     "qa:today": "node tests/qa-today.mjs",
     "qa:4b": "node tests/qa-4b.mjs",
     "qa:4c": "node tests/qa-4c.mjs",
-    "qa:errors": "node tests/qa-errors.mjs"
+    "qa:errors": "node tests/qa-errors.mjs",
+    "qa:legal": "node tests/qa-legal.mjs"
   },
   "dependencies": {
     "@norinote/nori-pet": "file:../../nori-pet",

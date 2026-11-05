@@ -13,18 +13,22 @@ const LINKS = [
 /**
  * Spec section 7: transparent and 80 px tall over the hero; once the hero has scrolled away, a sticky 64 px bar on the
  * page colour. Below 1024 px the links move into a full-height sheet behind a menu button.
+ * Off the home page (Privacy, Terms) there's no hero: the bar is solid from the start and its links go to the home
+ * page's sections (legal pages spec section 3).
  */
-export function Nav() {
-  const [solid, setSolid] = useState(false);
+export function Nav({ onHome = true }: { onHome?: boolean }) {
+  const [solid, setSolid] = useState(!onHome);
   const menu = useRef<HTMLDialogElement>(null);
+  const links = onHome ? LINKS : LINKS.map((l) => ({ ...l, href: `/${l.href}` }));
 
   useEffect(() => {
+    if (!onHome) return;
     const hero = document.getElementById("hero");
     if (!hero) return;
     const io = new IntersectionObserver(([entry]) => setSolid(!entry?.isIntersecting), { rootMargin: "-80px 0px 0px 0px" });
     io.observe(hero);
     return () => io.disconnect();
-  }, []);
+  }, [onHome]);
 
   const close = () => menu.current?.close();
 
@@ -43,7 +47,7 @@ export function Nav() {
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-7 laptop:flex">
-          {LINKS.map((l) => (
+          {links.map((l) => (
             <a key={l.href} href={l.href} className="py-1.5 text-[0.9375rem] text-ink no-underline underline-offset-[3px] hover:underline hover:decoration-accent">
               {l.label}
             </a>
@@ -52,11 +56,13 @@ export function Nav() {
 
         <div className="flex items-center gap-2.5">
           {/* max-*:hidden, not hidden + a display utility: the button's own inline-flex would win over plain hidden. */}
-          <Link href="/signin" className={buttonClass("outline", "min-h-11 px-5 max-laptop:hidden")}>
+          {/* Off the home page the two aren't prefetched: a visitor reading the terms rarely signs up next, and the prefetch
+              (about 28 KB) would push the page over its first-screen budget (legal pages spec section 9). */}
+          <Link href="/signin" prefetch={onHome ? undefined : false} className={buttonClass("outline", "min-h-11 px-5 max-laptop:hidden")}>
             Sign in
           </Link>
           {/* Over the hero the hero's own button is the one primary; the bar's becomes primary once the hero is gone. */}
-          <Link href="/signup" className={buttonClass(solid ? "primary" : "outline", "min-h-11 px-5 max-tablet:hidden")}>
+          <Link href="/signup" prefetch={onHome ? undefined : false} className={buttonClass(solid ? "primary" : "outline", "min-h-11 px-5 max-tablet:hidden")}>
             Get started
           </Link>
           <button
@@ -84,7 +90,7 @@ export function Nav() {
             </button>
           </div>
           <nav aria-label="Main" className="flex flex-col">
-            {LINKS.map((l) => (
+            {links.map((l) => (
               <a key={l.href} href={l.href} onClick={close} className="border-b border-line py-4 font-serif text-[2rem] text-ink no-underline">
                 {l.label}
               </a>

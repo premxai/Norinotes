@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useNori } from "@norinote/nori-pet/react";
 import "@norinote/nori-pet/style.css";
 import { startChoreo } from "@/lib/choreo";
-import { isAppPath, isAuthPath, isOnboardingPath } from "@/lib/routes";
+import { isAppPath, isAuthPath, isLegalPath, isOnboardingPath } from "@/lib/routes";
 
 /**
  * Mounts Nori once, from the root layout, so it carries over between pages. Its sprites are copied into public/nori/
@@ -39,13 +39,13 @@ export function NoriStage() {
     // An error page can be at any address (a 404 is wherever the visitor typed), so it's known by its seat, not its path
     // (error pages spec section 7). In the dashboard the shell's own seats are used instead.
     const errorPage = !!document.querySelector('[data-nori-seat="error"]');
-    const kind = errorPage ? "error" : isAuthPath(path) ? "auth" : isOnboardingPath(path) ? "onboarding" : isAppPath(path) ? "app" : null;
+    const kind = errorPage ? "error" : isAuthPath(path) ? "auth" : isOnboardingPath(path) ? "onboarding" : isAppPath(path) ? "app" : isLegalPath(path) ? "legal" : null;
     if (kind) {
       let seat: { destroy: () => void } | null = null;
       let gone = false;
       void import("@/lib/seat-nori").then((m) => {
         if (gone) return;
-        seat = (kind === "error" ? m.startErrorNori : kind === "auth" ? m.startAuthNori : kind === "onboarding" ? m.startOnboardingNori : m.startAppNori)(pet, { arrived });
+        seat = (kind === "error" ? m.startErrorNori : kind === "auth" ? m.startAuthNori : kind === "onboarding" ? m.startOnboardingNori : kind === "legal" ? m.startLegalNori : m.startAppNori)(pet, { arrived });
       });
       return () => {
         gone = true;

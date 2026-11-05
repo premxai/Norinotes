@@ -207,3 +207,21 @@ export const startErrorNori = (pet: NoriPet, { arrived }: { arrived: boolean }) 
     fieldRows: [],
     laterRows: ["look", "dizzy", "comfort"],
   });
+
+/**
+ * Privacy and Terms (legal pages spec section 7): Nori sits beside the title and reads, looping, once the page has
+ * settled. No greeting, no words.
+ */
+export const startLegalNori = (pet: NoriPet, { arrived }: { arrived: boolean }) => {
+  const seat = startSeatNori(pet, {
+    seat: ["legal"],
+    arrived,
+    greet: { event: "idle", key: "norinote-legal-greet", onlyFresh: true },
+    fieldRows: [],
+    laterRows: ["read"],
+  });
+  // "prepared" makes reading Nori's ongoing activity (a bare row would play once). Held until the page settles, like any
+  // reaction, so the strip stays off the first screen.
+  dispatchEvent(new CustomEvent("norinote:react", { detail: { event: "prepared" } }));
+  return seat;
+};

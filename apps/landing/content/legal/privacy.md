@@ -1,10 +1,6 @@
 # Privacy policy
 
-Draft for `/privacy` (part 6). For people in the United States only. Every statement is checked against the code; see "What Norinote handles" in
-[ui-plan.md](../ui-plan.md). Text in `[[double brackets]]` is not settled and must be filled in before publishing (the
-build refuses to ship a page that still has one).
-
-Last updated: [[the date it's published]]
+Last updated: 2026-11-04
 
 > **In short.** Norinote keeps what it needs to find jobs for you and apply with your OK: your account, your resume and
 > the career graph built from it, your profile and preferences, and a record of every application. A few services run

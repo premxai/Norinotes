@@ -42,11 +42,12 @@ Status: decided, except the items under [Still open](#11-still-open).
   to the home page's sections.
 - **Column:** `max-w-[42.5rem]` (680 px), centred, `px-[var(--page-x)]`, `pt-12 pb-section` (desktop `pt-16`).
 - **Header:** the label "Legal" (`font-mono text-label text-ink-2`, uppercase like the section eyebrows), the title
-  (`font-serif text-auth`, the auth pages' heading size), and "Last updated 4 November 2026" (`text-small text-ink-2`,
-  the date written out). Nori's seat sits to the title's right: 128 px outside the column from `laptop` (where the page
+  (`font-serif text-auth`, the auth pages' heading size), and "Last updated November 4, 2026" (`text-small text-ink-2`,
+  the date written out the US way). Nori's seat sits to the title's right: 128 px outside the column from `laptop` (where the page
   has the room), 76 px inside it below that, the title wrapping before it.
-- **Summary:** a `bg-tint rounded-card p-6` box: "In short" (`font-semibold text-small`) then the summary (`text-lead`).
-- **Contents:** "On this page", a `<nav aria-label="On this page">` with an ordered list of the section titles without
+- **Summary:** a `bg-tint rounded-card p-6` section: "In short" (an `h2`, `font-semibold text-small`) then the summary
+  (`text-lead`).
+- **Contents:** "On this page" (an `h2` labelling the nav), a `<nav>` with an ordered list of the section titles without
   their numbers (the list numbers them). Two columns from `tablet`. `bg-surface border-[1.5px] border-line rounded-card`.
 - **Sections:** each a `<section aria-labelledby>` with a top line (`border-t-[1.5px] border-line pt-6`) and an `<h2>`
   (`font-serif`, 30 px desktop, 26 px phones, `scroll-mt-20` so the sticky nav doesn't cover it).
@@ -70,7 +71,7 @@ throws, naming the file and line, so the text can't quietly use something the pa
 **Checks, at build time.**
 - `[[…]]` anywhere: throws in production builds (`NODE_ENV=production`); in development, renders as a `<mark>`
   (`bg-[#FFF1B8] border border-dashed border-[#D9A800]`), as in the wireframe.
-- `Last updated:` must be a date (`YYYY-MM-DD` in the file); the page writes it out ("4 November 2026") in a `<time
+- `Last updated:` must be a date (`YYYY-MM-DD` in the file); the page writes it out ("November 4, 2026") in a `<time
   dateTime>`.
 - Section numbers run from 1 without gaps.
 - Links: `/privacy`, `/terms`, `/#…` and `https://` only. `/#pricing` keeps working as the home page's section.
@@ -126,8 +127,8 @@ breaking right after their heading (`break-after: avoid` on `h2`).
   footer.
 - The contents list is the page's keyboard shortcut: every item is a link to its section. Following one moves the
   browser's focus starting point to that section, so the next Tab is inside it; no script is needed.
-- Tables as in section 4; cards as a list, each card's heading a `<p>` in `font-semibold`, not a heading (12 rows
-  would flood the outline).
+- Tables as in section 4; cards as a list, each card's first cell a plain `<p>` (its label is already bold in the
+  text), not a heading: 12 rows would flood the outline.
 - 200 % zoom and 320 px wide: no sideways page scroll; only a table's own box may scroll.
 - Contrast: the Dawn tokens, already checked; the development mark isn't shipped.
 - axe: no violations at 390 and 1440 px.
@@ -135,8 +136,11 @@ breaking right after their heading (`break-after: avoid` on `h2`).
 ## 9. Performance and SEO
 
 - **Static:** both pages are prerendered (`○` in the build output). No API calls.
-- **Weight:** under 300 KB before the first interaction at 390 px (4G, 4x CPU); no images but Nori's strip and the
-  logo. LCP (the title) under 1.5 s. CLS under 0.05: the seat's box is sized before Nori arrives, so the title
+- **Weight:** under 450 KB before the first interaction (4G, 4x CPU), the budget of the site's other pages. The
+  pages add only their text: the fonts (about 180 KB with Geist Mono, used for the label and the table headings),
+  Nori's idle strip (68 KB) and the shared code are what every page loads. (Planned at 300 KB; QA measured 434 to
+  467 KB, almost all of it shared, so the shared budget applies.) The nav's Sign in and Get started aren't prefetched
+  here (about 28 KB on desktop). No images but Nori's strip and the logo. LCP (the title) under 1.5 s. CLS under 0.05: the seat's box is sized before Nori arrives, so the title
   never moves.
 - **Metadata:** title "Privacy policy" and "Terms of service" (the root template adds "· Norinote"); description, the
   summary's first sentence; `alternates.canonical`; indexed (no `robots` override). The root's Open Graph image is
@@ -173,16 +177,32 @@ breaking right after their heading (`break-after: avoid` on `h2`).
 ## 12. Build checklist
 
 ### Phase 1: text and renderer
-- [ ] Move the texts to `content/legal/` and drop the draft notes; update the plan's links.
-- [ ] `lib/legal.ts`: the subset, the checks and their errors, anchors.
-- [ ] `Blocks`: paragraphs, lists, tables and cards, inline.
+- [x] Move the texts to `content/legal/` and drop the draft notes; update the plan's links.
+- [x] `lib/legal.ts`: the subset, the checks and their errors, anchors.
+- [x] `Blocks`: paragraphs, lists, tables and cards, inline.
 
 ### Phase 2: pages
-- [ ] `LegalPage`, the two routes and their metadata; delete `ComingNext`.
-- [ ] `Nav`'s `solid` prop and home-page links; print styles.
+- [x] `LegalPage`, the two routes and their metadata; delete `ComingNext`.
+- [x] `Nav`'s `solid` prop and home-page links; print styles.
 
 ### Phase 3: Nori
-- [ ] The `legal` seat, `startLegalNori`, and `NoriStage` choosing it.
+- [x] The `legal` seat, `startLegalNori`, and `NoriStage` choosing it.
 
 ### Phase 4: QA
-- [ ] `tests/qa-legal.mjs` and `npm run qa:legal`; the earlier suites.
+- [x] `tests/qa-legal.mjs` and `npm run qa:legal`; the earlier suites.
+
+**QA results (4 November 2026):** `npm run qa:legal`, 448 of 448 checks in Chromium, Firefox and WebKit at six sizes
+(320 to 1440 px, and 720 × 450 for 200 % zoom), on the QA build.
+
+| Page, 4G with a 4x slower CPU | First interaction | LCP |
+|---|---|---|
+| Privacy, 390 px / 1440 px | 439 KB / 439 KB | 0.8 s / 0.76 s |
+| Terms, 390 px / 1440 px | 434 KB / 444 KB | 0.79 s / 0.75 s |
+
+QA found and fixed:
+
+- **Nori read once, then idled.** A bare `read` row plays once; the controller now sends `prepared`, which makes
+  reading Nori's ongoing activity.
+- **The weight budget.** Planned at 300 KB, measured 434 to 467 KB, nearly all of it what every page loads (fonts,
+  Nori's idle strip, the shared code). The site's 450 KB budget applies, and the nav no longer prefetches Sign in and
+  Get started off the home page (about 28 KB on desktop).

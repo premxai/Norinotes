@@ -399,3 +399,30 @@ dialog.sheet[open] > * {
 @media (prefers-reduced-motion: reduce) {
   .graph-pulse { animation: none; opacity: 0.5; }
 }
+
+/* Privacy and Terms, printed or saved as a PDF (legal pages spec section 5): the text alone, tables as tables. */
+@media print {
+  .nori {
+    display: none !important;
+  }
+  .legal {
+    color: #000;
+    background: #fff;
+  }
+  .legal .legal-cards {
+    display: none !important;
+  }
+  .legal .legal-table {
+    display: block !important;
+    overflow: visible;
+  }
+  .legal a[href^="http"]::after {
+    content: " (" attr(href) ")";
+  }
+  .legal h2 {
+    break-after: avoid;
+  }
+  .legal tr {
+    break-inside: avoid;
+  }
+}

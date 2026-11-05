@@ -19,7 +19,7 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 3 | Onboarding | `/onboarding/resume`, `contact`, `work`, `questions`, `preferences`, `done` | Built and QA'd in `apps/landing` ([onboarding-design-spec.md](onboarding-design-spec.md)) |
 | 4 | Dashboard | `/today`, `/applications`, `/inbox`, `/you`, in three parts (4a, 4b, 4c) | 4a built and QA'd ([dashboard-4a-spec.md](dashboard-4a-spec.md)); 4b built and QA'd ([dashboard-4b-spec.md](dashboard-4b-spec.md)); 4c built and QA'd ([dashboard-4c-spec.md](dashboard-4c-spec.md)) |
 | 5 | Error pages | Page not found, something broke, and the app failing to start | Built and QA'd ([error-pages-spec.md](error-pages-spec.md)) |
-| 6 | Privacy and Terms | `/privacy`, `/terms` | Planned, texts drafted ([privacy](legal/privacy.md), [terms](legal/terms.md)), wireframed and specified ([legal-pages-spec.md](legal-pages-spec.md)). Next: build |
+| 6 | Privacy and Terms | `/privacy`, `/terms` | Planned, texts drafted ([privacy](../apps/landing/content/legal/privacy.md), [terms](../apps/landing/content/legal/terms.md)), wireframed, specified ([legal-pages-spec.md](legal-pages-spec.md)), built and QA'd. Goes live once support@norinote.xyz delivers and the processing terms are accepted |
 
 Rules for every part:
 - **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
@@ -842,9 +842,11 @@ Budget: about 3 images including retries, roughly $0.25 to $0.75 from the ledger
 
 ## Privacy and Terms (part 6)
 
-Status: planned, texts drafted in [legal/privacy.md](legal/privacy.md) and [legal/terms.md](legal/terms.md), and wireframed
+Status: planned, texts drafted in [content/legal/privacy.md](../apps/landing/content/legal/privacy.md) and [content/legal/terms.md](../apps/landing/content/legal/terms.md), and wireframed
 (the design canvas, page "Privacy and Terms"); the drafts win where they and this plan differ. Specified in
-[legal-pages-spec.md](legal-pages-spec.md), which wins on how the pages are built. Next: build. The only
+[legal-pages-spec.md](legal-pages-spec.md), which wins on how the pages are built. Built and QA'd: 448 checks in
+three engines. Goes live once support@norinote.xyz delivers and the providers' processing terms are accepted; the
+"Last updated" date is set that day. The only
 unsettled text left is the date, marked `[[like this]]` and filled in when the pages are published; the build must
 refuse to ship a page that still has one.
 
