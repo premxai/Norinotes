@@ -1,6 +1,7 @@
 # Deploying Norinote
 
-A fresh stack, separate from the old Nori apps, which keep running until the new one passes testing.
+A fresh stack, separate from the old Nori apps. Nobody uses the old apps, so they are stopped first and the new stack
+goes straight onto the real names; the old ones are deleted once the new stack works.
 
 | Piece | Where | Config |
 |---|---|---|
@@ -31,15 +32,15 @@ Vercel and Fly issue and renew their own certificates.
 | `jobs` | CNAME | `cname.vercel-dns.com` (the redirect domain) |
 | `api` | A and AAAA, or CNAME | the API Fly app (`fly certs add api.norinote.xyz` prints them) |
 | `in` | MX | Cloudflare Email Routing (added by Cloudflare when routing is turned on) |
-| (root) | TXT/MX for Resend | the records Resend shows when verifying `norinote.xyz` |
+| `send`, `resend._domainkey` (as Resend shows) | MX and TXT | the records Resend shows when verifying `norinote.xyz` |
 
-Copy every existing record (the current `jobs` record points at the old Vercel project) into Cloudflare before
-switching nameservers, so nothing goes dark during the move. The `jobs` record moves to the new project only at the
-switch (step 5 below).
+Check that Cloudflare copied every existing record before switching nameservers. The old `jobs` record is replaced
+when the new Vercel project takes the domain.
 
 ## The app on Vercel
 
-One Vercel project, root directory `apps/landing`, framework Next.js. Its environment:
+One Vercel project, root directory `apps/landing`, framework Next.js, Node.js 22 or newer, "Include files outside the
+root directory" left on (the app imports workspace packages). No `vercel.json` is needed. Its environment:
 
 | Variable | Value |
 |---|---|
@@ -98,32 +99,24 @@ Set once per app with `fly secrets set NAME=value -a <app>`, never in the toml f
 
 ## Order
 
-1. Create the accounts and apps: Cloudflare (add the site and copy the records; switch the nameservers when they are
-   all there), Supabase project in us-west-1 (enable the `vector` extension, create the `artifacts` bucket and an S3
-   key), two Fly apps (rename `app` in both toml files if the names are taken), Resend (verify `norinote.xyz`), one
-   Vercel project (`apps/landing`), Telegram bot, Brandfetch developer account (client id).
-2. Deploy to temporary subdomains of `norinote.xyz`: `next.norinote.xyz` (the app) and `api-next.norinote.xyz` (the
-   API). They must be on `norinote.xyz`: the session cookie is `SameSite=Lax`, so sign-in does not stick across the
-   unrelated `vercel.app` and `fly.dev` addresses. The toml files hold the real names; override them for this step:
-
-   ```bash
-   fly deploy -c fly.api.toml -e WEB_URL=https://next.norinote.xyz -e LANDING_URL=https://next.norinote.xyz -e API_URL=https://api-next.norinote.xyz
-   fly deploy -c fly.worker.toml -e WEB_URL=https://next.norinote.xyz -e API_URL=https://api-next.norinote.xyz
-   ```
-
-   and on Vercel set `NEXT_PUBLIC_API_URL=https://api-next.norinote.xyz` and `NEXT_PUBLIC_SITE_URL=https://next.norinote.xyz`
-   for the deployment on `next.norinote.xyz`. The old apps keep the real names meanwhile.
-3. Load the boards (`scripts/import-seeds.mts`) and let the worker collect for a day.
-4. Test end to end. `scripts/smoke.mts` checks the wiring (pages, headers, CORS, cookie, a throwaway account from
+1. Create the accounts and apps: Cloudflare (add the site, check the copied records, switch the nameservers at
+   Spaceship), Supabase project in us-west-1 (the `artifacts` bucket and an S3 key; the first migration enables
+   `vector`), two Fly apps (rename `app` in both toml files if the names are taken), Resend (verify `norinote.xyz`),
+   Telegram bot, Brandfetch developer account (client id).
+2. Stop the old apps and free the names: scale the old Fly app to zero, and remove `norinote.xyz`, `www`, `jobs` and
+   `api` from the old Vercel and Fly apps that hold them.
+3. Set the secrets (table above), deploy both Fly apps with the toml values, `fly certs add api.norinote.xyz -a <api app>`
+   and add the records it prints. Create the Vercel project with the real `NEXT_PUBLIC_*` values and add its domains.
+4. Load the boards (`scripts/import-seeds.mts`) and let the worker collect for a day.
+5. Turn on the inbox addresses (Cloudflare Email Routing for `in.norinote.xyz` and the Email Worker, docs/inbox.md).
+6. Test end to end. `scripts/smoke.mts` checks the wiring (pages, headers, CORS, cookie, a throwaway account from
    sign-up to deletion); then by hand in a browser: sign up, verify email, upload a resume, see today's jobs, tailor a
    resume, dry-run an application, mark an outcome, Telegram digest, inbox address.
 
    ```bash
-   npx tsx scripts/smoke.mts --site https://next.norinote.xyz --api https://api-next.norinote.xyz
+   npx tsx scripts/smoke.mts --site https://norinote.xyz --api https://api.norinote.xyz --old-dashboard https://jobs.norinote.xyz
    ```
 
-5. Point the real names at the new apps (`norinote.xyz`, `jobs.norinote.xyz` as the redirect, `api.norinote.xyz`),
-   redeploy with the toml values and the real `NEXT_PUBLIC_*` values, and run the smoke test against them.
-6. Stop the old Fly app and Vercel project. The old Neon database is kept until it is deliberately deleted.
+7. Once it works, delete the old Fly app and Vercel project. The old Neon databases go when deliberately deleted.
 
 Real submission stays off (`ALLOW_REAL_SUBMIT=false`) until it is switched on on purpose.

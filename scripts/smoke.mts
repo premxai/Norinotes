@@ -1,9 +1,9 @@
 /**
  * Smoke test of a deployed Norinote: the site, the API and the wiring between them, with one throwaway account that is
- * deleted at the end. No model calls, no applications, nothing collected. Run it against the test subdomains before the
- * switch and against the real names after it (docs/deploy.md, steps 4 and 5).
+ * deleted at the end. No model calls, no applications, nothing collected. Run it against the real names once deployed
+ * (docs/deploy.md, step 6).
  *
- *   npx tsx scripts/smoke.mts --site https://next.norinote.xyz --api https://api-next.norinote.xyz
+ *   npx tsx scripts/smoke.mts --site https://norinote.xyz --api https://api.norinote.xyz
  *     [--old-dashboard https://jobs.norinote.xyz] [--email delivered+smoke@resend.dev]
  *
  * The account's verification email goes to Resend's test address by default, so it reaches no one. Exit code 1 when any

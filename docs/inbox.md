@@ -113,10 +113,10 @@ forwarding address on our own domain is refused (loop).
 
 ## Setup the owner does later (nothing here has been done)
 
-1. Pick a subdomain for inbound mail, e.g. `in.norinote.com`, so the main domain's mail is untouched. Set
-   `INBOUND_EMAIL_DOMAIN=in.norinote.com` and a long random `INBOUND_WEBHOOK_SECRET` (32+ bytes) on the API and worker.
+1. Pick a subdomain for inbound mail, e.g. `in.norinote.xyz`, so the main domain's mail is untouched. Set
+   `INBOUND_EMAIL_DOMAIN=in.norinote.xyz` and a long random `INBOUND_WEBHOOK_SECRET` (32+ bytes) on the API and worker.
 2. Cloudflare dashboard, the zone: Email > Email Routing > enable for the subdomain (Settings > add subdomain). Cloudflare
-   adds the MX records (`route1/2/3.mx.cloudflare.net`) and an SPF TXT record on `in.norinote.com`. Do not add MX records
+   adds the MX records (`route1/2/3.mx.cloudflare.net`) and an SPF TXT record on `in.norinote.xyz`. Do not add MX records
    for the apex unless you want Cloudflare to receive that mail too.
 3. Create the Email Worker (Workers > Create > Email Worker) with the code below; add `INBOUND_WEBHOOK_SECRET` and
    `API_URL` as Worker secret and variable. The Worker needs no packages; the API parses the MIME.
