@@ -211,6 +211,21 @@ describe("applications", () => {
     expect((await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: {} })).status).toBe(400);
   });
 
+  it("accepts an answer keyed by a long consent paragraph", async () => {
+    const consent = "field:By checking this box, you consent to the collection, use, processing, and disclosure of your personal data for recruitment marketing purposes and to receive business updates and notifications to receive communications per your stated preferences. Your personal data will be processed in accordance with the company's Recruitment Policy.";
+    expect(consent.length).toBeGreaterThan(300);
+    const { job } = await seedJob(api.db, { company: "Consent Co" });
+    const app = await seedApplication(api.db, userId, job.id, {
+      status: "needs_user", approvedAt: new Date(), preparedAt: new Date(), resumeId: null,
+      pendingQuestions: [QUESTION(consent, consent.slice("field:".length))],
+    });
+    const res = await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: { [consent]: "Yes" } } });
+    expect(res.status).toBe(200);
+    const [row] = await api.db.select().from(applications).where(eq(applications.id, app.id));
+    expect(row?.answers).toMatchObject({ [consent]: "Yes" });
+    expect((await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: { ["x".repeat(2001)]: "Yes" } } })).status).toBe(400);
+  });
+
   it("does not submit an application parked before the click: answering sends it back through prepare", async () => {
     const { job } = await seedJob(api.db, { company: "Unclicked Co" });
     const app = await seedApplication(api.db, userId, job.id, {

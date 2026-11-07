@@ -10,7 +10,9 @@ import { brandfetchLogo, companyLogoDomain, toApplication, toJob, toResume, toRu
 import { enqueueRequired, enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
 const Create = z.object({ jobId: z.uuid() });
-const answerMap = z.record(z.string().min(1).max(300), z.string().max(5000)).refine((o) => Object.keys(o).length <= 100, "Too many answers");
+// A key is the form's own field name, which some employers make their whole consent paragraph
+// ("field:By checking this box, you consent to ..."), so it may run to a few hundred characters.
+const answerMap = z.record(z.string().min(1).max(2000), z.string().max(5000)).refine((o) => Object.keys(o).length <= 100, "Too many answers");
 const Approve = z.object({ answers: answerMap.optional() });
 const Answer = z.object({ answers: answerMap });
 
