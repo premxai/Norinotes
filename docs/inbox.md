@@ -8,8 +8,20 @@ filter a code prompt parks the application as needs_user and the user types the 
 shown in `/api/inbox`, and the user can turn on forwarding of it to another address (off by default; codes are never
 forwarded, since sending one back could match the user's filter again and loop).
 
-Later, connecting the user's mailbox directly (read-only, codes only, as Tsenta does) would replace the filter; for Gmail
-that needs Google's verification of restricted scopes.
+### Connected Gmail (Composio)
+
+The person can connect their Gmail through Composio (its managed Google app, read-only): `POST /api/inbox/gmail/connect`
+returns a link to approve, `GET /api/inbox/gmail` reports `{ available, connected, status }`, `DELETE /api/inbox/gmail`
+disconnects. Without the dashboard, `npx tsx scripts/gmail-connect.mts --email <account>` prints the link and waits.
+The connection id is kept in `profiles.preferences.gmail`; the Composio user id is the Norinote user id.
+
+Gmail is read only while an application run waits for a code (`awaitVerificationWithGmail`, packages/inbox/src/gmail.ts):
+every 5 s it asks `GMAIL_FETCH_EMAILS` for mail since the wait began that mentions a code, and stores a message only when
+the rules classify it as a verification code, through `storeInbound` with the person as owner, so it is linked to the
+application by its sender and wakes the waiting run. Any other mail it sees is dropped without being stored. Composio is
+called over its REST API (v3.1, `x-api-key`), with `COMPOSIO_API_KEY` on the API and the worker. The approval screen says
+Composio, not Norinote; for a public launch this becomes Norinote's own Google app, which needs Google's verification of
+the restricted Gmail scope.
 
 ### The code filter (Gmail)
 

@@ -34,3 +34,7 @@ export type { VerifyResult } from "./signature.js";
 export { htmlToText, isTrackingPixel, sanitizeHtml, stripTrackingParams } from "./text.js";
 export { awaitVerification, createCodeWaiter, findVerification } from "./waiter.js";
 export type { AwaitVerificationArgs, CodeWaiterLike, CodeWaiterOptions, VerificationResult } from "./waiter.js";
+export {
+  awaitVerificationWithGmail, ComposioError, codeQuery, createComposioGmail, getGmailConnection, readGmailMessages, saveGmailConnection, watchGmailForCodes,
+  type ComposioGmail, type GmailConnection, type GmailConnectionStatus, type GmailMessage, type WatchGmailArgs,
+} from "./gmail.js";

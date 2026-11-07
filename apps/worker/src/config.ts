@@ -4,6 +4,8 @@ export type WorkerConfig = {
   databaseUrl: string | undefined;
   /** Resend key and sender (MAIL_FROM, on a domain verified in Resend) for forwarding inbox mail. Both unset = not sent. */
   resendApiKey: string | undefined;
+  /** Composio project key: while a run waits for an emailed code, a connected Gmail is read for it. Unset = not read. */
+  composioApiKey: string | undefined;
   mailFrom: string | undefined;
   /** Parallel browser pages for apply.run (clamped 1 to 4 by the pool). Default 3. */
   browserPoolSize: number;
@@ -48,6 +50,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   return {
     databaseUrl: env.DATABASE_URL?.trim() || undefined,
     resendApiKey: env.RESEND_API_KEY?.trim() || undefined,
+    composioApiKey: env.COMPOSIO_API_KEY?.trim() || undefined,
     mailFrom: env.MAIL_FROM?.trim() || undefined,
     browserPoolSize: int(env.BROWSER_POOL_SIZE, 3, 1),
     scheduleEveryMs: int(env.SCHEDULE_EVERY_MINUTES, 3, 1) * 60_000,

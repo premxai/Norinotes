@@ -15,7 +15,7 @@ export type Reply<T = any> = { status: number; json: T; headers: Headers };
 type Opts = { body?: unknown; cookie?: string; headers?: Record<string, string>; form?: FormData };
 
 /** The API on an in-memory PGlite, a MemoryQueue that records what was enqueued, and a mailer that records mail. */
-export async function makeApi(over: { config?: Partial<ApiConfig>; addJob?: ApiDeps["addJob"]; now?: () => Date; telegram?: ApiDeps["telegram"]; files?: ApiDeps["files"] } = {}) {
+export async function makeApi(over: { config?: Partial<ApiConfig>; addJob?: ApiDeps["addJob"]; now?: () => Date; telegram?: ApiDeps["telegram"]; files?: ApiDeps["files"]; gmail?: ApiDeps["gmail"] } = {}) {
   const t = await createTestDb();
   const queue = new MemoryQueue();
   const queued: Called[] = [];
@@ -33,6 +33,7 @@ export async function makeApi(over: { config?: Partial<ApiConfig>; addJob?: ApiD
     mailer: { send: async (m) => { mails.push(m); } },
     log: () => undefined,
     files: over.files ?? null,
+    gmail: over.gmail ?? null,
     ...(over.addJob ? { addJob: over.addJob } : {}),
     ...(over.now ? { now: over.now } : {}),
     ...(over.telegram ? { telegram: over.telegram } : {}),

@@ -64,6 +64,14 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   approved today, UTC); nothing changes and the application stays prepared. An application approved earlier (from
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
 
+## Connected Gmail
+- GET `/api/inbox/gmail` returning `{ available, connected, status }`: `available` is false when the server has no
+  Composio key; `status` is Composio's (`INITIATED`, `ACTIVE`, `EXPIRED`, ...) or null when never connected.
+- POST `/api/inbox/gmail/connect` returning `{ url }`: open it and approve read-only Gmail access. 503 when Gmail cannot
+  be connected here or Composio is unavailable.
+- DELETE `/api/inbox/gmail`: disconnects and forgets the connection.
+- While connected, a run waiting for an emailed code reads it from Gmail by itself; typing it still works.
+
 ## Resumes and artifacts
 - GET `/api/resumes/:id` returning `{ id, applicationId, content, changes, pages, atsChecks }`
 - GET `/api/resumes/:id.pdf` (the PDF), GET `/api/artifacts/*` (receipt screenshots, owner only)

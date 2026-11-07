@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createComposioGmail } from "@norinote/inbox";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { addJobByUrl } from "@norinote/ingest";
@@ -45,6 +46,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
     log: deps.log ?? ((line) => console.log(line)),
     limiter: deps.limiter ?? new RateLimiter(),
     files: deps.files === undefined ? fileStoreFromEnv() : deps.files,
+    gmail: deps.gmail === undefined ? (config.composioApiKey ? createComposioGmail({ apiKey: config.composioApiKey }) : null) : deps.gmail,
     ...(deps.telegram ? { telegram: deps.telegram } : {}),
   };
 

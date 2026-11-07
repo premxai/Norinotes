@@ -148,9 +148,10 @@ function metaOf(a: Analysis, email: { attachments?: AttachmentMeta[]; provider?:
  * stores it in `inbox_messages` (a repeated Message-ID is stored once), records an outcome, wakes in-process waiters and
  * says what to wake. Fast: no model call; ambiguous results are settled by the `inbox.receive` worker job.
  */
-export async function storeInbound(db: Db, email: InboundEmail, opts: { now?: Date } = {}): Promise<ReceiveResult> {
+export async function storeInbound(db: Db, email: InboundEmail, opts: { now?: Date; userId?: string } = {}): Promise<ReceiveResult> {
   const now = opts.now ?? new Date();
-  const userId = await resolveUser(db, email.to);
+  // Mail read from the person's own mailbox (connected Gmail) names its owner; mail to an inbox address is resolved.
+  const userId = opts.userId ?? await resolveUser(db, email.to);
   if (!userId) return { stored: false, reason: "unknown_recipient" };
 
   const a = analyse(email, await loadCandidates(db, userId, now), email.spam.spam);

@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import type { ComposioGmail } from "@norinote/inbox";
 import type { Db } from "@norinote/db";
 import type { addJobByUrl } from "@norinote/ingest";
 import type { FileStore } from "@norinote/shared/files";
@@ -25,6 +26,8 @@ export type ApiDeps = {
   files?: FileStore | null;
   /** Telegram transport overrides (tests: a fake Bot API through `fetch`, no per-chat delay). */
   telegram?: TelegramOverrides;
+  /** Gmail through Composio, for connecting a mailbox that emailed codes are read from. Default: from COMPOSIO_API_KEY (none if unset). */
+  gmail?: ComposioGmail | null;
 };
 
 export type TelegramOverrides = { fetch?: typeof fetch; perChatIntervalMs?: number };

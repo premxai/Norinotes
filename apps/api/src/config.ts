@@ -31,6 +31,8 @@ export type ApiConfig = {
   maxResumeBytes: number;
   /** RESEND_API_KEY and MAIL_FROM: both set means account emails are really sent. */
   resendApiKey: string | undefined;
+  /** Composio project key, for reading emailed codes from a connected Gmail (docs/inbox.md). Unset = Gmail cannot be connected. */
+  composioApiKey: string | undefined;
   mailFrom: string | undefined;
   /** BRANDFETCH_CLIENT_ID: public id for company logos on job cards. Unset = no logo URLs (cards show a letter tile). */
   brandfetchClientId: string | undefined;
@@ -60,6 +62,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     sessionSecret: clean(env.SESSION_SECRET) ?? (production ? undefined : DEV_SESSION_SECRET),
     maxResumeBytes: 10 * 1024 * 1024,
     resendApiKey: clean(env.RESEND_API_KEY),
+    composioApiKey: clean(env.COMPOSIO_API_KEY),
     mailFrom: clean(env.MAIL_FROM),
     brandfetchClientId: clean(env.BRANDFETCH_CLIENT_ID),
   };

@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { z } from "zod";
 import { and, applications, companies, desc, eq, inboxMessages, jobs } from "@norinote/db";
 import {
-  assignInboxAddress, ENVELOPE_TO_HEADER, fromGeneric, fromPostmark, getInboxAddress, getInboxSettings, INBOUND_MAX_BYTES, INBOUND_PROVIDERS,
+  assignInboxAddress, ENVELOPE_TO_HEADER, fromGeneric, fromPostmark, getGmailConnection, getInboxAddress, getInboxSettings, INBOUND_MAX_BYTES, INBOUND_PROVIDERS, saveGmailConnection,
   InboundTooLargeError, parseMime, receiveInbound, storeInbound, updateInboxSettings, verifyInboundSecret, verifyProviderRequest,
   type InboundEmail, type InboundPayload, type InboundProvider, type InboxMeta, type ReceiveResult,
 } from "@norinote/inbox";
@@ -84,6 +84,39 @@ export function inboxRoutes(ctx: Ctx): Hono<AppEnv> {
     const domain = ctx.config.inboundEmailDomain;
     const address = domain ? await assignInboxAddress(db, userId, domain) : await getInboxAddress(db, userId);
     return c.json({ address, configured: !!domain, settings: await getInboxSettings(db, userId) });
+  });
+
+  // ---- connected Gmail (Composio): emailed codes are read from the person's own mailbox while a run waits ----------
+  /** Whether Gmail can be connected here, and whether this person has. */
+  r.get("/gmail", auth, async (c) => {
+    const userId = c.get("user").id;
+    const conn = await getGmailConnection(db, userId);
+    if (!ctx.gmail || !conn) return c.json({ available: !!ctx.gmail, connected: false, status: null });
+    const status = await ctx.gmail.status(conn.connectedAccountId).catch(() => "UNKNOWN" as const);
+    if (status === "ACTIVE" && !conn.activeAt) await saveGmailConnection(db, userId, { ...conn, activeAt: ctx.now().toISOString() });
+    return c.json({ available: true, connected: status === "ACTIVE", status });
+  });
+
+  /** Starts a connection: the person opens `url` and approves read-only Gmail access. */
+  r.post("/gmail/connect", auth, async (c) => {
+    if (!ctx.gmail) throw new HttpError(503, "Connecting Gmail is not set up on this server");
+    const userId = c.get("user").id;
+    try {
+      const link = await ctx.gmail.connect(userId);
+      if (link.connectedAccountId) await saveGmailConnection(db, userId, { connectedAccountId: link.connectedAccountId, startedAt: ctx.now().toISOString(), activeAt: null });
+      return c.json({ url: link.url });
+    } catch (err) {
+      ctx.log(`[api] gmail connect failed: ${err instanceof Error ? err.message : String(err)}`);
+      throw new HttpError(503, "Could not start the Gmail connection. Try again in a moment.");
+    }
+  });
+
+  r.delete("/gmail", auth, async (c) => {
+    const userId = c.get("user").id;
+    const conn = await getGmailConnection(db, userId);
+    if (conn && ctx.gmail) await ctx.gmail.disconnect(conn.connectedAccountId).catch((err: unknown) => ctx.log(`[api] gmail disconnect failed: ${err instanceof Error ? err.message : String(err)}`));
+    await saveGmailConnection(db, userId, null);
+    return c.json({ ok: true });
   });
 
   r.put("/settings", auth, async (c) => {

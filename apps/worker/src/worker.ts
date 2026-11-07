@@ -3,7 +3,7 @@ import { connect, migrate, type Db, type DbHandle } from "@norinote/db";
 import { createBrowserPool, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
 import { setAiLogger } from "@norinote/ai";
 import { seedCompanies } from "@norinote/ingest";
-import { awaitVerification, startInboxRetention } from "@norinote/inbox";
+import { awaitVerificationWithGmail, createComposioGmail, startInboxRetention } from "@norinote/inbox";
 import { createQueue, type QueueAdapter } from "@norinote/queue";
 import { closeSharedBrowser } from "@norinote/tailor";
 import { loadConfig, type WorkerConfig } from "./config.js";
@@ -64,12 +64,13 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
   const pool = opts.pool ?? createBrowserPool({ size: config.browserPoolSize, ...(config.artifactsDir ? { artifactsDir: config.artifactsDir } : {}) });
   const ownsPool = !opts.pool;
 
+  const gmail = config.composioApiKey ? createComposioGmail({ apiKey: config.composioApiKey }) : null;
   const apply: ApplyDeps = {
     pool,
     preparer: opts.preparer ?? createPreparer(db, { artifactsDir: config.artifactsDir, pool }),
-    // A code reaches the owned inbox through the person's mail filter, or they type it in Norinote while the page waits
-    // (POST /api/applications/:id/code). A verification link, or no code in time, parks the application.
-    verification: (args) => awaitVerification({ ...args, db }),
+    // A code reaches the waiting run from the person's connected Gmail (Composio, read only during the wait), their mail
+    // filter, or typed in Norinote (POST /api/applications/:id/code). A link, or no code in time, parks the application.
+    verification: (args) => awaitVerificationWithGmail({ ...args, db, gmail, log: (event, data) => log.info(event, data) }),
     codeTimeoutMs: config.codeWaitMs,
     now,
     ...opts.applyOverrides,
