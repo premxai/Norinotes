@@ -14,9 +14,10 @@ kill_timeout = "60s"
   # The app is one site now: apps/landing serves the landing page, sign-in, onboarding and the dashboard.
   WEB_URL = "https://norinote.xyz"
   API_URL = "https://api.norinote.xyz"
-  # Dry runs: every run fills the form and stops before submit. Switched back off on 2026-11-07 until the inbox addresses
-  # used on applications (in.norinote.xyz) receive mail and forward it to the user. "true" sends approved applications.
-  ALLOW_REAL_SUBMIT = "false"
+  # Real submission, on since 2026-11-07 (owner's call): an application is sent only after the user approves it.
+  # Applications carry the user's own email; emailed codes are typed in Norinote or come through their mail filter.
+  # "false" makes every run a dry run that fills the form and stops before submit.
+  ALLOW_REAL_SUBMIT = "true"
   # Sender for forwarded inbox mail (Resend, domain verified); RESEND_API_KEY is a secret.
   MAIL_FROM = "Norinote <hello@norinote.xyz>"
   BROWSER_POOL_SIZE = "2"

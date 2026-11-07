@@ -136,4 +136,4 @@ $w = 'DATABASE_URL','SESSION_SECRET','OPENAI_API_KEY','TELEGRAM_BOT_TOKEN','TELE
 
 7. Once it works, delete the old Fly app and Vercel project. The old Neon databases go when deliberately deleted.
 
-Real submission is off (`ALLOW_REAL_SUBMIT = "false"` in fly.worker.toml): every run fills the form and stops before submit. It was on briefly on 2026-11-07 and switched off until the inbox addresses on applications receive mail (docs/inbox.md) and forward it to the user. Set it to "true" and redeploy the worker to send approved applications.
+Real submission is on (`ALLOW_REAL_SUBMIT = "true"` in fly.worker.toml, since 2026-11-07): an application is sent only after the user approves it. Applications carry the user's own email, and emailed codes are typed in Norinote or come through their mail filter (docs/inbox.md). Set it to "false" and redeploy the worker to make every run a dry run.
