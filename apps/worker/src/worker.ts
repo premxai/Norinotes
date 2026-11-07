@@ -1,6 +1,7 @@
 import path from "node:path";
 import { connect, migrate, type Db, type DbHandle } from "@norinote/db";
-import { createBrowserPool, createLiveFrameSink, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
+import { createBrowserPool, createLiveFrameSink, drainBatches, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
+import { JOBS } from "@norinote/queue";
 import { artifactsRoot, fileStoreFromEnv } from "@norinote/shared/files";
 import { setAiLogger } from "@norinote/ai";
 import { seedCompanies } from "@norinote/ingest";
@@ -117,6 +118,29 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     logoTimer.unref();
   }
 
+  // "Apply for me" batches: start the next application of each running batch when its spacing and the daily limit allow,
+  // every BATCH_DRAIN_SECONDS (30). The batch is the person's approval; apply.run does the rest.
+  let drainTimer: ReturnType<typeof setInterval> | null = null;
+  if (opts.scheduler !== false && config.batchDrainMs > 0) {
+    let draining = false;
+    const drain = async () => {
+      if (draining) return;
+      draining = true;
+      try {
+        for (const step of await drainBatches(db, { now: now() })) {
+          await queue.enqueue(JOBS.applyRun, { applicationId: step.applicationId, trigger: "autopilot" });
+          log.info("batch.started", { batchId: step.batchId, applicationId: step.applicationId });
+        }
+      } catch (err) {
+        log.warn("batch.drain_failed", { error: err instanceof Error ? err.message : String(err) });
+      } finally {
+        draining = false;
+      }
+    };
+    drainTimer = setInterval(() => { void drain(); }, config.batchDrainMs);
+    drainTimer.unref();
+  }
+
   // Inbox retention: delete messages past INBOX_RETENTION_DAYS (default 90) or the user's own setting, every 6 hours.
   const stopRetention = opts.scheduler !== false ? startInboxRetention(db, { log: (event, fields) => log.info(event, fields) }) : () => undefined;
   // Telegram: daily shortlist, questions and events for linked chats (only with TELEGRAM_BOT_TOKEN). See docs/telegram.md.
@@ -129,6 +153,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     if (timer) clearInterval(timer);
     if (sweepTimer) clearInterval(sweepTimer);
     if (logoTimer) clearInterval(logoTimer);
+    if (drainTimer) clearInterval(drainTimer);
     await consumers.stopSweep();
     stopRetention();
     stopTelegram();

@@ -10,6 +10,7 @@ import { browserOrigins, originGuard, RateLimiter, securityHeaders } from "./sec
 import type { ApiDeps, AppEnv, Ctx } from "./types.js";
 import { agentRoutes } from "./routes/agent.js";
 import { applicationRoutes } from "./routes/applications.js";
+import { noriRoutes } from "./routes/nori.js";
 import { authRoutes } from "./routes/auth.js";
 import { channelRoutes } from "./routes/channels.js";
 import { artifactRoutes, resumeRoutes } from "./routes/files.js";
@@ -76,6 +77,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
   app.route("/api/inbox", inboxRoutes(ctx));
   app.route("/api/inbound", inboundRoutes(ctx));
   app.route("/api/channels", channelRoutes(ctx));
+  app.route("/api/nori", noriRoutes(ctx));
 
   app.notFound((c) => c.json({ error: "Not found" }, 404));
   app.onError(errorHandler(ctx.log));

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, applications, channelMessages, channels, eq, profiles, type Db } from "@norinote/db";
-import { approveAndSubmit } from "@norinote/apply";
+import { approveAndSubmit, takeFinishedBatches } from "@norinote/apply";
 import { digestKeyboard, digestText, selectDigest } from "./digest.js";
 import { codeNeededEvents, inboxEvents, needsUserEvents, submittedEvents, summaryEvent } from "./events.js";
 import { flushOutbox, hasMessage, markSkipped, purgeOldMessages, queueMessage, type TelegramDeps } from "./outbox.js";
@@ -99,6 +99,7 @@ async function queueDue(deps: NotifierDeps, userId: string, linkedAt: Date, sett
     ...(settings.events.needsUser ? await needsUserEvents(db, userId, since, webUrl) : []),
     ...(settings.events.needsUser ? await codeNeededEvents(db, userId, since, webUrl) : []),
     ...(settings.events.inbox ? await inboxEvents(db, userId, since, webUrl) : []),
+    ...(settings.events.submitted ? await batchSummaries(db, userId, webUrl) : []),
   ];
   for (const e of events) await put(e);
 
@@ -163,4 +164,21 @@ export function startTelegramNotifier(deps: NotifierDeps, opts: { everyMs?: numb
   const timer = setInterval(() => { void tick(); }, opts.everyMs ?? 30_000);
   timer.unref?.();
   return () => clearInterval(timer);
+}
+
+/** "Apply for me" batches that finished: what was sent and what needs the person, once per batch. */
+async function batchSummaries(db: Db, userId: string, webUrl: string) {
+  const out = [];
+  for (const b of await takeFinishedBatches(db, userId)) {
+    const c = b.counts;
+    const lines = [`<b>${b.status === "stopped" ? "Batch stopped" : "Batch finished"}</b>: sent ${c.sent} of ${c.total}.`];
+    if (c.needsYou) lines.push(`${c.needsYou} need${c.needsYou === 1 ? "s" : ""} you (a question, a code or a captcha).`);
+    if (c.cancelled) lines.push(`${c.cancelled} cancelled.`);
+    if (c.failed) lines.push(`${c.failed} could not be sent.`);
+    out.push({
+      kind: "notice" as const, dedupeKey: `batch:${b.id}`, applicationId: null, urgent: c.needsYou > 0,
+      payload: { text: lines.join("\n"), keyboard: { inline_keyboard: [[{ text: "Open Nori", url: `${webUrl}/nori` }]] } },
+    });
+  }
+  return out;
 }

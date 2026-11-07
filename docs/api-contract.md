@@ -78,6 +78,25 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   approved today, UTC); nothing changes and the application stays prepared. An application approved earlier (from
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
 
+## Nori page ("Apply for me")
+- GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit (0-1, default 0.7, for the
+  "All strong" shortcut), skipCompanies (names, max 100), dailyLimit (1-100; the profile's daily cap, default 20) } }`.
+  PUT takes any of these; unknown keys are 400.
+- POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once. At most one job per company,
+  never a skipped company; an unsent application of theirs is taken over, a sent one is skipped. 201 `{ batch, added,
+  skipped: [{ jobId, reason }] }` (reasons: not_found, skipped_company, same_company, already_applied,
+  duplicate_recent); 409 when nothing could be added. Applications are prepared now.
+- The worker (every 30 s) starts a running batch's next prepared application when nothing of it is on a page, the
+  spacing has passed since the last start and today's limit has room. What needs the person is parked (needs_user)
+  and never guessed; answering resumes it. A batch with nothing left to send becomes `done`; Telegram sends a summary.
+- GET `/api/nori/batches` (latest 10) and GET `/api/nori/batches/:id` (with its applications: id, jobId, title,
+  company, status, error, needs). A batch view: `{ id, status: running|stopped|done, createdAt, finishedAt,
+  lastStartedAt, counts: { total, sent, working, preparing, ready, needsYou, cancelled, failed }, waitingFor:
+  spacing|daily_limit|preparing|you|null, nextAt }`.
+- POST `/api/nori/batches/:id/stop`: cancels what has not started (`"Cancelled by you"`); sent ones stay sent.
+- GET `/api/nori/needs-you`: `{ items: [{ applicationId, jobId, title, company, applyUrl, needs: questions|code|captcha|
+  account|other, reason, questions, batchId, updatedAt }] }`, newest first.
+
 ## Connected Gmail
 - GET `/api/inbox/gmail` returning `{ available, connected, status }`: `available` is false when the server has no
   Composio key; `status` is Composio's (`INITIATED`, `ACTIVE`, `EXPIRED`, ...) or null when never connected.

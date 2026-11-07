@@ -249,6 +249,24 @@ export const savedJobs = pgTable("saved_jobs", {
   createdAt: createdAt(),
 }, (t) => [primaryKey({ columns: [t.userId, t.jobId] }), index("saved_jobs_job_idx").on(t.jobId)]);
 
+/**
+ * "Apply for me": a set of jobs the person picked and approved at once (the Nori page). The worker sends the batch's
+ * prepared applications one at a time, `spacing` apart and within the daily limit, and parks what needs the person.
+ * `stopped`: the person stopped the rest; `done`: nothing left to send.
+ */
+export const applyBatches = pgTable("apply_batches", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").$type<"running" | "stopped" | "done">().notNull().default("running"),
+  total: integer("total").notNull().default(0),
+  /** When the worker last started one of the batch's applications (spacing is counted from here). */
+  lastStartedAt: ts("last_started_at"),
+  finishedAt: ts("finished_at"),
+  /** When the batch's summary was sent to Telegram (once). */
+  notifiedAt: ts("notified_at"),
+  createdAt: createdAt(),
+}, (t) => [index("apply_batches_user_status_idx").on(t.userId, t.status)]);
+
 export const applications = pgTable("applications", {
   id: id(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -273,10 +291,13 @@ export const applications = pgTable("applications", {
    * (tailoring report version N with model rewrites), `v<N>-selection` (selection only, the model was unavailable).
    */
   tailoringVersion: text("tailoring_version"),
+  /** The "Apply for me" batch this application belongs to; the batch is the person's approval to send it. */
+  batchId: uuid("batch_id").references(() => applyBatches.id, { onDelete: "set null" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
   uniqueIndex("applications_user_job_uq").on(t.userId, t.jobId),
+  index("applications_batch_idx").on(t.batchId),
   uniqueIndex("applications_user_canonical_url_uq").on(t.userId, t.canonicalUrl),
   index("applications_user_status_idx").on(t.userId, t.status),
   index("applications_job_idx").on(t.jobId),
