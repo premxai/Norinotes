@@ -53,7 +53,9 @@ const STEPS = ["Opened the application page", "Filled 9 fields", "Uploaded your 
 /**
  * The API as a state machine. `o.outcome`: sent | needs | wall | failed. `o.entries`, `o.apps` (already existing),
  * `o.signedOut`, `o.onboarding`, `o.unverified`, `o.offline` (the shortlist fails). `o.emailsCode`: after Submit the
- * employer emails a verification code, and the run waits until it's typed (POST /applications/:id/code). `o.oldJob`: what GET /jobs/<id> sends
+ * employer emails a verification code, and the run waits until it's typed (POST /applications/:id/code). The live view
+ * (GET /applications/:id/live) sends a frame while the run is on the employer's page and after it; `o.liveDelay`: that
+ * many requests 404 first; `o.liveGap`: every third request 404s. `o.countUrls` counts object URLs made and revoked. `o.oldJob`: what GET /jobs/<id> sends
  * for a job not on the list (a job, or null for a 404).
  */
 async function mockApi(context, o = {}) {
@@ -69,7 +71,7 @@ async function mockApi(context, o = {}) {
     return apps.get(id);
   };
   for (const [jobId, status, error] of o.apps ?? []) Object.assign(add(jobId, status).app, error ? { error } : {});
-  const event = (a, message, level = "info") => a.events.push({ id: String(a.events.length + 1), ts: MORNING.toISOString(), level, step: "run", message });
+  const event = (a, message, level = "info") => a.events.push({ id: String(a.events.length + 1), ts: MORNING.toISOString(), level, step: message === "Submitting" ? "submit" : "run", message });
   /** One poll moves it on, the way the worker would. */
   const advance = (a) => {
     a.polls += 1;
@@ -118,6 +120,16 @@ async function mockApi(context, o = {}) {
     }
     if (key === "GET /applications") return reply(200, [...apps.values()].reverse().map((a) => ({ application: a.app, job: a.job, resume: null })));
     if (key === "POST /applications") return reply(201, add(JSON.parse(body ?? "{}").jobId).app);
+    const live = key.match(/^GET \/applications\/(a\d+)\/live$/);
+    if (live) {
+      const a = apps.get(live[1]);
+      const running = !!a && ["applying", "awaiting_code"].includes(a.app.status);
+      if (a) a.livePolls = (a.livePolls ?? 0) + 1;
+      if (running) a.ran = true;
+      const shown = !!a && (running || a.ran) && a.livePolls > (o.liveDelay ?? 0) && !(o.liveGap && a.livePolls % 3 === 0);
+      if (!shown) return reply(404, { error: "No live view" });
+      return route.fulfill({ status: 200, headers: { ...cors, "content-type": "image/png", "cache-control": "no-store" }, body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") });
+    }
     const typed = key.match(/^POST \/applications\/(a\d+)\/code$/);
     if (typed) {
       const a = apps.get(typed[1]);
@@ -150,6 +162,14 @@ async function mockApi(context, o = {}) {
 async function open(browser, path, o = {}, ctx = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...ctx });
   const mock = await mockApi(context, o);
+  if (o.countUrls)
+    await context.addInitScript(() => {
+      window.__urls = { made: 0, revoked: 0 };
+      const make = URL.createObjectURL.bind(URL);
+      const revoke = URL.revokeObjectURL.bind(URL);
+      URL.createObjectURL = (b) => (window.__urls.made++, make(b));
+      URL.revokeObjectURL = (u) => (window.__urls.revoked++, revoke(u));
+    });
   const page = await context.newPage();
   await page.clock.setFixedTime(MORNING);
   const errors = [];
@@ -321,6 +341,45 @@ async function flows(browser) {
     check(W, "the typed code goes to the API", calls.some((c) => /^POST \/applications\/a\d+\/code$/.test(c.key) && JSON.parse(c.body).code === "482913"), null);
     check(W, "sent, with the time and the confirmation", (await waitPanel(page, "Sent in 18 seconds")) && (await panelText(page)).includes("FW-20931"), await panelText(page));
     check(W, "the card follows: Sent and Watch", await page.locator("main li", { hasText: "Product designer" }).locator("text=Sent").first().waitFor({ timeout: 8000 }).then(() => true, () => false), null);
+    await context.close();
+  }
+  // Watch Nori apply: the stage bar, the employer's page as live frames (fetched as blobs: the CSP allows no API images),
+  // the run log newest first, and the last frame kept after the run.
+  {
+    const { context, page, calls, errors } = await open(browser, "/today", { liveDelay: 2, liveGap: true, countUrls: true });
+    const panel = page.locator("[data-live-panel]");
+    const lives = () => calls.filter((c) => /^GET \/applications\/a\d+\/live$/.test(c.key)).length;
+    await page.getByRole("button", { name: "Apply to Product designer at Fernway" }).click();
+    await waitPanel(page, "Ready to send");
+    check(W, "live: nothing is fetched before the run", lives() === 0, lives());
+    await panel.getByRole("button", { name: "Send it" }).click();
+    check(W, "live: Opening the employer's page… before the first frame", await waitPanel(page, "Opening the employer’s page…", 4000), await panelText(page));
+    const frame = panel.locator('img[src^="blob:"]');
+    check(W, "live: frames arrive as blob images", await frame.waitFor({ timeout: 8000 }).then(() => true, () => false), lives());
+    const box = await panel.locator("figure div").first().boundingBox();
+    check(W, "live: the frame is 16:10", !!box && Math.abs(box.width / box.height - 1.6) < 0.02, box);
+    const seen = [];
+    for (let i = 0; i < 10; i++) {
+      seen.push(await frame.count());
+      await wait(300);
+    }
+    check(W, "live: a 404 keeps the last good frame", seen.every((n) => n === 1) && lives() >= 4, { seen, lives: lives() });
+    const current = await panel.locator('ol[aria-label="Where the run is"] [aria-current="step"]').textContent().catch(() => "");
+    check(W, "live: the stage bar says where it is", /Filling the form|Submitting/.test(current), current);
+    const STEPS_SEEN = ["Opened the application page", "Filled 9 fields", "Uploaded your tailored resume", "Answered 2 questions from your answer bank", "Submitting"];
+    const log = (await panel.locator('ol[aria-label^="What Nori has done"] li').allTextContents()).map((t) => STEPS_SEEN.findIndex((s) => t.includes(s))).filter((i) => i >= 0);
+    check(W, "live: the run log is newest first", log.length >= 2 && log.every((v, i) => i === 0 || v < log[i - 1]), log);
+    check(W, "live: sent", await waitPanel(page, "Sent in 18 seconds", 15000), await panelText(page));
+    await wait(600);
+    const before = lives();
+    await wait(3200);
+    check(W, "live: polling stops once it's sent", lives() - before <= 1, { before, after: lives() });
+    check(W, "live: the last frame stays after the run", (await frame.count()) === 1 && (await panelText(page)).includes("The employer’s page when the run ended"), null);
+    const stages = await panel.locator('ol[aria-label="Where the run is"] li').allTextContents();
+    check(W, "live: every stage done once sent", stages.at(-1)?.includes("Sent") && (await panel.locator('ol[aria-label="Where the run is"] [aria-current]').count()) === 0, stages);
+    const urls = await page.evaluate(() => window.__urls);
+    check(W, "live: each old frame's object URL is revoked", urls.made >= 3 && urls.made - urls.revoked <= 1, urls);
+    check(W, "live: no CSP or other errors", errors.filter((e) => !/404/.test(e)).length === 0, errors);
     await context.close();
   }
   for (const [outcome, label] of [["needs", "needs you"], ["wall", "a wall"], ["failed", "a failure"]]) {

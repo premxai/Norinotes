@@ -220,6 +220,20 @@ export const api = {
   approve: (id: string, answers?: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/approve`, { json: answers ? { answers } : {} }),
   answer: (id: string, answers: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/answer`, { json: { answers } }),
   retry: (id: string) => call<Application>(`/applications/${encodeURIComponent(id)}/retry`, { json: {} }),
+  /**
+   * The latest frame of the employer's page while Nori works on it (GET /applications/:id/live), or null (404: no live
+   * view; offline; anything else). Fetched rather than pointed at, because the CSP allows images only from this site:
+   * the caller shows the blob through an object URL.
+   */
+  liveFrame: async (id: string): Promise<Blob | null> => {
+    try {
+      const res = await fetch(`${API_URL}/api/applications/${encodeURIComponent(id)}/live`, { credentials: "include", cache: "no-store" });
+      if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("image/")) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    }
+  },
   /** Drops an application before Nori is on the employer's page: it becomes failed, "Cancelled by you". 409 once it's there or sent. */
   cancel: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/cancel`, { json: {} }),
   /** The code an employer emailed the person, typed while the run waits for it (status awaiting_code). 409: not waiting any more. */

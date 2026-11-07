@@ -9,6 +9,7 @@ import { CANCELLABLE, isCancelled } from "@/lib/app-state";
 import { noriReact } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
+import { WatchNori } from "./WatchNori";
 
 /* The live panel (4a spec section 7): a job, or an application playing its real status and run log. A side panel from
    1024 px, an overlay from 768, a modal sheet below that. */
@@ -278,10 +279,12 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
   // The wait for a typed code ran out (the receipt says codeMissing): unlike a captcha, Try again can get past it.
   const codeLate = wall && a.receipt?.codeMissing === true;
   const cancelled = isCancelled(a);
+  // Newest first, so the field-by-field lines read live at the top.
   const lines = detail.events
     .filter((e) => e.level !== "debug" && e.message)
     .filter((e, i, all) => i === 0 || all[i - 1]?.message !== e.message)
-    .slice(-8);
+    .slice(-10)
+    .reverse();
   const took = seconds(a.approvedAt, a.submittedAt, now);
   return (
     <div className="flex flex-col gap-4">
@@ -292,21 +295,23 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </span>
         {a.approvedAt && <span className="font-mono text-[1.125rem] text-ink laptop:text-[1.25rem]">{clock(took)}</span>}
       </div>
-      {lines.length > 0 && (
-        <ol aria-label="What Nori has done" className="flex flex-col gap-2.5">
-          {lines.map((e, i) => {
-            const last = i === lines.length - 1 && MOVING.includes(a.status);
-            return (
-              <li key={e.id} className="flex items-start gap-2.5 text-small leading-[1.45]">
-                <span aria-hidden="true" className={`w-[18px] flex-none text-center ${e.level === "warn" ? "text-warning" : last ? "text-ink" : "text-accent"}`}>
-                  {e.level === "warn" ? "!" : last ? "•" : "✓"}
-                </span>
-                <span className="text-ink">{e.message}</span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
+      <WatchNori key={`live:${a.id}`} application={a} events={detail.events} wide={onPage}>
+        {lines.length > 0 && (
+          <ol aria-label="What Nori has done, newest first" className="flex flex-col gap-2.5">
+            {lines.map((e, i) => {
+              const last = i === 0 && MOVING.includes(a.status);
+              return (
+                <li key={e.id} className="flex items-start gap-2.5 text-small leading-[1.45]">
+                  <span aria-hidden="true" className={`w-[18px] flex-none text-center ${e.level === "warn" ? "text-warning" : last ? "text-ink" : "text-accent"}`}>
+                    {e.level === "warn" ? "!" : last ? "•" : "✓"}
+                  </span>
+                  <span className="text-ink">{e.message}</span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </WatchNori>
 
       {a.status === "prepared" && (
         <>

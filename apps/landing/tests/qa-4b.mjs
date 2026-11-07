@@ -168,6 +168,12 @@ async function mockApi(context, o = {}) {
       r.outcomes = r.outcomes.filter((x) => x.id !== m[2]);
       return reply(200, { ok: true, ...view(r) });
     }
+    m = key.match(/^GET \/applications\/([\w-]+)\/live$/);
+    if (m) {
+      const r = rows.find((x) => x.app.id === m[1]);
+      if (!r || !["applying", "awaiting_code"].includes(r.app.status)) return reply(404, { error: "No live view" });
+      return route.fulfill({ status: 200, headers: { ...cors, "content-type": "image/png", "cache-control": "no-store" }, body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") });
+    }
     m = key.match(/^POST \/applications\/([\w-]+)\/cancel$/);
     if (m) {
       const r = rows.find((x) => x.app.id === m[1]);
@@ -530,6 +536,24 @@ async function flows(browser) {
     const { context, page } = await open(browser, "/applications");
     await wait(600);
     check(W, "a first visit stays quiet", !(await played(page)).includes("celebrate"), await played(page));
+    await context.close();
+  }
+  // Watch Nori apply on the application's page: the live frame beside the run log, and the stage bar.
+  {
+    const { context, page, errors } = await open(browser, "/applications/a1");
+    const shown = await page.locator('main figure img[src^="blob:"]').waitFor({ timeout: 6000 }).then(() => true, () => false);
+    check(W, "live: the application's page shows Watch Nori apply", shown && (await page.locator("main figcaption", { hasText: "Watch Nori apply" }).count()) === 1, null);
+    const fig = await page.locator("main figure").boundingBox({ timeout: 3000 }).catch(() => null);
+    const log = await page.locator('main ol[aria-label^="What Nori has done"]').boundingBox({ timeout: 3000 }).catch(() => null);
+    check(W, "live: the run log sits beside the frame at 1440", !!fig && !!log && log.x > fig.x + fig.width - 2 && Math.abs(log.y - fig.y) < 40, { fig, log });
+    check(W, "live: the stage bar is at Filling the form", (await page.locator('main ol[aria-label="Where the run is"] [aria-current="step"]').textContent().catch(() => "")).includes("Filling the form"), null);
+    check(W, "live: no errors", errors.length === 0, errors);
+    await context.close();
+  }
+  {
+    const { context, page, calls } = await open(browser, "/applications/a11", { apps: CODE_APPS() });
+    await wait(1500);
+    check(W, "live: after a run it asks once for the last frame, and shows none when it's gone", calls.filter((c) => c.key === "GET /applications/a11/live").length === 1 && (await page.locator("main figure").count()) === 0, calls.filter((c) => /live/.test(c.key)).length);
     await context.close();
   }
   // Cancel: a quiet action until the run is on the employer's page, confirmed in place; then Cancelled, not a failure.
