@@ -19,6 +19,11 @@ kill_timeout = "60s"
   BROWSER_POOL_SIZE = "2"
   # Generated files: written here, copied to Supabase Storage (S3 API). Both apps must use the same ARTIFACTS_DIR so
   # the keys match. S3_ENDPOINT is https://<project-ref>.supabase.co/storage/v1/s3; the keys are secrets.
+  # Database connections, over Supabase's direct connection (60 at most, shared by both apps; docs/deploy.md).
+  # API 5 + 2, worker 10 + 5, plus a pg-boss listener each: about 24.
+  # Collection runs many polls at once; queue workers fetch and finish jobs.
+  DB_POOL_MAX = "10"
+  QUEUE_POOL_MAX = "5"
   ARTIFACTS_DIR = "/app/data/artifacts"
   S3_REGION = "us-west-1"
   S3_BUCKET = "artifacts"

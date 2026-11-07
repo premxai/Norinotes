@@ -8,7 +8,7 @@ export * from "./types.js";
 export { MemoryQueue } from "./memory.js";
 export type { MemoryStats } from "./memory.js";
 export type { BossLike } from "./pgboss.js";
-export { PgBossQueue } from "./pgboss.js";
+export { PgBossQueue, bossOptions } from "./pgboss.js";
 export { cronMatches, parseCron } from "./cron.js";
 
 /**

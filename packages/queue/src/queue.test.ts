@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { JOBS, MemoryQueue, PgBossQueue, QUEUE_CONFIG, cronMatches, createQueue, enqueue, payloadSchemas, startQueue, stopQueue, work, type BossLike, type QueueAdapter } from "./index.js";
+import { JOBS, MemoryQueue, PgBossQueue, QUEUE_CONFIG, bossOptions, cronMatches, createQueue, enqueue, payloadSchemas, startQueue, stopQueue, work, type BossLike, type QueueAdapter } from "./index.js";
 
 async function waitUntil(predicate: () => boolean, ms = 8000) {
   const end = Date.now() + ms;
@@ -201,6 +201,13 @@ describe("pg-boss adapter wiring (stand-in for PgBoss, no database)", () => {
     } as unknown as BossLike;
     return { boss, calls, run: (jobs: unknown[]) => workHandler!(jobs) };
   }
+
+  it("sizes pg-boss's own connection pool from QUEUE_POOL_MAX (default 10)", () => {
+    expect(bossOptions("postgres://x", {})).toEqual({ connectionString: "postgres://x", application_name: "norinote-queue", max: 10 });
+    expect(bossOptions("postgres://x", { QUEUE_POOL_MAX: "3" }).max).toBe(3);
+    expect(bossOptions("postgres://x", { QUEUE_POOL_MAX: "0" }).max).toBe(10);
+    expect(bossOptions("postgres://x", { QUEUE_POOL_MAX: "lots" }).max).toBe(10);
+  });
 
   it("creates every queue with retry config on start and maps enqueue options", async () => {
     const f = fakeBoss();

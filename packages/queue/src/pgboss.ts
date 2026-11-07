@@ -5,13 +5,23 @@ import type { EnqueueOptions, Handler, QueueAdapter, WorkOptions } from "./types
 /** The slice of PgBoss this adapter uses; lets tests inject a stand-in. */
 export type BossLike = Pick<PgBoss, "start" | "stop" | "createQueue" | "send" | "work" | "schedule" | "on">;
 
+/**
+ * PgBoss settings. pg-boss keeps its own connection pool next to the app's (packages/db), so both count against the
+ * database's connection limit (Supabase's pooler allows a fixed number of clients). QUEUE_POOL_MAX sets its size
+ * (default 10, pg-boss's own default).
+ */
+export function bossOptions(connectionString: string, env: Record<string, string | undefined> = process.env) {
+  const max = Number.parseInt(env.QUEUE_POOL_MAX ?? "", 10);
+  return { connectionString, application_name: "norinote-queue", max: Number.isInteger(max) && max > 0 ? max : 10 };
+}
+
 export class PgBossQueue implements QueueAdapter {
   readonly kind = "pgboss" as const;
   private boss: BossLike | null = null;
 
   constructor(
     private readonly connectionString: string,
-    private readonly makeBoss: (connectionString: string) => BossLike = (cs) => new PgBoss({ connectionString: cs, application_name: "norinote-queue" } as ConstructorParameters<typeof PgBoss>[0]),
+    private readonly makeBoss: (connectionString: string) => BossLike = (cs) => new PgBoss(bossOptions(cs) as ConstructorParameters<typeof PgBoss>[0]),
   ) {}
 
   private get b(): BossLike {

@@ -88,7 +88,7 @@ Set once per app with `fly secrets set NAME=value -a <app>`, never in the toml f
 
 | Secret | API | Worker |
 |---|---|---|
-| `DATABASE_URL` (Supabase pooler, session mode) | yes | yes |
+| `DATABASE_URL` (Supabase direct connection) | yes | yes |
 | `SESSION_SECRET` (long random string) | yes | yes |
 | `OPENAI_API_KEY` | yes | yes |
 | `RESEND_API_KEY` | yes | |
@@ -96,6 +96,23 @@ Set once per app with `fly secrets set NAME=value -a <app>`, never in the toml f
 | `INBOUND_WEBHOOK_SECRET` | yes | |
 | `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | yes | yes |
 | `BRANDFETCH_CLIENT_ID` (public, sent to browsers in logo URLs; kept out of the repository with the rest) | yes | |
+
+`DATABASE_URL` on Fly is Supabase's **direct** connection (`postgres` user, host `db.<ref>.supabase.co`, port 5432).
+It is IPv6, which Fly reaches, and allows up to 60 connections. Do not use the session pooler for the apps: its
+client limit is the project's Pool Size (15 by default), and the two apps together need more (`DB_POOL_MAX` plus
+`QUEUE_POOL_MAX` per app, in the toml files), so the API stops answering when the worker is busy. The pooler (IPv4) is
+for running scripts from a computer without IPv6, such as `scripts/import-seeds.mts`.
+
+Characters with a meaning in URLs must be percent-encoded in the password (`#` as `%23`, `@` as `%40`, `/` as `%2F`),
+or the driver reads a different host.
+
+Keep the values in `.env.production` (ignored by git) and send them from there, so nothing is typed into a terminal's
+history. `DATABASE_URL_POOLER` in that file is the pooler string for local scripts and stays off Fly:
+
+```powershell
+Get-Content .env.production | Where-Object { $_ -match '^[A-Z0-9_]+=.+' -and $_ -notmatch '^DATABASE_URL_POOLER=' } | flyctl secrets import -a norinote-api
+$w = 'DATABASE_URL','SESSION_SECRET','OPENAI_API_KEY','TELEGRAM_BOT_TOKEN','TELEGRAM_BOT_USERNAME','S3_ENDPOINT','S3_ACCESS_KEY_ID','S3_SECRET_ACCESS_KEY'; Get-Content .env.production | Where-Object { $_ -match '^([A-Z0-9_]+)=.+' -and $w -contains $Matches[1] } | flyctl secrets import -a norinote-worker
+```
 
 ## Order
 
