@@ -25,6 +25,8 @@ export type WorkerConfig = {
   understandConcurrency: number;
   /** How often running "Apply for me" batches are checked for their next application, in ms. Default 30 s; 0 = off. */
   batchDrainMs: number;
+  /** Job systems scheduled and chat batches may send through (BATCH_ATS, e.g. "greenhouse"). Empty = all. */
+  batchAts: string[];
   /** How many jobs a person's daily list (Today) holds at most. Default 50. */
   shortlistSize: number;
   /** How long a run waits on the page for an emailed code (from the person's mail filter, or typed in Norinote). Default 8 min. */
@@ -67,6 +69,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     codeWaitMs: int(env.CODE_WAIT_MINUTES, 8, 1) * 60_000,
     shortlistSize: int(env.SHORTLIST_SIZE, 50, 1),
     batchDrainMs: int(env.BATCH_DRAIN_SECONDS, 30, 0) * 1000,
+    batchAts: (env.BATCH_ATS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     matchBatchMs: int(env.MATCH_BATCH_MS, 5000),
     explainTop: int(env.MATCH_EXPLAIN_TOP, 3),
     jobSweepEveryMs: int(env.JOB_SWEEP_EVERY_MINUTES, 60) * 60_000,

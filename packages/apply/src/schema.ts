@@ -134,6 +134,26 @@ export async function fetchGreenhouseSchema(token: string, jobId: string, opts: 
   return json ? greenhouseSchemaFromJson(json, token, jobId) : null;
 }
 
+/**
+ * Does this company keep its Greenhouse form on its own careers site? Greenhouse's hosted page then redirects there, and
+ * the form is only an embed, which Norinote never fills. Null when it could not be told (network trouble): carry on.
+ */
+export async function greenhouseFormIsOffsite(token: string, jobId: string, opts: { fetch?: typeof fetch } = {}): Promise<boolean | null> {
+  const doFetch = opts.fetch ?? fetch;
+  try {
+    const res = await doFetch(`https://job-boards.greenhouse.io/${encodeURIComponent(token)}/jobs/${encodeURIComponent(jobId)}`, { method: "GET", redirect: "manual", signal: AbortSignal.timeout(10_000) });
+    if (res.status < 300 || res.status >= 400) return false;
+    const to = res.headers.get("location");
+    if (!to) return false;
+    const host = new URL(to, "https://job-boards.greenhouse.io").hostname.toLowerCase();
+    return !(host === "greenhouse.io" || host.endsWith(".greenhouse.io"));
+  } catch {
+    return null;
+  }
+}
+
+export const OFFSITE_FORM_REASON = "This company keeps its application form on its own careers site, and Nori doesn't fill embedded forms. Open the posting and apply there.";
+
 // ---- from the page ----------------------------------------------------------------------------------------------------
 
 const KIND_TYPES: Record<DiscoveredField["kind"], FieldType> = {

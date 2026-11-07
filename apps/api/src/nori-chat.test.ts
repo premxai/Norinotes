@@ -70,3 +70,26 @@ describe("the Nori chat", () => {
     expect((await api.call("POST", "/api/nori/chat", { cookie, body: { message: "" } })).status).toBe(400);
   });
 });
+
+describe("the schedule", () => {
+  it("is off until turned on, validates, and says when it next runs", async () => {
+    const { cookie } = await api.signup("schedule-api@example.com");
+    expect((await api.call("GET", "/api/nori/schedule", { cookie })).json.schedule).toMatchObject({ enabled: false, nextRunOn: null, time: "09:00" });
+    const put = await api.call("PUT", "/api/nori/schedule", { cookie, body: { enabled: true, days: ["mon", "wed"], time: "08:30", timezone: "America/New_York" } });
+    expect(put.json.schedule).toMatchObject({ enabled: true, days: ["mon", "wed"], time: "08:30", timezone: "America/New_York", paused: false });
+    expect(put.json.schedule.nextRunOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect((await api.call("PUT", "/api/nori/schedule", { cookie, body: { time: "8am" } })).status).toBe(400);
+    expect((await api.call("PUT", "/api/nori/schedule", { cookie, body: { timezone: "Mars/Base" } })).status).toBe(400);
+    expect((await api.call("PUT", "/api/nori/schedule", { cookie, body: { days: [] } })).status).toBe(400);
+  });
+
+  it("can be turned on and paused from the chat, and undone", async () => {
+    const { cookie } = await api.signup("schedule-chat@example.com");
+    says("Done.", [{ kind: "schedule_on", value: "07:45" }]);
+    const res = await api.call("POST", "/api/nori/chat", { cookie, body: { message: "apply for me every weekday at 7:45" } });
+    expect(res.json.reply.actions[0]).toMatchObject({ kind: "schedule_on" });
+    expect((await api.call("GET", "/api/nori/schedule", { cookie })).json.schedule).toMatchObject({ enabled: true, time: "07:45" });
+    await api.call("POST", `/api/nori/chat/undo/${res.json.reply.actions[0].undoId}`, { cookie });
+    expect((await api.call("GET", "/api/nori/schedule", { cookie })).json.schedule).toMatchObject({ enabled: false, time: "09:00" });
+  });
+});

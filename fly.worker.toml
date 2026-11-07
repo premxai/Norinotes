@@ -10,6 +10,8 @@ kill_timeout = "60s"
   build-target = "worker"
 
 [env]
+  # Scheduled (autopilot) and chat batches send through Greenhouse only for now; empty = every job system.
+  BATCH_ATS = "greenhouse"
   NODE_ENV = "production"
   # The app is one site now: apps/landing serves the landing page, sign-in, onboarding and the dashboard.
   WEB_URL = "https://norinote.xyz"

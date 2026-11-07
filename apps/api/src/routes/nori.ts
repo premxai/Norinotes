@@ -5,7 +5,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, applications, applyBatches, companies, desc, eq, jobs } from "@norinote/db";
-import { MAX_BATCH, batchView, getNoriSettings, recentBatches, recommendedJobIds, saveNoriSettings, startBatch, stopBatch } from "@norinote/apply";
+import { MAX_BATCH, WEEKDAYS, batchView, getNoriSettings, getSchedule, nextRunOn, recentBatches, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { HttpError, notFound, parseBody, uuidParam } from "../http.js";
@@ -26,8 +26,9 @@ const Settings = z.object({
 }).strict();
 
 /** What a parked application needs from the person, for the "Needs you" list. */
-function needOf(a: { pendingQuestions: unknown[]; receipt: Record<string, unknown> | null; error: string | null }): "questions" | "code" | "captcha" | "account" | "other" {
+function needOf(a: { pendingQuestions: unknown[]; receipt: Record<string, unknown> | null; error: string | null }): "questions" | "code" | "captcha" | "account" | "offsite" | "other" {
   if (a.pendingQuestions.length > 0) return "questions";
+  if (/own careers site/i.test(a.error ?? "")) return "offsite";
   if (a.receipt?.codeMissing === true || /verification code/i.test(a.error ?? "")) return "code";
   if (/captcha/i.test(a.error ?? "")) return "captcha";
   if (/account|sign in|log in|password/i.test(a.error ?? "")) return "account";
@@ -86,6 +87,24 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
     const res = await stopBatch(db, c.get("user").id, uuidParam(c), { now: ctx.now() });
     if (!res.ok) throw notFound("Batch not found");
     return c.json(res);
+  });
+
+  // ---- the schedule (autopilot) ----
+  const Schedule = z.object({
+    enabled: z.boolean().optional(),
+    days: z.array(z.enum(WEEKDAYS)).min(1, "Pick at least one day").max(7).optional(),
+    time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24-hour").optional(),
+    timezone: z.string().refine((tz) => { try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch { return false; } }, "Unknown time zone").optional(),
+    paused: z.boolean().optional(),
+  }).strict();
+  const scheduleView = (s: NoriSchedule) => ({ ...s, days: [...new Set(s.days)], nextRunOn: nextRunOn(s, ctx.now()) });
+
+  r.get("/schedule", auth, async (c) => c.json({ schedule: scheduleView(await getSchedule(db, c.get("user").id)) }));
+
+  r.put("/schedule", auth, async (c) => {
+    const patch = await parseBody(c, Schedule);
+    const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+    return c.json({ schedule: scheduleView(await saveSchedule(db, c.get("user").id, clean)) });
   });
 
   // ---- the chat ----

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { connect, migrate, type Db, type DbHandle } from "@norinote/db";
-import { createBrowserPool, createLiveFrameSink, drainBatches, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
+import { createBrowserPool, createLiveFrameSink, drainBatches, runSchedules, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { artifactsRoot, fileStoreFromEnv } from "@norinote/shared/files";
 import { setAiLogger } from "@norinote/ai";
@@ -127,6 +127,11 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
       if (draining) return;
       draining = true;
       try {
+        // Schedules first: a due one starts a batch of Recommended jobs, prepared now and sent by the drain below.
+        for (const run of await runSchedules(db, { now: now(), atsTypes: config.batchAts })) {
+          for (const applicationId of run.created) await queue.enqueue(JOBS.prepareApplication, { applicationId });
+          log.info("schedule.ran", { userId: run.userId, batchId: run.batchId, created: run.created.length, ...(run.reason ? { reason: run.reason } : {}) });
+        }
         for (const step of await drainBatches(db, { now: now() })) {
           await queue.enqueue(JOBS.applyRun, { applicationId: step.applicationId, trigger: "autopilot" });
           log.info("batch.started", { batchId: step.batchId, applicationId: step.applicationId });

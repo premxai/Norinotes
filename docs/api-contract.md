@@ -155,6 +155,17 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - POST `/api/nori/chat/undo/:undoId` returning `{ ok, summary }`: puts back what that change replaced (undoing
   `apply_now` stops the batch). Once only: `{ ok: false, summary: "Already undone" }` the second time; 404 for an unknown id.
 
+## Nori schedule (autopilot)
+- GET/PUT `/api/nori/schedule` returning `{ schedule: { enabled, days: ["mon".."sun"], time: "HH:MM", timezone, paused,
+  lastRunOn, nextRunOn } }`. Off by default (weekdays 09:00 America/Los_Angeles once turned on). PUT takes any of
+  enabled, days (1-7), time (24-hour HH:MM), timezone (IANA), paused; anything else is 400. `nextRunOn` is the next local
+  date it runs (null when off or paused). On a chosen day, within the hour after `time`, the worker starts one "Apply
+  for me" batch of new Recommended jobs (as many as today's limit still allows, Greenhouse only for now) and marks the
+  day as run; the batch summary goes out like any batch's. The chat can turn it on (`schedule_on`) and pause it
+  (`schedule_off`), each undoable.
+- A Greenhouse job whose form lives on the company's own site (Greenhouse's page redirects there) is parked at
+  preparation with `needs: "offsite"` in GET `/api/nori/needs-you` ("apply on their site"); Nori never fills embedded forms.
+
 ## Connected Gmail
 - GET `/api/inbox/gmail` returning `{ available, connected, status }`: `available` is false when the server has no
   Composio key; `status` is Composio's (`INITIATED`, `ACTIVE`, `EXPIRED`, ...) or null when never connected.

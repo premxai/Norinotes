@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { AiUnavailableError, BudgetExceededError, complete } from "@norinote/ai";
 import { and, applications, asc, companies, desc, eq, gte, jobs, lanes, lt, noriChatMessages, noriChatUndo, shortlist, sql, type Db } from "@norinote/db";
-import { getNoriSettings, recommendedJobIds, saveNoriSettings, startBatch, stopBatch } from "@norinote/apply";
+import { getNoriSettings, getSchedule, nextRunOn, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 
 export type ChatAction = { kind: string; summary: string; undoId: string | null };
 export type ChatMessageView = { id: string; role: "user" | "nori"; text: string; actions: ChatAction[]; createdAt: string };
@@ -15,7 +15,7 @@ export type ChatMessageView = { id: string; role: "user" | "nori"; text: string;
 const Intent = z.object({
   reply: z.string(),
   actions: z.array(z.object({
-    kind: z.enum(["set_threshold", "set_daily_limit", "add_role", "remove_role", "skip_company", "unskip_company", "apply_now"]),
+    kind: z.enum(["set_threshold", "set_daily_limit", "add_role", "remove_role", "skip_company", "unskip_company", "apply_now", "schedule_on", "schedule_off"]),
     /** set_threshold: a percent 0-100; set_daily_limit: 1-100; apply_now: how many (1-50); roles/companies: the name. */
     value: z.string(),
   })),
@@ -30,7 +30,9 @@ You can change things only through actions; list each change the person clearly 
 - remove_role: value = the role name exactly as listed in CONTEXT.
 - skip_company / unskip_company: value = the company name.
 - apply_now: value = how many Recommended jobs to send now (1-50, default 10). Only when they ask to apply or send now.
-Never invent facts, jobs, numbers or applications that are not in CONTEXT. You cannot set schedules yet: say so if asked.
+- schedule_on: value = the time "HH:MM" (24-hour) to apply every chosen day, or "" to keep the current time. Turns the schedule on.
+- schedule_off: value = "". Pauses the schedule.
+Never invent facts, jobs, numbers or applications that are not in CONTEXT.
 Keep "reply" short (1-3 sentences), plain words, no markdown. Don't claim a change happened; the app lists the changes.`;
 
 const view = (m: typeof noriChatMessages.$inferSelect): ChatMessageView => ({ id: m.id, role: m.role, text: m.text, actions: m.actions, createdAt: m.createdAt.toISOString() });
@@ -62,7 +64,14 @@ async function contextFor(db: Db, userId: string, now: Date): Promise<string> {
     `Matches waiting: ${counts?.matches ?? 0}, of which Recommended (at or above the threshold): ${counts?.recommended ?? 0}. Sent in the last 24 hours: ${sentToday[0]?.n ?? 0}.`,
     `Latest applications: ${recent.length ? recent.map((a) => `${a.title} at ${a.company}: ${a.status}`).join("; ") : "none"}.`,
     `Apply for me sends Greenhouse jobs only for now.`,
+    await scheduleLine(db, userId, now),
   ].join("\n");
+}
+
+async function scheduleLine(db: Db, userId: string, now: Date): Promise<string> {
+  const s = await getSchedule(db, userId);
+  if (!s.enabled) return "Schedule: off.";
+  return `Schedule: ${s.paused ? "paused" : "on"}, ${s.days.join(" ")} at ${s.time} (${s.timezone}); next run ${nextRunOn(s, now) ?? "none"}.`;
 }
 
 async function remember(db: Db, userId: string, kind: string, before: Record<string, unknown>): Promise<string> {
@@ -129,6 +138,19 @@ async function act(db: Db, userId: string, a: z.infer<typeof Intent>["actions"][
       const undoId = await remember(db, userId, a.kind, { batchId: res.batchId });
       return { kind: a.kind, summary: `Started Apply for me with ${res.added.length} Recommended job${res.added.length === 1 ? "" : "s"}`, undoId };
     }
+    case "schedule_on":
+    case "schedule_off": {
+      const before = await getSchedule(db, userId);
+      const time = a.kind === "schedule_on" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : before.time;
+      const next: Partial<NoriSchedule> = a.kind === "schedule_on" ? { enabled: true, paused: false, time } : { paused: true };
+      if (a.kind === "schedule_off" && (!before.enabled || before.paused)) return null;
+      const undoId = await remember(db, userId, "schedule", { enabled: before.enabled, paused: before.paused, time: before.time });
+      const saved = await saveSchedule(db, userId, next);
+      return {
+        kind: a.kind, undoId,
+        summary: a.kind === "schedule_on" ? `Schedule on: ${saved.days.join(" ")} at ${saved.time} (${saved.timezone})` : "Schedule paused",
+      };
+    }
   }
 }
 
@@ -191,6 +213,10 @@ export async function undoChatAction(db: Db, userId: string, undoId: string, dep
       await saveNoriSettings(db, userId, { skipCompanies: b.skipCompanies as string[] });
       await deps.enqueueMatch();
       summary = "Companies to skip put back as they were";
+      break;
+    case "schedule":
+      await saveSchedule(db, userId, { enabled: b.enabled === true, paused: b.paused === true, time: String(b.time) });
+      summary = "Schedule put back as it was";
       break;
     case "apply_now": {
       const res = await stopBatch(db, userId, String(b.batchId), { now: deps.now });
