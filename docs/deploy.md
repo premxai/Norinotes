@@ -136,4 +136,4 @@ $w = 'DATABASE_URL','SESSION_SECRET','OPENAI_API_KEY','TELEGRAM_BOT_TOKEN','TELE
 
 7. Once it works, delete the old Fly app and Vercel project. The old Neon databases go when deliberately deleted.
 
-Real submission stays off (`ALLOW_REAL_SUBMIT=false`) until it is switched on on purpose.
+Real submission is on (`ALLOW_REAL_SUBMIT = "true"` in fly.worker.toml, switched on 2026-11-07): an application is sent only after the user approves it. Set it to "false" and redeploy the worker to make every run a dry run again.
