@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, asc, eq, lanes, notInArray } from "@norinote/db";
+import { getNoriSettings } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { isUuid, parseBody } from "../http.js";
@@ -14,7 +15,8 @@ const LaneInput = z.object({
   titles: words,
   locations: words,
   remote: z.boolean(),
-  minFit: z.number().min(0).max(1),
+  /** Optional: the person's threshold (GET /api/nori/settings) when left out. */
+  minFit: z.number().min(0).max(1).optional(),
   enabled: z.boolean(),
 });
 const Body = z.array(LaneInput).max(20, "Up to 20 lanes");
@@ -35,11 +37,12 @@ export function laneRoutes(ctx: Ctx): Hono<AppEnv> {
     const userId = c.get("user").id;
     const input = await parseBody(c, Body);
     const base = ctx.now().getTime();
+    const threshold = input.some((l) => l.minFit === undefined) ? (await getNoriSettings(db, userId)).minFit : 0;
     await db.transaction(async (tx) => {
       const owned = new Set((await tx.select({ id: lanes.id }).from(lanes).where(eq(lanes.userId, userId))).map((l) => l.id));
       const keep: string[] = [];
       for (const [i, l] of input.entries()) {
-        const values = { name: l.name, titles: l.titles, locations: l.locations, remote: l.remote, minFit: l.minFit, enabled: l.enabled };
+        const values = { name: l.name, titles: l.titles, locations: l.locations, remote: l.remote, minFit: l.minFit ?? threshold, enabled: l.enabled };
         // An id that is not one of this user's lanes (temporary "new-..." ids, someone else's) is a new lane.
         if (l.id && isUuid(l.id) && owned.has(l.id)) {
           await tx.update(lanes).set(values).where(and(eq(lanes.id, l.id), eq(lanes.userId, userId)));

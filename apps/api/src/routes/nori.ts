@@ -5,18 +5,23 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, applications, applyBatches, companies, desc, eq, jobs } from "@norinote/db";
-import { MAX_BATCH, batchView, getNoriSettings, recentBatches, saveNoriSettings, startBatch, stopBatch } from "@norinote/apply";
+import { MAX_BATCH, batchView, getNoriSettings, recentBatches, recommendedJobIds, saveNoriSettings, startBatch, stopBatch } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { HttpError, notFound, parseBody, uuidParam } from "../http.js";
-import { enqueueSoft, type AppEnv, type Ctx } from "../types.js";
+import { chatHistory, chatTurn, undoChatAction } from "../nori-chat.js";
+import { enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
 const UUID = z.string().uuid();
-const Start = z.object({ jobIds: z.array(UUID).min(1).max(MAX_BATCH) });
+/** Either the jobs the person picked, or `recommended: true` (the server picks Recommended jobs, up to `limit`). */
+const Start = z.union([
+  z.object({ jobIds: z.array(UUID).min(1).max(MAX_BATCH) }).strict(),
+  z.object({ recommended: z.literal(true), limit: z.number().int().min(1).max(MAX_BATCH).optional() }).strict(),
+]);
 const Settings = z.object({
   spacingMinutes: z.number().int().min(1).max(60).optional(),
   minFit: z.number().min(0).max(1).optional(),
-  skipCompanies: z.array(z.string().trim().min(1).max(120)).max(100).optional(),
+  skipCompanies: z.array(z.string().trim().min(1).max(200)).max(1000).optional(),
   dailyLimit: z.number().int().min(1).max(100).optional(),
 }).strict();
 
@@ -39,13 +44,19 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
   r.put("/settings", auth, async (c) => {
     const patch = await parseBody(c, Settings);
     const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
-    return c.json({ settings: await saveNoriSettings(db, c.get("user").id, clean) });
+    const userId = c.get("user").id;
+    const settings = await saveNoriSettings(db, userId, clean);
+    // The threshold is every role's minFit, and skipped companies leave the shortlist: both change the matches.
+    if (patch.minFit !== undefined || patch.skipCompanies !== undefined) await enqueueSoft(ctx, JOBS.matchUser, { userId, reason: "profile" });
+    return c.json({ settings });
   });
 
   /** "Apply for me": the jobs the person picked, approved at once. Applications are prepared now and sent by the worker. */
   r.post("/batches", auth, async (c) => {
     const user = c.get("user");
-    const { jobIds } = await parseBody(c, Start);
+    const body = await parseBody(c, Start);
+    const jobIds = "jobIds" in body ? body.jobIds : await recommendedJobIds(db, user.id, { now: ctx.now(), limit: body.limit ?? 10, atsTypes: ctx.config.batchAts });
+    if (jobIds.length === 0) throw new HttpError(409, "No Recommended jobs to send right now", "Nori sends new matches at or above your threshold that you haven't applied to.");
     const res = await startBatch(db, user.id, jobIds, { now: ctx.now(), atsTypes: ctx.config.batchAts });
     for (const a of res.added) if (a.created) await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: a.applicationId });
     if (!res.batchId) throw new HttpError(409, "None of these jobs can be added to a batch", JSON.stringify(res.skipped.map((s) => s.reason)));
@@ -74,6 +85,34 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
   r.post("/batches/:id/stop", auth, async (c) => {
     const res = await stopBatch(db, c.get("user").id, uuidParam(c), { now: ctx.now() });
     if (!res.ok) throw notFound("Batch not found");
+    return c.json(res);
+  });
+
+  // ---- the chat ----
+  const Chat = z.object({ message: z.string().trim().min(1, "Say something to Nori").max(2000) }).strict();
+  const chatDeps = (userId: string) => ({
+    now: ctx.now(), atsTypes: ctx.config.batchAts,
+    enqueuePrepare: (applicationId: string) => enqueueSoft(ctx, JOBS.prepareApplication, { applicationId }),
+    enqueueMatch: () => enqueueSoft(ctx, JOBS.matchUser, { userId, reason: "profile" }),
+  });
+
+  r.get("/chat", auth, async (c) => {
+    const raw = c.req.query("before");
+    const before = raw && !Number.isNaN(Date.parse(raw)) ? new Date(raw) : undefined;
+    return c.json({ messages: await chatHistory(db, c.get("user").id, { before, limit: 50 }) });
+  });
+
+  r.post("/chat", auth, async (c) => {
+    const userId = c.get("user").id;
+    limitUser(ctx, "nori-chat", userId, 60, 3_600_000, "You're talking to Nori very fast. Try again in a few minutes.");
+    const { message } = await parseBody(c, Chat);
+    return c.json(await chatTurn(db, userId, message, chatDeps(userId)));
+  });
+
+  r.post("/chat/undo/:undoId", auth, async (c) => {
+    const userId = c.get("user").id;
+    const res = await undoChatAction(db, userId, uuidParam(c, "undoId"), chatDeps(userId));
+    if (!res.ok && res.summary === "Nothing to undo") throw notFound("Nothing to undo");
     return c.json(res);
   });
 

@@ -34,7 +34,7 @@ export function profileRoutes(ctx: Ctx): Hono<AppEnv> {
     const update = buildUpdate(current, patch);
     const [row] = await db.update(profiles).set({ ...update, updatedAt: ctx.now() }).where(eq(profiles.userId, user.id)).returning();
     // Work authorisation and location feed the match gates.
-    if (patch.workAuth || patch.securityClearance !== undefined || update.location !== undefined) await enqueueSoft(ctx, JOBS.matchUser, { userId: user.id, reason: "profile" });
+    if (patch.workAuth || patch.securityClearance !== undefined || update.location !== undefined || patch.preferences?.excludeCompanies !== undefined) await enqueueSoft(ctx, JOBS.matchUser, { userId: user.id, reason: "profile" });
     return c.json(toProfile(row ?? current, user.email));
   });
 

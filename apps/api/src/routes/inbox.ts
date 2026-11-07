@@ -27,6 +27,7 @@ function view(m: Row, full: boolean) {
   return {
     id: m.id, applicationId: m.applicationId, application: m.app, fromAddress: m.fromAddress, fromName: meta.fromName ?? null,
     subject: m.subject, bodyText: m.body, receivedAt: m.receivedAt.toISOString(), kind: m.kind, code: m.code,
+    usedAt: m.usedAt ? m.usedAt.toISOString() : null,
     verificationLink: meta.verificationLink ?? null, links: m.links, attachments: meta.attachments ?? [], spam: !!meta.spam,
     ...(full ? { classifiedBy: meta.classifiedBy ?? "rules", forwardedAt: meta.forwardedAt ?? null } : {}),
   };

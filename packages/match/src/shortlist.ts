@@ -4,6 +4,7 @@ import {
   and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
   MAX_JOB_AGE_HOURS, notInArray, or, shortlist, sql, type Db,
 } from "@norinote/db";
+import { isSkippedCompany } from "@norinote/shared";
 import { matchTargetOf, widenedTooFar, type MatchTarget } from "./alignment.js";
 import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitMapItem, type QualityLevel } from "./fit.js";
 import { checkGates } from "./gates.js";
@@ -293,6 +294,7 @@ async function scoreCandidates(db: Db, profile: MatchProfile, candidates: Candid
   // Gates first: requirement texts are embedded only for jobs that can reach the shortlist.
   const passed: CandidateJob[] = [];
   for (const c of withSpec) {
+    if (profile.skipCompanies && isSkippedCompany(profile.skipCompanies, c.companyName)) { out.gated.push({ jobId: c.jobId, reasons: ["A company you skip"] }); continue; }
     const gate = checkGates(specs.get(c.jobId)!.spec, gateProfile, { title: c.title, location: c.location, remote: c.remote }, { now: opts.now });
     if (gate.ok) passed.push(c);
     else out.gated.push({ jobId: c.jobId, reasons: gate.reasons });

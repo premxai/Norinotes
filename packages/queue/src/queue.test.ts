@@ -150,7 +150,7 @@ describe("cron", () => {
 describe("queue definitions", () => {
   it("has a payload schema and config for every job name in the architecture", () => {
     expect(Object.values(JOBS).sort()).toEqual(
-      ["apply.run", "inbox.receive", "ingest.poll-board", "match.new-jobs", "match.user", "prepare.application", "understand.job"],
+      ["apply.run", "graph.read-source", "inbox.receive", "ingest.poll-board", "match.new-jobs", "match.user", "prepare.application", "understand.job"],
     );
     for (const name of Object.values(JOBS)) {
       expect(payloadSchemas[name]).toBeDefined();

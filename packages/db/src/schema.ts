@@ -205,8 +205,15 @@ export const careerPoints = pgTable("career_points", {
   scope: jsonb("scope").$type<Record<string, unknown>>().notNull().default({}),
   metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull().default({}),
   sourceQuote: text("source_quote"),
-  /** `resume` points are replaced on every resume upload; `user` facts (added by the user) are never touched. */
-  source: text("source").$type<"resume" | "user">().notNull().default("resume"),
+  /**
+   * `resume` points are replaced on every resume upload; `user` facts (added by the user) are never touched; `github` and
+   * `site` facts come from a source the person named (graphSources) and are replaced when that source is read again.
+   */
+  source: text("source").$type<"resume" | "user" | "github" | "site">().notNull().default("resume"),
+  /** The repo, URL or resume line a fact came from (null for resume and user facts). */
+  sourceRef: text("source_ref"),
+  /** The graph source that produced it (github/site facts). */
+  graphSourceId: uuid("graph_source_id"),
   createdAt: createdAt(),
 }, (t) => [index("career_points_user_kind_idx").on(t.userId, t.kind)]);
 
@@ -395,6 +402,8 @@ export const inboxMessages = pgTable("inbox_messages", {
    */
   meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
   receivedAt: ts("received_at").notNull().defaultNow(),
+  /** When an application run took this message's code (or link). A code is good once. */
+  usedAt: ts("used_at"),
 }, (t) => [
   index("inbox_messages_user_received_idx").on(t.userId, t.receivedAt),
   index("inbox_messages_application_idx").on(t.applicationId),
@@ -474,3 +483,41 @@ export const schema = {
   careerPointEmbeddings, shortlist, applications, resumes, answerBank, formRecipes, runEvents, inboxAddresses, inboxMessages,
   channels, channelMessages, llmUsage, outcomes,
 };
+
+/**
+ * Sources the person named for their career graph: a GitHub username, a personal site, a LinkedIn URL they pasted. A
+ * worker reads only these (public repos, the site's pages); never a search for the person by name.
+ */
+export const graphSources = pgTable("graph_sources", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<"github" | "site" | "linkedin">().notNull(),
+  /** GitHub username, or the URL. */
+  value: text("value").notNull(),
+  status: text("status").$type<"pending" | "reading" | "done" | "failed">().notNull().default("pending"),
+  error: text("error"),
+  factsAdded: integer("facts_added").notNull().default(0),
+  lastReadAt: ts("last_read_at"),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("graph_sources_user_kind_value_uq").on(t.userId, t.kind, t.value)]);
+
+/** The Nori chat: what the person said and what Nori answered, with the changes Nori made (each one undoable). */
+export const noriChatMessages = pgTable("nori_chat_messages", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").$type<"user" | "nori">().notNull(),
+  text: text("text").notNull(),
+  /** Changes Nori made for this message: `[{ kind, summary, undoId }]`. */
+  actions: jsonb("actions").$type<Array<{ kind: string; summary: string; undoId: string | null }>>().notNull().default([]),
+  createdAt: createdAt(),
+}, (t) => [index("nori_chat_user_created_idx").on(t.userId, t.createdAt)]);
+
+/** What one chat change replaced, so it can be put back. */
+export const noriChatUndo = pgTable("nori_chat_undo", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  before: jsonb("before").$type<Record<string, unknown>>().notNull(),
+  undoneAt: ts("undone_at"),
+  createdAt: createdAt(),
+}, (t) => [index("nori_chat_undo_user_idx").on(t.userId)]);

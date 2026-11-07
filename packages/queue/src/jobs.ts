@@ -9,6 +9,7 @@ export const JOBS = {
   prepareApplication: "prepare.application",
   applyRun: "apply.run",
   inboxReceive: "inbox.receive",
+  graphReadSource: "graph.read-source",
 } as const;
 
 export type JobKey = keyof typeof JOBS;
@@ -32,6 +33,8 @@ export const payloadSchemas = {
   "apply.run": z.object({ applicationId: id, trigger: z.enum(["click", "autopilot"]) }),
   /** An inbound email was stored; parse it and wake a waiting apply.run. */
   "inbox.receive": z.object({ messageId: id }),
+  /** Read one career-graph source the person named (their GitHub, their site) and store its facts. */
+  "graph.read-source": z.object({ sourceId: id }),
 } satisfies Record<JobName, z.ZodType>;
 
 /** What a caller passes to enqueue (defaults not yet applied). */
@@ -58,6 +61,8 @@ export const QUEUE_CONFIG: Record<JobName, QueueConfig> = {
   // Applying drives a real browser and can wait for a verification email, so it gets the longest lease and few retries.
   "apply.run": { retryLimit: 1, retryDelaySeconds: 120, expireSeconds: 20 * 60, concurrency: 3 },
   "inbox.receive": { retryLimit: 5, retryDelaySeconds: 10, expireSeconds: 2 * 60, concurrency: 4 },
+  // A failed read marks the source failed itself, so a retry is only for a crash.
+  "graph.read-source": { retryLimit: 1, retryDelaySeconds: 60, expireSeconds: 5 * 60, concurrency: 2 },
 };
 
 export function isJobName(name: string): name is JobName {

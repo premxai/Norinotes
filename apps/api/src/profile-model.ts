@@ -163,6 +163,11 @@ export function buildUpdate(current: ProfileRow, patch: ProfilePatch): ProfileUp
   if (patch.securityClearance !== undefined) setPref("securityClearance", patch.securityClearance);
   if (patch.over18 !== undefined) setPref("over18", patch.over18);
   if (patch.preferences) for (const [k, v] of Object.entries(patch.preferences)) if (v !== undefined) { prefsTouched = true; prefs[k] = v; }
+  // One skip list: saving excludeCompanies retires the older copy in Nori's settings.
+  if (patch.preferences?.excludeCompanies !== undefined && prefs.nori && typeof prefs.nori === "object") {
+    const { skipCompanies: _old, ...nori } = prefs.nori as Rec;
+    prefs.nori = nori;
+  }
 
   // work authorisation: the web's flat US form into the per-country store
   if (patch.workAuth || patch.securityClearance !== undefined) {

@@ -31,10 +31,24 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   in the graph's node shape and re-runs matching. 400 for an empty or invalid edit (including an end before the start),
   422 for a skill node (skills change through the cards that name them), 404 for another user's card. The card keeps
   its source: a newer resume still replaces cards that came from a resume. 120 edits an hour.
+- Every card node has `source` (readable: "your resume", "a fact you added", "GitHub", "your website") and `origin:
+  { kind: "resume" | "user" | "github" | "site", ref, label }` (`ref`: the repo or page URL; `label`: the resume line it
+  quotes, the repo as `owner/name`, or the site's host). Skill nodes have `origin: null`.
+- Sources the person names: GET `/api/graph/sources` returning `{ sources: [{ id, kind, value, status, error,
+  factsAdded, lastReadAt, createdAt }] }` (`status`: pending, reading, done, failed; `error` says what to fix).
+  POST `/api/graph/sources` with `{ kind: "github" | "site" | "linkedin", value }`: a GitHub username (a profile link
+  is reduced to the name), a public http(s) page, or a `linkedin.com/in/` link. 201 `{ source }`, or 200 with the same
+  source when it is already there; 400 for a bad value, 422 for a non-public address, 409 past 10 sources. GitHub and
+  site sources are read by the worker (public repos that are the person's own, not forks or archived, become project
+  cards; a site is read like a resume, quotes checked, and its robots.txt is honoured); a LinkedIn link is only kept,
+  never fetched. Nothing is ever searched for by the person's name. POST `/api/graph/sources/:id/refresh` reads it again
+  (its facts are replaced). DELETE `/api/graph/sources/:id` removes the source and every fact read from it, returning
+  `{ ok, factsRemoved }`; matching runs again.
 
 ## Lanes
 - GET `/api/lanes`; PUT `/api/lanes` with the whole array (new lanes have no `id`). Shape is the shared `Lane`
-  (`remote` boolean, `minFit` 0..1).
+  (`remote` boolean, `minFit` 0..1). `minFit` is optional on PUT: a role saved without it takes the threshold
+  (`/api/nori/settings` minFit), which is where the threshold is set for every role.
 
 ## Jobs
 - GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeHours` (1 to 72, default 72; `view=today` is the last 24 hours),
@@ -43,6 +57,17 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `job.companyLogoUrl` is the company's logo on Brandfetch's CDN, or null (no known domain, or `BRANDFETCH_CLIENT_ID`
   unset). Load it only in an `<img>`; it answers 404 when Brandfetch has no logo, so show the letter tile on error too.
 - GET `/api/jobs/summary` returning `{ open, newToday, fitsLanes, hasLanes }` over the last 72 hours, GET `/api/jobs/:id` returning `{ job, match }`, POST `/api/jobs/url` returning `{ job }` (and saving it for the user, so it always shows in their list).
+- Every `job` also carries what its listing states, else null (never estimated): `pay: { min, max, currency: "USD" |
+  "EUR" | "GBP" | "CAD", period: "year" | "month" | "hour" } | null`, `employmentType: "full_time" | "part_time" |
+  "contract" | "internship" | "temporary" | null`, `workplace: "remote" | "hybrid" | "onsite" | null`.
+- GET `/api/jobs/:id` also returns `job.company: { name, website, logoUrl, size: null, about: null }` (size and about are
+  not collected yet).
+- GET `/api/jobs/:id/preview` (the Review tab): `{ available: true, ats, questions: [{ key, label, type, required, status:
+  "ready" | "ask" | "skip", answer, source }], counts: { total, ready, ask, skip } }` or `{ available: false, ats, reason }`
+  (only Greenhouse forms are read ahead of time; others are read at Apply). Read only: no AI, no application, nothing
+  saved. `answer` is what Nori would send (the resume shows as "Your tailored resume"); `ask` = Nori would ask you.
+- GET `/api/jobs?view=applied`: jobs with an application of the person's, newest application first, open or closed,
+  whatever their age or roles; each item's `applicationStatus` says where it is. `limit` is 1-200 (default 50).
 - Jobs page: GET `/api/jobs` also takes `view=saved` (the user's saved jobs, newest saved first, open or closed, whatever
   their age or lanes; `q` still applies), `location=<text>` (location contains it) and `remote=true`. Every item has
   `saved: boolean`, and so does `job` on GET `/api/jobs/:id`. POST and DELETE `/api/jobs/:id/save` return `{ saved }`
@@ -56,7 +81,13 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - POST `/api/shortlist/:jobId/dismiss`
 
 ## Applications
-- GET `/api/applications` returning `[{ application, job, resume? }]`; POST `/api/applications` with `{ jobId }`.
+- GET `/api/applications` returning `[{ application, job, resume? }]`; POST `/api/applications` with `{ jobId, send? }`.
+  `send: true` makes Apply the approval: a prepared application goes to the form at once (`status: "applying"`), one
+  still being prepared is sent by the worker as soon as it is prepared, with no stop at `prepared`. It counts against the
+  daily limit: 429 when today's limit is used up. Without `send`, Apply prepares it and waits for a click as before.
+- GET `/api/applications/activity?days=182&tz=<IANA zone>` returning `{ days: [{ date: "YYYY-MM-DD", sent }], total,
+  timezone }`: applications sent (submittedAt) per local day, every day listed oldest first, 0 when none. `days` 1-730
+  (default 182); an unknown `tz` falls back to UTC.
 - GET `/api/applications/:id` returning `{ application, job, resume, events }`; `application` carries `createdAt`
   and `updatedAt`.
 - POST `/api/applications/:id/approve` (optional `{ answers }`), `/api/applications/:id/answer` (`{ answers }` keyed
@@ -85,9 +116,17 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
 
 ## Nori page ("Apply for me")
-- GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit (0-1, default 0.7, for the
-  "All strong" shortcut), skipCompanies (names, max 100), dailyLimit (1-100; the profile's daily cap, default 20) } }`.
-  PUT takes any of these; unknown keys are 400.
+- GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, skipCompanies, dailyLimit
+  (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
+  - `minFit` (0-1) is THE threshold: "Recommended" (`GET /api/jobs?view=best&minScore=<minFit>`), the "All strong"
+    shortcut and the roles. Until it is saved it reads as the lowest of the enabled roles' minFit (0.7 with none).
+    Saving it sets every role's minFit to it and re-runs matching.
+  - `skipCompanies` (up to 1000 names) is THE skip list, the same as `profile.preferences.excludeCompanies`: saving
+    either changes both. Matching leaves those companies out of the shortlist, Today hides them, batches skip them
+    ("Acme, Inc." and "acme" are the same company).
+- POST `/api/nori/batches` with `{ recommended: true, limit? }` (Apply now): the server picks the Recommended jobs itself
+  (new matches at or above the threshold, open, last 72 hours, not applied, not skipped, one per company, best fit
+  first, allowed job systems; `limit` 1-50, default 10). 409 when there are none. Same response as below.
 - POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once. At most one job per company,
   never a skipped company; an unsent application of theirs is taken over, a sent one is skipped. 201 `{ batch, added,
   skipped: [{ jobId, reason }] }` (reasons: not_found, not_supported, skipped_company, same_company, already_applied,
@@ -104,6 +143,17 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - POST `/api/nori/batches/:id/stop`: cancels what has not started (`"Cancelled by you"`); sent ones stay sent.
 - GET `/api/nori/needs-you`: `{ items: [{ applicationId, jobId, title, company, applyUrl, needs: questions|code|captcha|
   account|other, reason, questions, batchId, updatedAt }] }`, newest first.
+
+## Nori chat
+- GET `/api/nori/chat?before=<ISO time>` returning `{ messages: [{ id, role: "user" | "nori", text, actions, createdAt }] }`,
+  oldest first, 50 at most (page back with `before` = the oldest `createdAt`).
+- POST `/api/nori/chat` with `{ message }` (1-2000 chars) returning `{ message, reply }` (both message views). One small
+  model call per message, charged to the person's daily AI budget; when it is used up (or AI is down) the reply says so
+  and nothing changes. `reply.actions: [{ kind, summary, undoId }]` lists every change Nori made: `set_threshold`,
+  `set_daily_limit`, `add_role`, `remove_role`, `skip_company`, `unskip_company`, `apply_now` (a batch of Recommended
+  jobs). `undoId` is null when there is nothing to undo. Nori never changes anything without listing it. No schedule yet.
+- POST `/api/nori/chat/undo/:undoId` returning `{ ok, summary }`: puts back what that change replaced (undoing
+  `apply_now` stops the batch). Once only: `{ ok: false, summary: "Already undone" }` the second time; 404 for an unknown id.
 
 ## Connected Gmail
 - GET `/api/inbox/gmail` returning `{ available, connected, status }`: `available` is false when the server has no
@@ -139,6 +189,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `/api/channels/telegram` returning `{ ok, linked: false }`; POST `/api/channels/telegram/link` (optional `{ timezone }`, the
   browser's zone) returning `{ code, expiresAt, botUsername, link }` (`link` is `https://t.me/<bot>?start=<code>`, single use,
   15 minutes); POST `/api/channels/telegram/webhook` (Telegram only, header `x-telegram-bot-api-secret-token`). See docs/telegram.md
+- Inbox messages carry `usedAt` (ISO time or null): when an application run took that message's code or link ("Nori
+  already used this code").
 
 ## Health
 - GET `/api/health`

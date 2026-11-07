@@ -6,6 +6,7 @@ import { JOBS } from "@norinote/queue";
 import { JobSpec } from "@norinote/shared";
 import { requireUser } from "../auth/session.js";
 import { HttpError, notFound, parseBody, parseWith, uuidParam } from "../http.js";
+import { jobPreview } from "../job-preview.js";
 import { jobLocations, jobsSummary, listJobs, type JobListParams } from "../jobs-query.js";
 import { brandfetchLogo, companyLogoDomain, toJob, toMatch } from "../serialize.js";
 import { enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
@@ -14,7 +15,7 @@ const flag = (dflt: boolean) => z.enum(["true", "false", "1", "0"]).optional().t
 const int = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
 const Query = z.object({
-  view: z.enum(["best", "new", "today", "saved"]).default("best"),
+  view: z.enum(["best", "new", "today", "saved", "applied"]).default("best"),
   sort: z.enum(["best", "new"]).optional(),
   lanes: z.enum(["true", "false", "1", "0"]).optional(),
   group: flag(true),
@@ -45,7 +46,7 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
       sort: q.sort ?? (q.view === "best" ? "best" : "new"),
       lanes: q.lanes === undefined ? q.view === "best" : q.lanes === "true" || q.lanes === "1",
       maxAgeHours: q.maxAgeHours, clearance: q.clearance, limit: q.limit, q: q.q || undefined, minScore: q.minScore, status: q.status,
-      group: q.view === "saved" ? false : q.group, location: q.location || undefined, remote: q.remote,
+      group: q.view === "saved" || q.view === "applied" ? false : q.group, location: q.location || undefined, remote: q.remote,
     };
     return c.json(await listJobs(db, c.get("user").id, params, ctx.now(), logo));
   });
@@ -53,6 +54,15 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
   r.get("/summary", auth, async (c) => c.json(await jobsSummary(db, c.get("user").id, ctx.now())));
 
   r.get("/locations", auth, async (c) => c.json({ locations: await jobLocations(db, ctx.now()) }));
+
+  /** The Review tab: the form's questions, which Nori can answer and which it would ask. Read only, no AI. */
+  r.get("/:id/preview", auth, async (c) => {
+    const userId = c.get("user").id;
+    limitUser(ctx, "job-preview", userId, 120, 3_600_000, "Too many previews. Try again in a few minutes.");
+    const preview = await jobPreview(db, userId, uuidParam(c), { fetch: ctx.previewFetch });
+    if (!preview) throw notFound("Job not found");
+    return c.json(preview);
+  });
 
   /** The Save button: bookmarks a job for the Saved tab (it does not add it to the other lists). */
   r.post("/:id/save", auth, async (c) => {
@@ -100,7 +110,11 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
     const parsedSpec = spec ? JobSpec.safeParse(spec.spec) : null;
     const [bookmark] = await db.select({ at: jobBookmarks.createdAt }).from(jobBookmarks).where(and(eq(jobBookmarks.userId, userId), eq(jobBookmarks.jobId, id))).limit(1);
     return c.json({
-      job: { ...toJob(row.job, { name: row.companyName, logoUrl: logo(row.logoDomain) }, parsedSpec?.success ? parsedSpec.data : null), saved: !!bookmark },
+      job: {
+        ...toJob(row.job, { name: row.companyName, logoUrl: logo(row.logoDomain) }, parsedSpec?.success ? parsedSpec.data : null), saved: !!bookmark,
+        // What is known of the employer. Size and about are not collected yet: they stay null.
+        company: { name: row.companyName, website: row.logoDomain ? `https://${row.logoDomain}` : null, logoUrl: logo(row.logoDomain), size: null, about: null },
+      },
       match: fit ? toMatch(id, { fit: fit.fit, fitMap: fit.fitMap, reasons: fit.reasons, createdAt: fit.createdAt }) : null,
     });
   });

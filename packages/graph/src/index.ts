@@ -2,7 +2,7 @@ export { extractResumeText, SCANNED_PDF_ERROR } from "./extract.js";
 export type { ResumeFile, ExtractedResume, ExtractedLink } from "./extract.js";
 export { parseContact, parseLocation } from "./contact.js";
 export type { Contact } from "./contact.js";
-export { buildCareerPoints, addFact, draftsFromModel, ResumeGraphSchema, FactSchema } from "./build.js";
+export { buildCareerPoints, addFact, draftsFromModel, draftsFromText, ResumeGraphSchema, FactSchema } from "./build.js";
 export type { BuildResult, FactResult } from "./build.js";
 export { heuristicPoints, certificationSections } from "./heuristic.js";
 export { certificationsFromSections } from "./certifications.js";

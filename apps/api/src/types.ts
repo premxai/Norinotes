@@ -28,6 +28,8 @@ export type ApiDeps = {
   telegram?: TelegramOverrides;
   /** Gmail through Composio, for connecting a mailbox that emailed codes are read from. Default: from COMPOSIO_API_KEY (none if unset). */
   gmail?: ComposioGmail | null;
+  /** fetch for reading a job's form in the Review preview (tests: a fake Greenhouse). Default: global fetch. */
+  previewFetch?: typeof fetch;
 };
 
 export type TelegramOverrides = { fetch?: typeof fetch; perChatIntervalMs?: number };

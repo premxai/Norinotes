@@ -48,6 +48,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
     limiter: deps.limiter ?? new RateLimiter(),
     files: deps.files === undefined ? fileStoreFromEnv() : deps.files,
     gmail: deps.gmail === undefined ? (config.composioApiKey ? createComposioGmail({ apiKey: config.composioApiKey }) : null) : deps.gmail,
+    previewFetch: deps.previewFetch ?? ((input, init) => fetch(input, init)),
     ...(deps.telegram ? { telegram: deps.telegram } : {}),
   };
 

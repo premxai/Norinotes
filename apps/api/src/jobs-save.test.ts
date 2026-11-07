@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { jobSpecs } from "@norinote/db";
-import { makeApi, seedJob, type Api } from "./testkit.js";
+import { makeApi, seedApplication, seedJob, type Api } from "./testkit.js";
 
 let api: Api;
 let cookie: string;
@@ -38,6 +38,18 @@ describe("the Jobs page: saving, location filters, what you'll do", () => {
     expect(ids((await api.call("GET", "/api/jobs?view=saved", { cookie })).json)).toEqual([old.job.id]);
     expect((await api.call("GET", `/api/jobs/${fresh.job.id}`, { cookie })).json.job.saved).toBe(false);
     expect((await api.call("POST", `/api/jobs/${fresh.job.id}/save`)).status).toBe(401);
+  });
+
+  it("lists the jobs the person applied to, newest application first, whatever their age", async () => {
+    const { cookie: c2, user } = await api.signup("jobs-applied@example.com");
+    const older = await seedJob(api.db, { title: "Applied Long Ago", hoursAgo: 24 * 20 });
+    const newer = await seedJob(api.db, { title: "Applied Recently" });
+    await seedJob(api.db, { title: "Never Applied" });
+    await seedApplication(api.db, user.id, older.job.id, { createdAt: new Date(Date.now() - 86_400_000) });
+    await seedApplication(api.db, user.id, newer.job.id, { status: "submitted" });
+    const items = (await api.call("GET", "/api/jobs?view=applied", { cookie: c2 })).json as (Item & { applicationStatus: string })[];
+    expect(ids(items)).toEqual([newer.job.id, older.job.id]);
+    expect(items[0]!.applicationStatus).toBe("submitted");
   });
 
   it("filters by location and remote, and lists common locations", async () => {

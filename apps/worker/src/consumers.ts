@@ -14,6 +14,7 @@ import { createResendForwarder, createStubForwarder, handleInboxReceive, smallMo
 import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
 import { JOBS, type Handler, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
 import { boostCompaniesForUser } from "./boost.js";
+import { readGraphSource } from "./graph-sources.js";
 import type { WorkerConfig } from "./config.js";
 import { createDemandCounter } from "./demand.js";
 import type { LogFields, Logger } from "./log.js";
@@ -324,6 +325,13 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
   await queue.work(JOBS.prepareApplication, instrument(log, JOBS.prepareApplication, async (payload) => {
     const restored = await restoreJob(payload.applicationId);
     await createPrepareHandler(db, apply)(payload);
+    // Apply with send (the person approved before it was prepared): on to the employer's form now. Only a first
+    // preparation: a retried one waits for the person again.
+    const after = await loadApplication(db, payload.applicationId);
+    if (after?.status === "prepared" && after.approvedAt && after.attempts === 0 && !after.batchId) {
+      const res = await approveAndSubmit(db, after.id);
+      if (res.ok && res.started) await queue.enqueue(JOBS.applyRun, { applicationId: after.id, trigger: "click" });
+    }
     return restored;
   }));
 
@@ -344,6 +352,13 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     ? createResendForwarder({ apiKey: config.resendApiKey, from: config.mailFrom })
     : createStubForwarder((line) => log.info("inbox.forward", { line }));
   await queue.work(JOBS.inboxReceive, instrument(log, JOBS.inboxReceive, async ({ messageId }) => handleInboxReceive(db, messageId, { model: smallModel, forwarder })));
+
+  // graph.read-source: a source the person named for their career graph (their GitHub, their site); new facts re-run matching.
+  await queue.work(JOBS.graphReadSource, instrument(log, JOBS.graphReadSource, async ({ sourceId }) => {
+    const res = await readGraphSource(db, sourceId);
+    if (res && res.factsAdded > 0) await queue.enqueue(JOBS.matchUser, { userId: res.userId, reason: "graph" });
+    return res ? { status: res.status, factsAdded: res.factsAdded, ...(res.error ? { error: res.error } : {}) } : { status: "missing" };
+  }));
 
   return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs, findLogoDomains,
     stopSweep: async () => { sweepAbort.abort(); await sweeping; },

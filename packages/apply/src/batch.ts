@@ -4,7 +4,8 @@
  * away. What needs them (a question, a captcha, a code that did not come) is parked and never guessed; Stop cancels
  * whatever has not started. The batch counts as the person's approval for each of its applications.
  */
-import { and, applications, applyBatches, asc, companies, desc, eq, inArray, isNull, jobs, profiles, sql, type Db } from "@norinote/db";
+import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql, gte, inArray, isNull, jobs, lanes, profiles, shortlist, sql, type Db } from "@norinote/db";
+import { readSkipCompanies } from "@norinote/shared";
 import { approveAndSubmit, createApplication, dailyCapUse, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
 
 /** The batch error an application carries when Stop cancelled it (the same words as a single cancel). */
@@ -31,32 +32,43 @@ export const DEFAULT_NORI_SETTINGS: Omit<NoriSettings, "dailyLimit"> = { spacing
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
-export function readNoriSettings(preferences: unknown, dailyCap: number | null | undefined): NoriSettings {
+/**
+ * How Nori works for the person. `minFit` is THE threshold ("Recommended" and Apply for me): `preferences.nori.minFit`
+ * once saved, else the lowest of their enabled roles' (lanes') minFit, else 0.7. Saving it sets every role to it.
+ * `skipCompanies` is the one skip list, `preferences.excludeCompanies` (see readSkipCompanies).
+ */
+export function readNoriSettings(preferences: unknown, dailyCap: number | null | undefined, laneMinFits: readonly number[] = []): NoriSettings {
   const o = rec(rec(preferences).nori);
   const spacing = typeof o.spacingMinutes === "number" && o.spacingMinutes >= 1 && o.spacingMinutes <= 60 ? Math.round(o.spacingMinutes) : DEFAULT_NORI_SETTINGS.spacingMinutes;
-  const minFit = typeof o.minFit === "number" && o.minFit >= 0 && o.minFit <= 1 ? o.minFit : DEFAULT_NORI_SETTINGS.minFit;
-  const skip = Array.isArray(o.skipCompanies) ? o.skipCompanies.filter((s): s is string => typeof s === "string" && s.trim() !== "").map((s) => s.trim().slice(0, 120)).slice(0, 100) : [];
-  return { spacingMinutes: spacing, minFit, skipCompanies: skip, dailyLimit: dailyCap && dailyCap > 0 ? dailyCap : DEFAULT_BATCH_DAILY_LIMIT };
+  const saved = typeof o.minFit === "number" && o.minFit >= 0 && o.minFit <= 1 ? o.minFit : null;
+  const minFit = saved ?? (laneMinFits.length ? Math.min(...laneMinFits) : DEFAULT_NORI_SETTINGS.minFit);
+  return { spacingMinutes: spacing, minFit, skipCompanies: readSkipCompanies(preferences), dailyLimit: dailyCap && dailyCap > 0 ? dailyCap : DEFAULT_BATCH_DAILY_LIMIT };
 }
 
 export async function getNoriSettings(db: Db, userId: string): Promise<NoriSettings> {
   const [row] = await db.select({ preferences: profiles.preferences, cap: profiles.dailyCap }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
-  return readNoriSettings(row?.preferences, row?.cap);
+  const laneFits = (await db.select({ minFit: lanes.minFit }).from(lanes).where(and(eq(lanes.userId, userId), eq(lanes.enabled, true)))).map((l) => l.minFit);
+  return readNoriSettings(row?.preferences, row?.cap, laneFits);
 }
 
+/** Saves the patch. A new threshold is set on every role too; the skip list goes to `preferences.excludeCompanies`. */
 export async function saveNoriSettings(db: Db, userId: string, patch: Partial<NoriSettings>): Promise<NoriSettings> {
   const current = await getNoriSettings(db, userId);
   const next = { ...current, ...patch };
-  const nori = { spacingMinutes: next.spacingMinutes, minFit: next.minFit, skipCompanies: next.skipCompanies };
+  const nori = { spacingMinutes: next.spacingMinutes, minFit: next.minFit };
   const json = JSON.stringify(nori);
-  const values = { userId, preferences: { nori }, ...(patch.dailyLimit !== undefined ? { dailyCap: patch.dailyLimit } : {}) };
+  const skip = patch.skipCompanies !== undefined ? JSON.stringify(readSkipCompanies({ excludeCompanies: patch.skipCompanies })) : null;
+  const values = { userId, preferences: { nori, ...(skip ? { excludeCompanies: JSON.parse(skip) as string[] } : {}) }, ...(patch.dailyLimit !== undefined ? { dailyCap: patch.dailyLimit } : {}) };
   await db.insert(profiles).values(values).onConflictDoUpdate({
     target: profiles.userId,
     set: {
-      preferences: sql`coalesce(${profiles.preferences}, '{}'::jsonb) || jsonb_build_object('nori', ${json}::jsonb)`,
+      preferences: skip
+        ? sql`coalesce(${profiles.preferences}, '{}'::jsonb) || jsonb_build_object('nori', ${json}::jsonb, 'excludeCompanies', ${skip}::jsonb)`
+        : sql`coalesce(${profiles.preferences}, '{}'::jsonb) || jsonb_build_object('nori', ${json}::jsonb)`,
       ...(patch.dailyLimit !== undefined ? { dailyCap: patch.dailyLimit } : {}),
     },
   });
+  if (patch.minFit !== undefined) await db.update(lanes).set({ minFit: patch.minFit }).where(eq(lanes.userId, userId));
   return getNoriSettings(db, userId);
 }
 
@@ -239,6 +251,33 @@ export async function takeFinishedBatches(db: Db, userId: string): Promise<Array
     const apps = await db.select().from(applications).where(eq(applications.batchId, b.id));
     out.push({ id: b.id, counts: countBatch(apps), status: b.status as "stopped" | "done" });
     await db.update(applyBatches).set({ notifiedAt: new Date() }).where(eq(applyBatches.id, b.id));
+  }
+  return out;
+}
+
+/**
+ * "Apply now" from Recommended: the person's new matches at or above their threshold, open and posted in the last 72
+ * hours, best fit first, one per company, not applied to, not on the skip list, on the allowed job systems. At most
+ * `limit` job ids, for startBatch.
+ */
+export async function recommendedJobIds(db: Db, userId: string, opts: { now?: Date; limit?: number; atsTypes?: readonly string[] | null } = {}): Promise<string[]> {
+  const now = opts.now ?? new Date();
+  const settings = await getNoriSettings(db, userId);
+  const skip = new Set(settings.skipCompanies.map(normalizeCompany));
+  const rows = await db.select({ jobId: shortlist.jobId, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType })
+    .from(shortlist).innerJoin(jobs, eq(jobs.id, shortlist.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
+    .leftJoin(applications, and(eq(applications.jobId, shortlist.jobId), eq(applications.userId, userId)))
+    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), gte(shortlist.fit, settings.minFit), isNull(jobs.closedAt),
+      eq(companies.blocked, false), isNull(applications.id), freshJobSql(now)))
+    .orderBy(desc(shortlist.fit)).limit(200);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (out.length >= Math.min(opts.limit ?? 10, MAX_BATCH)) break;
+    if (opts.atsTypes?.length && !opts.atsTypes.includes(r.atsType)) continue;
+    if (skip.has(normalizeCompany(r.companyName)) || seen.has(r.companyId)) continue;
+    seen.add(r.companyId);
+    out.push(r.jobId);
   }
   return out;
 }

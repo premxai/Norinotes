@@ -34,6 +34,6 @@ export { blockHeavy, POLITE_UA_SUFFIX } from "./pool.js";
 export { createLiveFrameSink, liveFrameKey, startLiveFrames, type LiveFrame, type LiveFrameSink } from "./live.js";
 export {
   BATCH_CANCELLED, DEFAULT_BATCH_DAILY_LIMIT, DEFAULT_NORI_SETTINGS, MAX_BATCH, batchView, countBatch, drainBatches, getNoriSettings,
-  readNoriSettings, recentBatches, saveNoriSettings, startBatch, stopBatch, takeFinishedBatches,
+  readNoriSettings, recentBatches, recommendedJobIds, saveNoriSettings, startBatch, stopBatch, takeFinishedBatches,
   type BatchCounts, type BatchSkip, type BatchView, type DrainStep, type NoriSettings, type StartBatchResult,
 } from "./batch.js";

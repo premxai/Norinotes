@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { and, applications, careerPoints, companies, desc, eq, freshJobSql, inArray, isNull, jobs, shortlist, sql } from "@norinote/db";
+import { and, applications, careerPoints, companies, desc, eq, freshJobSql, inArray, isNull, jobs, profiles, shortlist, sql } from "@norinote/db";
+import { companyKey, isSkippedCompany, readSkipCompanies } from "@norinote/shared";
 import { WIDENED_BY, widenedByOf, withoutWidenedReasons, type WidenedBy } from "@norinote/match";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -30,10 +31,17 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
     .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false), freshJobSql(ctx.now())))
     .orderBy(sql`(EXISTS (SELECT 1 FROM unnest(${shortlist.reasons}) AS r WHERE r LIKE ${WIDENED_LIKE})) asc`, desc(shortlist.fit), desc(shortlist.createdAt)).limit(take);
 
+  /** The person's companies to skip, as keys. */
+  const skipKeys = async (userId: string) => {
+    const [p] = await db.select({ preferences: profiles.preferences }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
+    return new Set(readSkipCompanies(p?.preferences).map(companyKey));
+  };
+
   /** One entry per company and role: keep the best-fitting posting, list the other cities. */
   async function loadEntries(userId: string, limit: number): Promise<Entry[]> {
     // Read extra rows: the same role posted in several cities collapses into one entry.
-    const rows = await loadRows(userId, limit * 4);
+    const skip = await skipKeys(userId);
+    const rows = (await loadRows(userId, limit * 4)).filter((r) => !isSkippedCompany(skip, r.companyName));
     if (rows.length === 0) await queueFirstRun(userId);
     const groups = new Map<string, Entry>();
     for (const s of rows) {

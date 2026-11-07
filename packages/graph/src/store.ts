@@ -12,12 +12,13 @@ import type { CareerPoint } from "@norinote/shared";
 import type { DraftPoint } from "./heuristic.js";
 import type { Metric } from "./text.js";
 
-export type PointSource = "resume" | "user";
+export type PointSource = "resume" | "user" | "github" | "site";
 type Row = typeof careerPoints.$inferSelect;
 
 export function pointSource(p: { source?: string | null; scope: Record<string, unknown>; sourceQuote: string | null }): PointSource {
   // A user marker in either place wins, so a user fact is never mistaken for a resume point.
   if (p.source === "user" || p.scope.source === "user") return "user";
+  if (p.source === "github" || p.source === "site") return p.source;
   if (p.source === "resume" || p.scope.source === "resume") return "resume";
   return p.sourceQuote ? "resume" : "user";
 }
@@ -31,6 +32,7 @@ export function toCareerPoint(r: Row): CareerPoint {
   return {
     id: r.id, kind: r.kind, title: r.title, org: r.org, startDate: r.startDate, endDate: r.endDate,
     text: r.text, skills: r.skills, scope: r.scope, metrics: r.metrics, sourceQuote: r.sourceQuote, source: r.source,
+    sourceRef: r.sourceRef,
   };
 }
 

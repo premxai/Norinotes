@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, applications, asc, companies, desc, eq, inboxMessages, jobs, resumes, runEvents, shortlist, type Db } from "@norinote/db";
-import { approveAndSubmit, createApplication, liveFrameKey, retryApplication, saveAnswers, transitionApplication, type ApplicationRow, type ApproveResult } from "@norinote/apply";
+import { and, applications, asc, companies, desc, eq, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
+import { approveAndSubmit, createApplication, dailyCapReached, liveFrameKey, logEvent, retryApplication, saveAnswers, transitionApplication, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -12,7 +12,8 @@ import { applicationFlow } from "../application-flow.js";
 import { brandfetchLogo, companyLogoDomain, toApplication, toJob, toResume, toRunEvent } from "../serialize.js";
 import { enqueueRequired, enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
-const Create = z.object({ jobId: z.uuid() });
+/** `send: true`: Apply is the approval; the application is prepared and goes straight on to the employer's form. */
+const Create = z.object({ jobId: z.uuid(), send: z.boolean().optional() });
 // A key is the form's own field name, which some employers make their whole consent paragraph
 // ("field:By checking this box, you consent to ..."), so it may run to a few hundred characters.
 const answerMap = z.record(z.string().min(1).max(2000), z.string().max(5000)).refine((o) => Object.keys(o).length <= 100, "Too many answers");
@@ -52,6 +53,26 @@ export async function startApplication(ctx: Ctx, userId: string, jobId: string):
   // Already exists: asking again is how a stuck one is nudged (the queue drops the repeat within a minute).
   if (res.application.status === "queued") await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: res.application.id }, { dedupeKey: `prepare:${res.application.id}`, dedupeSeconds: 60 });
   return { application: res.application, created: false };
+}
+
+/**
+ * Apply with `send: true`: the click is the person's approval. A prepared application goes to the form now; one still
+ * being prepared is marked approved, and the worker sends it once it is prepared (see the prepare consumer). Counts
+ * against the daily limit like any approval. Nothing changes for one already approved, sent or failed.
+ */
+export async function sendApplication(ctx: Ctx, userId: string, app: ApplicationRow): Promise<ApplicationRow> {
+  if (app.approvedAt || !["queued", "preparing", "prepared", "needs_user"].includes(app.status)) return app;
+  if (app.status === "prepared" || app.status === "needs_user") {
+    const res = await approveApplication(ctx, app);
+    if (!res.ok && res.cap) throw new HttpError(429, `Today's limit of ${res.cap.cap} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
+  } else {
+    const cap = await dailyCapReached(ctx.db, userId, ctx.now(), app.id);
+    if (cap) throw new HttpError(429, `Today's limit of ${cap.cap} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
+    await ctx.db.update(applications).set({ approvedAt: ctx.now() }).where(eq(applications.id, app.id));
+    await logEvent(ctx.db, app.id, "approved", "Apply pressed: Nori sends it as soon as it is prepared", { data: { approvedBy: "user", send: true } });
+  }
+  const [row] = await ctx.db.select().from(applications).where(eq(applications.id, app.id)).limit(1);
+  return row ?? app;
 }
 
 /** The user's approval of a prepared (or parked) application: save any answers, move it to applying, queue the browser step. */
@@ -148,6 +169,13 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     return c.json(await applicationFlow(db, c.get("user").id, { now: ctx.now(), days }));
   });
 
+  // Overview's activity graph: applications sent per day (submittedAt), the last `days` days (default 182), in `tz`.
+  r.get("/activity", auth, async (c) => {
+    const days = intParam(c.req.query("days") ?? "182", 182, 1, 730);
+    const tz = validTimeZone(c.req.query("tz")) ?? "UTC";
+    return c.json(await sentPerDay(db, c.get("user").id, ctx.now(), days, tz));
+  });
+
   r.get("/", auth, async (c) => {
     const rows = await db.select({ app: applications, job: jobs, companyName: companies.name, logoDomain: companyLogoDomain, resume: resumes }).from(applications)
       .innerJoin(jobs, eq(jobs.id, applications.jobId))
@@ -162,9 +190,15 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
   });
 
   r.post("/", auth, async (c) => {
-    const { jobId } = await parseBody(c, Create);
-    const res = await startApplication(ctx, c.get("user").id, jobId);
-    return c.json(toApplication(res.application, artifacts), res.created ? 201 : 200);
+    const { jobId, send } = await parseBody(c, Create);
+    const userId = c.get("user").id;
+    if (send) {
+      const cap = await dailyCapReached(db, userId, ctx.now());
+      if (cap) throw new HttpError(429, `Today's limit of ${cap.cap} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
+    }
+    const res = await startApplication(ctx, userId, jobId);
+    const app = send ? await sendApplication(ctx, userId, res.application) : res.application;
+    return c.json(toApplication(app, artifacts), res.created ? 201 : 200);
   });
 
   r.get("/:id", auth, async (c) => c.json(await detail(await ownedApplication(db, c.get("user").id, uuidParam(c)))));
@@ -234,4 +268,36 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
   });
 
   return r;
+}
+
+/** An IANA time zone name the runtime knows, else null. */
+export function validTimeZone(tz: string | undefined): string | null {
+  if (!tz || tz.length > 64) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return null;
+  }
+}
+
+/** The local date (YYYY-MM-DD) of `at` in `tz`. */
+const localDate = (at: Date, tz: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
+
+/** Applications sent per local day for the last `days` days, every day listed (0 when none), oldest first. */
+export async function sentPerDay(db: Db, userId: string, now: Date, days: number, tz: string): Promise<{ days: { date: string; sent: number }[]; total: number; timezone: string }> {
+  const since = new Date(now.getTime() - (days + 1) * 86_400_000);
+  const rows = await queryRows<{ date: string; sent: number }>(db, sql`
+    SELECT to_char(${applications.submittedAt} AT TIME ZONE ${tz}, 'YYYY-MM-DD') AS date, count(*)::int AS sent
+    FROM ${applications}
+    WHERE ${applications.userId} = ${userId} AND ${applications.submittedAt} IS NOT NULL AND ${applications.submittedAt} >= ${since.toISOString()}::timestamptz
+    GROUP BY 1`);
+  const byDate = new Map(rows.map((r) => [r.date, r.sent]));
+  const out: { date: string; sent: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = localDate(new Date(now.getTime() - i * 86_400_000), tz);
+    if (out.at(-1)?.date === date) continue;
+    out.push({ date, sent: byDate.get(date) ?? 0 });
+  }
+  return { days: out, total: out.reduce((n, d) => n + d.sent, 0), timezone: tz };
 }

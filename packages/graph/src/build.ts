@@ -288,6 +288,21 @@ export async function addFact(db: Db, userId: string, text: string): Promise<Fac
   return { points, source, embedded: emb.embedded, aiUnavailable: aiUnavailable || emb.aiUnavailable };
 }
 
+/**
+ * Career points from other text the person pointed Nori at (their own website), read the way a resume is: the model's
+ * points are kept only when their quotes are in the text, so nothing is invented. Throws when the AI service cannot be
+ * used (AiUnavailableError, BudgetExceededError); there is no basic parser for free-form pages.
+ */
+export async function draftsFromText(db: Db, userId: string, text: string): Promise<DraftPoint[]> {
+  const body = text.replace(/\r\n?/g, "\n").trim();
+  if (!body) return [];
+  const res = await complete({
+    tier: "small", system: RESUME_SYSTEM, input: `Resume (the text of the person's own website):\n\n${body.slice(0, MAX_RESUME_CHARS)}`,
+    schema: ResumeGraphSchema, schemaName: "career_graph", strict: true, userId, db,
+  });
+  return draftsFromModel(res.output, body).filter((d) => d.kind !== "skill" || d.skills.length > 0).slice(0, MAX_POINTS);
+}
+
 /** One achievement point straight from the user's words when the model could not structure the fact. */
 function factFallback(fact: string): DraftPoint {
   const first = fact.split(/(?<=[.!?])\s/)[0] ?? fact;

@@ -9,12 +9,32 @@ export type GraphNode = {
   props: Record<string, unknown>;
   startDate: string | null;
   endDate: string | null;
+  /** Readable: "your resume", "a fact you added", "GitHub", "your website". Null for skills. */
   source: string | null;
   sourceQuote: string | null;
+  /** Where the fact came from, structured: the resume line, the repo, the page. Null for skills. */
+  origin: { kind: "resume" | "user" | "github" | "site"; ref: string | null; label: string | null } | null;
 };
 export type GraphEdge = { id: string; src: string; dst: string; type: string };
 
 const NODE_TYPE: Record<string, string | null> = { role: "role", project: "project", achievement: "metric", education: "education", certification: "certification", skill: null };
+
+const SOURCE_TEXT: Record<string, string> = { resume: "your resume", user: "a fact you added", github: "GitHub", site: "your website" };
+
+const hostOf = (url: string | null | undefined) => {
+  try { return url ? new URL(url).hostname.replace(/^www\./, "") : null; } catch { return null; }
+};
+
+/** Where a fact came from: the resume line it quotes, the GitHub repo, the page on the person's site. */
+export function originOf(p: Pick<CareerPoint, "source" | "sourceRef" | "sourceQuote" | "title">): NonNullable<GraphNode["origin"]> {
+  const kind = p.source ?? "resume";
+  const ref = p.sourceRef ?? null;
+  if (kind === "github") return { kind, ref, label: ref ? ref.replace(/^https?:\/\/github\.com\//, "") : p.title };
+  if (kind === "site") return { kind, ref, label: hostOf(ref) };
+  if (kind === "user") return { kind, ref: null, label: null };
+  const quote = p.sourceQuote?.trim() ?? "";
+  return { kind: "resume", ref: null, label: quote ? (quote.length > 120 ? `${quote.slice(0, 117).trimEnd()}...` : quote) : null };
+}
 
 /** Skill nodes are keyed by the lower-cased skill name, base64url-encoded so the id is safe in a URL path. */
 export const skillNodeId = (name: string) => `skill_${Buffer.from(name.trim().toLowerCase()).toString("base64url")}`;
@@ -49,8 +69,9 @@ export function buildGraphView(points: CareerPoint[], skills: SkillSummary[]): {
       },
       startDate: p.startDate,
       endDate: p.endDate,
-      source: p.source === "user" ? "a fact you added" : "your resume",
+      source: SOURCE_TEXT[p.source ?? "resume"] ?? "your resume",
       sourceQuote: p.sourceQuote,
+      origin: originOf(p),
     });
     for (const s of p.skills) edges.push({ id: `${p.id}>${skillNodeId(s)}`, src: p.id, dst: skillNodeId(s), type: "used" });
   }
@@ -67,6 +88,7 @@ export function buildGraphView(points: CareerPoint[], skills: SkillSummary[]): {
       endDate: null,
       source: null,
       sourceQuote: null,
+      origin: null,
     });
   }
   return { nodes, edges };

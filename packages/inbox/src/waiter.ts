@@ -116,6 +116,8 @@ export async function awaitVerification(args: AwaitVerificationArgs): Promise<Ve
       const hit = await findVerification(db, args);
       if (hit) {
         args.exclude?.add(hit.messageId);
+        // "Nori used this code": the inbox shows when a run took it.
+        await db.update(inboxMessages).set({ usedAt: now() }).where(eq(inboxMessages.id, hit.messageId)).catch(() => undefined);
         return hit;
       }
       const remaining = deadline - now().getTime();

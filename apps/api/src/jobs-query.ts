@@ -1,6 +1,7 @@
 import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobBookmarks, jobs, lanes, ne, or, queryRows, savedJobs, shortlist, sql, type Db } from "@norinote/db";
 import { inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
 import type { SQL } from "drizzle-orm";
+import { PAY_SQL_PATTERN } from "./listing-facts.js";
 import { companyLogoDomain, toJob, toMatch, type LogoUrl } from "./serialize.js";
 
 const LIST_DESCRIPTION_CHARS = 1200;
@@ -8,8 +9,11 @@ const LIST_DESCRIPTION_CHARS = 1200;
 const MAX_SCAN = 2400;
 
 export type JobListParams = {
-  /** `saved`: the user's bookmarked jobs, newest saved first, whatever their age or lane fit. */
-  view: "best" | "new" | "today" | "saved";
+  /**
+   * `saved`: the user's bookmarked jobs, newest saved first; `applied`: jobs with an application of theirs, newest
+   * application first. Both whatever the job's age or lane fit, open or closed.
+   */
+  view: "best" | "new" | "today" | "saved" | "applied";
   sort: "best" | "new";
   lanes: boolean;
   /** Posted within this many hours, at most 72. */
@@ -54,7 +58,8 @@ const columns = (description: SQL<string> | typeof jobs.descriptionText) => ({
   id: jobs.id, companyId: jobs.companyId, atsType: jobs.atsType, externalId: jobs.externalId, title: jobs.title, location: jobs.location,
   remote: jobs.remote, descriptionText: description, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, firstSeenAt: jobs.firstSeenAt,
   lastSeenAt: jobs.lastSeenAt, closedAt: jobs.closedAt, dedupeKey: jobs.dedupeKey, companyName: companies.name,
-  logoDomain: companyLogoDomain, savedAt: jobBookmarks.createdAt, fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
+  logoDomain: companyLogoDomain, savedAt: jobBookmarks.createdAt,
+  payText: sql<string | null>`substring(${jobs.descriptionText} from ${PAY_SQL_PATTERN})`, fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
 });
 
 export type JobListItem = {
@@ -76,16 +81,19 @@ export type JobListItem = {
 export async function listJobs(db: Db, userId: string, p: JobListParams, now: Date, logo: LogoUrl = () => null): Promise<JobListItem[]> {
   const today = p.view === "today";
   const bookmarks = p.view === "saved";
+  const applied = p.view === "applied";
+  const ownList = bookmarks || applied;
   const saved = savedByUser(userId, today ? new Date(now.getTime() - 24 * 3_600_000) : undefined);
   const conds: (SQL | undefined)[] = [eq(companies.blocked, false)];
   // Saved: every bookmarked job, open or closed, whatever its age (job.closedAt says when one closed).
   if (bookmarks) conds.push(isNotNull(jobBookmarks.createdAt));
+  else if (applied) conds.push(isNotNull(applications.id));
   else conds.push(or(freshJobSql(now, today ? Math.min(24, p.maxAgeHours) : p.maxAgeHours), saved));
-  if (p.status === "open" && !bookmarks) conds.push(isNull(jobs.closedAt));
+  if (p.status === "open" && !ownList) conds.push(isNull(jobs.closedAt));
   if (p.view === "best") conds.push(or(isNull(shortlist.status), ne(shortlist.status, "dismissed")));
   if (p.location) conds.push(sql`${jobs.location} ilike ${likePattern(p.location)}`);
   if (p.remote) conds.push(eq(jobs.remote, true));
-  if (p.lanes && !bookmarks) {
+  if (p.lanes && !ownList) {
     const fits = await laneCondition(db, userId, now);
     // Jobs on the user's own shortlist (including ones added by widening) always belong to Best match.
     if (fits) conds.push(p.view === "best" ? or(fits, and(isNotNull(shortlist.id), eq(shortlist.status, "new")), saved) : or(fits, saved));
@@ -95,6 +103,8 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
 
   const order = bookmarks
     ? [desc(jobBookmarks.createdAt), jobs.id]
+    : applied
+    ? [desc(applications.createdAt), jobs.id]
     : p.sort === "best"
     ? [sql`${shortlist.fit} desc nulls last`, sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt}) desc`, jobs.id]
     : [desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`), jobs.id];
@@ -127,7 +137,7 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
   return rows.map(([key, row]): JobListItem => {
     const description = needFullText ? row.descriptionText.slice(0, LIST_DESCRIPTION_CHARS) : row.descriptionText;
     const item: JobListItem = {
-      job: toJob({ ...row, descriptionText: description }, { name: row.companyName, logoUrl: logo(row.logoDomain) }),
+      job: toJob({ ...row, descriptionText: description }, { name: row.companyName, logoUrl: logo(row.logoDomain) }, undefined, { payText: row.payText }),
       match: row.fit === null ? null : toMatch(row.id, { fit: row.fit, fitMap: row.fitMap ?? [], reasons: row.reasons ?? [], createdAt: row.matchAt ?? now }),
       applicationStatus: row.appStatus,
       saved: row.savedAt !== null,

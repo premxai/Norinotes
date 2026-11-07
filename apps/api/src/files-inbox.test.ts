@@ -195,7 +195,7 @@ describe("inbound email webhook", () => {
     expect(inbox.json).toHaveLength(1);
     expect(inbox.json[0]).toEqual({
       id: row!.id, applicationId: null, fromAddress: "jobs@greenhouse.io", subject: "Your verification code", bodyText: "Your security code is 482913.",
-      receivedAt: expect.any(String), kind: "verification_code", code: "482913",
+      receivedAt: expect.any(String), kind: "verification_code", code: "482913", usedAt: null,
       application: null, fromName: null, verificationLink: null, links: [], attachments: [], spam: false,
     });
     expect((await api.call("GET", "/api/inbox", { cookie: b.cookie })).json).toEqual([]);

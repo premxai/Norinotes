@@ -1,5 +1,5 @@
 import { and, asc, careerPointEmbeddings, careerPoints, desc, eq, lanes, profiles, sql, type Db } from "@norinote/db";
-import { normalizeCountry, parseWorkAuthMap, type CountryAuth } from "@norinote/shared";
+import { companyKey, normalizeCountry, parseWorkAuthMap, readSkipCompanies, type CountryAuth } from "@norinote/shared";
 import { canonicalSkills, type SkillMap, DEFAULT_SKILL_MAP } from "./skills.js";
 import type { LaneLike } from "./lanes.js";
 import { countryOf, parseLocation } from "./location.js";
@@ -96,6 +96,8 @@ export type MatchProfile = {
   points: EvidencePoint[];
   /** The resume text, searched by words for licences and certifications the career points missed. Null when none. */
   resumeText?: string | null;
+  /** Companies the person never wants (keys from `companyKey`); they never reach the shortlist. */
+  skipCompanies?: ReadonlySet<string>;
 };
 
 /** `YYYY` or `YYYY-MM` to a fractional year. `end` of null means "now". */
@@ -159,6 +161,7 @@ export async function loadMatchProfile(db: Db, userId: string, now: Date, skills
     lanes: laneRows.map((l) => ({ id: l.id, name: l.name, titles: l.titles, locations: l.locations, remote: l.remote, minFit: l.minFit, enabled: true })),
     experienceYears: experienceYearsOf(points, now),
     resumeText: profile?.resumeText ?? null,
+    skipCompanies: new Set(readSkipCompanies(profile?.preferences).map(companyKey)),
     points,
   };
 }

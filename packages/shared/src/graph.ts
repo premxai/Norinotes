@@ -21,8 +21,13 @@ export const CareerPoint = z.object({
   metrics: z.record(z.string(), z.unknown()),
   /** The exact words in the resume this point came from, so nothing is invented. */
   sourceQuote: z.string().nullable(),
-  /** `resume` points are replaced on every resume upload; `user` facts are never touched. */
-  source: z.enum(["resume", "user"]).default("resume"),
+  /**
+   * `resume` points are replaced on every resume upload; `user` facts are never touched; `github` and `site` facts come
+   * from a source the person named and are replaced when it is read again.
+   */
+  source: z.enum(["resume", "user", "github", "site"]).default("resume"),
+  /** The repo or page a github/site fact came from. */
+  sourceRef: z.string().nullable().optional(),
 });
 /** The input type, so `source` may be left out when building one by hand (it defaults to `resume` when parsed). */
 export type CareerPoint = z.input<typeof CareerPoint>;

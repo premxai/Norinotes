@@ -1,3 +1,4 @@
+import { listingFacts } from "./listing-facts.js";
 import path from "node:path";
 import { companies, sql, type applications, type jobs, type resumes, type runEvents } from "@norinote/db";
 import { widenedByOf, withoutWidenedReasons } from "@norinote/match";
@@ -33,7 +34,8 @@ export function brandfetchLogo(clientId: string | undefined): LogoUrl {
   };
 }
 
-export function toJob(j: JobRow, company: { name: string | null; logoUrl: string | null }, spec?: JobSpec | null) {
+/** `payText`: the pay stretch a list query found (lists carry only the start of the description). */
+export function toJob(j: JobRow, company: { name: string | null; logoUrl: string | null }, spec?: JobSpec | null, opts: { payText?: string | null } = {}) {
   return {
     id: j.id,
     companyId: j.companyId,
@@ -50,6 +52,8 @@ export function toJob(j: JobRow, company: { name: string | null; logoUrl: string
     firstSeenAt: j.firstSeenAt.toISOString(),
     lastSeenAt: j.lastSeenAt.toISOString(),
     closedAt: iso(j.closedAt),
+    // Stated by the listing, else null: pay, the kind of job, where the work happens.
+    ...listingFacts(j, opts.payText),
     ...(spec !== undefined ? { requirements: spec ? toRequirements(spec) : null } : {}),
   };
 }
