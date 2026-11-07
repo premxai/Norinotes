@@ -68,7 +68,7 @@ export type Ingest = {
 export type Lane = { id: string; name: string; titles: string[]; locations: string[]; remote: boolean; minFit: number; enabled: boolean };
 
 /** A job as the API sends it (`toJob`). `companyLogoUrl`: a Brandfetch CDN logo, or null (see CompanyLogo). */
-export type Job = { id: string; companyName: string; companyLogoUrl?: string | null; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null };
+export type Job = { id: string; companyName: string; companyLogoUrl?: string | null; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null; atsType?: string };
 
 /** One row of today's shortlist (`GET /api/shortlist`). */
 export type ShortlistEntry = {
@@ -160,6 +160,25 @@ export type TelegramSettings = { dailyTime: string; timezone: string; count: num
 export type TelegramState = { configured: boolean; botUsername: string | null; linked: boolean; linkedAt: string | null; settings: TelegramSettings };
 export type Session = { id: string; current: boolean; device: string; createdAt: string; expiresAt: string };
 
+/**
+ * Where applications went (GET /api/applications/flow): nodes in columns by `stage` (0 started; 1 sent, needs_you,
+ * in_progress, cancelled, failed; 2 from sent: interview, replied, rejected, waiting, silent; 3 from interview: offer,
+ * rejected_after_interview, interviewing) and the links between them. Each application takes one path; zeros are left out.
+ */
+export type FlowNode = { id: string; label: string; count: number; stage: 0 | 1 | 2 | 3 };
+export type Flow = { since: string | null; total: number; nodes: FlowNode[]; links: { source: string; target: string; value: number }[] };
+
+/** "Apply for me" (api-contract.md, Nori page): settings, batches the person approves at once, and what needs them. */
+export type NoriSettings = { spacingMinutes: number; minFit: number; skipCompanies: string[]; dailyLimit: number };
+export type BatchCounts = { total: number; sent: number; working: number; preparing: number; ready: number; needsYou: number; cancelled: number; failed: number };
+export type Batch = { id: string; status: "running" | "stopped" | "done"; createdAt: string; finishedAt: string | null; lastStartedAt: string | null; counts: BatchCounts; waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | null; nextAt: string | null };
+export type Needs = "questions" | "code" | "captcha" | "account" | "other";
+export type BatchApplication = { id: string; jobId: string; title: string; company: string; status: AppStatus; error: string | null; submittedAt: string | null; needs?: Needs };
+export type BatchSkip = { jobId: string; reason: "not_found" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" | string };
+/** `questions` is how many; the questions themselves come with the application (GET /applications/:id). */
+export type NeedsItem = { applicationId: string; jobId: string; title: string; company: string; applyUrl: string; needs: Needs; reason: string | null; questions: number; batchId: string | null; updatedAt: string };
+export type GmailState = { available: boolean; connected: boolean; status: string | null };
+
 /** A failure carries the API's words (`error`) and, for some, more of them (`detail`: the daily limit's 429 names the limit). */
 export type Result<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string; detail?: string };
 
@@ -244,6 +263,7 @@ export const api = {
   addOutcome: (id: string, kind: OutcomeKind) => call<Outcomes & { outcome: Outcome; created: boolean }>(`/applications/${encodeURIComponent(id)}/outcomes`, { json: { kind } }),
   removeOutcome: (id: string, outcomeId: string) => call<Outcomes & { ok: true }>(`/applications/${encodeURIComponent(id)}/outcomes/${encodeURIComponent(outcomeId)}`, { method: "DELETE" }),
   summary: () => call<OutcomeSummary>("/outcomes/summary"),
+  flow: (days: 7 | 30 | 90 | null) => call<Flow>(`/applications/flow${days ? `?days=${days}` : ""}`),
   inbox: () => call<InboxMessage[]>("/inbox?limit=200"),
   message: (id: string) => call<InboxMessage>(`/inbox/${encodeURIComponent(id)}`),
   inboxSettings: (settings: InboxSettings) => call<{ settings: InboxSettings }>("/inbox/settings", { method: "PUT", json: settings }),
@@ -257,6 +277,16 @@ export const api = {
   editAnswer: (id: string, answer: string) => call<BankAnswer>(`/profile/answers/${encodeURIComponent(id)}`, { method: "PATCH", json: { answer } }),
   removeAnswer: (id: string) => call<{ ok: true }>(`/profile/answers/${encodeURIComponent(id)}`, { method: "DELETE" }),
   telegram: () => call<TelegramState>("/channels/telegram"),
+  noriSettings: () => call<{ settings: NoriSettings }>("/nori/settings"),
+  saveNoriSettings: (patch: Partial<NoriSettings>) => call<{ settings: NoriSettings }>("/nori/settings", { method: "PUT", json: patch }),
+  batches: () => call<{ batches: Batch[] }>("/nori/batches"),
+  batch: (id: string) => call<{ batch: Batch; applications: BatchApplication[] }>(`/nori/batches/${encodeURIComponent(id)}`),
+  startBatch: (jobIds: string[]) => call<{ batch: Batch; added: number; skipped: BatchSkip[] }>("/nori/batches", { json: { jobIds } }),
+  stopBatch: (id: string) => call<{ ok: true }>(`/nori/batches/${encodeURIComponent(id)}/stop`, { json: {} }),
+  needsYou: () => call<{ items: NeedsItem[] }>("/nori/needs-you"),
+  gmail: () => call<GmailState>("/inbox/gmail"),
+  connectGmail: () => call<{ url: string }>("/inbox/gmail/connect", { json: {} }),
+  disconnectGmail: () => call<{ ok: true }>("/inbox/gmail", { method: "DELETE" }),
   saveTelegram: (settings: Partial<TelegramSettings>) => call<TelegramState>("/channels/telegram", { method: "PUT", json: settings }),
   linkTelegram: (timezone: string) => call<{ code: string; expiresAt: string; botUsername: string; link: string }>("/channels/telegram/link", { json: { timezone } }),
   unlinkTelegram: () => call<{ ok: true; linked: false }>("/channels/telegram", { method: "DELETE" }),

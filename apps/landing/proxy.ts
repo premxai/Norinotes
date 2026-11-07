@@ -9,7 +9,7 @@ const YOU = new Set(["search", "nori", "account"]);
 
 function missing(path: string) {
   const [, section, a, b] = path.split("/");
-  if (section === "today") return a !== undefined;
+  if (section === "today" || section === "tracker") return a !== undefined;
   if (section === "you") return a !== undefined && (!YOU.has(a) || b !== undefined);
   if (section === "applications" || section === "inbox") return b !== undefined;
   return false;
@@ -20,4 +20,4 @@ export function proxy(request: NextRequest) {
   return missing(path) ? NextResponse.rewrite(request.nextUrl, { status: 404 }) : NextResponse.next();
 }
 
-export const config = { matcher: ["/today/:path+", "/you/:path+", "/applications/:id/:path+", "/inbox/:id/:path+"] };
+export const config = { matcher: ["/today/:path+", "/tracker/:path+", "/you/:path+", "/applications/:id/:path+", "/inbox/:id/:path+"] };

@@ -85,7 +85,7 @@ function DailyLimit({ initial, used }: { initial: number; used: number | null })
         </p>
         {state === "saved" ? <Status>Saved.</Status> : state !== "idle" && <Status tone="error">{state}</Status>}
       </div>
-      <p className={`${HINT} text-[0.875rem]`}>Nori asks before every send. Sending on its own is coming. The count starts again at midnight UTC.</p>
+      <p className={`${HINT} text-[0.875rem]`}>Nori sends only what you approve, one at a time or as a batch you start on the Nori page. The count starts again at midnight UTC.</p>
     </section>
   );
 }

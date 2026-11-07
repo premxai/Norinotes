@@ -487,7 +487,7 @@ async function noriFlows(browser) {
     check(W, "saved once the clicking stops", cap.length === 1 && cap[0].autoApplyDailyCap === 0, cap);
     await wait(600);
     const rail = await page.locator("nav[aria-label=Dashboard]").first().innerText();
-    check(W, "the rail follows: no meter, Nori asks before every send", !(await page.locator("[role=meter]").count()) && rail.includes("Nori asks before every send."), rail);
+    check(W, "the rail follows: no meter, Nori sends only what you approve", !(await page.locator("[role=meter]").count()) && rail.includes("Nori sends only what you approve."), rail);
 
     // Contact: the check, then a save of the group's fields.
     await page.fill("#form-fullName", "");

@@ -29,8 +29,10 @@ export const usePanel = () => {
 
 const SECTIONS = [
   { href: "/today", label: "Today", icon: "M10 6a4 4 0 1 1 0 8a4 4 0 0 1 0-8zM10 1.5v2.5M10 16v2.5M1.5 10H4M16 10h2.5M4 4l1.8 1.8M14.2 14.2L16 16M4 16l1.8-1.8M14.2 5.8L16 4" },
-  { href: "/applications", label: "Applications", icon: "M5 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM6.5 8h7M6.5 12h4.5" },
+  { href: "/applications", label: "Applications", short: "Apps", icon: "M5 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM6.5 8h7M6.5 12h4.5" },
+  { href: "/tracker", label: "Tracker", icon: "M3 16.5h14M5 15.5V11M9 15.5V6.5M13 15.5V9.5M17 15.5V4" },
   { href: "/inbox", label: "Inbox", icon: "M3 5h14v10H3zM3 5l7 6 7-6" },
+  { href: "/nori", label: "Nori", icon: "M8.5 3l1.5 4.2 4.2 1.5-4.2 1.5-1.5 4.2-1.5-4.2-4.2-1.5 4.2-1.5zM15 12l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" },
   { href: "/you", label: "You", icon: "M10 3.8a3.2 3.2 0 1 1 0 6.4a3.2 3.2 0 0 1 0-6.4zM3.5 17c1.2-3 3.6-4.5 6.5-4.5s5.3 1.5 6.5 4.5" },
 ] as const;
 
@@ -192,7 +194,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             )}
             {/* True for every limit: nothing sends on its own (4c spec section 7). */}
-            <p className="text-[0.75rem] leading-[1.4] text-ink-2">Nori asks before every send.</p>
+            <p className="text-[0.75rem] leading-[1.4] text-ink-2">Nori sends only what you approve.</p>
           </div>
 
           <div className="relative mt-auto flex flex-col gap-1 max-laptop:hidden">
@@ -237,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {panel && <LivePanel />}
 
-        <nav aria-label="Dashboard" className="fixed inset-x-0 bottom-0 z-[20] grid h-16 grid-cols-4 border-t-[1.5px] border-line bg-surface-2 pb-[env(safe-area-inset-bottom)] tablet:hidden">
+        <nav aria-label="Dashboard" className="fixed inset-x-0 bottom-0 z-[20] grid h-16 grid-cols-6 border-t-[1.5px] border-line bg-surface-2 pb-[env(safe-area-inset-bottom)] tablet:hidden">
           {SECTIONS.map((s) => {
             const current = path === s.href || path.startsWith(`${s.href}/`);
             return (
@@ -249,7 +251,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={`relative flex flex-col items-center justify-center gap-0.5 text-[0.75rem] no-underline ${current ? "font-semibold text-ink" : "font-medium text-ink-2"}`}
               >
                 <Icon d={s.icon} />
-                {s.label}
+                {/* Six tabs share a phone's width, so Applications is "Apps" here. */}
+                {"short" in s ? s.short : s.label}
                 {s.href === "/today" && needsYou && <NeedsDot className="absolute top-2.5 right-[30%]" />}
               </Link>
             );

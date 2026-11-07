@@ -1,10 +1,11 @@
 # Privacy policy
 
-Last updated: 2026-11-04
+Last updated: 2026-11-07
 
 > **In short.** Norinote keeps what it needs to find jobs for you and apply with your OK: your account, your resume and
 > the career graph built from it, your profile and preferences, and a record of every application. A few services run
-> it for us, and employers see an application only after you've approved it. There's no tracking, no advertising, and we
+> it for us, and employers see an application only after you've approved it, on its own or by starting Apply for me with
+> that job in it. There's no tracking, no advertising, and we
 > don't sell your data. You can change or delete it in the app, and deleting your account deletes all of it.
 
 ## 1. Who we are
@@ -62,7 +63,7 @@ data processing terms.
 **Company logos** on job cards load from Brandfetch's image server, which sees your IP address and that the request
 came from Norinote, as any website you visit would.
 
-**Employers.** When you approve an application, what it sends (your answers, your tailored resume, and the profile
+**Employers.** When you approve an application (on its own, or by starting Apply for me with that job in it), what it sends (your answers, your tailored resume, and the profile
 details the form asks for) goes to that employer through its own application system (such as Greenhouse, Lever or
 Ashby). From then on the employer handles it under its own privacy policy. Nothing goes to an employer without your
 OK.

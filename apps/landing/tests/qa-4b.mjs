@@ -68,6 +68,34 @@ const CODE_APPS = () => [
   { app: base("a11", "needs_user", { createdAt: at("2026-11-04T07:50:00"), approvedAt: at("2026-11-04T07:51:00"), error: CODE_LATE, receipt: { codeMissing: true } }), job: job("j11", "Motion designer", "Bramble", null), outcomes: [] },
   { app: base("a12", "failed", { createdAt: at("2026-11-04T07:40:00"), error: "Cancelled by you" }), job: job("j12", "Packaging designer", "Fennel", "Portland, OR"), outcomes: [] },
 ];
+// Where applications went (GET /applications/flow): 24 started, 15 sent, 4 interviews, 1 offer.
+const node = (id, label, count, stage) => ({ id, label, count, stage });
+const FLOW = {
+  since: at("2026-09-28T09:00:00"),
+  total: 24,
+  nodes: [
+    node("started", "Started", 24, 0),
+    node("sent", "Sent", 15, 1), node("needs_you", "Needs you", 3, 1), node("in_progress", "In progress", 2, 1), node("cancelled", "Cancelled", 1, 1), node("failed", "Didn't go through", 3, 1),
+    node("interview", "Interview", 4, 2), node("replied", "Replied", 3, 2), node("rejected", "Rejected", 4, 2), node("waiting", "No reply yet", 3, 2), node("silent", "No reply", 1, 2),
+    node("offer", "Offer", 1, 3), node("rejected_after_interview", "Rejected", 1, 3), node("interviewing", "Still interviewing", 2, 3),
+  ],
+  links: [
+    ["started", "sent", 15], ["started", "needs_you", 3], ["started", "in_progress", 2], ["started", "cancelled", 1], ["started", "failed", 3],
+    ["sent", "interview", 4], ["sent", "replied", 3], ["sent", "rejected", 4], ["sent", "waiting", 3], ["sent", "silent", 1],
+    ["interview", "offer", 1], ["interview", "rejected_after_interview", 1], ["interview", "interviewing", 2],
+  ].map(([source, target, value]) => ({ source, target, value })),
+};
+const FLOW_SMALL = { since: at("2026-11-01T09:00:00"), total: 3, nodes: [node("started", "Started", 3, 0), node("sent", "Sent", 2, 1), node("needs_you", "Needs you", 1, 1), node("replied", "Replied", 1, 2), node("waiting", "No reply yet", 1, 2)], links: [{ source: "started", target: "sent", value: 2 }, { source: "started", target: "needs_you", value: 1 }, { source: "sent", target: "replied", value: 1 }, { source: "sent", target: "waiting", value: 1 }] };
+const FLOW_EMPTY = { since: null, total: 0, nodes: [], links: [] };
+// The Nori page ("Apply for me"): matches to pick from, a running batch, what needs the person, settings.
+const MATCH = (id, title, company, fit, atsType = "greenhouse") => ({ id: `s-${id}`, jobId: id, fit, reasons: ["Sample reason"], status: "new", createdAt: at("2026-11-04T07:00:00"), widenedBy: null, locationNames: [], job: { ...job(id, title, company, "New York, NY"), atsType } });
+// Four on Greenhouse and one on Lever, which "Apply for me" doesn't list yet.
+const MATCHES = () => [MATCH("m1", "Product designer", "Fernway", 0.86), MATCH("m2", "UX designer", "Halden Labs", 0.81), MATCH("m3", "Design systems designer", "Mirro", 0.72), MATCH("m4", "Visual designer", "Kestrel", 0.64), MATCH("m5", "Motion designer", "Bramble", 0.9, "lever")];
+const BATCH = (status = "running") => ({ id: "b1", status, createdAt: at("2026-11-04T08:30:00"), finishedAt: null, lastStartedAt: at("2026-11-04T08:58:00"), counts: { total: 10, sent: 4, working: 1, preparing: 2, ready: 2, needsYou: 1, cancelled: 0, failed: 0 }, waitingFor: "spacing", nextAt: at("2026-11-04T09:12:00") });
+const NEEDS = () => [
+  { applicationId: "a2", jobId: "j-a2", title: "Interaction designer", company: "Pallet", applyUrl: "https://jobs.example.test/j2", needs: "questions", reason: null, questions: 2, batchId: "b1", updatedAt: at("2026-11-04T08:40:00") },
+  { applicationId: "a8", jobId: "j-a8", title: "Content designer", company: "Tern", applyUrl: "https://jobs.example.test/j8", needs: "captcha", reason: "The site showed a captcha.", questions: 0, batchId: "b1", updatedAt: at("2026-11-04T08:20:00") },
+];
 const MESSAGES = () => [
   { id: "m2", applicationId: "a3", application: { id: "a3", status: "submitted", jobTitle: "Product designer", companyName: "Fernway" }, fromAddress: "no-reply@greenhouse.example.test", fromName: "Fernway via Greenhouse", subject: "Your security code", bodyText: "Copy and paste this code into the security code field on your application: 482913", receivedAt: at("2026-11-04T08:00:05"), kind: "verification_code", code: "482913", verificationLink: null, links: [], attachments: [], spam: false },
   { id: "m1", applicationId: "a5", application: { id: "a5", status: "submitted", jobTitle: "Design systems designer", companyName: "Mirro" }, fromAddress: "talent@mirro.example.test", fromName: "Priya at Mirro", subject: "Interview: Design systems designer", bodyText: "Hi Alex,\n\nThanks for applying. We'd love to talk. Could you do a 30 minute call next week?\n\nPriya", receivedAt: at("2026-11-04T07:00:00"), kind: "interview", code: null, verificationLink: null, links: [], attachments: [{ filename: "interview-guide.pdf", contentType: "application/pdf", size: 84_000 }], spam: false },
@@ -111,7 +139,9 @@ function summaryOf(rows, now, small) {
  * A typed code (POST /applications/:id/code): `o.code` is "ok" (sent two polls later), "gone" (409: the wait ran
  * out first) or "bad" (the API's 400). `o.startsWaiting`: an applying run starts waiting for a code on its third poll.
  * Cancel (POST /applications/:id/cancel) follows the API: 409 on the employer's page or once sent; `o.cancelLate` makes
- * the run reach the employer's page just before the request lands.
+ * the run reach the employer's page just before the request lands. `o.flow`: what GET /applications/flow sends (FLOW).
+ * The Nori page: `o.shortlist` (matches), `o.batches`, `o.needs`, `o.gmail`, `o.batchRefused` (POST /nori/batches 409),
+ * `o.skipReason` (why the last picked job is skipped; same_company).
  */
 async function mockApi(context, o = {}) {
   const cors = { "access-control-allow-origin": BASE, "access-control-allow-credentials": "true", "access-control-allow-headers": "Content-Type", "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" };
@@ -119,6 +149,7 @@ async function mockApi(context, o = {}) {
   const rows = o.apps ?? APPS();
   const messages = o.messages ?? MESSAGES();
   let settings = { forwardTo: null, forwardEnabled: false, retentionDays: null };
+  const nori = { settings: { spacingMinutes: 4, minFit: 0.7, skipCompanies: ["Initech"], dailyLimit: 20 }, batches: o.batches ?? [BATCH(), { ...BATCH("done"), id: "b0", createdAt: at("2026-11-02T08:30:00"), waitingFor: null, nextAt: null, counts: { total: 5, sent: 4, working: 0, preparing: 0, ready: 0, needsYou: 0, cancelled: 1, failed: 0 } }], needs: o.needs ?? NEEDS(), gmail: o.gmail ?? { available: true, connected: false, status: null } };
   let seq = 0;
   let inflight = 0;
   let maxInflight = 0;
@@ -136,14 +167,31 @@ async function mockApi(context, o = {}) {
     const url = new URL(req.url());
     const key = `${req.method()} ${url.pathname.replace(/^\/api/, "")}`;
     const body = req.postData();
-    calls.push({ key, body, at: Date.now() });
+    calls.push({ key, body, at: Date.now(), search: url.search });
     const reply = (status, json) => route.fulfill({ status, headers: { ...cors, "content-type": "application/json" }, body: JSON.stringify(json) }).catch(() => {});
     const user = { id: "u1", email: "alex@example.test", name: "Alex Rivera", emailVerifiedAt: MORNING.toISOString(), createdAt: MORNING.toISOString() };
     if (key === "GET /auth/session") return reply(200, { user });
     if (key === "GET /onboarding") return reply(200, { step: "done", profile: {} });
     if (key === "GET /me") return reply(200, { user, profile: { fullName: "Alex Rivera" } });
     if (key === "GET /agent/status") return reply(200, { dailyCap: 5, usedToday: 2, liveSubmit: false });
-    if (key === "GET /shortlist") return reply(200, []);
+    if (key === "GET /shortlist") return reply(200, o.shortlist ?? []);
+    if (key === "GET /nori/settings") return reply(200, { settings: nori.settings });
+    if (key === "PUT /nori/settings") return (nori.settings = { ...nori.settings, ...JSON.parse(body ?? "{}") }), reply(200, { settings: nori.settings });
+    if (key === "GET /nori/batches") return reply(200, { batches: nori.batches });
+    const batchId = key.match(/^GET \/nori\/batches\/(b\d+)$/)?.[1];
+    if (batchId && batchId !== "b1") return reply(200, { batch: nori.batches.find((b) => b.id === batchId), applications: [{ id: "a4", jobId: "j-a4", title: "UX designer", company: "Halden Labs", status: "submitted", error: null, submittedAt: at("2026-11-02T08:40:00") }] });
+    if (key === "GET /nori/batches/b1") return reply(200, { batch: nori.batches.find((b) => b.id === "b1") ?? BATCH(), applications: [{ id: "a1", jobId: "j-a1", title: "Brand designer", company: "Lumen", status: "applying", error: null, submittedAt: null }, { id: "a3", jobId: "j-a3", title: "Product designer", company: "Fernway", status: "submitted", error: null, submittedAt: at("2026-11-04T08:00:18") }] });
+    if (key === "POST /nori/batches/b1/stop") return (nori.batches = nori.batches.map((b) => (b.id === "b1" ? { ...b, status: "stopped" } : b))), reply(200, { ok: true });
+    if (key === "POST /nori/batches") {
+      const ids = JSON.parse(body ?? "{}").jobIds ?? [];
+      if (o.batchRefused) return reply(409, { error: "None of these jobs can be added to a batch" });
+      nori.batches = [{ ...BATCH(), id: "b2", counts: { total: ids.length - 1, sent: 0, working: 0, preparing: ids.length - 1, ready: 0, needsYou: 0, cancelled: 0, failed: 0 }, waitingFor: "preparing", nextAt: null }, ...nori.batches];
+      return reply(201, { batch: nori.batches[0], added: ids.length - 1, skipped: [{ jobId: ids.at(-1), reason: o.skipReason ?? "same_company" }] });
+    }
+    if (key === "GET /nori/needs-you") return reply(200, { items: nori.needs });
+    if (key === "GET /inbox/gmail") return reply(200, nori.gmail);
+    if (key === "POST /inbox/gmail/connect") return reply(200, { url: "https://accounts.example.test/oauth?state=x" });
+    if (key === "DELETE /inbox/gmail") return (nori.gmail = { ...nori.gmail, connected: false, status: null }), reply(200, { ok: true });
     if (key === "GET /applications") return o.offline ? route.abort("connectionrefused") : reply(200, rows.map((r) => ({ application: r.app, job: r.job, resume: null })));
     if (key === "GET /outcomes/summary") return reply(200, summaryOf(rows, now, o.small));
     let m = key.match(/^(GET|POST) \/applications\/([\w-]+)\/outcomes$/);
@@ -168,6 +216,7 @@ async function mockApi(context, o = {}) {
       r.outcomes = r.outcomes.filter((x) => x.id !== m[2]);
       return reply(200, { ok: true, ...view(r) });
     }
+    if (key === "GET /applications/flow") return reply(200, o.flow ?? FLOW);
     m = key.match(/^GET \/applications\/([\w-]+)\/live$/);
     if (m) {
       const r = rows.find((x) => x.app.id === m[1]);
@@ -538,6 +587,155 @@ async function flows(browser) {
     check(W, "a first visit stays quiet", !(await played(page)).includes("celebrate"), await played(page));
     await context.close();
   }
+  // Nori ("Apply for me"): what needs you, the running batch with Watch Nori apply, building a batch, settings,
+  // connections and history.
+  {
+    const { context, page, calls, errors } = await open(browser, "/nori", { shortlist: MATCHES() });
+    await context.route("https://accounts.example.test/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>Google</title>" }));
+    check(W, "nori: in the nav, and current", (await page.locator('nav[aria-label="Dashboard"] a[aria-current="page"]', { hasText: "Nori" }).count()) >= 1, null);
+    const main = () => page.locator("main").innerText();
+    // Needs you, grouped; the questions are the application's own, answered here.
+    const needs = page.locator("section", { has: page.locator("#needs-title") });
+    check(W, "nori: needs you, grouped", (await needs.innerText()).includes("Questions only you can answer") && (await needs.innerText()).includes("A captcha") && (await needs.getByRole("link", { name: /Finish on the employer/ }).getAttribute("href")) === "https://jobs.example.test/j8", null);
+    await page.locator("#q-a2-q1").waitFor({ timeout: 5000 }).catch(() => {});
+    await needs.locator("label", { hasText: "Yes" }).first().click();
+    await page.locator("#q-a2-q2").fill("prem.design");
+    await needs.getByRole("button", { name: "Send answers" }).click();
+    await wait(400);
+    const sent = JSON.parse(calls.find((c) => c.key === "POST /applications/a2/answer")?.body ?? "{}");
+    check(W, "nori: answering a parked application sends the answers", sent.answers?.q1 === "Yes" && sent.answers?.q2 === "prem.design", sent);
+    // Now working: progress, the next one, and Watch Nori apply for the application on a page.
+    const text = await main();
+    check(W, "nori: now working, 4 of 10 sent · 1 needs you · 5 waiting", text.includes("4 of 10 sent · 1 needs you · 5 waiting") && text.includes("Next one at 9:12"), text.slice(0, 600));
+    const live = await page.locator('main figure img[src^="blob:"]').waitFor({ timeout: 6000 }).then(() => true, () => false);
+    check(W, "nori: Watch Nori apply for the batch's running application", live && text.includes("Brand designer"), null);
+    // Apply for me: Greenhouse jobs only for now, the shortcuts, the one-time confirmation, the skipped one in plain words.
+    const listed = await page.locator("section", { has: page.locator("#apply-title") }).locator("fieldset label").allInnerTexts();
+    check(W, "nori: only Greenhouse jobs are listed, and it says so", listed.length === 4 && !listed.join(" ").includes("Motion designer") && (await main()).includes("Nori sends Greenhouse applications for now, so 1 other match isn’t listed here."), listed.length);
+    await page.getByRole("button", { name: /All strong matches \(3\)/ }).click();
+    check(W, "nori: All strong matches ticks those at or above 0.70", (await page.locator('main input[type="checkbox"]:checked').count()) === 3, null);
+    await page.getByRole("button", { name: "Top 10" }).click();
+    check(W, "nori: Top 10 ticks up to ten", (await page.locator('main input[type="checkbox"]:checked').count()) === 4, null);
+    await page.getByRole("button", { name: "Apply for me (4)" }).click();
+    const ask = await page.getByRole("group", { name: /Nori will send these 4 applications in your name, one at a time/ }).isVisible();
+    check(W, "nori: Apply for me asks once first", ask && !calls.some((c) => c.key === "POST /nori/batches"), null);
+    await page.getByRole("button", { name: "Yes, apply for me" }).click();
+    await wait(500);
+    const started = JSON.parse(calls.find((c) => c.key === "POST /nori/batches")?.body ?? "{}");
+    const after = await main();
+    check(W, "nori: the batch starts, and what was left out says why", started.jobIds?.length === 4 && after.includes("Nori is on it: 3 applications") && after.includes("Visual designer is at a company already in this batch, so it was left out."), after.slice(0, 400));
+    // How Nori works for you.
+    const how = page.locator("section", { has: page.locator("#how-title") });
+    await how.getByLabel("Daily limit").fill("8");
+    await how.getByRole("button", { name: "Stop skipping Initech" }).click();
+    await how.locator("#skip-company").fill("Globex");
+    await how.locator("#skip-company").press("Enter");
+    await how.getByRole("button", { name: "Save" }).click();
+    await wait(400);
+    const put = JSON.parse(calls.findLast((c) => c.key === "PUT /nori/settings")?.body ?? "{}");
+    check(W, "nori: settings save (limit 8, skip Globex not Initech)", put.dailyLimit === 8 && JSON.stringify(put.skipCompanies) === '["Globex"]' && (await how.innerText()).includes("Saved."), put);
+    // History opens a batch.
+    const hist = page.locator("section", { has: page.locator("#history-title") });
+    await hist.getByRole("button", { name: /2 Nov/ }).click();
+    check(W, "nori: history opens a batch's applications", await hist.getByRole("link", { name: /UX designer/ }).waitFor({ timeout: 4000 }).then(() => true, () => false), null);
+    // Stop the rest, confirmed first.
+    const now = page.locator("section", { has: page.locator("#now-title") });
+    if (await now.count()) {
+      await now.getByRole("button", { name: "Stop the rest" }).click();
+      await now.getByRole("group").getByRole("button", { name: "Stop the rest" }).click();
+      await wait(400);
+    }
+    check(W, "nori: Stop the rest asks first, then stops it", calls.some((c) => /^POST \/nori\/batches\/b\d+\/stop$/.test(c.key)), calls.filter((c) => /nori\/batches/.test(c.key)).map((c) => c.key));
+    // Connect Gmail goes to Google's consent page.
+    await page.getByRole("button", { name: "Connect Gmail" }).click();
+    const google = await page.waitForURL((u) => u.hostname === "accounts.example.test", { timeout: 6000 }).then(() => true, () => false);
+    check(W, "nori: Connect Gmail opens the consent page", google && calls.some((c) => c.key === "POST /inbox/gmail/connect"), page.url());
+    check(W, "nori: no errors", errors.filter((e) => !/404/.test(e)).length === 0, errors);
+    await context.close();
+  }
+  {
+    const { context, page, calls } = await open(browser, "/nori?pick=m2,m3,m5", { shortlist: MATCHES(), gmail: { available: true, connected: true, status: "ACTIVE" }, batches: [], needs: [], skipReason: "not_supported" });
+    const ticked = await page.locator('main input[type="checkbox"]:checked').count();
+    check(W, "nori: ?pick from Today ticks those jobs, leaving out one not on Greenhouse", ticked === 2 && (await page.getByRole("button", { name: "Apply for me (2)" }).count()) === 1, ticked);
+    check(W, "nori: nothing running, nothing waiting: no Now working or Needs you", (await page.locator("#now-title").count()) === 0 && (await page.locator("#needs-title").count()) === 0, null);
+    await page.getByRole("button", { name: "Apply for me (2)" }).click();
+    await page.getByRole("button", { name: "Yes, apply for me" }).click();
+    await wait(500);
+    const body = JSON.parse(calls.find((c) => c.key === "POST /nori/batches")?.body ?? "{}");
+    check(W, "nori: only the listed picks are sent, and not on Greenhouse reads plainly", JSON.stringify(body.jobIds) === '["m2","m3"]' && (await page.locator("main").innerText()).includes("Design systems designer isn’t on Greenhouse yet, so it was left out."), body);
+    await page.getByRole("button", { name: "Disconnect" }).click();
+    await page.getByRole("button", { name: "Yes, disconnect" }).click();
+    await wait(400);
+    check(W, "nori: Gmail disconnects after a confirm", calls.some((c) => c.key === "DELETE /inbox/gmail"), null);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/nori", { shortlist: MATCHES(), gmail: { available: false, connected: false, status: null } });
+    check(W, "nori: Gmail unavailable says so", (await page.locator("main").innerText()).includes("Not available here yet."), null);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/nori", { shortlist: MATCHES() }, { viewport: { width: 390, height: 844 } });
+    const tabs = await page.locator('nav[aria-label="Dashboard"]').last().locator("a").allInnerTexts();
+    const fit = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const over = [...document.querySelectorAll("body *")].filter((el) => el.getBoundingClientRect().right > vw + 0.5).slice(0, 6).map((el) => `${el.tagName}.${String(el.className).slice(0, 50)} ${Math.round(el.getBoundingClientRect().right)}`);
+      return over.length ? { width: document.documentElement.scrollWidth, over } : document.documentElement.scrollWidth;
+    });
+    check(W, "nori: phones have six tabs, Applications as Apps, and no sideways scroll", tabs.map((t) => t.trim()).join(",") === "Today,Apps,Tracker,Inbox,Nori,You" && fit <= 390, { tabs, fit });
+    await context.close();
+  }
+  // Tracker: where applications went, as a Sankey with the headline numbers, a period switch and links into Applications.
+  {
+    const { context, page, calls, errors } = await open(browser, "/tracker");
+    const nav = await page.locator('nav[aria-label="Dashboard"]').first().locator("a").allTextContents();
+    const order = nav.map((t) => t.trim()).filter((t) => /^(Applications|Tracker|Inbox)/.test(t)).map((t) => t.replace(/\d+$/, ""));
+    check(W, "tracker: in the nav between Applications and Inbox, and current", order.join(",") === "Applications,Tracker,Inbox" && (await page.locator('nav[aria-label="Dashboard"] a[aria-current="page"]', { hasText: "Tracker" }).count()) >= 1, nav);
+    const stats = await page.locator("main dl > div").allInnerTexts();
+    check(W, "tracker: Sent 15, Replies 3, Interviews 4, Offers 1, response rate 47%", stats.map((t) => t.replace(/\s+/g, " ")).join(" | ") === "Sent 15 | Replies 3 | Interviews 4 | Offers 1 | Response rate 47%", stats);
+    const nodes = page.locator("main svg a");
+    check(W, "tracker: every node is a link with its count", (await nodes.count()) === 14 && (await nodes.first().getAttribute("aria-label")).startsWith("24 Started."), await nodes.count());
+    check(W, "tracker: one band per link", (await page.locator("main svg g[aria-hidden] path").count()) === FLOW.links.length, null);
+    const h = async (label) => Number(await page.locator(`main svg a[aria-label^="${label}."] rect`).getAttribute("height"));
+    const ratio = (await h("15 Sent")) / (await h("3 Needs you"));
+    check(W, "tracker: node heights follow the counts", Math.abs(ratio - 5) < 0.25, ratio);
+    const table = await page.locator("main table.sr-only tbody tr").count();
+    check(W, "tracker: a table of the links for screen readers", table === FLOW.links.length && (await page.locator("main table.sr-only caption").textContent()).includes("24 applications"), table);
+    check(W, "tracker: all time, since the first", (await page.locator("#flow-title").textContent()).includes("since 28 Sept") || (await page.locator("#flow-title").textContent()).includes("since 28 Sep"), await page.locator("#flow-title").textContent());
+    await page.getByRole("button", { name: "7 days" }).click();
+    await wait(600);
+    check(W, "tracker: the period switch asks for 7 days", calls.some((c) => c.key === "GET /applications/flow" && c.search === "?days=7") && (await page.getByRole("button", { name: "7 days" }).getAttribute("aria-pressed")) === "true" && (await page.locator("#flow-title").textContent()).includes("in the last 7 days"), calls.filter((c) => c.key === "GET /applications/flow").map((c) => c.search));
+    await page.getByRole("button", { name: "All", exact: true }).focus();
+    let reached = null;
+    for (let i = 0; i < 4 && !reached; i++) {
+      await page.keyboard.press("Tab");
+      reached = await page.evaluate(() => (document.activeElement?.closest("svg") ? document.activeElement.getAttribute("aria-label") : null));
+    }
+    check(W, "tracker: the nodes take keyboard focus", !!reached && /^\d+ Started\./.test(reached), reached);
+    await page.locator('main svg a[aria-label*=" Interview."]').click();
+    const landed = await page.waitForURL((u) => u.pathname === "/applications" && u.searchParams.get("show") === "replied", { timeout: 8000 }).then(() => true, () => false);
+    check(W, "tracker: a node opens its applications (Interview, in Replied)", landed, page.url());
+    check(W, "tracker: no errors", errors.length === 0, errors);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/tracker", { flow: FLOW_SMALL });
+    const text = await page.locator("main").innerText();
+    check(W, "tracker: a few applications still draw, and say it fills in", text.includes("This fills in as more go out") && (await page.locator("main svg a").count()) === 5 && text.replace(/\s+/g, " ").includes("Answered 1 of 2"), text.slice(0, 300));
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/tracker", { flow: FLOW_EMPTY });
+    check(W, "tracker: empty", (await page.locator("main").innerText()).includes("Your applications will flow here once Nori sends a few.") && (await page.locator("main svg").count()) === 0, null);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/tracker", {}, { viewport: { width: 390, height: 844 } });
+    const fit = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, region: (() => { const r = document.querySelector('main [role="region"]'); return r ? r.scrollWidth > r.clientWidth : null; })() }));
+    check(W, "tracker: phones keep the page still and scroll the chart", fit.page <= 390 && fit.region === true, fit);
+    check(W, "tracker: phones show Tracker in the tab bar", await page.locator('nav[aria-label="Dashboard"]').last().getByRole("link", { name: "Tracker" }).isVisible(), null);
+    await context.close();
+  }
   // Watch Nori apply on the application's page: the live frame beside the run log, and the stage bar.
   {
     const { context, page, errors } = await open(browser, "/applications/a1");
@@ -661,11 +859,11 @@ async function flows(browser) {
 // ---- accessibility, keyboard, performance -----------------------------------------------------------------------------
 
 async function axe(browser) {
-  const states = [["/applications", {}], ["/applications/a3", {}], ["/applications/a2", {}], ["/applications/a10", { apps: CODE_APPS() }], ["/applications/a11", { apps: CODE_APPS() }], ["/inbox", {}], ["/inbox/m1", {}], ["/inbox", { inboxOff: true }]];
+  const states = [["/applications", {}], ["/applications/a3", {}], ["/applications/a2", {}], ["/applications/a10", { apps: CODE_APPS() }], ["/applications/a11", { apps: CODE_APPS() }], ["/inbox", {}], ["/inbox/m1", {}], ["/inbox", { inboxOff: true }], ["/tracker", {}], ["/tracker", { flow: FLOW_EMPTY }], ["/nori", { shortlist: MATCHES() }]];
   for (const scheme of ["light", "dark"]) {
     for (const [w, h] of [[1440, 900], [390, 844]]) {
       for (const [path, o] of states) {
-        const where = `chromium ${path}${o.inboxOff ? " (off)" : ""} ${w}x${h} ${scheme} axe`;
+        const where = `chromium ${path}${o.inboxOff ? " (off)" : ""}${o.flow ? " (empty)" : ""} ${w}x${h} ${scheme} axe`;
         const { context, page } = await open(browser, path, o, { viewport: { width: w, height: h }, colorScheme: scheme });
         if (path === "/inbox" && !o.inboxOff) await page.locator("main details summary").click();
         await wait(600);

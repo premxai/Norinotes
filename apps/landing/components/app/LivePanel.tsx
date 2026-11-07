@@ -9,7 +9,7 @@ import { CANCELLABLE, isCancelled } from "@/lib/app-state";
 import { noriReact } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
-import { WatchNori } from "./WatchNori";
+import { WatchNori, codeSource } from "./WatchNori";
 
 /* The live panel (4a spec section 7): a job, or an application playing its real status and run log. A side panel from
    1024 px, an overlay from 768, a modal sheet below that. */
@@ -43,7 +43,7 @@ const seconds = (from: string | null, to: string | null, now: number) => (from ?
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 const box = "rounded-[14px] p-3.5 text-small leading-[1.55]";
 
-function Answers({ questions, onSend, busy }: { questions: Question[]; onSend: (a: Record<string, string>) => void; busy: boolean }) {
+export function Answers({ questions, onSend, busy, idPrefix = "answer" }: { questions: Question[]; onSend: (a: Record<string, string>) => void; busy: boolean; idPrefix?: string }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [missing, setMissing] = useState<string[]>([]);
   return (
@@ -53,7 +53,7 @@ function Answers({ questions, onSend, busy }: { questions: Question[]; onSend: (
         e.preventDefault();
         const gap = questions.filter((q) => q.required && !values[q.id]?.trim()).map((q) => q.id);
         setMissing(gap);
-        if (gap.length) return document.getElementById(`answer-${gap[0]}`)?.focus();
+        if (gap.length) return document.getElementById(`${idPrefix}-${gap[0]}`)?.focus();
         onSend(values);
       }}
       className={`${box} flex flex-col gap-3 border-2 border-warning`}
@@ -70,7 +70,7 @@ function Answers({ questions, onSend, busy }: { questions: Question[]; onSend: (
             <div className="flex flex-wrap gap-2">
               {choices.map((c, i) => (
                 <label key={c} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full border-[1.5px] border-line-strong bg-surface px-3.5 text-small has-[:checked]:border-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink">
-                  <input id={i === 0 ? `answer-${q.id}` : undefined} type="radio" name={`q-${q.id}`} checked={values[q.id] === c} onChange={() => setValues((v) => ({ ...v, [q.id]: c }))} className="size-4 accent-accent" />
+                  <input id={i === 0 ? `${idPrefix}-${q.id}` : undefined} type="radio" name={`q-${q.id}`} checked={values[q.id] === c} onChange={() => setValues((v) => ({ ...v, [q.id]: c }))} className="size-4 accent-accent" />
                   {c}
                 </label>
               ))}
@@ -79,11 +79,11 @@ function Answers({ questions, onSend, busy }: { questions: Question[]; onSend: (
           </fieldset>
         ) : (
           <div key={q.id} className="flex flex-col gap-1.5">
-            <label htmlFor={`answer-${q.id}`} className="font-semibold text-ink">
+            <label htmlFor={`${idPrefix}-${q.id}`} className="font-semibold text-ink">
               {q.text}
             </label>
             <input
-              id={`answer-${q.id}`}
+              id={`${idPrefix}-${q.id}`}
               value={values[q.id] ?? ""}
               onChange={(e) => setValues((v) => ({ ...v, [q.id]: e.target.value }))}
               aria-invalid={err ? true : undefined}
@@ -301,7 +301,8 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
             {lines.map((e, i) => {
               const last = i === 0 && MOVING.includes(a.status);
               return (
-                <li key={e.id} className="flex items-start gap-2.5 text-small leading-[1.45]">
+                // Where the code came from is the moment to see: its line stands out.
+                <li key={e.id} className={`flex items-start gap-2.5 text-small leading-[1.45] ${codeSource(e.message) ? "-mx-2 rounded-row bg-accent-tint px-2 py-1 font-semibold" : ""}`}>
                   <span aria-hidden="true" className={`w-[18px] flex-none text-center ${e.level === "warn" ? "text-warning" : last ? "text-ink" : "text-accent"}`}>
                     {e.level === "warn" ? "!" : last ? "•" : "✓"}
                   </span>

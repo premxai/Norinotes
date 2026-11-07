@@ -3,7 +3,7 @@ import { buttonClass } from "@/components/Button";
 import { Reveal } from "@/components/Reveal";
 import { SectionHead } from "@/components/SectionHead";
 
-const FREE = ["A daily shortlist of jobs you're likely to get", "A tailored resume and answers for each one", "You approve every send"];
+const FREE = ["A daily shortlist of jobs you're likely to get", "A tailored resume and answers for each one", "You approve what's sent"];
 
 /** 09 · Pricing: Free and Pro at $9. Free's limits aren't decided and Pro's autopilot isn't built yet; the cards say so. Pro first on phones. */
 export function Pricing() {

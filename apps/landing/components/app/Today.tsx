@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { buttonClass } from "@/components/Button";
 import { FormError } from "@/components/auth/fields";
@@ -305,10 +306,18 @@ export function Today() {
         <>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[1.125rem] font-semibold text-ink tablet:text-[1.25rem]">{allDone ? "That's today done" : `${fresh.length} for today`}</h2>
-            {fresh.length > 1 && (
-              <button type="button" onClick={() => void applyTo(fresh.map((e) => e.jobId))} className={buttonClass("primary", "min-h-11")}>
-                Send all {fresh.length}
-              </button>
+            {fresh.length > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+                {/* "Apply for me" on the Nori page, with today's unsent picks already ticked. */}
+                <Link href={`/nori?pick=${fresh.map((e) => e.jobId).join(",")}`} className="min-h-11 content-center text-small font-semibold text-ink underline decoration-accent underline-offset-[3px]">
+                  Let Nori send these
+                </Link>
+                {fresh.length > 1 && (
+                  <button type="button" onClick={() => void applyTo(fresh.map((e) => e.jobId))} className={buttonClass("primary", "min-h-11")}>
+                    Send all {fresh.length}
+                  </button>
+                )}
+              </div>
             )}
           </div>
           <ul className={GRID}>

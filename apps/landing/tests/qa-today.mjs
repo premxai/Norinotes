@@ -55,7 +55,8 @@ const STEPS = ["Opened the application page", "Filled 9 fields", "Uploaded your 
  * `o.signedOut`, `o.onboarding`, `o.unverified`, `o.offline` (the shortlist fails). `o.emailsCode`: after Submit the
  * employer emails a verification code, and the run waits until it's typed (POST /applications/:id/code). The live view
  * (GET /applications/:id/live) sends a frame while the run is on the employer's page and after it; `o.liveDelay`: that
- * many requests 404 first; `o.liveGap`: every third request 404s. `o.countUrls` counts object URLs made and revoked. `o.oldJob`: what GET /jobs/<id> sends
+ * many requests 404 first; `o.liveGap`: every third request 404s. `o.countUrls` counts object URLs made and revoked.
+ * `o.gmailCode`: a connected Gmail supplies the emailed code by itself. `o.oldJob`: what GET /jobs/<id> sends
  * for a job not on the list (a job, or null for a 404).
  */
 async function mockApi(context, o = {}) {
@@ -71,7 +72,7 @@ async function mockApi(context, o = {}) {
     return apps.get(id);
   };
   for (const [jobId, status, error] of o.apps ?? []) Object.assign(add(jobId, status).app, error ? { error } : {});
-  const event = (a, message, level = "info") => a.events.push({ id: String(a.events.length + 1), ts: MORNING.toISOString(), level, step: message === "Submitting" ? "submit" : "run", message });
+  const event = (a, message, level = "info") => a.events.push({ id: String(a.events.length + 1), ts: MORNING.toISOString(), level, step: message === "Submitting" ? "submit" : message.startsWith("The employer emailed") ? "verification" : "run", message });
   /** One poll moves it on, the way the worker would. */
   const advance = (a) => {
     a.polls += 1;
@@ -89,10 +90,11 @@ async function mockApi(context, o = {}) {
       if (a.step === 2 && o.outcome === "needs" && !a.answered) Object.assign(a.app, { status: "needs_user", pendingQuestions: [{ id: "q1", text: "Can you work from the Brooklyn office 3 days a week?", type: "boolean", options: [], required: true }, { id: "q2", text: "Portfolio link", type: "text", options: [], required: true }] });
       else if (a.step === 2 && o.outcome === "wall") Object.assign(a.app, { status: "needs_user", pendingQuestions: [], error: "This site asked for a captcha." });
       else if (a.step === 3 && o.outcome === "failed" && !a.retried) Object.assign(a.app, { status: "failed", error: "The page stopped responding while Nori was uploading your resume." });
-      else if (a.step >= STEPS.length) a.app.status = o.emailsCode ? "awaiting_code" : "sent";
+      else if (a.step >= STEPS.length) (a.app.status = o.emailsCode ? "awaiting_code" : "sent"), o.emailsCode && event(a, "The employer emailed a verification code");
     }
-    if (a.app.status === "sent" || (s === "awaiting_code" && a.typed)) {
-      if (a.typed) event(a, "You typed the verification code");
+    if (a.app.status === "sent" || (s === "awaiting_code" && (a.typed || o.gmailCode))) {
+      if (a.typed) event(a, "Using the code you typed");
+      else if (s === "awaiting_code") event(a, "Found the code in your Gmail (from no-reply@us.greenhouse-mail.io); entering it");
       Object.assign(a.app, { status: "submitted", submittedAt: new Date(Date.parse(a.app.approvedAt ?? MORNING.toISOString()) + 18_000).toISOString(), receipt: { confirmation: "FW-20931" } });
     }
   };
@@ -380,6 +382,20 @@ async function flows(browser) {
     const urls = await page.evaluate(() => window.__urls);
     check(W, "live: each old frame's object URL is revoked", urls.made >= 3 && urls.made - urls.revoked <= 1, urls);
     check(W, "live: no CSP or other errors", errors.filter((e) => !/404/.test(e)).length === 0, errors);
+    await context.close();
+  }
+  // The demo moment: the code comes from the person's Gmail, and the stage bar and run log say so.
+  {
+    const { context, page } = await open(browser, "/today", { emailsCode: true, gmailCode: true });
+    const panel = page.locator("[data-live-panel]");
+    await page.getByRole("button", { name: "Apply to Product designer at Fernway" }).click();
+    await waitPanel(page, "Ready to send");
+    await panel.getByRole("button", { name: "Send it" }).click();
+    check(W, "gmail code: sent without typing it", await waitPanel(page, "Sent in 18 seconds", 20000), await panelText(page));
+    const chip = await panel.locator('ol[aria-label="Where the run is"] li', { hasText: "Waiting for code" }).innerText({ timeout: 5000 }).catch(() => "");
+    check(W, "gmail code: the stage bar says Code from your Gmail", chip.includes("Code from your Gmail"), chip);
+    const line = panel.locator('ol[aria-label^="What Nori has done"] li', { hasText: "Found the code in your Gmail" });
+    check(W, "gmail code: its log line stands out, and shows no code", (await line.count()) === 1 && /bg-accent-tint/.test((await line.getAttribute("class")) ?? "") && !/\d{6}/.test(await line.innerText()), await line.innerText().catch(() => null));
     await context.close();
   }
   for (const [outcome, label] of [["needs", "needs you"], ["wall", "a wall"], ["failed", "a failure"]]) {

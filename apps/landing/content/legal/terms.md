@@ -1,11 +1,11 @@
 # Terms of service
 
-Last updated: 2026-11-04
+Last updated: 2026-11-07
 
 > **In short.** Norinote finds jobs for you, tailors your resume and answers from your own facts, and applies only when
-> you say so. What you give it must be true and yours, and you're responsible for what's sent in your name, which is
-> why you approve each application. It can't promise interviews or jobs. Nothing is charged today. You can delete your
-> account any time.
+> you say so: one application at a time, or a set of jobs you pick and start together with Apply for me. What you give
+> it must be true and yours, and you're responsible for what's sent in your name. It can't promise interviews or jobs.
+> Nothing is charged today. You can delete your account any time.
 
 ## 1. These terms
 
@@ -25,9 +25,12 @@ out your other devices on the Account page, and tell us.
 - **Finds jobs** that fit your career graph and your job search, and explains each match.
 - **Tailors your resume and answers** for each job, using only facts from your own resume and what you've told Nori.
   It doesn't invent experience.
-- **Applies only with your OK.** You see each application and approve it before it's sent. It applies through the
-  application systems it supports (such as Greenhouse, Lever and Ashby); where it can't, it tells you and leaves the
-  application to you.
+- **Applies only with your OK,** in one of two ways. You can approve each application before it's sent. Or you can
+  pick a set of jobs and start them together with **Apply for me**: Nori then sends those applications in your name
+  without asking about each one, one at a time and within your daily limit. It never applies to a job you didn't pick,
+  it stops and asks you whenever it can't answer something truthfully, and you can stop the rest at any time.
+- **Applies through the application systems it supports** (such as Greenhouse, Lever and Ashby). Where it can't, it
+  tells you and leaves the application to you.
 - **Never gets around an employer's checks.** It doesn't create accounts on employers' sites, and it doesn't solve or
   bypass captchas. When a form needs that, it stops and asks you.
 - **Keeps a record** of every application: what was sent, and what happened.
@@ -38,8 +41,9 @@ lose applications. A match or a score is Norinote's estimate, not a prediction y
 ## 4. What you agree to
 
 - What you give Norinote is true, and yours to give. Your resume and answers describe you.
-- You check each application before you approve it. Once you approve it, it's sent in your name, and you're
-  responsible for it as if you'd sent it yourself.
+- You check what you approve: an application before you send it, or the jobs you pick before you start Apply for me.
+  What Nori sends after your OK, one by one or as part of Apply for me, is sent in your name, and you're responsible
+  for it as if you'd sent it yourself.
 - You follow the terms of the employers and the application systems you apply through.
 - You use Norinote only to look for work for yourself.
 

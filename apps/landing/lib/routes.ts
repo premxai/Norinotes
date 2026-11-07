@@ -8,6 +8,6 @@ export const AUTH_PATHS = ["/signup", "/signin", "/forgot-password", "/reset-pas
 export const isAuthPath = (path: string) => (AUTH_PATHS as readonly string[]).includes(path);
 export const isOnboardingPath = (path: string) => path === "/onboarding" || path.startsWith("/onboarding/");
 /** The dashboard's sections (4a spec section 1). */
-export const isAppPath = (path: string) => /^\/(today|applications|inbox|you)(\/|$)/.test(path);
+export const isAppPath = (path: string) => /^\/(today|applications|tracker|inbox|nori|you)(\/|$)/.test(path);
 /** The privacy policy and the terms (legal pages spec section 7). */
 export const isLegalPath = (path: string) => path === "/privacy" || path === "/terms";

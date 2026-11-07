@@ -4,7 +4,7 @@ import { SectionHead } from "@/components/SectionHead";
 const FAQ = [
   {
     q: "Does Nori apply without asking me?",
-    a: "No. Today every application waits for your click. Autopilot is coming with Pro: then Nori sends on its own only if you turn it on, and only up to the daily cap you set.",
+    a: "No. Nori sends only what you approve: one application at a time, or a set of jobs you pick and start together with Apply for me. Then it sends them one at a time, within your daily limit, and stops to ask whenever it can't answer something truthfully. It never applies to a job you didn't pick.",
   },
   {
     q: "Will it make things up on my resume?",

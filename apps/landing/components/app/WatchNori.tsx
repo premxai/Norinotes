@@ -49,7 +49,11 @@ function useLiveFrame(id: string, active: boolean, started: boolean) {
   return url;
 }
 
-type Stage = { label: string; state: "done" | "now" | "next" | "needs" | "failed" };
+type Stage = { label: string; state: "done" | "now" | "next" | "needs" | "failed"; note?: string };
+
+/** Where an emailed code came from, as the run log says it (never the code itself). */
+export const codeSource = (message: string) =>
+  /^Found the code in your Gmail/i.test(message) ? "Code from your Gmail" : /^Using the code you typed/i.test(message) ? "Code you typed" : /^Code received by email/i.test(message) ? "Code from your inbox" : null;
 
 /** Tailoring resume → Filling the form → Submitting → (Waiting for code, when one was asked) → Sent. */
 function stagesOf(a: Application, events: RunEvent[]): Stage[] | null {
@@ -67,7 +71,8 @@ function stagesOf(a: Application, events: RunEvent[]): Stage[] | null {
     : a.approvedAt ? 1
     : 0;
   const stop = a.status === "needs_user" ? "needs" : a.status === "failed" ? "failed" : null;
-  return labels.map((label, i) => ({ label, state: i < at ? "done" : i === at ? (stop ?? "now") : "next" }));
+  const source = events.map((e) => codeSource(e.message)).filter(Boolean).at(-1) ?? undefined;
+  return labels.map((label, i) => ({ label, state: i < at ? "done" : i === at ? (stop ?? "now") : "next", note: label === "Waiting for code" && i < at ? source : undefined }));
 }
 
 const MARK: Record<Stage["state"], string> = { done: "✓", now: "•", next: "", needs: "!", failed: "×" };
@@ -99,6 +104,7 @@ export function WatchNori({ application: a, events, wide = false, children }: { 
                 {s.label}
                 {SUFFIX[s.state] && <span className={s.state === "needs" ? "text-warning" : "text-danger"}>{SUFFIX[s.state]}</span>}
               </span>
+              {s.note && <span className="rounded-full bg-accent-tint px-2 py-0.5 text-[0.6875rem] font-semibold text-accent">{s.note}</span>}
             </li>
           ))}
         </ol>
