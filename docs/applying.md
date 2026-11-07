@@ -80,8 +80,11 @@ read without a key is read before the click.
 - **Submit** (only `dryRun === false && ALLOW_REAL_SUBMIT === "true"`, checked again at the click): race success
   signals (a 2xx answer to the submit request, confirmation text, the form detached, the URL changed) against failure
   signals (error text, a captcha challenge, an email-code prompt). Event driven; no fixed sleeps.
-- **Email codes**: the worker passes the owned inbox's `awaitVerification` as `ApplyDeps.verification` (accept "code");
-  a link, or no code in time, parks the application as needs_user. Without the hook every code prompt parks.
+- **Email codes**: forms get the person's own email. The worker passes the owned inbox's `awaitVerification` as
+  `ApplyDeps.verification` (accept "code"); the run waits `CODE_WAIT_MINUTES` (8) in status awaiting_code. A code
+  reaches it when the person types it in Norinote (`POST /api/applications/:id/code`, stored as a code linked to the
+  application; Telegram asks for it) or when their mail filter forwards code emails to their Norinote address
+  (docs/inbox.md). A link, or no code in time, parks the application as needs_user.
 - **AI browser fallback**: `ApplyDeps.aiFallback` (`AiBrowserFallback`) is a typed hook only; unset (today) unknown forms
   and read-back failures go to needs_user. No browser-use or Stagehand dependency.
 

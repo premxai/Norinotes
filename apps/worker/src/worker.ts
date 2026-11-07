@@ -67,8 +67,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
   const apply: ApplyDeps = {
     pool,
     preparer: opts.preparer ?? createPreparer(db, { artifactsDir: config.artifactsDir, pool }),
-    // Emailed codes come from the owned inbox; a verification link (or no code in time) parks the application.
+    // A code reaches the owned inbox through the person's mail filter, or they type it in Norinote while the page waits
+    // (POST /api/applications/:id/code). A verification link, or no code in time, parks the application.
     verification: (args) => awaitVerification({ ...args, db }),
+    codeTimeoutMs: config.codeWaitMs,
     now,
     ...opts.applyOverrides,
   };

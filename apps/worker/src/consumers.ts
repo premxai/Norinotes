@@ -10,7 +10,7 @@ import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
 import {
   feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, resolveLogoDomains, sweepStaleJobs, type DueBoard,
 } from "@norinote/ingest";
-import { createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
+import { createResendForwarder, createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
 import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
 import { JOBS, type Handler, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
 import { boostCompaniesForUser } from "./boost.js";
@@ -339,7 +339,10 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
 
   // inbox.receive: a stored inbound message: settle ambiguous ones with the small model, link, record outcomes, forward
   // (stub until an outbound provider is configured). A waiting apply.run is woken through awaitVerification.
-  const forwarder = createStubForwarder((line) => log.info("inbox.forward", { line }));
+  // Inbox mail goes on to the user's own address through Resend when the worker has its key and sender.
+  const forwarder = config.resendApiKey && config.mailFrom
+    ? createResendForwarder({ apiKey: config.resendApiKey, from: config.mailFrom })
+    : createStubForwarder((line) => log.info("inbox.forward", { line }));
   await queue.work(JOBS.inboxReceive, instrument(log, JOBS.inboxReceive, async ({ messageId }) => handleInboxReceive(db, messageId, { model: smallModel, forwarder })));
 
   return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs, findLogoDomains,

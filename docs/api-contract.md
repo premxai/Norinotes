@@ -55,6 +55,11 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   and `updatedAt`.
 - POST `/api/applications/:id/approve` (optional `{ answers }`), `/api/applications/:id/answer` (`{ answers }` keyed
   by pending question id), `/api/applications/:id/retry`.
+- POST `/api/applications/:id/code` with `{ code }` (3 to 20 letters, digits, spaces or dashes): the verification code
+  the employer emailed the person, typed while the run waits on the page (`status: "awaiting_code"`, up to 8 minutes).
+  The waiting run picks it up within seconds and carries on. 409 when the application is not waiting for a code, 400
+  for a malformed code. Telegram sends an urgent "Type your code" message with a link when a run starts waiting. If no
+  code arrives in time the application parks as `needs_user`; Retry starts the form again and a new code is emailed.
 - Approve is refused with 429 when the daily limit is used up (`autoApplyDailyCap` above 0 and that many already
   approved today, UTC); nothing changes and the application stays prepared. An application approved earlier (from
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.

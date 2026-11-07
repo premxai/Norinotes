@@ -213,6 +213,25 @@ describe("events and quiet hours", () => {
     expect(fake.lastSent()!.reply_markup!.inline_keyboard![0]![0]!.text).toBe("Receipt");
   });
 
+  it("asks the person to type the code while a run waits for it", async () => {
+    const u = await user();
+    await link(u.id, "7301");
+    await saveTelegramSettings(db, u.id, { quietHours: { enabled: false }, events: { digest: false, summary: false } });
+    const j = await job({ title: "Backend Engineer", company: "Echo" });
+    const [app] = await db.insert(applications).values({ userId: u.id, jobId: j.id, status: "awaiting_code", approvedAt: new Date() }).returning();
+    const fake = fakeBotApi();
+    await runTelegramTick(deps(fake, () => new Date()));
+    expect(fake.lastSent()!.text).toContain("Type your code");
+    expect(fake.lastSent()!.text).toContain("Backend Engineer");
+    const button = fake.lastSent()!.reply_markup!.inline_keyboard![0]![0]!;
+    expect(button.text).toBe("Type the code");
+    expect(button.url).toContain(`/applications/${app!.id}`);
+    // Once per wait: the next tick sends nothing new.
+    const count = fake.sent().length;
+    await runTelegramTick(deps(fake, () => new Date()));
+    expect(fake.sent().length).toBe(count);
+  });
+
   it("unlinks a chat that blocked the bot", async () => {
     const u = await user();
     await link(u.id, "7201");

@@ -1,9 +1,23 @@
 # Owned inbox (packages/inbox)
 
-Every user gets an address like `nori-k3x9q2mhd4@<INBOUND_EMAIL_DOMAIN>`. Norinote uses it as the email on applications, so
-verification codes, confirmations, recruiter replies, interview invitations and rejections land with us, are linked to the
-right application, and can wake an application run that is waiting for a code. Nothing is lost: every message is shown in
-`/api/inbox`, and can be forwarded to the user's own mailbox.
+Every user gets an address like `nori-k3x9q2mhd4@<INBOUND_EMAIL_DOMAIN>`. Applications carry the user's **own** email
+(since 2026-11-07), so employers reply to their real inbox and nothing depends on Norinote to arrive. The Norinote address
+is where the user sends the mail Norinote should act on, mainly verification codes: a filter in their own mailbox forwards
+code emails to it, Norinote links each one to its application and wakes a run that is waiting for the code. Without the
+filter a code prompt parks the application as needs_user and the user types the code. Every message that does arrive is
+shown in `/api/inbox`, and the user can turn on forwarding of it to another address (off by default; codes are never
+forwarded, since sending one back could match the user's filter again and loop).
+
+Later, connecting the user's mailbox directly (read-only, codes only, as Tsenta does) would replace the filter; for Gmail
+that needs Google's verification of restricted scopes.
+
+### The code filter (Gmail)
+
+1. Gmail settings, **Forwarding and POP/IMAP**, **Add a forwarding address**: the user's Norinote address. Gmail sends a
+   confirmation code to it; it shows in Norinote's inbox (`GET /api/inbox`), and the user enters it in Gmail. Leave
+   "Forwarding" itself disabled: only the filter forwards.
+2. Create a filter: Has the words `"verification code" OR "security code" OR "one-time" OR "passcode" OR "confirm your email"`,
+   then **Forward it to** the Norinote address. Everything else stays only in Gmail.
 
 ## Choosing an inbound provider (checked 2026-11-02)
 
@@ -24,9 +38,11 @@ Postmark, Mailgun or SES is a new adapter in `packages/inbox/src/parse.ts`, not 
 (adapter already written) if Cloudflare is not the DNS host.
 
 Forwarding is deliberately not done by re-sending the original message (that breaks SPF/DMARC and lands in junk, and
-Cloudflare's `forward()` only reaches verified addresses). The `Forwarder` interface sends a new message from our domain
-with the original sender as Reply-To. It is a stub that logs until an outbound provider is chosen (Cloudflare Email
-Sending: 3,000/mo included on Workers Paid, then $0.35 per 1,000; or Postmark/SES).
+Cloudflare's `forward()` only reaches verified addresses). The worker sends a new message through Resend
+(`createResendForwarder`) from `MAIL_FROM` on the verified domain, named "Norinote inbox", with the original sender as
+Reply-To and In-Reply-To/References for threading, so replying in the user's own mail client answers the employer.
+Without `RESEND_API_KEY` and `MAIL_FROM` on the worker it falls back to the stub, which only logs. Until the user
+chooses otherwise, mail is forwarded to their account email; they can switch it off or pick another address.
 
 ## How a message flows
 
@@ -123,8 +139,8 @@ forwarding address on our own domain is refused (loop).
 4. Email Routing > Routing rules > Catch-all address > Action "Send to a Worker" > the worker. Enable the catch-all.
 5. Send a test mail to the address shown by `GET /api/inbox/address`; it should appear in `GET /api/inbox`.
 6. Optional fallback for messages the API refuses: set `FALLBACK_TO` to a verified Cloudflare destination address.
-7. Later, for forwarding: choose an outbound provider, verify the sending domain (SPF, DKIM, DMARC), and replace
-   `createStubForwarder` in `apps/worker/src/consumers.ts` with a real `Forwarder`.
+7. Forwarding: give the worker `RESEND_API_KEY` (secret) and `MAIL_FROM` (fly.worker.toml). Mail then reaches the
+   user's own address as well as the Norinote inbox.
 
 Postmark instead: create an inbound stream, set the inbound domain MX to `inbound.postmarkapp.com`, and the webhook URL to
 `https://inbound:<INBOUND_WEBHOOK_SECRET>@<api host>/api/inbox/webhook/postmark`.

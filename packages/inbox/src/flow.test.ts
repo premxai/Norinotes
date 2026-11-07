@@ -274,6 +274,10 @@ describe("settings, forwarding and retention", () => {
     const spam = await receiveInbound(t.db, genericPayload(address, { from: "x@spam.example", subject: "Win", text: "Win", spam: true, messageId: "sp-2" }));
     if (!spam.stored) throw new Error("not stored");
     expect(await forwardMessage(t.db, spam.messageId, fwd)).toEqual({ forwarded: false, reason: "spam" });
+    // A code is never sent back out: it came through the person's own filter, and forwarding it could loop.
+    const code = await receiveInbound(t.db, withTo(GREENHOUSE_CODE_HTML, address));
+    if (!code.stored) throw new Error("not stored");
+    expect(await forwardMessage(t.db, code.messageId, fwd)).toEqual({ forwarded: false, reason: "code" });
     await updateInboxSettings(t.db, userId, { forwardEnabled: false });
     const later = await receiveInbound(t.db, withTo(NEWSLETTER, address));
     if (!later.stored) throw new Error("not stored");

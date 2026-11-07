@@ -2,6 +2,9 @@
 export type WorkerConfig = {
   /** Postgres connection string. Unset = embedded PGlite and an in-memory queue. */
   databaseUrl: string | undefined;
+  /** Resend key and sender (MAIL_FROM, on a domain verified in Resend) for forwarding inbox mail. Both unset = not sent. */
+  resendApiKey: string | undefined;
+  mailFrom: string | undefined;
   /** Parallel browser pages for apply.run (clamped 1 to 4 by the pool). Default 3. */
   browserPoolSize: number;
   /** How often the scheduler looks for boards that are due, in ms. Default 3 minutes. */
@@ -18,6 +21,8 @@ export type WorkerConfig = {
   pollConcurrency: number;
   /** understand.job handlers at once (one model call each), so a backlog drains steadily instead of in a burst. Default 4. */
   understandConcurrency: number;
+  /** How long a run waits on the page for an emailed code (from the person's mail filter, or typed in Norinote). Default 8 min. */
+  codeWaitMs: number;
   /** Quiet time before understood jobs are matched as one batch, in ms. Default 5 s. */
   matchBatchMs: number;
   /** One small-model sentence for the best matches of a rebuilt shortlist. Default on. */
@@ -42,6 +47,8 @@ const int = (v: string | undefined, fallback: number, min = 0): number => {
 export function loadConfig(env: Record<string, string | undefined> = process.env): WorkerConfig {
   return {
     databaseUrl: env.DATABASE_URL?.trim() || undefined,
+    resendApiKey: env.RESEND_API_KEY?.trim() || undefined,
+    mailFrom: env.MAIL_FROM?.trim() || undefined,
     browserPoolSize: int(env.BROWSER_POOL_SIZE, 3, 1),
     scheduleEveryMs: int(env.SCHEDULE_EVERY_MINUTES, 3, 1) * 60_000,
     boardsPerRun: int(env.BOARDS_PER_RUN, 100, 1),
@@ -50,6 +57,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     pollsPerHost: int(env.POLLS_PER_HOST, 4, 1),
     pollConcurrency: int(env.POLL_CONCURRENCY, 16, 1),
     understandConcurrency: int(env.UNDERSTAND_CONCURRENCY, 4, 1),
+    codeWaitMs: int(env.CODE_WAIT_MINUTES, 8, 1) * 60_000,
     matchBatchMs: int(env.MATCH_BATCH_MS, 5000),
     explainTop: int(env.MATCH_EXPLAIN_TOP, 3),
     jobSweepEveryMs: int(env.JOB_SWEEP_EVERY_MINUTES, 60) * 60_000,

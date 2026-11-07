@@ -37,7 +37,7 @@ const FAIL_TEXT_RE = /(there (was|were) (an )?(error|problem)s?|please (correct|
 export const CAPTCHA_REASON = "The site showed a captcha. Norinote never solves or bypasses captchas: open the posting and finish the application yourself.";
 export const BLOCKED_REASON = "This site blocks automated applications: open the posting and apply yourself.";
 export const ACCOUNT_REASON = "The site asks you to sign in or create an account. Norinote never does that: open the posting and apply yourself.";
-export const EMAIL_CODE_REASON = "The employer emailed you a verification code. Enter it on the employer's page to finish (Norinote does not read your email yet).";
+export const EMAIL_CODE_REASON = "The employer emailed you a verification code and none reached Norinote in time. Retry and type the code in Norinote when asked, or finish on the employer's page.";
 
 /** The one and only place the submit gate is decided: not a dry run, and ALLOW_REAL_SUBMIT is exactly "true". */
 export function submitAllowed(ctx: Pick<DriverContext, "dryRun">): boolean {

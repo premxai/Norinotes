@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, applications, channelMessages, channels, eq, profiles, type Db } from "@norinote/db";
 import { approveAndSubmit } from "@norinote/apply";
 import { digestKeyboard, digestText, selectDigest } from "./digest.js";
-import { inboxEvents, needsUserEvents, submittedEvents, summaryEvent } from "./events.js";
+import { codeNeededEvents, inboxEvents, needsUserEvents, submittedEvents, summaryEvent } from "./events.js";
 import { flushOutbox, hasMessage, markSkipped, purgeOldMessages, queueMessage, type TelegramDeps } from "./outbox.js";
 import { askedQuestions, buildQuestions, openQuestions, questionsKey, questionsKeyboard, questionsText } from "./questions.js";
 import { readTelegramSettings } from "./settings.js";
@@ -97,6 +97,7 @@ async function queueDue(deps: NotifierDeps, userId: string, linkedAt: Date, sett
   const events = [
     ...(settings.events.submitted ? await submittedEvents(db, userId, since, webUrl) : []),
     ...(settings.events.needsUser ? await needsUserEvents(db, userId, since, webUrl) : []),
+    ...(settings.events.needsUser ? await codeNeededEvents(db, userId, since, webUrl) : []),
     ...(settings.events.inbox ? await inboxEvents(db, userId, since, webUrl) : []),
   ];
   for (const e of events) await put(e);

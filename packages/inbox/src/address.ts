@@ -70,6 +70,10 @@ export type InboxSettings = {
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i;
 const recOf = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
+/**
+ * The user's inbox settings. Forwarding is off until they turn it on: applications carry their own email, so employers
+ * already write to their real inbox, and the Norinote address mostly receives the codes they chose to send it.
+ */
 export function readInboxSettings(preferences: unknown): InboxSettings {
   const o = recOf(recOf(preferences).inbox);
   const forwardTo = typeof o.forwardTo === "string" && EMAIL.test(o.forwardTo) ? o.forwardTo.toLowerCase() : null;

@@ -35,7 +35,7 @@ describe("profileFromRows", () => {
 });
 
 describe("loadApplyInputs", () => {
-  it("fills forms with the owned inbox address once one is assigned, so emailed codes reach Norinote (e2e run 1)", async () => {
+  it("fills forms with the person's own email, even when they have a Norinote inbox address", async () => {
     const [u] = await t.db.insert(users).values({ email: "login@example.test", passwordHash: "x" }).returning();
     await t.db.insert(profiles).values({ userId: u!.id, contact: { name: "Ada Lovelace", email: "ada@own-mail.test" } });
     const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: "acme-inputs", name: "Acme" }).returning();
@@ -45,6 +45,6 @@ describe("loadApplyInputs", () => {
     await t.db.update(applications).set({ resumeId: r!.id }).where(eq(applications.id, a!.id));
     expect((await loadApplyInputs(t.db, a!.id)).profile.email).toBe("ada@own-mail.test");
     await t.db.insert(inboxAddresses).values({ userId: u!.id, address: "nori-k3x9q2mhd4@in.norinote.test" });
-    expect((await loadApplyInputs(t.db, a!.id)).profile.email).toBe("nori-k3x9q2mhd4@in.norinote.test");
+    expect((await loadApplyInputs(t.db, a!.id)).profile.email).toBe("ada@own-mail.test");
   });
 });

@@ -209,6 +209,11 @@ describe("understand on demand: a lane change reads the backlog", () => {
     expect(maxInFlight).toBeLessThanOrEqual(4);
   });
 
+  it("a run waits 8 minutes for an emailed or typed code unless CODE_WAIT_MINUTES says otherwise", () => {
+    expect(loadConfig({}).codeWaitMs).toBe(8 * 60_000);
+    expect(loadConfig({ CODE_WAIT_MINUTES: "3" }).codeWaitMs).toBe(3 * 60_000);
+  });
+
   it("understand concurrency comes from UNDERSTAND_CONCURRENCY and defaults to 4", () => {
     expect(loadConfig({}).understandConcurrency).toBe(4);
     expect(loadConfig({ UNDERSTAND_CONCURRENCY: "2" }).understandConcurrency).toBe(2);

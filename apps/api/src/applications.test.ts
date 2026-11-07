@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { answerBank, applications, careerPoints, eq, jobs, resumes, runEvents, shortlist } from "@norinote/db";
+import { answerBank, applications, careerPoints, eq, inboxMessages, jobs, resumes, runEvents, shortlist } from "@norinote/db";
+import { findVerification } from "@norinote/inbox";
 import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
 import { unansweredQuestions } from "@norinote/apply";
 
@@ -210,6 +211,30 @@ describe("applications", () => {
 
     expect((await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: {} } })).status).toBe(200);
     expect((await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: {} })).status).toBe(400);
+  });
+
+  it("takes a code the person types while the run waits, and hands it to the waiting run", async () => {
+    const { job } = await seedJob(api.db, { company: "Code Co" });
+    const app = await seedApplication(api.db, userId, job.id, { status: "awaiting_code", approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
+    const since = new Date(Date.now() - 1000);
+    expect((await api.call("POST", `/api/applications/${app.id}/code`, { cookie, body: { code: "x" } })).status).toBe(400);
+    expect((await api.call("POST", `/api/applications/${app.id}/code`, { cookie, body: { code: "12<34>56" } })).status).toBe(400);
+    const ok = await api.call("POST", `/api/applications/${app.id}/code`, { cookie, body: { code: " 482 913 " } });
+    expect(ok.status).toBe(200);
+    // Stored like an emailed code linked to the application, so awaitVerification finds it.
+    const found = await findVerification(api.db, { applicationId: app.id, since, accept: "code" });
+    expect(found).toMatchObject({ type: "code", code: "482913" });
+    const [msg] = await api.db.select().from(inboxMessages).where(eq(inboxMessages.applicationId, app.id));
+    expect(msg).toMatchObject({ kind: "verification_code", code: "482913", userId });
+    const events = await api.db.select().from(runEvents).where(eq(runEvents.applicationId, app.id));
+    expect(events.map((e) => e.step)).toContain("code_typed");
+  });
+
+  it("refuses a typed code when the application is not waiting for one", async () => {
+    const { job } = await seedJob(api.db, { company: "Not Waiting Co" });
+    const app = await seedApplication(api.db, userId, job.id, { status: "needs_user", approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
+    expect((await api.call("POST", `/api/applications/${app.id}/code`, { cookie, body: { code: "482913" } })).status).toBe(409);
+    expect((await api.call("POST", `/api/applications/${app.id}/code`, { body: { code: "482913" } })).status).toBe(401);
   });
 
   it("keeps an answer under the question's text too, so a form that renames its fields still finds it", async () => {

@@ -1,5 +1,5 @@
 import { embed } from "@norinote/ai";
-import { asc, careerPoints, companies, desc, eq, inboxAddresses, jobSpecs, jobs, profiles, users, type Db } from "@norinote/db";
+import { careerPoints, companies, desc, eq, jobSpecs, jobs, profiles, users, type Db } from "@norinote/db";
 import { CareerPoint, JobSpec, type PendingQuestion } from "@norinote/shared";
 import { DEFAULT_MATCH_THRESHOLD, SOURCE_RANK, findSimilar, loadBank, markUsed, saveAnswer, type BankRow } from "./bank.js";
 import { defaultAnswer, factsFrom, jobCountry } from "./defaults.js";
@@ -55,8 +55,7 @@ export type Ctx = {
 export async function loadContext(db: Db, userId: string, jobId: string): Promise<Ctx> {
   const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
   const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
-  // The owned inbox address is the email on applications, so codes, confirmations and replies reach Norinote (docs/inbox.md).
-  const [inbox] = await db.select({ address: inboxAddresses.address }).from(inboxAddresses).where(eq(inboxAddresses.userId, userId)).orderBy(asc(inboxAddresses.createdAt)).limit(1);
+  // The person's own email goes on applications, so employers reply to their real inbox (docs/inbox.md).
   const [job] = await db.select({ title: jobs.title, location: jobs.location, description: jobs.descriptionText, company: companies.name })
     .from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, jobId)).limit(1);
   if (!job) throw new Error(`Job ${jobId} not found`);
@@ -65,7 +64,7 @@ export async function loadContext(db: Db, userId: string, jobId: string): Promis
   const spec = parsed?.success ? parsed.data : null;
   let cached: CareerPoint[] | null = null;
   return {
-    facts: { ...factsFrom(profile, user?.email ?? ""), ...(inbox ? { email: inbox.address } : {}) },
+    facts: factsFrom(profile, user?.email ?? ""),
     job: { title: job.title, company: job.company, description: job.description, spec, country: jobCountry(spec, job.location) },
     points: async () => (cached ??= (await db.select().from(careerPoints).where(eq(careerPoints.userId, userId))).map((r) => CareerPoint.parse({
       id: r.id, kind: r.kind, title: r.title, org: r.org, startDate: r.startDate, endDate: r.endDate, text: r.text,

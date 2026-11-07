@@ -1,4 +1,4 @@
-import { applications, asc, companies, eq, inboxAddresses, jobs, profiles, resumes, users } from "@norinote/db";
+import { applications, companies, eq, jobs, profiles, resumes, users } from "@norinote/db";
 import { loadRecipe, type WidgetStrategy } from "./recipes.js";
 import type { Db } from "@norinote/db";
 import { parseWorkAuthMap } from "@norinote/shared";
@@ -81,8 +81,8 @@ export async function loadApplyInputs(db: Db, applicationId: string): Promise<Ap
   const [user] = await db.select().from(users).where(eq(users.id, row.app.userId)).limit(1);
   if (!user) throw new MissingInputError("user not found");
   const [profile] = await db.select().from(profiles).where(eq(profiles.userId, row.app.userId)).limit(1);
-  // The owned inbox address is the email on applications (docs/inbox.md), so the emailed code reaches awaitVerification.
-  const [inbox] = await db.select({ address: inboxAddresses.address }).from(inboxAddresses).where(eq(inboxAddresses.userId, row.app.userId)).orderBy(asc(inboxAddresses.createdAt)).limit(1);
+  // Applications carry the person's own email, so employers reply to their real inbox. Emailed codes reach Norinote when
+  // the person forwards them to their inbox address (a mail filter, docs/inbox.md); otherwise a code prompt parks.
 
   if (!row.app.resumeId) throw new MissingInputError("no tailored resume is attached to this application");
   const [resume] = await db.select().from(resumes).where(eq(resumes.id, row.app.resumeId)).limit(1);
@@ -102,7 +102,7 @@ export async function loadApplyInputs(db: Db, applicationId: string): Promise<Ap
     applyUrl: row.applyUrl,
     jobTitle: row.title,
     companyName: row.companyName,
-    profile: { ...profileFromRows(user, profile ?? null), ...(inbox ? { email: inbox.address } : {}) },
+    profile: profileFromRows(user, profile ?? null),
     resumePdfPath: resume.pdfPath,
     answers: row.app.answers,
   };

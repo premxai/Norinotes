@@ -36,7 +36,34 @@ export function createStubForwarder(log: (line: string) => void = () => undefine
   };
 }
 
-export type ForwardResult = { forwarded: boolean; reason?: "disabled" | "spam" | "already" | "missing" | "failed" };
+const RESEND_URL = "https://api.resend.com/emails";
+
+/**
+ * Sends forwarded mail through Resend. `from` must be on a domain verified in Resend (the inbox subdomain is not), so the
+ * message comes from "Norinote inbox" on that domain with the original sender as Reply-To: replying
+ * in the user's mail client answers the employer directly. A failed send throws with the status only.
+ */
+export function createResendForwarder(opts: { apiKey: string; from: string; fetch?: typeof fetch; timeoutMs?: number }): Forwarder {
+  const doFetch = opts.fetch ?? fetch;
+  const address = /<([^>]+)>/.exec(opts.from)?.[1] ?? opts.from;
+  return {
+    name: "resend",
+    async send(mail) {
+      const res = await doFetch(RESEND_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: `Norinote inbox <${address}>`, to: [mail.to], reply_to: mail.replyTo, subject: mail.subject, text: mail.text,
+          ...(mail.inReplyTo ? { headers: { "In-Reply-To": mail.inReplyTo, References: mail.inReplyTo } } : {}),
+        }),
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+      });
+      if (!res.ok) throw new Error(`Resend refused the forwarded message (HTTP ${res.status})`);
+    },
+  };
+}
+
+export type ForwardResult = { forwarded: boolean; reason?: "disabled" | "spam" | "code" | "already" | "missing" | "failed" };
 
 /**
  * Forwards a stored message to the user's own address when they turned forwarding on. Once per message (the time is kept
@@ -48,6 +75,9 @@ export async function forwardMessage(db: Db, messageId: string, forwarder: Forwa
   const meta = (row.meta ?? {}) as InboxMeta;
   if (meta.forwardedAt) return { forwarded: false, reason: "already" };
   if (meta.spam) return { forwarded: false, reason: "spam" };
+  // Codes are for Norinote to type in, and they usually arrive through the person's own mail filter: sending one back
+  // could match that filter again and loop.
+  if (row.kind === "verification_code") return { forwarded: false, reason: "code" };
   const settings = await getInboxSettings(db, row.userId);
   if (!settings.forwardEnabled || !settings.forwardTo) return { forwarded: false, reason: "disabled" };
   const from = await getInboxAddress(db, row.userId);

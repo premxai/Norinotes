@@ -17,7 +17,7 @@ export { selectDigest, digestText, digestKeyboard, jobLink } from "./digest.js";
 export type { DigestItem } from "./digest.js";
 export { openQuestions, askedQuestions, buildQuestions, questionsKey, questionsText, questionsKeyboard, isLegalQuestion } from "./questions.js";
 export type { QuestionGroup, QuestionsPayload } from "./questions.js";
-export { submittedEvents, needsUserEvents, inboxEvents, summaryEvent } from "./events.js";
+export { submittedEvents, needsUserEvents, codeNeededEvents, inboxEvents, summaryEvent } from "./events.js";
 export { runTelegramTick, startTelegramNotifier, recordApplyIntent } from "./notifier.js";
 export type { NotifierDeps, TickStats } from "./notifier.js";
 export { createUpdateHandler, CONNECT_HINT } from "./updates.js";

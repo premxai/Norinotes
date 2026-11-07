@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, applications, asc, companies, desc, eq, jobs, resumes, runEvents, shortlist, type Db } from "@norinote/db";
+import { and, applications, asc, companies, desc, eq, inboxMessages, jobs, resumes, runEvents, shortlist, type Db } from "@norinote/db";
 import { approveAndSubmit, createApplication, retryApplication, saveAnswers, transitionApplication, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
@@ -15,6 +15,8 @@ const Create = z.object({ jobId: z.uuid() });
 const answerMap = z.record(z.string().min(1).max(2000), z.string().max(5000)).refine((o) => Object.keys(o).length <= 100, "Too many answers");
 const Approve = z.object({ answers: answerMap.optional() });
 const Answer = z.object({ answers: answerMap });
+// An emailed verification code as the person typed it: letters, digits, spaces and dashes (some sites print "123 456").
+const TypedCode = z.object({ code: z.string().trim().min(3).max(20).regex(/^[A-Za-z0-9 -]+$/, "A code has only letters, digits, spaces and dashes") });
 
 const LIST_DESCRIPTION_CHARS = 1200;
 
@@ -168,6 +170,23 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     const app = await ownedApplication(db, user.id, uuidParam(c));
     const { answers } = await parseBody(c, Answer);
     return c.json(await answerApplication(ctx, user.id, app, answers));
+  });
+
+  // The person types the code the employer emailed them while the run is waiting on the page (status awaiting_code). It is
+  // stored like an emailed code linked to this application, so the waiting run (awaitVerification) takes it within seconds.
+  r.post("/:id/code", auth, async (c) => {
+    const user = c.get("user");
+    const app = await ownedApplication(db, user.id, uuidParam(c));
+    const { code } = await parseBody(c, TypedCode);
+    if (app.status !== "awaiting_code") throw new HttpError(409, "This application is not waiting for a code", app.status);
+    const at = ctx.now();
+    await db.insert(inboxMessages).values({
+      userId: user.id, applicationId: app.id, kind: "verification_code", code: code.replace(/[\s-]+/g, ""),
+      fromAddress: "you (typed in Norinote)", messageId: `typed:${app.id}:${at.getTime()}`, subject: "Code you typed",
+      meta: { typed: true, trusted: true }, receivedAt: at,
+    });
+    await db.insert(runEvents).values({ applicationId: app.id, step: "code_typed", message: "You typed the verification code", ts: at });
+    return c.json({ ok: true });
   });
 
   r.post("/:id/retry", auth, async (c) => {

@@ -10,7 +10,7 @@ export {
 export type { InboxSettings } from "./address.js";
 export { classifyMessage, extractCode, extractLinks, findCodes, magicLink } from "./classify.js";
 export type { Classification, CodeCandidate, CodeResult } from "./classify.js";
-export { createStubForwarder, forwardMessage } from "./forward.js";
+export { createResendForwarder, createStubForwarder, forwardMessage } from "./forward.js";
 export type { ForwardEnvelope, Forwarder, ForwardResult } from "./forward.js";
 export { atsOfSender, fromAts, linkApplication, loadCandidates, pickApplication, senderBase, senderSpeaksFor } from "./link.js";
 export type { AppCandidate, LinkResult } from "./link.js";

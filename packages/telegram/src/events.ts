@@ -52,6 +52,23 @@ export async function needsUserEvents(db: Db, userId: string, since: Date, webUr
   return out;
 }
 
+/**
+ * Applications waiting on the page for the code the employer just emailed the person: type it in Norinote before the
+ * wait runs out. Urgent, once per wait.
+ */
+export async function codeNeededEvents(db: Db, userId: string, since: Date, webUrl: string): Promise<EventMessage[]> {
+  const rows = await db.select({ app: applications, title: jobs.title, company: companies.name })
+    .from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(eq(applications.userId, userId), eq(applications.status, "awaiting_code"), gte(applications.updatedAt, since))).limit(20);
+  return rows.map(({ app, title, company }) => ({
+    kind: "needs_user", dedupeKey: `code:${app.id}:${app.attempts}:${app.updatedAt.getTime()}`, applicationId: app.id, urgent: true,
+    payload: {
+      text: [`<b>Type your code</b>: ${esc(clip(title, 90))} at ${esc(clip(company, 60))}`, "The employer just emailed you a verification code. Type it in Norinote in the next few minutes and Nori finishes the application."].join("\n"),
+      keyboard: button("Type the code", appLink(webUrl, app.id)),
+    },
+  }));
+}
+
 const INBOX_KINDS = ["interview", "recruiter_reply", "offer"] as const;
 const INBOX_LABEL: Record<(typeof INBOX_KINDS)[number], string> = { interview: "Interview invite", recruiter_reply: "Recruiter reply", offer: "Offer" };
 

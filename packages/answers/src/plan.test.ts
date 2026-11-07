@@ -100,14 +100,14 @@ describe("planForm", () => {
     expect(plan.usage).toMatchObject({ smallCalls: 0, largeCalls: 0 });
   });
 
-  it("puts the owned inbox address in the email field once one is assigned (e2e run 1)", async () => {
+  it("puts the person's own email in the email field, not their Norinote inbox address", async () => {
     const { userId } = await seedUser(t.db, "plan-inbox", { contact: { name: "Ada Lovelace", email: "ada@own-mail.test" } });
     const { jobId } = await seedJob(t.db, "plan-inbox");
     const before = await planForm(t.db, { userId, jobId, noModel: true, fields: [f("email", "Email")] });
     expect(before.answers["field:email"]).toBe("ada@own-mail.test");
     await t.db.insert(inboxAddresses).values({ userId, address: "nori-k3x9q2mhd4@in.norinote.test" });
     const after = await planForm(t.db, { userId, jobId, noModel: true, fields: [f("email", "Email")] });
-    expect(after.answers["field:email"]).toBe("nori-k3x9q2mhd4@in.norinote.test");
+    expect(after.answers["field:email"]).toBe("ada@own-mail.test");
   });
 
   it("uses the person's earlier answers and the bank before any model", async () => {
