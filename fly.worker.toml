@@ -14,9 +14,9 @@ kill_timeout = "60s"
   # The app is one site now: apps/landing serves the landing page, sign-in, onboarding and the dashboard.
   WEB_URL = "https://norinote.xyz"
   API_URL = "https://api.norinote.xyz"
-  # Real submission, switched on by the owner on 2026-11-07. An application is sent only after the user approves it in
-  # the dashboard; "false" makes every run a dry run that fills the form and stops before submit.
-  ALLOW_REAL_SUBMIT = "true"
+  # Dry runs: every run fills the form and stops before submit. Switched back off on 2026-11-07 until the inbox addresses
+  # used on applications (in.norinote.xyz) receive mail and forward it to the user. "true" sends approved applications.
+  ALLOW_REAL_SUBMIT = "false"
   BROWSER_POOL_SIZE = "2"
   # Generated files: written here, copied to Supabase Storage (S3 API). Both apps must use the same ARTIFACTS_DIR so
   # the keys match. S3_ENDPOINT is https://<project-ref>.supabase.co/storage/v1/s3; the keys are secrets.
