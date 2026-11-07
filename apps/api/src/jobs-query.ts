@@ -1,4 +1,4 @@
-import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobs, lanes, ne, or, queryRows, savedJobs, shortlist, sql, type Db } from "@norinote/db";
+import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobBookmarks, jobs, lanes, ne, or, queryRows, savedJobs, shortlist, sql, type Db } from "@norinote/db";
 import { inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
 import type { SQL } from "drizzle-orm";
 import { companyLogoDomain, toJob, toMatch, type LogoUrl } from "./serialize.js";
@@ -8,7 +8,8 @@ const LIST_DESCRIPTION_CHARS = 1200;
 const MAX_SCAN = 2400;
 
 export type JobListParams = {
-  view: "best" | "new" | "today";
+  /** `saved`: the user's bookmarked jobs, newest saved first, whatever their age or lane fit. */
+  view: "best" | "new" | "today" | "saved";
   sort: "best" | "new";
   lanes: boolean;
   /** Posted within this many hours, at most 72. */
@@ -19,6 +20,10 @@ export type JobListParams = {
   minScore?: number;
   status: "open" | "all";
   group: boolean;
+  /** Location contains this text (case-insensitive). */
+  location?: string;
+  /** Remote jobs only. */
+  remote?: boolean;
 };
 
 /** The user added this job by pasting its link (`since`: only links added since then). */
@@ -49,13 +54,15 @@ const columns = (description: SQL<string> | typeof jobs.descriptionText) => ({
   id: jobs.id, companyId: jobs.companyId, atsType: jobs.atsType, externalId: jobs.externalId, title: jobs.title, location: jobs.location,
   remote: jobs.remote, descriptionText: description, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, firstSeenAt: jobs.firstSeenAt,
   lastSeenAt: jobs.lastSeenAt, closedAt: jobs.closedAt, dedupeKey: jobs.dedupeKey, companyName: companies.name,
-  logoDomain: companyLogoDomain, fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
+  logoDomain: companyLogoDomain, savedAt: jobBookmarks.createdAt, fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
 });
 
 export type JobListItem = {
   job: ReturnType<typeof toJob>;
   match: ReturnType<typeof toMatch> | null;
   applicationStatus: string | null;
+  /** The user saved this job (the Save button). */
+  saved: boolean;
   locations?: number;
   locationNames?: string[];
 };
@@ -68,11 +75,17 @@ export type JobListItem = {
  */
 export async function listJobs(db: Db, userId: string, p: JobListParams, now: Date, logo: LogoUrl = () => null): Promise<JobListItem[]> {
   const today = p.view === "today";
+  const bookmarks = p.view === "saved";
   const saved = savedByUser(userId, today ? new Date(now.getTime() - 24 * 3_600_000) : undefined);
-  const conds: (SQL | undefined)[] = [eq(companies.blocked, false), or(freshJobSql(now, today ? Math.min(24, p.maxAgeHours) : p.maxAgeHours), saved)];
-  if (p.status === "open") conds.push(isNull(jobs.closedAt));
+  const conds: (SQL | undefined)[] = [eq(companies.blocked, false)];
+  // Saved: every bookmarked job, open or closed, whatever its age (job.closedAt says when one closed).
+  if (bookmarks) conds.push(isNotNull(jobBookmarks.createdAt));
+  else conds.push(or(freshJobSql(now, today ? Math.min(24, p.maxAgeHours) : p.maxAgeHours), saved));
+  if (p.status === "open" && !bookmarks) conds.push(isNull(jobs.closedAt));
   if (p.view === "best") conds.push(or(isNull(shortlist.status), ne(shortlist.status, "dismissed")));
-  if (p.lanes) {
+  if (p.location) conds.push(sql`${jobs.location} ilike ${likePattern(p.location)}`);
+  if (p.remote) conds.push(eq(jobs.remote, true));
+  if (p.lanes && !bookmarks) {
     const fits = await laneCondition(db, userId, now);
     // Jobs on the user's own shortlist (including ones added by widening) always belong to Best match.
     if (fits) conds.push(p.view === "best" ? or(fits, and(isNotNull(shortlist.id), eq(shortlist.status, "new")), saved) : or(fits, saved));
@@ -80,7 +93,9 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
   if (p.q) conds.push(sql`(${jobs.title} ilike ${likePattern(p.q)} or ${companies.name} ilike ${likePattern(p.q)})`);
   if (p.minScore !== undefined) conds.push(sql`${shortlist.fit} >= ${p.minScore}`);
 
-  const order = p.sort === "best"
+  const order = bookmarks
+    ? [desc(jobBookmarks.createdAt), jobs.id]
+    : p.sort === "best"
     ? [sql`${shortlist.fit} desc nulls last`, sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt}) desc`, jobs.id]
     : [desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`), jobs.id];
 
@@ -93,6 +108,7 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
     .innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(shortlist, and(eq(shortlist.jobId, jobs.id), eq(shortlist.userId, userId)))
     .leftJoin(applications, and(eq(applications.jobId, jobs.id), eq(applications.userId, userId)))
+    .leftJoin(jobBookmarks, and(eq(jobBookmarks.jobId, jobs.id), eq(jobBookmarks.userId, userId)))
     .where(and(...conds)).orderBy(...order).limit(pageSize).offset(offset);
 
   for (let offset = 0; offset < MAX_SCAN && picked.size < p.limit; offset += pageSize) {
@@ -114,6 +130,7 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
       job: toJob({ ...row, descriptionText: description }, { name: row.companyName, logoUrl: logo(row.logoDomain) }),
       match: row.fit === null ? null : toMatch(row.id, { fit: row.fit, fitMap: row.fitMap ?? [], reasons: row.reasons ?? [], createdAt: row.matchAt ?? now }),
       applicationStatus: row.appStatus,
+      saved: row.savedAt !== null,
     };
     const here = places?.get(key);
     if (here) { item.locations = here.count; item.locationNames = here.names; }
@@ -149,4 +166,13 @@ export async function jobsSummary(db: Db, userId: string, now: Date) {
     FROM ${jobs} INNER JOIN ${companies} ON ${companies.id} = ${jobs.companyId}
     WHERE ${jobs.closedAt} IS NULL AND ${companies.blocked} = false AND ${freshJobSql(now)}`);
   return { open: row?.open ?? 0, newToday: row?.today ?? 0, fitsLanes: row?.fits ?? 0, hasLanes };
+}
+
+/** The most common locations of open jobs from the last 72 hours, for the Jobs page's location filter. */
+export async function jobLocations(db: Db, now: Date, limit = 30): Promise<{ name: string; count: number }[]> {
+  return queryRows<{ name: string; count: number }>(db, sql`
+    SELECT ${jobs.location} AS name, count(*)::int AS count
+    FROM ${jobs} INNER JOIN ${companies} ON ${companies.id} = ${jobs.companyId}
+    WHERE ${jobs.closedAt} IS NULL AND ${companies.blocked} = false AND ${freshJobSql(now)} AND ${jobs.location} IS NOT NULL AND ${jobs.location} <> ''
+    GROUP BY ${jobs.location} ORDER BY count(*) DESC, ${jobs.location} LIMIT ${limit}`);
 }

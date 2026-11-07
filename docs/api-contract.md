@@ -43,6 +43,12 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `job.companyLogoUrl` is the company's logo on Brandfetch's CDN, or null (no known domain, or `BRANDFETCH_CLIENT_ID`
   unset). Load it only in an `<img>`; it answers 404 when Brandfetch has no logo, so show the letter tile on error too.
 - GET `/api/jobs/summary` returning `{ open, newToday, fitsLanes, hasLanes }` over the last 72 hours, GET `/api/jobs/:id` returning `{ job, match }`, POST `/api/jobs/url` returning `{ job }` (and saving it for the user, so it always shows in their list).
+- Jobs page: GET `/api/jobs` also takes `view=saved` (the user's saved jobs, newest saved first, open or closed, whatever
+  their age or lanes; `q` still applies), `location=<text>` (location contains it) and `remote=true`. Every item has
+  `saved: boolean`, and so does `job` on GET `/api/jobs/:id`. POST and DELETE `/api/jobs/:id/save` return `{ saved }`
+  (a save is a bookmark: it does not add the job to the other lists, unlike a job added by link). GET
+  `/api/jobs/locations` returns `{ locations: [{ name, count }] }`, the 30 most common open-job locations.
+  `job.requirements.responsibilities` is the full list of what the job involves ("What you'll do").
 
 ## Shortlist
 - GET `/api/shortlist` returning

@@ -68,6 +68,7 @@ export function toRequirements(spec: JobSpec) {
     mustHaves: spec.mustHaves,
     niceToHaves: spec.niceToHaves,
     disqualifiers,
+    responsibilities: spec.responsibilities,
     ...(spec.responsibilities[0] ? { summary: spec.responsibilities.slice(0, 2).join(" ") } : {}),
   };
 }

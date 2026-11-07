@@ -250,6 +250,16 @@ export const savedJobs = pgTable("saved_jobs", {
 }, (t) => [primaryKey({ columns: [t.userId, t.jobId] }), index("saved_jobs_job_idx").on(t.jobId)]);
 
 /**
+ * Jobs a user saved with the Save button on the Jobs page (the Saved tab). Unlike `savedJobs` (added by link), a bookmark
+ * does not put a job in the other lists; the Saved tab lists them whatever their age.
+ */
+export const jobBookmarks = pgTable("job_bookmarks", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.userId, t.jobId] }), index("job_bookmarks_user_created_idx").on(t.userId, t.createdAt)]);
+
+/**
  * "Apply for me": a set of jobs the person picked and approved at once (the Nori page). The worker sends the batch's
  * prepared applications one at a time, `spacing` apart and within the daily limit, and parks what needs the person.
  * `stopped`: the person stopped the rest; `done`: nothing left to send.

@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, companies, desc, eq, jobSpecs, jobs, savedJobs, shortlist } from "@norinote/db";
+import { and, companies, desc, eq, jobBookmarks, jobSpecs, jobs, savedJobs, shortlist } from "@norinote/db";
 import { BlockedSourceError, JobNotFoundError, UnsafeUrlError, UnsupportedJobUrlError, addJobByUrl } from "@norinote/ingest";
 import { JOBS } from "@norinote/queue";
 import { JobSpec } from "@norinote/shared";
 import { requireUser } from "../auth/session.js";
 import { HttpError, notFound, parseBody, parseWith, uuidParam } from "../http.js";
-import { jobsSummary, listJobs, type JobListParams } from "../jobs-query.js";
+import { jobLocations, jobsSummary, listJobs, type JobListParams } from "../jobs-query.js";
 import { brandfetchLogo, companyLogoDomain, toJob, toMatch } from "../serialize.js";
 import { enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
@@ -14,7 +14,7 @@ const flag = (dflt: boolean) => z.enum(["true", "false", "1", "0"]).optional().t
 const int = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
 const Query = z.object({
-  view: z.enum(["best", "new", "today"]).default("best"),
+  view: z.enum(["best", "new", "today", "saved"]).default("best"),
   sort: z.enum(["best", "new"]).optional(),
   lanes: z.enum(["true", "false", "1", "0"]).optional(),
   group: flag(true),
@@ -25,6 +25,8 @@ const Query = z.object({
   q: z.string().trim().max(100).optional(),
   minScore: z.coerce.number().min(0).max(1).optional(),
   status: z.enum(["open", "all"]).default("open"),
+  location: z.string().trim().max(100).optional(),
+  remote: flag(false),
 });
 
 const AddUrl = z.object({ url: z.string().trim().min(4, "Paste the link of a job posting").max(2000) });
@@ -42,12 +44,29 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
       view: q.view,
       sort: q.sort ?? (q.view === "best" ? "best" : "new"),
       lanes: q.lanes === undefined ? q.view === "best" : q.lanes === "true" || q.lanes === "1",
-      maxAgeHours: q.maxAgeHours, clearance: q.clearance, limit: q.limit, q: q.q || undefined, minScore: q.minScore, status: q.status, group: q.group,
+      maxAgeHours: q.maxAgeHours, clearance: q.clearance, limit: q.limit, q: q.q || undefined, minScore: q.minScore, status: q.status,
+      group: q.view === "saved" ? false : q.group, location: q.location || undefined, remote: q.remote,
     };
     return c.json(await listJobs(db, c.get("user").id, params, ctx.now(), logo));
   });
 
   r.get("/summary", auth, async (c) => c.json(await jobsSummary(db, c.get("user").id, ctx.now())));
+
+  r.get("/locations", auth, async (c) => c.json({ locations: await jobLocations(db, ctx.now()) }));
+
+  /** The Save button: bookmarks a job for the Saved tab (it does not add it to the other lists). */
+  r.post("/:id/save", auth, async (c) => {
+    const id = uuidParam(c);
+    const [job] = await db.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, id)).limit(1);
+    if (!job) throw notFound("Job not found");
+    await db.insert(jobBookmarks).values({ userId: c.get("user").id, jobId: id, createdAt: ctx.now() }).onConflictDoNothing();
+    return c.json({ saved: true });
+  });
+
+  r.delete("/:id/save", auth, async (c) => {
+    await db.delete(jobBookmarks).where(and(eq(jobBookmarks.userId, c.get("user").id), eq(jobBookmarks.jobId, uuidParam(c))));
+    return c.json({ saved: false });
+  });
 
   r.post("/url", auth, async (c) => {
     const user = c.get("user");
@@ -79,8 +98,9 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
     const [spec] = await db.select({ spec: jobSpecs.spec }).from(jobSpecs).where(eq(jobSpecs.jobId, id)).orderBy(desc(jobSpecs.version)).limit(1);
     const [fit] = await db.select().from(shortlist).where(and(eq(shortlist.jobId, id), eq(shortlist.userId, userId))).limit(1);
     const parsedSpec = spec ? JobSpec.safeParse(spec.spec) : null;
+    const [bookmark] = await db.select({ at: jobBookmarks.createdAt }).from(jobBookmarks).where(and(eq(jobBookmarks.userId, userId), eq(jobBookmarks.jobId, id))).limit(1);
     return c.json({
-      job: toJob(row.job, { name: row.companyName, logoUrl: logo(row.logoDomain) }, parsedSpec?.success ? parsedSpec.data : null),
+      job: { ...toJob(row.job, { name: row.companyName, logoUrl: logo(row.logoDomain) }, parsedSpec?.success ? parsedSpec.data : null), saved: !!bookmark },
       match: fit ? toMatch(id, { fit: fit.fit, fitMap: fit.fitMap, reasons: fit.reasons, createdAt: fit.createdAt }) : null,
     });
   });
