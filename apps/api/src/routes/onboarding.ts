@@ -12,6 +12,9 @@ import {
 import { ingestResume, type IngestResult } from "../resume-ingest.js";
 import { enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
+/** A new person's first search keeps good and plausible fits (0.45 and up), so Today is full from day one; they can raise it. */
+const ONBOARDING_MIN_FIT = 0.45;
+
 const Body = z.object({ step: z.enum(ONBOARDING_STEPS), data: z.record(z.string(), z.unknown()).default({}) });
 const ResumeData = z.object({ text: z.string().min(20, "Paste the full resume text").max(200_000).optional() });
 
@@ -71,7 +74,7 @@ async function finishOnboarding(ctx: Ctx, userId: string, profile: typeof profil
     const locations = Array.isArray(prefs.locations) ? prefs.locations.filter((l): l is string => typeof l === "string") : [];
     const [existing] = await db.select({ n: sql<number>`count(*)::int` }).from(lanes).where(eq(lanes.userId, userId));
     if ((existing?.n ?? 0) === 0) {
-      await db.insert(lanes).values({ userId, name: (titles[0] ?? "My lane").slice(0, 100), titles, locations, remote: prefs.remote !== "no", minFit: 0.6, enabled: true });
+      await db.insert(lanes).values({ userId, name: (titles[0] ?? "My lane").slice(0, 100), titles, locations, remote: prefs.remote !== "no", minFit: ONBOARDING_MIN_FIT, enabled: true });
     }
   }
   if (ctx.config.inboundEmailDomain) {

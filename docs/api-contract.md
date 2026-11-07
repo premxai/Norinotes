@@ -55,6 +55,15 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   and `updatedAt`.
 - POST `/api/applications/:id/approve` (optional `{ answers }`), `/api/applications/:id/answer` (`{ answers }` keyed
   by pending question id), `/api/applications/:id/retry`.
+- GET `/api/applications/:id/live`: "Watch Nori apply". The latest JPEG of the employer's page while Nori works on it
+  (a new frame about every second while `applying` or `awaiting_code`; the last one stays about 15 minutes). Owner only;
+  404 when there is none; `cache-control: no-store`. The site's CSP allows images only from itself, data: and blob:, so
+  the dashboard fetches each frame and shows it through an object URL.
+- POST `/api/applications/:id/cancel`: the person drops the application. It becomes `failed` with error `"Cancelled by
+  you"` (Retry brings it back). 409 while Nori is on the employer's page (`applying`, `awaiting_code`) or once it was
+  `submitted`; cancelling a failed one is a no-op 200.
+- Retry after a code that never came is allowed: the receipt carries `codeMissing: true` (the site holds an application
+  until its code is entered), so the duplicate guard does not apply.
 - POST `/api/applications/:id/code` with `{ code }` (3 to 20 letters, digits, spaces or dashes): the verification code
   the employer emailed the person, typed while the run waits on the page (`status: "awaiting_code"`, up to 8 minutes).
   The waiting run picks it up within seconds and carries on. 409 when the application is not waiting for a code, 400

@@ -84,6 +84,12 @@ describe("guards", () => {
     expect(checkTransition(clicked, "applying")).toMatchObject({ ok: false, reason: expect.stringMatching(/already clicked/) });
   });
 
+  it("may start again after a submit that stopped on an emailed code that never came", () => {
+    expect(submitMayHaveHappened({ receipt: { submitClicked: true, awaitingCode: false, codeMissing: true } })).toBe(false);
+    const parked = app({ status: "needs_user", approvedAt: new Date(), receipt: { submitClicked: true, awaitingCode: false, codeMissing: true } });
+    expect(checkTransition(parked, "applying")).toEqual({ ok: true });
+  });
+
   it("a dry run may return to prepared; a real run may not", () => {
     const applying = app({ status: "applying", approvedAt: new Date() });
     expect(checkTransition(applying, "prepared")).toMatchObject({ ok: false });

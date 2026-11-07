@@ -23,6 +23,8 @@ export type WorkerConfig = {
   pollConcurrency: number;
   /** understand.job handlers at once (one model call each), so a backlog drains steadily instead of in a burst. Default 4. */
   understandConcurrency: number;
+  /** How many jobs a person's daily list (Today) holds at most. Default 50. */
+  shortlistSize: number;
   /** How long a run waits on the page for an emailed code (from the person's mail filter, or typed in Norinote). Default 8 min. */
   codeWaitMs: number;
   /** Quiet time before understood jobs are matched as one batch, in ms. Default 5 s. */
@@ -61,6 +63,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     pollConcurrency: int(env.POLL_CONCURRENCY, 16, 1),
     understandConcurrency: int(env.UNDERSTAND_CONCURRENCY, 4, 1),
     codeWaitMs: int(env.CODE_WAIT_MINUTES, 8, 1) * 60_000,
+    shortlistSize: int(env.SHORTLIST_SIZE, 50, 1),
     matchBatchMs: int(env.MATCH_BATCH_MS, 5000),
     explainTop: int(env.MATCH_EXPLAIN_TOP, 3),
     jobSweepEveryMs: int(env.JOB_SWEEP_EVERY_MINUTES, 60) * 60_000,

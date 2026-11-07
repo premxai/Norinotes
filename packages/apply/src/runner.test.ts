@@ -413,7 +413,7 @@ describe("applying", () => {
     expect(steps.indexOf("status:submitted")).toBeGreaterThan(steps.indexOf("status:awaiting_code"));
   });
 
-  it("no code in time: needs_user, and it is never re-sent on its own afterwards", async () => {
+  it("no code in time: needs_user, never re-sent on its own, and the person may start it again", async () => {
     process.env.ALLOW_REAL_SUBMIT = "true";
     const { driver, calls } = fakeDriver({
       submit: async (ctx) => {
@@ -426,11 +426,11 @@ describe("applying", () => {
     await approveAndSubmit(t.db, app.id);
     expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "needs_user" });
     const row = await getApp(app.id);
-    expect(row.receipt).toMatchObject({ submitClicked: true });
-    // Resuming is blocked by the guard.
-    const retry = await retryApplication(t.db, app.id);
-    expect(retry).toMatchObject({ ok: false, reason: expect.stringMatching(/already clicked/) });
+    // The site never took it without the code: the receipt says so, and a retry by the person is allowed.
+    expect(row.receipt).toMatchObject({ submitClicked: true, codeMissing: true });
     expect(calls.submit).toHaveLength(1);
+    const retry = await retryApplication(t.db, app.id);
+    expect(retry).toMatchObject({ ok: true });
   });
 
   it("a worker that died in awaiting_code starts the form again instead of waiting forever", async () => {

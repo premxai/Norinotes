@@ -1,7 +1,9 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, applications, asc, companies, desc, eq, inboxMessages, jobs, resumes, runEvents, shortlist, type Db } from "@norinote/db";
-import { approveAndSubmit, createApplication, retryApplication, saveAnswers, transitionApplication, type ApplicationRow, type ApproveResult } from "@norinote/apply";
+import { approveAndSubmit, createApplication, liveFrameKey, retryApplication, saveAnswers, transitionApplication, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -15,6 +17,8 @@ const Create = z.object({ jobId: z.uuid() });
 const answerMap = z.record(z.string().min(1).max(2000), z.string().max(5000)).refine((o) => Object.keys(o).length <= 100, "Too many answers");
 const Approve = z.object({ answers: answerMap.optional() });
 const Answer = z.object({ answers: answerMap });
+/** The error an application carries once the person cancelled it. */
+export const CANCELLED = "Cancelled by you";
 // An emailed verification code as the person typed it: letters, digits, spaces and dashes (some sites print "123 456").
 const TypedCode = z.object({ code: z.string().trim().min(3).max(20).regex(/^[A-Za-z0-9 -]+$/, "A code has only letters, digits, spaces and dashes") });
 
@@ -187,6 +191,29 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     });
     await db.insert(runEvents).values({ applicationId: app.id, step: "code_typed", message: "You typed the verification code", ts: at });
     return c.json({ ok: true });
+  });
+
+  // The person drops an application they no longer want. Only while no browser is on the employer's page (a running
+  // or code-waiting run could still submit); it becomes failed with "Cancelled by you", and Retry can bring it back.
+  r.post("/:id/cancel", auth, async (c) => {
+    const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
+    if (app.status === "applying" || app.status === "awaiting_code") throw new HttpError(409, "Nori is on the employer's page right now; cancel once this run finishes", app.status);
+    if (app.status === "submitted") throw new HttpError(409, "This application was already sent", app.status);
+    if (app.status === "failed") return c.json({ ok: true, status: app.status });
+    const res = await transitionApplication(db, app.id, "failed", { from: app.status, error: CANCELLED, message: CANCELLED, by: "user" });
+    if (!res.ok) throw new HttpError(409, "Could not cancel this application", res.reason);
+    return c.json({ ok: true, status: res.application.status });
+  });
+
+  // "Watch Nori apply": the latest picture of the employer's page while Nori works on it (about one a second), for the
+  // owner only. 404 when there is none (not started, or removed a while after the run). Never cached.
+  r.get("/:id/live", auth, async (c) => {
+    const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
+    const key = liveFrameKey(app.userId, app.id);
+    const local = await readFile(path.join(artifacts, key)).catch(() => null);
+    const bytes = local ?? (ctx.files ? await ctx.files.get(key).catch(() => null) : null);
+    if (!bytes) throw notFound("No live view for this application right now");
+    return c.body(new Uint8Array(bytes), 200, { "content-type": "image/jpeg", "cache-control": "no-store", "x-live-status": app.status });
   });
 
   r.post("/:id/retry", auth, async (c) => {

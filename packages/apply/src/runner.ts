@@ -11,6 +11,7 @@ import { sharedCompanyGate, type CompanyGate } from "./gate.js";
 import { recordStrategies } from "./recipes.js";
 import { isTerminal, MAX_ATTEMPTS, submitMayHaveHappened } from "./state.js";
 import { approveAndSubmit, loadApplication, logEvent, transitionApplication, type ApplicationRow } from "./store.js";
+import { startLiveFrames, type LiveFrameSink } from "./live.js";
 import type {
   AiBrowserFallback, AwaitVerification, CodeWaiter, Driver, DriverContext, EventLevel, FillResult, NeedsUserKind, Preparer, SubmitResult, UnknownFormHandler,
 } from "./types.js";
@@ -41,6 +42,10 @@ export type ApplyDeps = {
   codeTimeoutMs?: number;
   /** Limit for fill + submit, excluding the code wait (default 150 s). */
   runTimeoutMs?: number;
+  /** "Watch Nori apply": receives a viewport JPEG about every `liveFrameMs` while the run is on the page. Unset = none. */
+  liveFrames?: LiveFrameSink;
+  /** Interval between live frames (default 1000 ms). */
+  liveFrameMs?: number;
   now?: () => Date;
 };
 
@@ -259,6 +264,17 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   let artifacts: PoolArtifacts = {};
   try {
     const run = await deps.pool.run(id, async (page, handle) => {
+      const sink = deps.liveFrames;
+      const stopLive = sink ? startLiveFrames(page, (jpeg) => sink({ applicationId: id, userId: row.userId, jpeg }), deps.liveFrameMs ?? 1000) : null;
+      try {
+        return await onPage(page, handle);
+      } finally {
+        await stopLive?.();
+      }
+    }, { timeoutMs: (deps.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + (deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS), owner: row.userId });
+    outcome = run.value;
+    artifacts = run.artifacts;
+    async function onPage(page: Parameters<Parameters<BrowserPool["run"]>[1]>[0], handle: Parameters<Parameters<BrowserPool["run"]>[1]>[1]): Promise<BrowserOutcome> {
       let fill = driver ? await driver.fill(page, ctx) : await unknownForm.handle(page, ctx);
       // A future AI browser agent may take over an unknown form or fields that failed read-back; unset, nothing changes.
       if (deps.aiFallback && fill.status === "needs_user" && (fill.needsUser?.kind === "unsupported" || (fill.needsUser?.kind === "questions" && fill.pending.length > 0 && !driver))) {
@@ -276,9 +292,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
       if (submit.status === "failed") handle.keepArtifacts();
       const after = await handle.screenshot(submit.status === "submitted" ? "submitted" : "after-submit");
       return { fill, submit, screenshotPath: after ?? screenshotPath, driverName } satisfies BrowserOutcome;
-    }, { timeoutMs: (deps.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + (deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS), owner: row.userId });
-    outcome = run.value;
-    artifacts = run.artifacts;
+    }
   } catch (err) {
     release();
     await flush();
@@ -340,8 +354,10 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   }
   if (submit.status === "needs_user") {
     const reason = submit.needsUser?.reason ?? "Needs your input";
+    // After the click the site asked for an emailed code and none came: it never took the application, so a retry is safe.
+    const codeMissing = submit.submitClicked && submit.needsUser?.kind === "verification_code";
     return done("needs_user", await transitionApplication(db, id, "needs_user", {
-      from: "applying", error: reason, pendingQuestions: [], receipt: receiptFor(), message: reason, data: { kind: submit.needsUser?.kind ?? "other" },
+      from: "applying", error: reason, pendingQuestions: [], receipt: { ...receiptFor(), ...(codeMissing ? { codeMissing: true } : {}) }, message: reason, data: { kind: submit.needsUser?.kind ?? "other" },
     }));
   }
   // Submit failed. Before the click it is safe to try again; after, it is not.

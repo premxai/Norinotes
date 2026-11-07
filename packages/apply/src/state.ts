@@ -71,9 +71,13 @@ export function unansweredQuestions(app: Pick<AppSnapshot, "pendingQuestions" | 
   });
 }
 
-/** Whether the employer may already have this application, which rules out sending it again on its own. */
+/**
+ * Whether the employer may already have this application, which rules out sending it again on its own. A submit that
+ * stopped on an emailed code that never arrived (`codeMissing`) did not go through: the site holds the application
+ * until the code is entered, so starting again is safe.
+ */
 export function submitMayHaveHappened(app: Pick<AppSnapshot, "receipt">): boolean {
-  return app.receipt?.submitClicked === true && app.receipt?.awaitingCode !== true;
+  return app.receipt?.submitClicked === true && app.receipt?.awaitingCode !== true && app.receipt?.codeMissing !== true;
 }
 
 /** Legal move? Returns the reason when not. */

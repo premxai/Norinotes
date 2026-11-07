@@ -307,7 +307,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
       embedPending = true;
     }
     const vector = await profileEmbedding(db, userId, now());
-    const stats = await buildShortlist(db, userId, { now: now(), profileEmbedding: vector, ...(config.explainTop > 0 ? { explain: { top: config.explainTop } } : {}) });
+    const stats = await buildShortlist(db, userId, { now: now(), profileEmbedding: vector, limit: config.shortlistSize, ...(config.explainTop > 0 ? { explain: { top: config.explainTop } } : {}) });
     // Poll first the companies whose jobs fit this user's lanes, so a new user's list fills up sooner.
     const boosted = await boostCompaniesForUser(db, userId, now());
     return {

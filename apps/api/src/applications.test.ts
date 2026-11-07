@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { answerBank, applications, careerPoints, eq, inboxMessages, jobs, resumes, runEvents, shortlist } from "@norinote/db";
 import { findVerification } from "@norinote/inbox";
+import { liveFrameKey } from "@norinote/apply";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
 import { unansweredQuestions } from "@norinote/apply";
 
@@ -228,6 +231,50 @@ describe("applications", () => {
     expect(msg).toMatchObject({ kind: "verification_code", code: "482913", userId });
     const events = await api.db.select().from(runEvents).where(eq(runEvents.applicationId, app.id));
     expect(events.map((e) => e.step)).toContain("code_typed");
+  });
+
+  it("lets the person try again after a code that never came", async () => {
+    const { job } = await seedJob(api.db, { company: "Late Code Co" });
+    const app = await seedApplication(api.db, userId, job.id, {
+      status: "needs_user", approvedAt: new Date(), preparedAt: new Date(), resumeId: null, attempts: 1,
+      receipt: { submitClicked: true, awaitingCode: false, codeMissing: true }, error: "The employer emailed you a verification code and none reached Norinote in time.",
+    });
+    const res = await api.call("POST", `/api/applications/${app.id}/retry`, { cookie });
+    expect(res.status).toBe(200);
+  });
+
+  it("cancels an application the person no longer wants, but never one Nori is sending", async () => {
+    const { job } = await seedJob(api.db, { company: "Cancel Co" });
+    const parked = await seedApplication(api.db, userId, job.id, { status: "needs_user", approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
+    const res = await api.call("POST", `/api/applications/${parked.id}/cancel`, { cookie });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({ ok: true, status: "failed" });
+    const [row] = await api.db.select().from(applications).where(eq(applications.id, parked.id));
+    expect(row).toMatchObject({ status: "failed", error: "Cancelled by you" });
+    expect((await api.call("POST", `/api/applications/${parked.id}/cancel`, { cookie })).status).toBe(200);
+
+    for (const status of ["applying", "awaiting_code", "submitted"] as const) {
+      const { job: j } = await seedJob(api.db, { company: `Busy ${status}` });
+      const busy = await seedApplication(api.db, userId, j.id, { status, approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
+      expect((await api.call("POST", `/api/applications/${busy.id}/cancel`, { cookie })).status).toBe(409);
+    }
+    expect((await api.call("POST", `/api/applications/${parked.id}/cancel`)).status).toBe(401);
+  });
+
+  it("serves the latest live frame of an application to its owner only", async () => {
+    const { job } = await seedJob(api.db, { company: "Live Co" });
+    const app = await seedApplication(api.db, userId, job.id, { status: "applying", approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
+    expect((await api.call("GET", `/api/applications/${app.id}/live`, { cookie })).status).toBe(404);
+    const file = path.join(api.artifactsDir, liveFrameKey(userId, app.id));
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, Buffer.from("jpeg-bytes"));
+    const res = await api.call("GET", `/api/applications/${app.id}/live`, { cookie });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/jpeg");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    const other = await api.signup("live-other@example.com");
+    expect((await api.call("GET", `/api/applications/${app.id}/live`, { cookie: other.cookie })).status).toBe(404);
+    expect((await api.call("GET", `/api/applications/${app.id}/live`)).status).toBe(401);
   });
 
   it("refuses a typed code when the application is not waiting for one", async () => {

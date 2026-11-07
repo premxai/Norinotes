@@ -21,6 +21,8 @@ kill_timeout = "60s"
   # Sender for forwarded inbox mail (Resend, domain verified); RESEND_API_KEY is a secret.
   MAIL_FROM = "Norinote <hello@norinote.xyz>"
   BROWSER_POOL_SIZE = "2"
+  # First full pass over the seed boards: 200 new boards a run (default 50) now the database is on Small compute.
+  VALIDATE_PER_RUN = "200"
   # Generated files: written here, copied to Supabase Storage (S3 API). Both apps must use the same ARTIFACTS_DIR so
   # the keys match. S3_ENDPOINT is https://<project-ref>.supabase.co/storage/v1/s3; the keys are secrets.
   # Database connections, over Supabase's direct connection (60 at most, shared by both apps; docs/deploy.md).

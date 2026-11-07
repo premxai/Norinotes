@@ -85,7 +85,7 @@ describe("onboarding steps", () => {
 
     const made = await api.db.select().from(lanes).where(eq(lanes.userId, user.id));
     expect(made).toHaveLength(1);
-    expect(made[0]).toMatchObject({ name: "Software Engineer", titles: ["Software Engineer"], locations: ["San Francisco, CA"], remote: true, minFit: 0.6, enabled: true });
+    expect(made[0]).toMatchObject({ name: "Software Engineer", titles: ["Software Engineer"], locations: ["San Francisco, CA"], remote: true, minFit: 0.45, enabled: true });
     const [addr] = await api.db.select().from(inboxAddresses).where(eq(inboxAddresses.userId, user.id));
     expect(addr?.address).toMatch(/^nori-[a-z0-9]+@inbox\.norinote\.local$/);
     expect(api.queuedOf("match.user").length).toBeGreaterThan(before);

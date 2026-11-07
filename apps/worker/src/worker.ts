@@ -1,6 +1,7 @@
 import path from "node:path";
 import { connect, migrate, type Db, type DbHandle } from "@norinote/db";
-import { createBrowserPool, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
+import { createBrowserPool, createLiveFrameSink, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
+import { artifactsRoot, fileStoreFromEnv } from "@norinote/shared/files";
 import { setAiLogger } from "@norinote/ai";
 import { seedCompanies } from "@norinote/ingest";
 import { awaitVerificationWithGmail, createComposioGmail, startInboxRetention } from "@norinote/inbox";
@@ -72,6 +73,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     // filter, or typed in Norinote (POST /api/applications/:id/code). A link, or no code in time, parks the application.
     verification: (args) => awaitVerificationWithGmail({ ...args, db, gmail, log: (event, data) => log.info(event, data) }),
     codeTimeoutMs: config.codeWaitMs,
+    // "Watch Nori apply": the latest picture of the employer's page, for the owner's dashboard (GET /api/applications/:id/live).
+    liveFrames: createLiveFrameSink({ root: config.artifactsDir ?? artifactsRoot(), store: fileStoreFromEnv(), log: (line) => log.info("apply.live", { line }) }),
     now,
     ...opts.applyOverrides,
   };
