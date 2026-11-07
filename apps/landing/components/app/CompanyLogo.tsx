@@ -8,10 +8,11 @@ import { useState } from "react";
  * most companies (no known domain), and the CDN answers 404 when it has no logo, so the error event falls back too. The
  * name is always text beside it, so both are hidden from screen readers.
  */
-export function CompanyLogo({ name, url }: { name: string; url: string | null | undefined }) {
+export function CompanyLogo({ name, url, round = false }: { name: string; url: string | null | undefined; round?: boolean }) {
   const [failed, setFailed] = useState<string | null>(null);
   // 36 px on phones, 40 px from 768: the same box for the logo and the tile, so nothing shifts when one gives way.
-  const box = "size-9 rounded-[10px] text-base tablet:size-10";
+  // `round`: Today's cards, a 44 / 48 px circle.
+  const box = round ? "size-11 rounded-full text-[1.0625rem] tablet:size-12" : "size-9 rounded-[10px] text-base tablet:size-10";
   if (url && failed !== url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- Brandfetch's terms allow only a plain <img> of their CDN
@@ -24,7 +25,7 @@ export function CompanyLogo({ name, url }: { name: string; url: string | null | 
         decoding="async"
         onError={() => setFailed(url)}
         // Logos are drawn for light backgrounds, so their tile stays light in both themes.
-        className={`${box} flex-none border-[1.5px] border-line bg-[#fffdf8] object-contain p-1`}
+        className={`${box} flex-none border-[1.5px] border-line bg-[#fffdf8] object-contain ${round ? "p-2" : "p-1"}`}
       />
     );
   }

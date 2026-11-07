@@ -220,6 +220,8 @@ export const api = {
   approve: (id: string, answers?: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/approve`, { json: answers ? { answers } : {} }),
   answer: (id: string, answers: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/answer`, { json: { answers } }),
   retry: (id: string) => call<Application>(`/applications/${encodeURIComponent(id)}/retry`, { json: {} }),
+  /** Drops an application before Nori is on the employer's page: it becomes failed, "Cancelled by you". 409 once it's there or sent. */
+  cancel: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/cancel`, { json: {} }),
   /** The code an employer emailed the person, typed while the run waits for it (status awaiting_code). 409: not waiting any more. */
   code: (id: string, code: string) => call<{ ok: true }>(`/applications/${encodeURIComponent(id)}/code`, { json: { code } }),
   agentStatus: () => call<AgentStatus>("/agent/status"),

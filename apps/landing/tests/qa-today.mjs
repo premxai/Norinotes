@@ -68,7 +68,7 @@ async function mockApi(context, o = {}) {
     apps.set(id, { app: { id, jobId, status, pendingQuestions: [], receipt: null, error: null, preparedAt: null, approvedAt: null, submittedAt: null, createdAt: MORNING.toISOString(), updatedAt: MORNING.toISOString() }, job: j, events: [], polls: 0, step: 0 });
     return apps.get(id);
   };
-  for (const [jobId, status] of o.apps ?? []) add(jobId, status);
+  for (const [jobId, status, error] of o.apps ?? []) Object.assign(add(jobId, status).app, error ? { error } : {});
   const event = (a, message, level = "info") => a.events.push({ id: String(a.events.length + 1), ts: MORNING.toISOString(), level, step: "run", message });
   /** One poll moves it on, the way the worker would. */
   const advance = (a) => {
@@ -241,10 +241,39 @@ async function flows(browser) {
     const text = await page.locator("main").innerText();
     check(W, "greeting by time of day and name", (await page.locator("main h1").textContent()) === "Good morning, Alex", await page.locator("main h1").textContent());
     check(W, "the day line", text.includes("3 for today · 2 of 5 sent today"), text.slice(0, 200));
-    const titles = await page.locator("main li button span.block:first-child").allTextContents();
+    // The title button's own text, without its screen-reader fit.
+    const titles = await page.locator("main ul > li > button").evaluateAll((els) => els.map((el) => el.firstChild?.textContent ?? ""));
     check(W, "cards by fit, highest first", titles.join(",") === "Product designer,UX designer,Design systems designer", titles);
+    // The card's shape: three across at 1440, one row of equal cards whose rules and Apply buttons line up.
+    const boxes = await page.locator("main ul > li").evaluateAll((els) =>
+      els.map((li) => {
+        const r = li.getBoundingClientRect();
+        const rule = li.lastElementChild.getBoundingClientRect();
+        return { top: Math.round(r.top), h: Math.round(r.height), rule: Math.round(rule.top), apply: Math.round(li.querySelector("button[aria-label^='Apply to']")?.getBoundingClientRect().top ?? -1) };
+      }),
+    );
+    check(W, "three cards in one row at 1440, the same height", boxes.length === 3 && new Set(boxes.map((b) => b.top)).size === 1 && new Set(boxes.map((b) => b.h)).size === 1, boxes);
+    check(W, "their rules and Apply buttons line up", new Set(boxes.map((b) => b.rule)).size === 1 && new Set(boxes.map((b) => b.apply)).size === 1, boxes);
+    const foot = await page.locator("main ul > li").evaluateAll((els) => els.map((li) => li.lastElementChild.firstElementChild.innerText.replace(/\s*\n\s*/g, " / ")));
+    check(W, "the fit and place under the rule", foot.join("|") === "Fit 0.86 / Brooklyn, NY|Fit 0.81 / Remote|Fit 0.78 / New York, NY", foot);
+    check(W, "no tags the listings don't support", (await page.locator("main ul[aria-label=Tags]").count()) === 0, null);
     check(W, "two reasons per card", (await page.locator("main li").nth(1).locator("p.flex").count()) === 2, null);
     check(W, "posted … ago", text.includes("posted 9 hours ago") && text.includes("posted 1 day ago"), null);
+    await context.close();
+  }
+  // A cancelled application's card says Cancelled, not that it failed.
+  {
+    const { context, page } = await open(browser, "/today", { apps: [["j1", "failed", "Cancelled by you"]] });
+    const card = await page.locator("main ul > li", { hasText: "Product designer" }).innerText();
+    check(W, "a cancelled application's card says Cancelled", card.includes("Cancelled") && !card.includes("Didn't go through") && card.includes("Watch"), card);
+    await context.close();
+  }
+  // Tags: Remote beside a named place, and a role from widening the search.
+  {
+    const entries = [{ ...ENTRIES[1], job: { ...ENTRIES[1].job, remote: true } }, { ...ENTRIES[2], widenedBy: "role_pool" }];
+    const { context, page } = await open(browser, "/today", { entries });
+    const tags = await page.locator("main ul[aria-label=Tags]").evaluateAll((els) => els.map((el) => el.innerText.replace(/\n/g, ",")));
+    check(W, "tags: Remote with a place, Similar role when widened", tags.join("|") === "Remote|Similar role", tags);
     await context.close();
   }
   // Not for me: hidden at once, Undo within 5 s cancels; after 5 s the API is told.

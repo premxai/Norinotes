@@ -9,13 +9,15 @@ import { noriReact, takeParam } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
 import { CompanyLogo } from "./CompanyLogo";
-import { STATUS_LABEL } from "./LivePanel";
+import { statusLabel } from "./LivePanel";
 
 /* /today (4a spec section 8): the greeting, the day line, what needs you, and today's job cards. */
 
 const WAITING: Application["status"][] = ["prepared", "needs_user"];
 const MOVING: Application["status"][] = ["queued", "preparing", "applying", "awaiting_code"];
 const UNDO_MS = 5000;
+/** One column on phones, two from 768 px, three from 1280. */
+const GRID = "grid gap-3 tablet:grid-cols-2 tablet:gap-3.5 desktop:grid-cols-3";
 
 function ago(iso: string | null) {
   if (!iso) return null;
@@ -45,48 +47,72 @@ function Strip({ night }: { night: boolean }) {
   );
 }
 
+/**
+ * A job card: the round logo with Not for me (or, once applied, the status) across the top; the company and when it was
+ * posted; the title, which opens the job; tags; two reasons; and below a rule the fit and place beside Apply (or Watch).
+ * Cards in a row share a height, so the rule and the buttons line up.
+ */
 function Card({ e, app, onApply, onOpen, onDismiss }: { e: ShortlistEntry; app?: Application; onApply: () => void; onOpen: () => void; onDismiss: () => void }) {
   const name = `${e.job.title} at ${e.job.companyName}`;
+  const where = place(e);
+  // Only what the listing says: Remote when it also names a place (otherwise the place line already says it), and a role
+  // that came from widening the search.
+  const tags = [e.job.remote && where !== "Remote" ? "Remote" : null, e.widenedBy ? "Similar role" : null].filter((t): t is string => !!t);
   return (
-    <li className="flex flex-col gap-2.5 rounded-card border-[1.5px] border-line bg-surface p-4 tablet:px-5 tablet:py-[18px]">
-      <div className="flex items-start justify-between gap-3 tablet:gap-4">
-        <CompanyLogo name={e.job.companyName} url={e.job.companyLogoUrl} />
-        {/* Its name is what it shows (voice control users say what they see), with the fit added for screen readers. */}
-        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-          <span className="block text-[1.0625rem] font-semibold text-ink tablet:text-[1.125rem]">{e.job.title}</span>
-          <span className="mt-1 block text-[0.8125rem] text-ink-2 tablet:text-small">{[e.job.companyName, place(e), ago(e.job.postedAt)].filter(Boolean).join(" · ")}</span>
-          <span className="sr-only">, fit {e.fit.toFixed(2)}</span>
-        </button>
-        {/* Geist with tabular figures, not Mono: the mono font (70 KB) would load on every first screen. */}
-        <p aria-hidden="true" className="text-[1.125rem] font-semibold text-ink tabular-nums tablet:text-[1.25rem]">
-          {e.fit.toFixed(2)}
-        </p>
-      </div>
-      {e.reasons.slice(0, 2).map((r) => (
-        <p key={r} className="flex gap-2 text-small leading-[1.45] text-ink-2">
-          <span aria-hidden="true" className="text-accent">
-            ●
-          </span>
-          {r}
-        </p>
-      ))}
-      <div className="flex items-center gap-3.5 pt-1">
+    <li className="flex flex-col rounded-card border-[1.5px] border-line bg-surface p-5 tablet:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <CompanyLogo name={e.job.companyName} url={e.job.companyLogoUrl} round />
         {app ? (
-          <>
-            <span className="rounded-full bg-tint px-2.5 py-1 text-[0.75rem] font-medium text-ink">{STATUS_LABEL[app.status]}</span>
-            <button type="button" onClick={onOpen} className="min-h-11 px-0.5 text-small font-medium text-ink underline underline-offset-[3px]">
-              Watch
-            </button>
-          </>
+          <span className="rounded-full bg-tint px-3 py-1.5 text-[0.8125rem] font-medium text-ink">{statusLabel(app)}</span>
         ) : (
-          <>
-            <button type="button" onClick={onApply} aria-label={`Apply to ${name}`} className={buttonClass("primary", "min-h-11 max-tablet:flex-1")}>
-              Apply
-            </button>
-            <button type="button" onClick={onDismiss} className="min-h-11 px-0.5 text-small font-medium text-ink underline underline-offset-[3px]">
-              Not for me
-            </button>
-          </>
+          <button type="button" onClick={onDismiss} className="min-h-10 rounded-full border-[1.5px] border-line px-3.5 text-small font-medium text-ink-2 hover:border-ink hover:text-ink">
+            Not for me
+          </button>
+        )}
+      </div>
+      <p className="mt-5 text-small text-ink-2 tablet:mt-6">
+        <span className="font-semibold text-ink">{e.job.companyName}</span> {ago(e.job.postedAt)}
+      </p>
+      {/* Its name is what it shows (voice control users say what they see), with the fit added for screen readers. */}
+      <button type="button" onClick={onOpen} className="mt-1 text-left text-[1.375rem] leading-[1.15] font-semibold tracking-[-0.01em] text-ink hover:underline hover:decoration-accent hover:decoration-2 hover:underline-offset-4 tablet:text-[1.5rem]">
+        {e.job.title}
+        <span className="sr-only">, fit {e.fit.toFixed(2)}</span>
+      </button>
+      {tags.length > 0 && (
+        <ul aria-label="Tags" className="mt-3.5 flex flex-wrap gap-2">
+          {tags.map((t) => (
+            <li key={t} className="rounded-row bg-tint px-3 py-1.5 text-small font-medium text-ink">
+              {t}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-4 flex flex-1 flex-col gap-2">
+        {e.reasons.slice(0, 2).map((r) => (
+          <p key={r} className="flex gap-2 text-small leading-[1.45] text-ink-2">
+            <span aria-hidden="true" className="text-accent">
+              ●
+            </span>
+            {r}
+          </p>
+        ))}
+      </div>
+      <div className="mt-5 flex items-center justify-between gap-3 border-t-[1.5px] border-line pt-4">
+        <div className="min-w-0">
+          {/* Geist with tabular figures, not Mono: the mono font (70 KB) would load on every first screen. */}
+          <p aria-hidden="true" className="text-[1.125rem] font-semibold text-ink tabular-nums">
+            Fit {e.fit.toFixed(2)}
+          </p>
+          {where && <p className="truncate text-small text-ink-2">{where}</p>}
+        </div>
+        {app ? (
+          <button type="button" onClick={onOpen} className={buttonClass("outline", "min-h-11 flex-none")}>
+            Watch
+          </button>
+        ) : (
+          <button type="button" onClick={onApply} aria-label={`Apply to ${name}`} className={buttonClass("primary", "min-h-11 flex-none")}>
+            Apply
+          </button>
         )}
       </div>
     </li>
@@ -265,9 +291,9 @@ export function Today() {
           </button>
         </div>
       ) : !list.data ? (
-        <ul aria-label="Loading today's jobs" className="flex flex-col gap-3 tablet:gap-3.5">
+        <ul aria-label="Loading today's jobs" className={GRID}>
           {[0, 1, 2].map((i) => (
-            <li key={i} aria-hidden="true" className="h-[172px] animate-pulse rounded-card border-[1.5px] border-line bg-surface" />
+            <li key={i} aria-hidden="true" className="h-[350px] animate-pulse rounded-card border-[1.5px] border-line bg-surface tablet:h-[370px]" />
           ))}
         </ul>
       ) : empty ? (
@@ -285,7 +311,7 @@ export function Today() {
               </button>
             )}
           </div>
-          <ul className="flex flex-col gap-3 tablet:gap-3.5">
+          <ul className={GRID}>
             {cards.map((e) => {
               const app = byJob.get(e.jobId);
               return (

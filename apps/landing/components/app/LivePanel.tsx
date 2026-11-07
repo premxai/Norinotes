@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { buttonClass } from "@/components/Button";
 import { FormError } from "@/components/auth/fields";
-import { api, type AppStatus, type ApplicationDetail, type Question } from "@/lib/api";
+import { api, type AppStatus, type Application, type ApplicationDetail, type Question } from "@/lib/api";
+import { CANCELLABLE, isCancelled } from "@/lib/app-state";
 import { noriReact } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
@@ -22,6 +23,8 @@ export const STATUS_LABEL: Record<AppStatus, string> = {
   submitted: "Sent",
   failed: "Didn't go through",
 };
+/** The status chip's words; a cancelled application isn't a failure. */
+export const statusLabel = (a: Application) => (isCancelled(a) ? "Cancelled" : STATUS_LABEL[a.status]);
 const MOVING: AppStatus[] = ["queued", "preparing", "applying", "awaiting_code"];
 /** Nori's event for each status (section 10); needs_user without questions is a wall. */
 const NORI: Record<AppStatus, string> = {
@@ -187,6 +190,34 @@ function CodeBox({ id, refresh, onGone }: { id: string; refresh: () => Promise<v
   );
 }
 
+/** A quiet way to drop an application before Nori is on the employer's page, confirmed in place. */
+function CancelAction({ busy, onCancel }: { busy: boolean; onCancel: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const stop = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (asking) stop.current?.focus();
+  }, [asking]);
+  return asking ? (
+    <div role="group" aria-labelledby="cancel-ask" className={`${box} flex flex-col items-start gap-2.5 border-[1.5px] border-line`}>
+      <p id="cancel-ask" className="text-ink">
+        Stop this application? Nori won&rsquo;t send it. You can try again later.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button ref={stop} type="button" onClick={onCancel} aria-disabled={busy || undefined} className={buttonClass("outline", "min-h-11")}>
+          {busy ? "Stopping…" : "Stop it"}
+        </button>
+        <button type="button" onClick={() => setAsking(false)} className="min-h-11 px-2 text-small font-semibold text-ink underline underline-offset-[3px]">
+          Keep it
+        </button>
+      </div>
+    </div>
+  ) : (
+    <button type="button" onClick={() => setAsking(true)} className="min-h-10 self-start text-small font-medium text-ink-2 underline underline-offset-[3px] hover:text-ink">
+      Cancel application
+    </button>
+  );
+}
+
 /** Every 2 s while the application moves, every 30 s once it waits on you or is done. */
 export const useApplication = (id: string | null) =>
   usePolling(id ? `app:${id}` : null, () => api.application(id ?? ""), (d: ApplicationDetail | null) => (!d || MOVING.includes(d.application.status) ? 2000 : 30_000));
@@ -216,7 +247,9 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
     const key = `${id}:${s}`;
     if (said.current === key) return;
     said.current = key;
-    const wall = s === "needs_user" && detail.application.pendingQuestions.length === 0 && !/verification code/i.test(detail.application.error ?? "");
+    // A cancelled application was the person's choice: Nori doesn't react as if it failed.
+    if (isCancelled(detail.application)) return;
+    const wall = s === "needs_user" && detail.application.pendingQuestions.length === 0 && detail.application.receipt?.codeMissing !== true;
     void noriReact({ event: wall ? "captcha" : NORI[s] });
   }, [detail, id]);
 
@@ -242,8 +275,9 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
 
   const a = detail.application;
   const wall = a.status === "needs_user" && a.pendingQuestions.length === 0;
-  // The wait for a typed code ran out (packages/apply EMAIL_CODE_REASON): unlike a captcha, Try again can get past it.
-  const codeLate = wall && /verification code/i.test(a.error ?? "");
+  // The wait for a typed code ran out (the receipt says codeMissing): unlike a captcha, Try again can get past it.
+  const codeLate = wall && a.receipt?.codeMissing === true;
+  const cancelled = isCancelled(a);
   const lines = detail.events
     .filter((e) => e.level !== "debug" && e.message)
     .filter((e, i, all) => i === 0 || all[i - 1]?.message !== e.message)
@@ -254,7 +288,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
       {a.status === "awaiting_code" && <CodeBox key={a.id} id={a.id} refresh={refresh} onGone={setFailure} />}
       <div className="flex items-center justify-between">
         <span role="status" className="rounded-full bg-tint px-2.5 py-1 text-[0.75rem] font-medium text-ink">
-          {STATUS_LABEL[a.status]}
+          {statusLabel(a)}
         </span>
         {a.approvedAt && <span className="font-mono text-[1.125rem] text-ink laptop:text-[1.25rem]">{clock(took)}</span>}
       </div>
@@ -326,7 +360,16 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </div>
       )}
 
-      {a.status === "failed" && (
+      {cancelled && (
+        <div className={`${box} flex flex-col items-start gap-2 bg-surface-2 text-ink`}>
+          <p>You cancelled this application, so Nori won&rsquo;t send it.</p>
+          <button type="button" onClick={() => void act(() => api.retry(a.id))} aria-disabled={busy || undefined} className={buttonClass("outline", "min-h-11")}>
+            {busy ? "Trying…" : "Try again"}
+          </button>
+        </div>
+      )}
+
+      {a.status === "failed" && !cancelled && (
         <div className={`${box} border-2 border-danger text-ink`}>
           <p className="mb-2">
             {a.error ?? "Something went wrong."} {a.submittedAt ? "" : "Nothing was sent."}
@@ -350,6 +393,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </>
       )}
       {failure && <FormError>{failure}</FormError>}
+      {CANCELLABLE.includes(a.status) && <CancelAction busy={busy} onCancel={() => void act(() => api.cancel(a.id))} />}
     </div>
   );
 }

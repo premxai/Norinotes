@@ -61,11 +61,12 @@ const APPS = () => [
 ];
 // The worker's words when no typed code arrived in time (packages/apply EMAIL_CODE_REASON).
 const CODE_LATE = "The employer emailed you a verification code and none reached Norinote in time. Retry and type the code in Norinote when asked, or finish on the employer's page.";
-/** APPS plus one run waiting for a typed code (a10) and one whose wait ran out (a11). */
+/** APPS plus one run waiting for a typed code (a10), one whose wait ran out (a11) and one the person cancelled (a12). */
 const CODE_APPS = () => [
   ...APPS(),
   { app: base("a10", "awaiting_code", { createdAt: at("2026-11-04T08:50:00"), approvedAt: at("2026-11-04T08:51:00") }), job: job("j10", "Service designer", "Larch", "Seattle, WA"), outcomes: [] },
-  { app: base("a11", "needs_user", { createdAt: at("2026-11-04T07:50:00"), approvedAt: at("2026-11-04T07:51:00"), error: CODE_LATE }), job: job("j11", "Motion designer", "Bramble", null), outcomes: [] },
+  { app: base("a11", "needs_user", { createdAt: at("2026-11-04T07:50:00"), approvedAt: at("2026-11-04T07:51:00"), error: CODE_LATE, receipt: { codeMissing: true } }), job: job("j11", "Motion designer", "Bramble", null), outcomes: [] },
+  { app: base("a12", "failed", { createdAt: at("2026-11-04T07:40:00"), error: "Cancelled by you" }), job: job("j12", "Packaging designer", "Fennel", "Portland, OR"), outcomes: [] },
 ];
 const MESSAGES = () => [
   { id: "m2", applicationId: "a3", application: { id: "a3", status: "submitted", jobTitle: "Product designer", companyName: "Fernway" }, fromAddress: "no-reply@greenhouse.example.test", fromName: "Fernway via Greenhouse", subject: "Your security code", bodyText: "Copy and paste this code into the security code field on your application: 482913", receivedAt: at("2026-11-04T08:00:05"), kind: "verification_code", code: "482913", verificationLink: null, links: [], attachments: [], spam: false },
@@ -109,6 +110,8 @@ function summaryOf(rows, now, small) {
  * `o.apps` (rows), `o.messages`, `o.small` (force the small sample), `o.inboxOff`, `o.offline`, `o.slow` (ms per outcomes call).
  * A typed code (POST /applications/:id/code): `o.code` is "ok" (sent two polls later), "gone" (409: the wait ran
  * out first) or "bad" (the API's 400). `o.startsWaiting`: an applying run starts waiting for a code on its third poll.
+ * Cancel (POST /applications/:id/cancel) follows the API: 409 on the employer's page or once sent; `o.cancelLate` makes
+ * the run reach the employer's page just before the request lands.
  */
 async function mockApi(context, o = {}) {
   const cors = { "access-control-allow-origin": BASE, "access-control-allow-credentials": "true", "access-control-allow-headers": "Content-Type", "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" };
@@ -165,11 +168,19 @@ async function mockApi(context, o = {}) {
       r.outcomes = r.outcomes.filter((x) => x.id !== m[2]);
       return reply(200, { ok: true, ...view(r) });
     }
+    m = key.match(/^POST \/applications\/([\w-]+)\/cancel$/);
+    if (m) {
+      const r = rows.find((x) => x.app.id === m[1]);
+      if (o.cancelLate) r.app.status = "applying";
+      if (["applying", "awaiting_code", "submitted"].includes(r.app.status)) return reply(409, { error: "Nori is already on the employer's page, so it can't be cancelled now", detail: r.app.status });
+      if (r.app.status !== "failed") Object.assign(r.app, { status: "failed", error: "Cancelled by you" });
+      return reply(200, { ok: true, status: "failed" });
+    }
     m = key.match(/^POST \/applications\/([\w-]+)\/code$/);
     if (m) {
       const r = rows.find((x) => x.app.id === m[1]);
       if (o.code === "bad") return reply(400, { error: "A code has only letters, digits, spaces and dashes" });
-      if (o.code === "gone") Object.assign(r.app, { status: "needs_user", error: CODE_LATE });
+      if (o.code === "gone") Object.assign(r.app, { status: "needs_user", error: CODE_LATE, receipt: { codeMissing: true } });
       if (r.app.status !== "awaiting_code") return reply(409, { error: "This application is not waiting for a code", detail: r.app.status });
       r.typed = 1; // the run takes it up a couple of polls later, as the worker would
       return reply(200, { ok: true });
@@ -519,6 +530,47 @@ async function flows(browser) {
     const { context, page } = await open(browser, "/applications");
     await wait(600);
     check(W, "a first visit stays quiet", !(await played(page)).includes("celebrate"), await played(page));
+    await context.close();
+  }
+  // Cancel: a quiet action until the run is on the employer's page, confirmed in place; then Cancelled, not a failure.
+  {
+    const { context, page, calls, errors } = await open(browser, "/applications/a2", { apps: CODE_APPS() });
+    const cancel = page.getByRole("button", { name: "Cancel application" });
+    check(W, "cancel: offered while it needs you", await cancel.isVisible(), null);
+    await cancel.click();
+    const ask = page.getByRole("group", { name: "Stop this application? Nori won’t send it. You can try again later." });
+    check(W, "cancel: asks first, focus on Stop it", (await ask.isVisible()) && (await page.evaluate(() => document.activeElement?.textContent)) === "Stop it", await page.evaluate(() => document.activeElement?.textContent));
+    await ask.getByRole("button", { name: "Keep it" }).click();
+    check(W, "cancel: Keep it changes nothing", !calls.some((c) => c.key.endsWith("/cancel")) && (await cancel.isVisible()), null);
+    await cancel.click();
+    await page.getByRole("button", { name: "Stop it" }).click();
+    const done = await page.locator("main", { hasText: "You cancelled this application" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+    const text = await page.locator("main").innerText();
+    check(W, "cancel: sent, then shown as cancelled", done && calls.some((c) => c.key === "POST /applications/a2/cancel") && !text.includes("Didn't go through") && !text.includes("Something went wrong"), text.slice(0, 500));
+    check(W, "cancel: the chip says Cancelled, and the action is gone", text.includes("Cancelled") && !(await cancel.count()), null);
+    await page.getByRole("button", { name: "Try again" }).click();
+    await wait(400);
+    check(W, "cancel: Try again asks for a retry", calls.some((c) => c.key === "POST /applications/a2/retry"), null);
+    check(W, "cancel: no errors", errors.length === 0, errors);
+    await context.close();
+  }
+  for (const [label, path] of [["applying", "/applications/a1"], ["waiting for a code", "/applications/a10"], ["sent", "/applications/a3"]]) {
+    const { context, page } = await open(browser, path, { apps: CODE_APPS() });
+    check(W, `cancel: not offered while ${label}`, (await page.getByRole("button", { name: "Cancel application" }).count()) === 0, null);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/applications/a2", { apps: CODE_APPS(), cancelLate: true });
+    await page.getByRole("button", { name: "Cancel application" }).click();
+    await page.getByRole("button", { name: "Stop it" }).click();
+    const said = await page.locator("main", { hasText: "can't be cancelled now" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+    check(W, "cancel: a 409 says why, and the page shows where it is now", said && (await page.locator("main").innerText()).includes("Applying"), null);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/applications", { apps: CODE_APPS() });
+    const t = await rowText(page, "Packaging designer");
+    check(W, "cancel: the list says Cancelled, You cancelled it", t.includes("Cancelled") && t.includes("You cancelled it") && !t.includes("Didn't go through"), t);
     await context.close();
   }
   // A verification code emailed to the person's own address: they type it while the run waits (awaiting_code).

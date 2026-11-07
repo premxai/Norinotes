@@ -50,7 +50,7 @@ Status: decided, except the items under [Still open](#14-still-open).
 | Day line and strip, strip and the next block | 16 | 20 |
 | Banner or needs row and the list header | 16 | 20 |
 | Card and card | 12 | 14 |
-| Inside a card | 16 padding, 10 gap | 18 by 20 padding, 10 gap |
+| Inside a card | 20 padding | 24 padding |
 | Live panel padding | 16 | 20 |
 
 ## 4. Type
@@ -100,7 +100,7 @@ landing, auth and onboarding pages stay Dawn, so their scenes keep working.
 | Cap meter | "Sent today" and "2 of 5" (Mono), a 6 px `meter` bar; under it "Nori asks before every send" at every limit: nothing sends on its own (4c spec section 7; it said "Nori sends up to your cap without asking" above 0, which was never true) |
 | Email banner | `tint`, 14 px radius: "**Confirm your email** so employers' replies reach you. We sent a link to …" and **Send it again**. After sending: "Sent. Check your inbox." The resend's rate limit shows the API's words |
 | Needs-you row | A button: a `warning` dot, "**Nori needs you** · 1 application waiting on you", **Open**. Opens the first waiting application in the panel |
-| Job card | `surface`, 1.5 px `line`, 18 px radius. The company logo (below) on the left; the title and meta are one button that opens the job; the fit score on the right; two reasons; **Apply** (primary) and **Not for me** (text). Once applied, the buttons give way to a status chip and **Watch** |
+| Job card | `surface`, 1.5 px `line`, 18 px radius, in a grid: one column on phones, two from 768 px, three from 1280; cards in a row share a height. Top: the company logo in a 44 / 48 px circle, **Not for me** as an outline pill on the right (a status chip once applied). Then the company in bold with "posted … ago", the title (Geist 600, 22 / 24 px) as the button that opens the job, tags only the listing supports (Remote beside a named place, Similar role when widened), two reasons, and below a rule the fit ("Fit 0.86") over the place, beside **Apply** (primary; **Watch**, outline, once applied) |
 | Company logo | `job.companyLogoUrl` (a Brandfetch CDN address, or null) as a plain `<img>`: `loading="lazy"`, `decoding="async"`, `alt=""` (the name is text beside it), `object-fit: contain` with 4 px padding on a light tile (`#fffdf8`, 1.5 px `line`, 10 px radius) in both themes, since logos are drawn for light backgrounds. 36 px on phones, 40 px from 768. When it's null, or the image fails (the CDN answers 404 when it has no logo), a letter tile in the same box: the name's first letter or digit, 600, `ink` on `tint`, hidden from screen readers. Brandfetch's terms allow only a plain `<img>` of its CDN: no next/image, proxying or saved copies. The CSP's `img-src` allows `https://cdn.brandfetch.io`, and the page's referrer policy (strict-origin-when-cross-origin) sends the origin Brandfetch needs. Roughly 4 in 5 companies have no known domain, so the tile is the usual case. No name-to-domain lookup in the browser: a same-named company could bring the wrong logo |
 | Undo toast | `ink` fill, `bg` text, pill, bottom centre above the tabs: "Hidden from today." **Undo** (5 s) |
 | Live panel | A header with "Application" or "Job" and a 44 px close button, then the job's title and meta, then the panel's state (section 7) |

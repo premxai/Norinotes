@@ -5,12 +5,16 @@ import type { Application, Outcomes, OutcomeKind } from "@/lib/api";
  * apart from the components so the list, the application's page and the week strip agree.
  */
 
-export type RowState = "applying" | "needs_you" | "failed" | "offer" | "interview" | "reply" | "rejected" | "no_response" | "waiting" | "sent";
+export type RowState = "applying" | "needs_you" | "failed" | "cancelled" | "offer" | "interview" | "reply" | "rejected" | "no_response" | "waiting" | "sent";
 export type Group = "all" | "in_progress" | "sent" | "replied" | "closed";
 
 const DAY_MS = 86_400_000;
 const MOVING: Application["status"][] = ["queued", "preparing", "applying", "awaiting_code"];
 export const isMoving = (a: Application) => MOVING.includes(a.status);
+/** Dropped by the person (POST /applications/:id/cancel): failed, with exactly this error. Try again brings it back. */
+export const isCancelled = (a: Application) => a.status === "failed" && a.error === "Cancelled by you";
+/** Statuses that can still be cancelled: before Nori is on the employer's page. */
+export const CANCELLABLE: Application["status"][] = ["queued", "preparing", "prepared", "needs_user"];
 /** Sent, as the API counts it: submitted, or a submit time on record. */
 export const isSent = (a: Application) => a.status === "submitted" || !!a.submittedAt;
 
@@ -18,7 +22,7 @@ export const isSent = (a: Application) => a.status === "submitted" || !!a.submit
 export function rowState(a: Application, o: Outcomes | undefined): RowState {
   if (MOVING.includes(a.status)) return "applying";
   if (a.status === "prepared" || a.status === "needs_user") return "needs_you";
-  if (a.status === "failed") return "failed";
+  if (a.status === "failed") return isCancelled(a) ? "cancelled" : "failed";
   if (!o?.state) return "sent";
   return o.state === "pending" ? "waiting" : o.state === "rejection" ? "rejected" : o.state;
 }
@@ -34,6 +38,7 @@ export const GROUP_OF: Record<RowState, Exclude<Group, "all"> | null> = {
   rejected: "closed",
   no_response: "closed",
   failed: "closed",
+  cancelled: "closed",
 };
 
 export const GROUPS: { id: Group; label: string }[] = [
@@ -49,6 +54,7 @@ export const CHIP: Record<RowState, { label: string; className: string }> = {
   applying: { label: "Applying", className: "bg-tint text-ink" },
   needs_you: { label: "Needs you", className: "bg-tint text-warning" },
   failed: { label: "Didn't go through", className: "bg-danger-tint text-danger" },
+  cancelled: { label: "Cancelled", className: "border border-line text-ink-2" },
   offer: { label: "Offer", className: "bg-accent-tint text-accent" },
   interview: { label: "Interview", className: "bg-peach-tint text-ink" },
   reply: { label: "Reply", className: "bg-accent-tint text-accent" },
@@ -83,6 +89,8 @@ export function rowLine(a: Application, o: Outcomes | undefined, state: RowState
       return a.pendingQuestions.length ? `Nori needs ${a.pendingQuestions.length} ${a.pendingQuestions.length === 1 ? "answer" : "answers"}` : "Needs you to finish it";
     case "failed":
       return a.submittedAt ? "Something went wrong after sending" : "Nothing was sent";
+    case "cancelled":
+      return "You cancelled it";
     case "reply":
       return n === null ? "Replied" : n === 0 ? "Replied the same day" : `Replied in ${days(n)}`;
     case "interview":
