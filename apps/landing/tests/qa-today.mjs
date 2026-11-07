@@ -90,7 +90,10 @@ async function mockApi(context, o = {}) {
       if (a.step === 2 && o.outcome === "needs" && !a.answered) Object.assign(a.app, { status: "needs_user", pendingQuestions: [{ id: "q1", text: "Can you work from the Brooklyn office 3 days a week?", type: "boolean", options: [], required: true }, { id: "q2", text: "Portfolio link", type: "text", options: [], required: true }] });
       else if (a.step === 2 && o.outcome === "wall") Object.assign(a.app, { status: "needs_user", pendingQuestions: [], error: "This site asked for a captcha." });
       else if (a.step === 3 && o.outcome === "failed" && !a.retried) Object.assign(a.app, { status: "failed", error: "The page stopped responding while Nori was uploading your resume." });
-      else if (a.step >= STEPS.length) (a.app.status = o.emailsCode ? "awaiting_code" : "sent"), o.emailsCode && event(a, "The employer emailed a verification code");
+      else if (a.step >= STEPS.length) {
+        a.app.status = o.emailsCode ? "awaiting_code" : "sent";
+        if (o.emailsCode) event(a, "The employer emailed a verification code");
+      }
     }
     if (a.app.status === "sent" || (s === "awaiting_code" && (a.typed || o.gmailCode))) {
       if (a.typed) event(a, "Using the code you typed");
