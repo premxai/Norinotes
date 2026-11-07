@@ -239,13 +239,16 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
         await transitionApplication(db, id, "awaiting_code", { from: "applying", receipt: { submitClicked: true, awaitingCode: true }, message: "Waiting for the emailed verification code" });
         const timeoutMs = deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS;
         let code: string | null = null;
+        let found = "Code received";
         if (deps.verification) {
           const got = await deps.verification({ applicationId: id, since, timeoutMs, accept: "code" }).catch(() => null);
           code = got?.type === "code" ? got.code : null;
+          if (code) found = codeFoundMessage(got?.source, got?.from);
         } else if (deps.codes) {
           code = await deps.codes.waitForCode(id, { hint, timeoutMs });
         }
-        await transitionApplication(db, id, "applying", { from: "awaiting_code", receipt: { submitClicked: true, awaitingCode: false }, message: code ? "Code received" : "No code arrived" });
+        // The message says where the code came from, never the code itself.
+        await transitionApplication(db, id, "applying", { from: "awaiting_code", receipt: { submitClicked: true, awaitingCode: false }, message: code ? found : "No code arrived" });
         return code;
       },
     } : {}),
@@ -397,4 +400,13 @@ export function createPrepareHandler(db: Db, deps: ApplyDeps): (payload: Payload
     const last = await driveApplication(db, payload.applicationId, deps);
     if (last.retry) throw new Error(last.message ?? "prepare step failed; retrying");
   };
+}
+
+/** The run log line for a code that arrived: where it came from (and who sent it), never the code. */
+export function codeFoundMessage(source: "gmail" | "typed" | "email" | undefined, from: string | undefined): string {
+  const sender = from?.match(/<([^>]+)>/)?.[1] ?? from?.trim();
+  const by = sender ? ` (from ${sender})` : "";
+  if (source === "gmail") return `Found the code in your Gmail${by}; entering it`;
+  if (source === "typed") return "Using the code you typed";
+  return `Code received by email${by}; entering it`;
 }

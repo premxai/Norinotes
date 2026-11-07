@@ -46,7 +46,7 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
   r.post("/batches", auth, async (c) => {
     const user = c.get("user");
     const { jobIds } = await parseBody(c, Start);
-    const res = await startBatch(db, user.id, jobIds, { now: ctx.now() });
+    const res = await startBatch(db, user.id, jobIds, { now: ctx.now(), atsTypes: ctx.config.batchAts });
     for (const a of res.added) if (a.created) await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: a.applicationId });
     if (!res.batchId) throw new HttpError(409, "None of these jobs can be added to a batch", JSON.stringify(res.skipped.map((s) => s.reason)));
     const [batch] = await db.select().from(applyBatches).where(eq(applyBatches.id, res.batchId)).limit(1);

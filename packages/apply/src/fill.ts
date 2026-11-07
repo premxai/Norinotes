@@ -284,28 +284,90 @@ async function yesNoButtons(page: Page, f: DiscoveredField, value: string): Prom
   return yes ? "Yes" : "No";
 }
 
-/** Location autocomplete: type, wait for suggestions to settle, pick the best, read back. */
+const US_STATES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware",
+  DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota",
+  MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon",
+  PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah",
+  VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+};
+
+/**
+ * The suggestion that means `value` ("San Francisco, CA, United States"): it starts with the city, and names the state
+ * (spelled out or abbreviated) and the country when the value does. -1 when none starts with the city.
+ */
+export function pickLocation(texts: string[], value: string): number {
+  const parts = value.split(",").map((x) => norm(x)).filter(Boolean);
+  const city = parts[0] ?? "";
+  if (!city) return -1;
+  const extras = parts.slice(1).flatMap((x) => {
+    const full = US_STATES[x.toUpperCase()];
+    return full ? [x, norm(full)] : [x];
+  });
+  let best = -1;
+  let bestScore = 0;
+  texts.forEach((raw, i) => {
+    const t = norm(clean(raw));
+    const segs = t.split(",").map((x) => x.trim());
+    if (segs[0] !== city) return;
+    const score = 1 + segs.slice(1).filter((seg) => extras.includes(seg)).length;
+    if (score > bestScore) { best = i; bestScore = score; }
+  });
+  return best;
+}
+
+/** A react-select input (Greenhouse's job boards): typed text is not a choice until a suggestion is picked. */
+const isReactSelect = (input: ReturnType<Page["locator"]>) => input.evaluate((el) => {
+  const e = el as unknown as { className: unknown; closest(s: string): unknown };
+  return (typeof e.className === "string" && /select__input/.test(e.className)) || e.closest("[class*=select__value-container]") !== null;
+}).catch(() => false);
+
+/**
+ * Location autocomplete: type the city (suggestions spell the state out, so "San Francisco, CA" finds nothing), wait for
+ * the suggestions, pick the one that matches, and read the choice back. Typed text alone is never taken as a choice:
+ * the form rejects it on submit.
+ */
 async function location(page: Page, f: DiscoveredField, value: string): Promise<string> {
   const input = page.locator(f.selector).first();
-  await input.click({ timeout: 4000 }).catch(() => input.focus());
-  await input.fill("").catch(() => {});
-  await input.pressSequentially(value.slice(0, 40), { delay: 15 });
-  const suggestions = page.locator('[role="listbox"]:visible [role="option"], .pac-container:visible .pac-item, ul[id*="autocomplete"]:visible li, .dropdown-results:visible > div, .location-results:visible li');
-  let count = 0;
-  let last = -1;
-  // Settle: the list is stable for one poll (async suggestions arrive in bursts).
-  await until(async () => { const n = await suggestions.count(); const settled = n > 0 && n === last; last = n; count = n; return settled; }, 3000, 200);
-  if (count > 0) {
+  const suggestions = page.locator('[role="listbox"]:visible [role="option"], .select__menu:visible .select__option, .pac-container:visible .pac-item, ul[id*="autocomplete"]:visible li, .dropdown-results:visible > div, .location-results:visible li');
+  const city = clean(value.split(",")[0] ?? value);
+  let lastError = "no suggestions";
+  for (const query of [...new Set([city, clean(value)])]) {
+    await input.click({ timeout: 4000 }).catch(() => input.focus());
+    await input.fill("").catch(() => {});
+    await input.pressSequentially(query.slice(0, 40), { delay: 40 });
+    let count = 0;
+    let last = -1;
+    // Settle: the list is stable for one poll (async suggestions arrive in bursts).
+    await until(async () => { const n = await suggestions.count(); const settled = n > 0 && n === last; last = n; count = n; return settled; }, 6000, 250);
+    if (count === 0) { lastError = `no suggestions for "${query}"`; continue; }
     const texts = (await suggestions.allInnerTexts()).map(clean);
-    const i = Math.max(0, pickOption(texts, value));
+    let i = pickLocation(texts, value);
+    if (i < 0) i = pickOption(texts, value);
+    if (i < 0) i = 0;
+    const picked = texts[i]!;
     await suggestions.nth(i).click({ timeout: 3000 }).catch(() => {});
-  } else {
-    const auto = (await input.getAttribute("aria-autocomplete").catch(() => null)) ?? (await input.getAttribute("role").catch(() => null));
-    if (auto) { await input.press("ArrowDown").catch(() => {}); await input.press("Enter").catch(() => {}); }
+    if (await isReactSelect(input)) {
+      // react-select (Greenhouse): the choice shows as its single value; the input itself is emptied.
+      if (await until(() => comboboxReadsBack(page, f, picked), 2000)) return picked.slice(0, 120);
+      lastError = `"${picked}" did not read back`;
+      continue;
+    }
+    const now = (await input.inputValue().catch(() => "")) || (await chosenText(page, f.selector)) || (await blockText(page, f.selector));
+    if (clean(now)) return clean(now).slice(0, 120);
   }
-  const now = (await input.inputValue().catch(() => "")) || (await chosenText(page, f.selector)) || (await blockText(page, f.selector));
-  if (!clean(now)) throw new Error("the location was not accepted");
-  return clean(now).slice(0, 120);
+  if (!(await isReactSelect(input))) {
+    // A text box with optional suggestions (Ashby): the typed location stands on its own.
+    await input.fill("").catch(() => {});
+    await input.pressSequentially(clean(value).slice(0, 40), { delay: 15 }).catch(() => {});
+    if (await input.getAttribute("aria-autocomplete").catch(() => null)) { await input.press("ArrowDown").catch(() => {}); await input.press("Enter").catch(() => {}); }
+    const now = (await input.inputValue().catch(() => "")) || (await chosenText(page, f.selector)) || (await blockText(page, f.selector));
+    if (clean(now)) return clean(now).slice(0, 120);
+  }
+  await input.press("Escape").catch(() => {});
+  throw new Error(`the location was not accepted (${lastError})`);
 }
 
 async function strategyFor(page: Page, f: DiscoveredField): Promise<WidgetStrategy> {

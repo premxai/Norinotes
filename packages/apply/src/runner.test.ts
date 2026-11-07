@@ -512,3 +512,12 @@ describe("retryApplication", () => {
     expect(await retryApplication(t.db, a.app.id)).toMatchObject({ ok: false }); // queued: nothing to retry
   });
 });
+
+describe("the run log line for a code", () => {
+  it("says where the code came from, never the code", async () => {
+    const { codeFoundMessage } = await import("./runner.js");
+    expect(codeFoundMessage("gmail", "Greenhouse <no-reply@us.greenhouse-mail.io>")).toBe("Found the code in your Gmail (from no-reply@us.greenhouse-mail.io); entering it");
+    expect(codeFoundMessage("typed", "you (typed in Norinote)")).toBe("Using the code you typed");
+    expect(codeFoundMessage("email", undefined)).toBe("Code received by email; entering it");
+  });
+});

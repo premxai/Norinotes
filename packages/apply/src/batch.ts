@@ -62,20 +62,20 @@ export async function saveNoriSettings(db: Db, userId: string, patch: Partial<No
 
 // ---- starting a batch ---------------------------------------------------------------------------------------------
 
-export type BatchSkip = { jobId: string; reason: "not_found" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" };
+export type BatchSkip = { jobId: string; reason: "not_found" | "not_supported" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" };
 export type StartBatchResult = { batchId: string | null; added: Array<{ jobId: string; applicationId: string; created: boolean }>; skipped: BatchSkip[] };
 
 /**
  * Creates the batch and an application per job (or adopts the person's own unsent one), at most one per company and
  * never for a skipped company. The caller queues `prepare.application` for each `created` one.
  */
-export async function startBatch(db: Db, userId: string, jobIds: readonly string[], opts: { now?: Date } = {}): Promise<StartBatchResult> {
+export async function startBatch(db: Db, userId: string, jobIds: readonly string[], opts: { now?: Date; atsTypes?: readonly string[] | null } = {}): Promise<StartBatchResult> {
   const now = opts.now ?? new Date();
   const ids = [...new Set(jobIds)].slice(0, MAX_BATCH);
   const settings = await getNoriSettings(db, userId);
   const skipSet = new Set(settings.skipCompanies.map(normalizeCompany));
   const rows = ids.length
-    ? await db.select({ id: jobs.id, companyId: jobs.companyId, companyName: companies.name }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(inArray(jobs.id, ids))
+    ? await db.select({ id: jobs.id, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(inArray(jobs.id, ids))
     : [];
   const byId = new Map(rows.map((r) => [r.id, r]));
   const skipped: BatchSkip[] = [];
@@ -84,6 +84,8 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
   for (const id of ids) {
     const job = byId.get(id);
     if (!job) { skipped.push({ jobId: id, reason: "not_found" }); continue; }
+    // Job systems Nori sends batches through (BATCH_ATS); others stay for the person to apply to one at a time.
+    if (opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType)) { skipped.push({ jobId: id, reason: "not_supported" }); continue; }
     if (skipSet.has(normalizeCompany(job.companyName))) { skipped.push({ jobId: id, reason: "skipped_company" }); continue; }
     if (companiesSeen.has(job.companyId)) { skipped.push({ jobId: id, reason: "same_company" }); continue; }
     companiesSeen.add(job.companyId);
@@ -129,6 +131,12 @@ export type DrainStep = { batchId: string; applicationId: string };
  */
 export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<DrainStep[]> {
   const now = opts.now ?? new Date();
+  // A finished batch carries on when one of its parked applications comes back (the person answered its questions):
+  // it is unsent, unapproved and being prepared again. Its summary is sent again when it finishes.
+  await db.update(applyBatches).set({ status: "running", finishedAt: null, notifiedAt: null }).where(and(
+    eq(applyBatches.status, "done"),
+    sql`exists (select 1 from ${applications} where ${applications.batchId} = ${applyBatches.id} and ${applications.approvedAt} is null and ${applications.status} in ('queued', 'preparing', 'prepared'))`,
+  ));
   const running = await db.select().from(applyBatches).where(eq(applyBatches.status, "running")).orderBy(asc(applyBatches.createdAt));
   const out: DrainStep[] = [];
   const startedFor = new Set<string>();

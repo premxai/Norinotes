@@ -63,6 +63,17 @@ describe("starting a batch", () => {
     expect(batch).toMatchObject({ status: "running", total: 3 });
   });
 
+  it("takes only the job systems it is told to (the Greenhouse-only demo)", async () => {
+    const u = await user();
+    const gh = await job("Green Co");
+    const [c] = await t.db.insert(companies).values({ name: "Lever Co", atsType: "lever", atsToken: `lever-co-${seq++}` }).returning();
+    const n = seq++;
+    const [lv] = await t.db.insert(jobs).values({ companyId: c!.id, atsType: "lever", externalId: `e${n}`, title: "Engineer", applyUrl: `https://jobs.lever.co/x/${n}`, dedupeKey: `k${n}` }).returning();
+    const res = await startBatch(t.db, u, [gh, lv!.id], { atsTypes: ["greenhouse"] });
+    expect(res.added.map((x) => x.jobId)).toEqual([gh]);
+    expect(res.skipped).toEqual([{ jobId: lv!.id, reason: "not_supported" }]);
+  });
+
   it("makes no batch when nothing can be added", async () => {
     const u = await user();
     await saveNoriSettings(t.db, u, { skipCompanies: ["Nope"] });
@@ -112,6 +123,21 @@ describe("sending a batch", () => {
     await drain(new Date(nextDay.getTime() + 60_000));
     const [done] = await t.db.select().from(applyBatches).where(eq(applyBatches.id, res.batchId!));
     expect(done!.status).toBe("done");
+  });
+
+  it("finishes with one parked, then carries on when the person answers it", async () => {
+    const u = await user();
+    const res = await startBatch(t.db, u, [await job("Parked Co")]);
+    const id = res.added[0]!.applicationId;
+    const drain = async (now: Date) => (await drainBatches(t.db, { now })).filter((s) => s.batchId === res.batchId);
+    const batchRow = async () => (await t.db.select().from(applyBatches).where(eq(applyBatches.id, res.batchId!)))[0]!;
+    await setStatus(id, "needs_user", { pendingQuestions: [{ id: "q", text: "Consent?", required: true }] });
+    await drain(new Date());
+    expect((await batchRow()).status).toBe("done");
+    // Answered: prepared again, so the batch reopens and sends it.
+    await setStatus(id, "prepared", { pendingQuestions: [] });
+    expect((await drain(new Date())).map((s) => s.applicationId)).toEqual([id]);
+    expect(await batchRow()).toMatchObject({ status: "running", finishedAt: null, notifiedAt: null });
   });
 
   it("leaves parked ones for the person, and Stop cancels what has not started", async () => {

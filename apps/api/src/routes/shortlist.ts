@@ -22,7 +22,7 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
    */
   const loadRows = (userId: string, take: number) => db.select({
     id: shortlist.id, jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, status: shortlist.status, createdAt: shortlist.createdAt,
-    jobTitle: jobs.title, location: jobs.location, remote: jobs.remote, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, companyName: companies.name,
+    jobTitle: jobs.title, location: jobs.location, remote: jobs.remote, applyUrl: jobs.applyUrl, atsType: jobs.atsType, postedAt: jobs.postedAt, companyName: companies.name,
     logoDomain: companyLogoDomain,
   }).from(shortlist)
     .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
@@ -53,7 +53,7 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
       // Set when the job is here because the lanes were widened ("Showing similar roles while we look for more").
       widenedBy,
       locations: Math.max(1, locations.length), locationNames: locations.slice(0, 8),
-      job: { id: s.jobId, companyName: s.companyName, companyLogoUrl: logo(s.logoDomain), title: s.jobTitle, location: s.location, remote: s.remote, applyUrl: s.applyUrl, postedAt: s.postedAt ? s.postedAt.toISOString() : null },
+      job: { id: s.jobId, companyName: s.companyName, companyLogoUrl: logo(s.logoDomain), title: s.jobTitle, location: s.location, remote: s.remote, applyUrl: s.applyUrl, atsType: s.atsType, postedAt: s.postedAt ? s.postedAt.toISOString() : null },
     })));
   });
 

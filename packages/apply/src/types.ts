@@ -131,7 +131,7 @@ export interface AiBrowserFallback {
  * verification link parks the application as needs_user (opening links automatically is a later decision).
  */
 export type AwaitVerification = (args: { applicationId: string; since: Date; timeoutMs: number; accept?: "code" | "link" | "any" }) =>
-  Promise<{ type: "code"; code: string } | { type: "link"; link: string } | null>;
+  Promise<({ type: "code"; code: string } | { type: "link"; link: string }) & { source?: "gmail" | "typed" | "email"; from?: string } | null>;
 
 /** Resolves with the emailed verification code for an application, or null when none arrived in time. */
 export interface CodeWaiter {

@@ -84,8 +84,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   PUT takes any of these; unknown keys are 400.
 - POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once. At most one job per company,
   never a skipped company; an unsent application of theirs is taken over, a sent one is skipped. 201 `{ batch, added,
-  skipped: [{ jobId, reason }] }` (reasons: not_found, skipped_company, same_company, already_applied,
-  duplicate_recent); 409 when nothing could be added. Applications are prepared now.
+  skipped: [{ jobId, reason }] }` (reasons: not_found, not_supported, skipped_company, same_company, already_applied,
+  duplicate_recent); 409 when nothing could be added. Applications are prepared now. `BATCH_ATS` on the API (e.g.
+  `greenhouse`) limits batches to those job systems; others are skipped as not_supported. Shortlist jobs carry
+  `atsType`, so the page can offer only those.
 - The worker (every 30 s) starts a running batch's next prepared application when nothing of it is on a page, the
   spacing has passed since the last start and today's limit has room. What needs the person is parked (needs_user)
   and never guessed; answering resumes it. A batch with nothing left to send becomes `done`; Telegram sends a summary.

@@ -5,8 +5,13 @@ import type { InboxMeta } from "./receive.js";
 
 /** What `awaitVerification` hands back: a code to type, or a link to open, from one stored message. */
 export type VerificationResult =
-  | { type: "code"; code: string; messageId: string; receivedAt: Date; from: string }
-  | { type: "link"; link: string; messageId: string; receivedAt: Date; from: string };
+  | { type: "code"; code: string; messageId: string; receivedAt: Date; from: string; source: CodeSource }
+  | { type: "link"; link: string; messageId: string; receivedAt: Date; from: string; source: CodeSource };
+
+/** Where the mail came from: the person's connected Gmail, a code they typed in Norinote, or mail sent to their address. */
+export type CodeSource = "gmail" | "typed" | "email";
+const sourceOf = (externalId: string | null): CodeSource =>
+  externalId?.startsWith("gmail:") ? "gmail" : externalId?.startsWith("typed:") ? "typed" : "email";
 
 export type AwaitVerificationArgs = {
   applicationId: string;
@@ -28,14 +33,15 @@ export type AwaitVerificationArgs = {
   now?: () => Date;
 };
 
-type Row = { id: string; code: string | null; links: string[]; meta: unknown; receivedAt: Date; from: string; applicationId: string | null };
+type Row = { id: string; externalId: string | null; code: string | null; links: string[]; meta: unknown; receivedAt: Date; from: string; applicationId: string | null };
 
 function toResult(r: Row, accept: "code" | "link" | "any"): VerificationResult | null {
   const meta = (r.meta ?? {}) as InboxMeta;
   if (meta.spam) return null;
-  if (r.code && accept !== "link") return { type: "code", code: r.code, messageId: r.id, receivedAt: r.receivedAt, from: r.from };
+  const source = sourceOf(r.externalId);
+  if (r.code && accept !== "link") return { type: "code", code: r.code, messageId: r.id, receivedAt: r.receivedAt, from: r.from, source };
   const link = meta.verificationLink ?? null;
-  if (link && accept !== "code") return { type: "link", link, messageId: r.id, receivedAt: r.receivedAt, from: r.from };
+  if (link && accept !== "code") return { type: "link", link, messageId: r.id, receivedAt: r.receivedAt, from: r.from, source };
   return null;
 }
 
@@ -49,7 +55,7 @@ export async function findVerification(db: Db, args: Pick<AwaitVerificationArgs,
   const accept = args.accept ?? "any";
   const [app] = await db.select({ userId: applications.userId, jobId: applications.jobId }).from(applications).where(eq(applications.id, args.applicationId)).limit(1);
   if (!app) return null;
-  const cols = { id: inboxMessages.id, code: inboxMessages.code, links: inboxMessages.links, meta: inboxMessages.meta, receivedAt: inboxMessages.receivedAt, from: inboxMessages.fromAddress, applicationId: inboxMessages.applicationId };
+  const cols = { id: inboxMessages.id, externalId: inboxMessages.messageId, code: inboxMessages.code, links: inboxMessages.links, meta: inboxMessages.meta, receivedAt: inboxMessages.receivedAt, from: inboxMessages.fromAddress, applicationId: inboxMessages.applicationId };
 
   const linked = await db.select(cols).from(inboxMessages)
     .where(and(eq(inboxMessages.applicationId, args.applicationId), eq(inboxMessages.kind, "verification_code"), gte(inboxMessages.receivedAt, args.since)))

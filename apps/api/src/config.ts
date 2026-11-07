@@ -33,6 +33,8 @@ export type ApiConfig = {
   resendApiKey: string | undefined;
   /** Composio project key, for reading emailed codes from a connected Gmail (docs/inbox.md). Unset = Gmail cannot be connected. */
   composioApiKey: string | undefined;
+  /** Job systems "Apply for me" batches may send through (BATCH_ATS, comma separated, e.g. "greenhouse"). Empty = all. */
+  batchAts: string[];
   mailFrom: string | undefined;
   /** BRANDFETCH_CLIENT_ID: public id for company logos on job cards. Unset = no logo URLs (cards show a letter tile). */
   brandfetchClientId: string | undefined;
@@ -63,6 +65,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     maxResumeBytes: 10 * 1024 * 1024,
     resendApiKey: clean(env.RESEND_API_KEY),
     composioApiKey: clean(env.COMPOSIO_API_KEY),
+    batchAts: (clean(env.BATCH_ATS) ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     mailFrom: clean(env.MAIL_FROM),
     brandfetchClientId: clean(env.BRANDFETCH_CLIENT_ID),
   };

@@ -116,7 +116,7 @@ describe("reading the code from a connected Gmail while a run waits", () => {
       { id: "x2", from: "Acme via Greenhouse <no-reply@us.greenhouse-mail.io>", subject: "Security code for your application to Acme", text: "Copy and paste this code into the security code field:\n\n482913", receivedAt: new Date() },
     ]);
     const got = await awaitVerificationWithGmail({ db: t.db, gmail, applicationId: appId, since: new Date(Date.now() - 1000), timeoutMs: 5000, accept: "code", pollMs: 20, intervalMs: 500 });
-    expect(got).toMatchObject({ type: "code", code: "482913" });
+    expect(got).toMatchObject({ type: "code", code: "482913", source: "gmail" });
     const stored = await t.db.select().from(inboxMessages).where(eq(inboxMessages.userId, userId));
     expect(stored).toHaveLength(1);
     expect(stored[0]).toMatchObject({ kind: "verification_code", applicationId: appId, code: "482913" });

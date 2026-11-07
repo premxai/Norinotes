@@ -50,7 +50,7 @@ describe("shortlist", () => {
     expect(list.json[1]).toEqual({
       id: expect.any(String), jobId: a.job.id, fit: 0.7, reasons: ["Fits at 70%"], status: "new", createdAt: expect.any(String), widenedBy: null,
       locations: 1, locationNames: ["Austin, TX"],
-      job: { id: a.job.id, companyName: "Alpha", companyLogoUrl: null, title: "Backend Engineer", location: "Austin, TX", remote: false, applyUrl: a.job.applyUrl, postedAt: expect.any(String) },
+      job: { id: a.job.id, companyName: "Alpha", companyLogoUrl: null, title: "Backend Engineer", location: "Austin, TX", remote: false, applyUrl: a.job.applyUrl, atsType: a.job.atsType, postedAt: expect.any(String) },
     });
 
     expect((await api.call("POST", `/api/shortlist/${b.job.id}/dismiss`, { cookie })).status).toBe(200);
