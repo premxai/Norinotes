@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { answerBank, applications, careerPoints, eq, jobs, resumes, runEvents, shortlist } from "@norinote/db";
 import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
+import { unansweredQuestions } from "@norinote/apply";
 
 let api: Api;
 let cookie: string;
@@ -209,6 +210,21 @@ describe("applications", () => {
 
     expect((await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: {} } })).status).toBe(200);
     expect((await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: {} })).status).toBe(400);
+  });
+
+  it("keeps an answer under the question's text too, so a form that renames its fields still finds it", async () => {
+    const { job } = await seedJob(api.db, { company: "Renaming Co" });
+    const text = "What is your level of English proficiency?";
+    const app = await seedApplication(api.db, userId, job.id, {
+      status: "needs_user", approvedAt: null, preparedAt: new Date(), resumeId: null,
+      pendingQuestions: [QUESTION("field:instance-1_q-english", text)],
+    });
+    const res = await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: { "field:instance-1_q-english": "Fluent" } } });
+    expect(res.status).toBe(200);
+    const [row] = await api.db.select().from(applications).where(eq(applications.id, app.id));
+    expect(row?.answers).toMatchObject({ "field:instance-1_q-english": "Fluent", [text]: "Fluent" });
+    // The next load names the same question differently; it still counts as answered.
+    expect(unansweredQuestions({ pendingQuestions: [QUESTION("field:instance-2_q-english", text)], answers: row!.answers })).toEqual([]);
   });
 
   it("accepts an answer keyed by a long consent paragraph", async () => {

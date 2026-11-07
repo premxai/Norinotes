@@ -61,13 +61,20 @@ export async function approveApplication(ctx: Ctx, app: ApplicationRow, answers?
  */
 export async function answerApplication(ctx: Ctx, userId: string, app: ApplicationRow, answers: Record<string, string>): Promise<{ ok: true; status: ApplicationRow["status"]; resumed: boolean }> {
   const { db } = ctx;
-  await saveAnswers(db, app.id, answers);
-
-  // Remember each answer for next time, under the question the form asked.
   const asked = app.pendingQuestions.flatMap((q) => {
     const o = q as { id?: unknown; text?: unknown };
     return typeof o.id === "string" && typeof o.text === "string" ? [{ id: o.id, text: o.text }] : [];
   });
+  // Also keep each answer under the question's text. Some forms (Ashby's grouped questions) rename their fields on every
+  // load ("field:<form instance>_<question>"), so the next run finds the answer by the question it asks, not the old name.
+  const byText: Record<string, string> = {};
+  for (const [key, value] of Object.entries(answers)) {
+    const question = asked.find((q) => q.id === key);
+    if (question && value.trim() && !(question.text in answers)) byText[question.text] = value;
+  }
+  await saveAnswers(db, app.id, { ...answers, ...byText });
+
+  // Remember each answer for next time, under the question the form asked.
   for (const [key, value] of Object.entries(answers)) {
     if (!value.trim()) continue;
     const question = asked.find((q) => q.id === key || q.text === key);
