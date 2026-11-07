@@ -45,7 +45,9 @@ describe("schema on PGlite with pgvector", () => {
     expect(defs.get("jobs_ats_external_uq")).toMatch(/UNIQUE .*ats_type, external_id/);
     expect(defs.get("shortlist_user_status_fit_idx")).toMatch(/fit DESC/);
     expect(defs.has("jobs_closed_posted_idx")).toBe(true);
-    expect(defs.has("jobs_dedupe_key_idx")).toBe(true);
+    // Open jobs by age (freshJobSql's leading range); the unused text index on dedupe_key is gone.
+    expect(defs.get("jobs_open_recency_idx")).toMatch(/COALESCE\(posted_at, first_seen_at\).*WHERE \(closed_at IS NULL\)/);
+    expect(defs.has("jobs_dedupe_key_idx")).toBe(false);
     expect(defs.has("applications_user_status_idx")).toBe(true);
     expect(defs.has("answer_bank_user_idx")).toBe(true);
   });

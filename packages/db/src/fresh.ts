@@ -8,11 +8,13 @@ const HOUR_MS = 3_600_000;
 /**
  * Posted within `hours`. A job whose feed gives no posted date counts only when it appeared on a later read than the
  * board's first (`companies.first_read_at`), within `hours` of now: everything on a first read was already there, of
- * unknown age. Needs `companies` joined. Written as two ranges so the (closed, posted) index can serve the dated half.
+ * unknown age. Needs `companies` joined. The leading `coalesce(posted, first seen) >= since` follows from the rest (a dated
+ * job is judged by its posted date, an undated one by first seen) and lets an open-job query use jobs_open_recency_idx
+ * instead of reading every job.
  */
 export function freshJobSql(now: Date, hours: number = MAX_JOB_AGE_HOURS): SQL {
   const since = new Date(now.getTime() - Math.min(hours, MAX_JOB_AGE_HOURS) * HOUR_MS).toISOString();
-  return sql`(${jobs.postedAt} >= ${since}::timestamptz OR (${jobs.postedAt} IS NULL AND ${jobs.firstSeenAt} >= ${since}::timestamptz AND ${jobs.firstSeenAt} > ${companies.firstReadAt}))`;
+  return sql`(coalesce(${jobs.postedAt}, ${jobs.firstSeenAt}) >= ${since}::timestamptz AND (${jobs.postedAt} >= ${since}::timestamptz OR (${jobs.postedAt} IS NULL AND ${jobs.firstSeenAt} >= ${since}::timestamptz AND ${jobs.firstSeenAt} > ${companies.firstReadAt})))`;
 }
 
 /**
