@@ -7,7 +7,8 @@ import { approveAndSubmit, createApplication, liveFrameKey, retryApplication, sa
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
-import { HttpError, notFound, parseBody, uuidParam } from "../http.js";
+import { HttpError, intParam, notFound, parseBody, uuidParam } from "../http.js";
+import { applicationFlow } from "../application-flow.js";
 import { brandfetchLogo, companyLogoDomain, toApplication, toJob, toResume, toRunEvent } from "../serialize.js";
 import { enqueueRequired, enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
@@ -138,6 +139,14 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     if (app.status === "queued" || app.status === "preparing") await enqueueRequired(ctx, JOBS.prepareApplication, { applicationId: app.id });
     else if (app.status === "applying") await enqueueRequired(ctx, JOBS.applyRun, { applicationId: app.id, trigger: "click" });
   }
+
+  // The tracker: where the person's applications went, as Sankey nodes and links. `days` limits it to applications
+  // started in that many days (default all).
+  r.get("/flow", auth, async (c) => {
+    const raw = c.req.query("days");
+    const days = raw ? intParam(raw, 0, 1, 3650) : null;
+    return c.json(await applicationFlow(db, c.get("user").id, { now: ctx.now(), days }));
+  });
 
   r.get("/", auth, async (c) => {
     const rows = await db.select({ app: applications, job: jobs, companyName: companies.name, logoDomain: companyLogoDomain, resume: resumes }).from(applications)

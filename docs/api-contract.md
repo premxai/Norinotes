@@ -55,6 +55,11 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   and `updatedAt`.
 - POST `/api/applications/:id/approve` (optional `{ answers }`), `/api/applications/:id/answer` (`{ answers }` keyed
   by pending question id), `/api/applications/:id/retry`.
+- GET `/api/applications/flow` (optional `?days=`): the tracker's Sankey. `{ since, total, nodes: [{ id, label, count,
+  stage }], links: [{ source, target, value }] }`. Stage 0 `started`; 1 `sent`, `needs_you`, `in_progress`, `cancelled`,
+  `failed`; 2 (from sent) `interview`, `replied`, `rejected`, `waiting`, `silent` (no reply after 30 days); 3 (from
+  interview) `offer`, `rejected_after_interview`, `interviewing`. One path per application; links into a node sum to
+  its count; outcomes come from the `outcomes` table (inbox or manual), an interview beats a reply.
 - GET `/api/applications/:id/live`: "Watch Nori apply". The latest JPEG of the employer's page while Nori works on it
   (a new frame about every second while `applying` or `awaiting_code`; the last one stays about 15 minutes). Owner only;
   404 when there is none; `cache-control: no-store`. The site's CSP allows images only from itself, data: and blob:, so
