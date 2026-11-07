@@ -97,6 +97,96 @@ function Answers({ questions, onSend, busy }: { questions: Question[]; onSend: (
   );
 }
 
+/** What the API takes as a typed code (routes/applications.ts `TypedCode`). */
+const CODE = /^[A-Za-z0-9 -]{3,20}$/;
+
+/**
+ * The verification code the employer emailed to the person's own address, which Nori can't read: the run waits on the
+ * employer's page (status awaiting_code, about 8 minutes) for the person to type it here. `onGone`: the API said the
+ * application isn't waiting any more (409); the page refreshes and shows where it is now.
+ */
+function CodeBox({ id, refresh, onGone }: { id: string; refresh: () => Promise<void>; onGone: (why: string) => void }) {
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  async function send() {
+    if (busy) return;
+    const code = value.trim();
+    const why = !code ? "Type the code from the email" : CODE.test(code) ? null : "A code is 3 to 20 letters or digits, as it appears in the email";
+    setError(why);
+    if (why) return input.current?.focus();
+    setBusy(true);
+    const r = await api.code(id, code);
+    setBusy(false);
+    if (r.ok) {
+      setSent(true);
+      return void refresh();
+    }
+    if (r.status === 409) {
+      onGone(r.error);
+      return void refresh();
+    }
+    setError(r.error);
+    input.current?.focus();
+  }
+
+  return sent ? (
+    <div className={`${box} flex flex-col items-start gap-1.5 border-2 border-accent`}>
+      <p role="status" className="font-semibold text-ink">
+        Got it, finishing your application…
+      </p>
+      <button type="button" onClick={() => (setSent(false), setValue(""))} className="min-h-10 text-small font-semibold text-ink underline underline-offset-[3px]">
+        Type a different code
+      </button>
+    </div>
+  ) : (
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        void send();
+      }}
+      className={`${box} flex flex-col gap-2.5 border-2 border-warning`}
+    >
+      <label htmlFor={`code-${id}`} className="font-semibold text-ink">
+        The employer just emailed you a verification code. Type it here and Nori will finish the application.
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <input
+          ref={input}
+          id={`code-${id}`}
+          // The one thing to do while the run waits, and the box appears only then.
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          autoComplete="one-time-code"
+          inputMode="text"
+          autoCapitalize="characters"
+          spellCheck={false}
+          maxLength={40}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={`code-${id}-hint${error ? ` code-${id}-error` : ""}`}
+          className="h-11 w-full max-w-[14rem] rounded-input border-[1.5px] border-line-strong bg-bg px-3 font-mono text-body tracking-[0.08em] text-ink aria-invalid:border-danger"
+        />
+        <button type="submit" aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11")}>
+          {busy ? "Sending…" : "Send code"}
+        </button>
+      </div>
+      {error && (
+        <p id={`code-${id}-error`} className="text-small text-danger">
+          {error}
+        </p>
+      )}
+      <p id={`code-${id}-hint`} className="text-[0.75rem] text-ink-2">
+        Nori keeps the employer&rsquo;s page open for about 8 minutes. After that, Try again sends a new code.
+      </p>
+    </form>
+  );
+}
+
 /** Every 2 s while the application moves, every 30 s once it waits on you or is done. */
 export const useApplication = (id: string | null) =>
   usePolling(id ? `app:${id}` : null, () => api.application(id ?? ""), (d: ApplicationDetail | null) => (!d || MOVING.includes(d.application.status) ? 2000 : 30_000));
@@ -126,7 +216,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
     const key = `${id}:${s}`;
     if (said.current === key) return;
     said.current = key;
-    const wall = s === "needs_user" && detail.application.pendingQuestions.length === 0;
+    const wall = s === "needs_user" && detail.application.pendingQuestions.length === 0 && !/verification code/i.test(detail.application.error ?? "");
     void noriReact({ event: wall ? "captcha" : NORI[s] });
   }, [detail, id]);
 
@@ -152,6 +242,8 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
 
   const a = detail.application;
   const wall = a.status === "needs_user" && a.pendingQuestions.length === 0;
+  // The wait for a typed code ran out (packages/apply EMAIL_CODE_REASON): unlike a captcha, Try again can get past it.
+  const codeLate = wall && /verification code/i.test(a.error ?? "");
   const lines = detail.events
     .filter((e) => e.level !== "debug" && e.message)
     .filter((e, i, all) => i === 0 || all[i - 1]?.message !== e.message)
@@ -159,6 +251,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
   const took = seconds(a.approvedAt, a.submittedAt, now);
   return (
     <div className="flex flex-col gap-4">
+      {a.status === "awaiting_code" && <CodeBox key={a.id} id={a.id} refresh={refresh} onGone={setFailure} />}
       <div className="flex items-center justify-between">
         <span role="status" className="rounded-full bg-tint px-2.5 py-1 text-[0.75rem] font-medium text-ink">
           {STATUS_LABEL[a.status]}
@@ -208,16 +301,23 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </>
       )}
 
-      {a.status === "awaiting_code" && (
-        <div className={`${box} bg-surface-2`}>
-          <p className="font-semibold text-ink">Waiting for the email code</p>
-          <p className="text-ink-2">It arrives in your Nori inbox, and Nori enters it for you.</p>
+      {a.status === "needs_user" && !wall && <Answers questions={a.pendingQuestions} busy={busy} onSend={(answers) => void act(() => api.answer(a.id, answers))} />}
+
+      {codeLate && (
+        <div className={`${box} flex flex-col items-start gap-2 border-2 border-warning text-ink`}>
+          <p>No code reached Nori in time, so the application isn&rsquo;t finished. Try again and Nori fills the form once more; the employer emails a new code, and you type it here.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => void act(() => api.retry(a.id))} aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11")}>
+              {busy ? "Trying…" : "Try again"}
+            </button>
+            <a href={detail.job.applyUrl} target="_blank" rel="noreferrer" className={buttonClass("outline", "min-h-11")}>
+              Finish on the employer&rsquo;s page
+            </a>
+          </div>
         </div>
       )}
 
-      {a.status === "needs_user" && !wall && <Answers questions={a.pendingQuestions} busy={busy} onSend={(answers) => void act(() => api.answer(a.id, answers))} />}
-
-      {wall && (
+      {wall && !codeLate && (
         <div className={`${box} border-2 border-warning text-ink`}>
           <p className="mb-2">{a.error ?? "This site asked for something only you can do."} Nori never gets around those; finish it yourself and Nori will pick up the reply.</p>
           <a href={detail.job.applyUrl} target="_blank" rel="noreferrer" className={buttonClass("outline", "min-h-11")}>

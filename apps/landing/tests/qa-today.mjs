@@ -52,7 +52,8 @@ const STEPS = ["Opened the application page", "Filled 9 fields", "Uploaded your 
 
 /**
  * The API as a state machine. `o.outcome`: sent | needs | wall | failed. `o.entries`, `o.apps` (already existing),
- * `o.signedOut`, `o.onboarding`, `o.unverified`, `o.offline` (the shortlist fails). `o.oldJob`: what GET /jobs/<id> sends
+ * `o.signedOut`, `o.onboarding`, `o.unverified`, `o.offline` (the shortlist fails). `o.emailsCode`: after Submit the
+ * employer emails a verification code, and the run waits until it's typed (POST /applications/:id/code). `o.oldJob`: what GET /jobs/<id> sends
  * for a job not on the list (a job, or null for a 404).
  */
 async function mockApi(context, o = {}) {
@@ -86,9 +87,10 @@ async function mockApi(context, o = {}) {
       if (a.step === 2 && o.outcome === "needs" && !a.answered) Object.assign(a.app, { status: "needs_user", pendingQuestions: [{ id: "q1", text: "Can you work from the Brooklyn office 3 days a week?", type: "boolean", options: [], required: true }, { id: "q2", text: "Portfolio link", type: "text", options: [], required: true }] });
       else if (a.step === 2 && o.outcome === "wall") Object.assign(a.app, { status: "needs_user", pendingQuestions: [], error: "This site asked for a captcha." });
       else if (a.step === 3 && o.outcome === "failed" && !a.retried) Object.assign(a.app, { status: "failed", error: "The page stopped responding while Nori was uploading your resume." });
-      else if (a.step >= STEPS.length) a.app.status = "awaiting_code";
-    } else if (s === "awaiting_code") {
-      event(a, "Code 482 913 arrived; entered it");
+      else if (a.step >= STEPS.length) a.app.status = o.emailsCode ? "awaiting_code" : "sent";
+    }
+    if (a.app.status === "sent" || (s === "awaiting_code" && a.typed)) {
+      if (a.typed) event(a, "You typed the verification code");
       Object.assign(a.app, { status: "submitted", submittedAt: new Date(Date.parse(a.app.approvedAt ?? MORNING.toISOString()) + 18_000).toISOString(), receipt: { confirmation: "FW-20931" } });
     }
   };
@@ -116,6 +118,13 @@ async function mockApi(context, o = {}) {
     }
     if (key === "GET /applications") return reply(200, [...apps.values()].reverse().map((a) => ({ application: a.app, job: a.job, resume: null })));
     if (key === "POST /applications") return reply(201, add(JSON.parse(body ?? "{}").jobId).app);
+    const typed = key.match(/^POST \/applications\/(a\d+)\/code$/);
+    if (typed) {
+      const a = apps.get(typed[1]);
+      if (a?.app.status !== "awaiting_code") return reply(409, { error: "This application is not waiting for a code" });
+      a.typed = true;
+      return reply(200, { ok: true });
+    }
     const m = key.match(/^(GET|POST) \/applications\/(a\d+)(?:\/(approve|answer|retry))?$/);
     if (m) {
       const a = apps.get(m[2]);
@@ -266,7 +275,7 @@ async function flows(browser) {
   }
   // Apply: getting ready, ready for your OK, Send it, the run log, the code, sent.
   {
-    const { context, page, calls } = await open(browser, "/today");
+    const { context, page, calls } = await open(browser, "/today", { emailsCode: true });
     await page.getByRole("button", { name: "Apply to Product designer at Fernway" }).click();
     check(W, "Apply creates the application", calls.some((c) => c.key === "POST /applications" && c.body?.includes("j1")), null);
     check(W, "getting it ready", await waitPanel(page, "Getting it ready", 4000), await panelText(page));
@@ -277,7 +286,10 @@ async function flows(browser) {
     await page.locator("[data-live-panel]").getByRole("button", { name: "Send it" }).click();
     await waitPanel(page, "Filled 9 fields");
     check(W, "the run log grows as it applies", (await page.locator("[data-live-panel] ol li").count()) >= 3, await panelText(page));
-    check(W, "waiting for the email code", await waitPanel(page, "Waiting for the email code"), null);
+    check(W, "the employer emails a code: the box asks for it", await waitPanel(page, "The employer just emailed you a verification code"), await panelText(page));
+    await page.locator("[data-live-panel] input[autocomplete=one-time-code]").fill("482913");
+    await page.locator("[data-live-panel]").getByRole("button", { name: "Send code" }).click();
+    check(W, "the typed code goes to the API", calls.some((c) => /^POST \/applications\/a\d+\/code$/.test(c.key) && JSON.parse(c.body).code === "482913"), null);
     check(W, "sent, with the time and the confirmation", (await waitPanel(page, "Sent in 18 seconds")) && (await panelText(page)).includes("FW-20931"), await panelText(page));
     check(W, "the card follows: Sent and Watch", await page.locator("main li", { hasText: "Product designer" }).locator("text=Sent").first().waitFor({ timeout: 8000 }).then(() => true, () => false), null);
     await context.close();

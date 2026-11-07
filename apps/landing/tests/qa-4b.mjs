@@ -59,6 +59,14 @@ const APPS = () => [
   { app: base("a8", "failed", { createdAt: at("2026-11-03T12:00:00"), error: "The page stopped responding while Nori was uploading your resume." }), job: job("j8", "Content designer", "Tern", null) },
   { app: sent("a9", "2026-10-28"), job: job("j9", "Product designer II", "Wren", "Remote"), outcomes: [{ id: "o9", kind: "offer", at: at("2026-11-02T15:00:00"), source: "manual", messageId: null }] },
 ];
+// The worker's words when no typed code arrived in time (packages/apply EMAIL_CODE_REASON).
+const CODE_LATE = "The employer emailed you a verification code and none reached Norinote in time. Retry and type the code in Norinote when asked, or finish on the employer's page.";
+/** APPS plus one run waiting for a typed code (a10) and one whose wait ran out (a11). */
+const CODE_APPS = () => [
+  ...APPS(),
+  { app: base("a10", "awaiting_code", { createdAt: at("2026-11-04T08:50:00"), approvedAt: at("2026-11-04T08:51:00") }), job: job("j10", "Service designer", "Larch", "Seattle, WA"), outcomes: [] },
+  { app: base("a11", "needs_user", { createdAt: at("2026-11-04T07:50:00"), approvedAt: at("2026-11-04T07:51:00"), error: CODE_LATE }), job: job("j11", "Motion designer", "Bramble", null), outcomes: [] },
+];
 const MESSAGES = () => [
   { id: "m2", applicationId: "a3", application: { id: "a3", status: "submitted", jobTitle: "Product designer", companyName: "Fernway" }, fromAddress: "no-reply@greenhouse.example.test", fromName: "Fernway via Greenhouse", subject: "Your security code", bodyText: "Copy and paste this code into the security code field on your application: 482913", receivedAt: at("2026-11-04T08:00:05"), kind: "verification_code", code: "482913", verificationLink: null, links: [], attachments: [], spam: false },
   { id: "m1", applicationId: "a5", application: { id: "a5", status: "submitted", jobTitle: "Design systems designer", companyName: "Mirro" }, fromAddress: "talent@mirro.example.test", fromName: "Priya at Mirro", subject: "Interview: Design systems designer", bodyText: "Hi Alex,\n\nThanks for applying. We'd love to talk. Could you do a 30 minute call next week?\n\nPriya", receivedAt: at("2026-11-04T07:00:00"), kind: "interview", code: null, verificationLink: null, links: [], attachments: [{ filename: "interview-guide.pdf", contentType: "application/pdf", size: 84_000 }], spam: false },
@@ -97,7 +105,11 @@ function summaryOf(rows, now, small) {
   };
 }
 
-/** `o.apps` (rows), `o.messages`, `o.small` (force the small sample), `o.inboxOff`, `o.offline`, `o.slow` (ms per outcomes call). */
+/**
+ * `o.apps` (rows), `o.messages`, `o.small` (force the small sample), `o.inboxOff`, `o.offline`, `o.slow` (ms per outcomes call).
+ * A typed code (POST /applications/:id/code): `o.code` is "ok" (sent two polls later), "gone" (409: the wait ran
+ * out first) or "bad" (the API's 400). `o.startsWaiting`: an applying run starts waiting for a code on its third poll.
+ */
 async function mockApi(context, o = {}) {
   const cors = { "access-control-allow-origin": BASE, "access-control-allow-credentials": "true", "access-control-allow-headers": "Content-Type", "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" };
   const calls = [];
@@ -153,11 +165,23 @@ async function mockApi(context, o = {}) {
       r.outcomes = r.outcomes.filter((x) => x.id !== m[2]);
       return reply(200, { ok: true, ...view(r) });
     }
+    m = key.match(/^POST \/applications\/([\w-]+)\/code$/);
+    if (m) {
+      const r = rows.find((x) => x.app.id === m[1]);
+      if (o.code === "bad") return reply(400, { error: "A code has only letters, digits, spaces and dashes" });
+      if (o.code === "gone") Object.assign(r.app, { status: "needs_user", error: CODE_LATE });
+      if (r.app.status !== "awaiting_code") return reply(409, { error: "This application is not waiting for a code", detail: r.app.status });
+      r.typed = 1; // the run takes it up a couple of polls later, as the worker would
+      return reply(200, { ok: true });
+    }
     m = key.match(/^(GET|POST) \/applications\/([\w-]+)(?:\/(approve|answer|retry))?$/);
     if (m) {
       const r = rows.find((x) => x.app.id === m[2]);
       if (!r) return reply(404, { error: "Application not found" });
       if (m[3]) return reply(200, { ok: true, status: r.app.status });
+      r.polls = (r.polls ?? 0) + 1;
+      if (o.startsWaiting && r.app.status === "applying" && r.polls >= 3) r.app.status = "awaiting_code";
+      if (r.typed && ++r.typed > 2) Object.assign(r.app, { status: "submitted", submittedAt: new Date(now + 20_000).toISOString(), receipt: { confirmation: "LR-1180", dryRun: false } });
       const events = r.app.approvedAt ? ["Opened the application page", "Filled 9 fields", "Uploaded your tailored resume", "Answered 2 questions from your answer bank", "Submitting", "Code 482 913 arrived; entered it", "Sent"].map((message, i) => ({ id: String(i + 1), ts: r.app.approvedAt, level: "info", step: "run", message })) : [];
       return reply(200, { application: r.app, job: r.job, resume: { changes: [{ before: "Led checkout research", after: "Led research and design for the checkout redesign", reason: "The role asks for end-to-end research" }] }, events });
     }
@@ -497,12 +521,71 @@ async function flows(browser) {
     check(W, "a first visit stays quiet", !(await played(page)).includes("celebrate"), await played(page));
     await context.close();
   }
+  // A verification code emailed to the person's own address: they type it while the run waits (awaiting_code).
+  {
+    const { context, page, calls, errors } = await open(browser, "/applications/a10", { apps: CODE_APPS() });
+    const box = page.locator("main form", { hasText: "The employer just emailed you a verification code" });
+    const input = page.locator("#code-a10");
+    const first = await page.locator("main section").first().evaluate((el) => el.firstElementChild?.firstElementChild?.tagName ?? el.firstElementChild?.tagName).catch(() => null);
+    check(W, "code: the box leads the page's status card", (await box.isVisible()) && first === "FORM", first);
+    check(W, "code: the field has the focus", (await page.evaluate(() => document.activeElement?.id)) === "code-a10", await page.evaluate(() => document.activeElement?.id));
+    check(W, "code: labelled, one-time-code, text keyboard", (await page.getByLabel("Type it here and Nori will finish the application").count()) === 1 && (await input.getAttribute("autocomplete")) === "one-time-code" && (await input.getAttribute("inputmode")) === "text", null);
+    check(W, "code: says the wait is about 8 minutes", (await box.innerText()).includes("about 8 minutes"), null);
+    const posts = () => calls.filter((c) => c.key === "POST /applications/a10/code");
+    await page.getByRole("button", { name: "Send code" }).click();
+    check(W, "code: empty is caught before sending", (await box.innerText()).includes("Type the code from the email") && posts().length === 0 && (await input.getAttribute("aria-invalid")) === "true", null);
+    await input.fill("48#2");
+    await page.getByRole("button", { name: "Send code" }).click();
+    check(W, "code: a malformed code is caught before sending", (await box.innerText()).includes("3 to 20 letters or digits") && posts().length === 0, null);
+    await input.fill("482 913");
+    await page.keyboard.press("Enter");
+    const got = await page.getByRole("status").filter({ hasText: "Got it, finishing your application" }).waitFor({ timeout: 4000 }).then(() => true, () => false);
+    check(W, "code: sent as typed, then Got it", got && posts().length === 1 && JSON.parse(posts()[0].body).code === "482 913", posts());
+    const done = await page.locator("#mark-title").waitFor({ timeout: 8000 }).then(() => true, () => false);
+    check(W, "code: the page moves on once the run sends it", done && !(await box.count()), null);
+    check(W, "code: no errors", errors.length === 0, errors);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/applications/a10", { apps: CODE_APPS(), code: "bad" });
+    await page.locator("#code-a10").fill("ABC-123");
+    await page.getByRole("button", { name: "Send code" }).click();
+    await wait(400);
+    const err = await page.locator("#code-a10-error").innerText().catch(() => "");
+    check(W, "code: the API's 400 shows under the field", err.includes("only letters, digits, spaces and dashes") && (await page.evaluate(() => document.activeElement?.id)) === "code-a10", err);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/applications/a10", { apps: CODE_APPS(), code: "gone" });
+    await page.locator("#code-a10").fill("482913");
+    await page.getByRole("button", { name: "Send code" }).click();
+    const late = await page.locator("main", { hasText: "No code reached Nori in time" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+    const text = await page.locator("main").innerText();
+    check(W, "code: 409 refreshes and shows where it is now", late && !(await page.locator("#code-a10").count()) && text.includes("not waiting for a code"), text.slice(0, 400));
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/applications/a1", { apps: CODE_APPS(), startsWaiting: true });
+    const shown = await page.locator("#code-a1").waitFor({ timeout: 10000 }).then(() => true, () => false);
+    check(W, "code: the box appears without a reload when the run starts waiting", shown, null);
+    await context.close();
+  }
+  {
+    const { context, page, calls } = await open(browser, "/applications/a11", { apps: CODE_APPS() });
+    const text = await page.locator("main").innerText();
+    check(W, "code ran out: Try again, not the captcha wording", text.includes("No code reached Nori in time") && !text.includes("Nori never gets around those"), text.slice(0, 400));
+    await page.getByRole("button", { name: "Try again" }).click();
+    await wait(400);
+    check(W, "code ran out: Try again asks for a retry", calls.some((c) => c.key === "POST /applications/a11/retry"), null);
+    check(W, "code ran out: the employer's page is a way out", (await page.getByRole("link", { name: "Finish on the employer’s page" }).getAttribute("href")) === "https://jobs.example.test/j11", null);
+    await context.close();
+  }
 }
 
 // ---- accessibility, keyboard, performance -----------------------------------------------------------------------------
 
 async function axe(browser) {
-  const states = [["/applications", {}], ["/applications/a3", {}], ["/applications/a2", {}], ["/inbox", {}], ["/inbox/m1", {}], ["/inbox", { inboxOff: true }]];
+  const states = [["/applications", {}], ["/applications/a3", {}], ["/applications/a2", {}], ["/applications/a10", { apps: CODE_APPS() }], ["/applications/a11", { apps: CODE_APPS() }], ["/inbox", {}], ["/inbox/m1", {}], ["/inbox", { inboxOff: true }]];
   for (const scheme of ["light", "dark"]) {
     for (const [w, h] of [[1440, 900], [390, 844]]) {
       for (const [path, o] of states) {

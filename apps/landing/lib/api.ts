@@ -220,6 +220,8 @@ export const api = {
   approve: (id: string, answers?: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/approve`, { json: answers ? { answers } : {} }),
   answer: (id: string, answers: Record<string, string>) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/answer`, { json: { answers } }),
   retry: (id: string) => call<Application>(`/applications/${encodeURIComponent(id)}/retry`, { json: {} }),
+  /** The code an employer emailed the person, typed while the run waits for it (status awaiting_code). 409: not waiting any more. */
+  code: (id: string, code: string) => call<{ ok: true }>(`/applications/${encodeURIComponent(id)}/code`, { json: { code } }),
   agentStatus: () => call<AgentStatus>("/agent/status"),
   // Part 4b.
   outcomes: (id: string) => call<Outcomes>(`/applications/${encodeURIComponent(id)}/outcomes`),
