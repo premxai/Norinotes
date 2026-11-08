@@ -58,8 +58,7 @@ const columns = (description: SQL<string> | typeof jobs.descriptionText) => ({
   id: jobs.id, companyId: jobs.companyId, atsType: jobs.atsType, externalId: jobs.externalId, title: jobs.title, location: jobs.location,
   remote: jobs.remote, descriptionText: description, applyUrl: jobs.applyUrl, postedAt: jobs.postedAt, firstSeenAt: jobs.firstSeenAt,
   lastSeenAt: jobs.lastSeenAt, closedAt: jobs.closedAt, dedupeKey: jobs.dedupeKey, companyName: companies.name,
-  logoDomain: companyLogoDomain, savedAt: jobBookmarks.createdAt,
-  payText: sql<string | null>`substring(${jobs.descriptionText} from ${PAY_SQL_PATTERN})`, fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
+  logoDomain: companyLogoDomain, savedAt: jobBookmarks.createdAt, fit: shortlist.fit, fitMap: shortlist.fitMap, reasons: shortlist.reasons, matchAt: shortlist.createdAt, appStatus: applications.status,
 });
 
 export type JobListItem = {
@@ -98,7 +97,13 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
     // Jobs on the user's own shortlist (including ones added by widening) always belong to Best match.
     if (fits) conds.push(p.view === "best" ? or(fits, and(isNotNull(shortlist.id), eq(shortlist.status, "new")), saved) : or(fits, saved));
   }
-  if (p.q) conds.push(sql`(${jobs.title} ilike ${likePattern(p.q)} or ${companies.name} ilike ${likePattern(p.q)})`);
+  if (p.q) {
+    // Title (trigram index) or one of the companies whose name matches (looked up first: the companies table is small).
+    const named = await db.select({ id: companies.id }).from(companies).where(sql`${companies.name} ilike ${likePattern(p.q)}`).limit(500);
+    conds.push(named.length
+      ? or(sql`${jobs.title} ilike ${likePattern(p.q)}`, inArray(jobs.companyId, named.map((c) => c.id)))
+      : sql`${jobs.title} ilike ${likePattern(p.q)}`);
+  }
   if (p.minScore !== undefined) conds.push(sql`${shortlist.fit} >= ${p.minScore}`);
 
   const order = bookmarks
@@ -133,11 +138,18 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
   }
 
   const rows = [...picked.entries()];
-  const places = p.group ? await postingPlaces(db, rows.map(([, r]) => r.companyId), now, p) : null;
+  // Pay is found in the full description of the jobs shown only (a regex over every scanned row made lists slow).
+  const payTexts = new Map<string, string | null>();
+  if (rows.length) {
+    const found = await db.select({ id: jobs.id, payText: sql<string | null>`substring(${jobs.descriptionText} from ${PAY_SQL_PATTERN})` })
+      .from(jobs).where(inArray(jobs.id, rows.map(([, r]) => r.id)));
+    for (const f of found) payTexts.set(f.id, f.payText);
+  }
+  const places = p.group ? await postingPlaces(db, rows.map(([, r]) => r.companyId), now, p, rows.map(([, r]) => r.title)) : null;
   return rows.map(([key, row]): JobListItem => {
     const description = needFullText ? row.descriptionText.slice(0, LIST_DESCRIPTION_CHARS) : row.descriptionText;
     const item: JobListItem = {
-      job: toJob({ ...row, descriptionText: description }, { name: row.companyName, logoUrl: logo(row.logoDomain) }, undefined, { payText: row.payText }),
+      job: toJob({ ...row, descriptionText: description }, { name: row.companyName, logoUrl: logo(row.logoDomain) }, undefined, { payText: payTexts.get(row.id) ?? null }),
       match: row.fit === null ? null : toMatch(row.id, { fit: row.fit, fitMap: row.fitMap ?? [], reasons: row.reasons ?? [], createdAt: row.matchAt ?? now }),
       applicationStatus: row.appStatus,
       saved: row.savedAt !== null,
@@ -149,12 +161,15 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
 }
 
 /** For each (company, title) group: how many postings are open and where (up to 8 names). One query over the groups' companies. */
-async function postingPlaces(db: Db, companyIds: string[], now: Date, p: JobListParams): Promise<Map<string, { count: number; names: string[] }>> {
+async function postingPlaces(db: Db, companyIds: string[], now: Date, p: JobListParams, titles: string[] = []): Promise<Map<string, { count: number; names: string[] }>> {
   const out = new Map<string, { count: number; names: string[] }>();
   if (companyIds.length === 0) return out;
+  // Only the groups' own titles: a big employer has thousands of open postings, and reading them all made lists slow.
+  const wanted = [...new Set(titles.map((t) => t.trim().toLowerCase()))];
   const rows = await db.select({ companyId: jobs.companyId, title: jobs.title, location: jobs.location }).from(jobs)
     .innerJoin(companies, eq(companies.id, jobs.companyId))
-    .where(and(inArray(jobs.companyId, [...new Set(companyIds)]), isNull(jobs.closedAt), freshJobSql(now, p.maxAgeHours)));
+    .where(and(inArray(jobs.companyId, [...new Set(companyIds)]), isNull(jobs.closedAt), freshJobSql(now, p.maxAgeHours),
+      wanted.length ? sql`lower(btrim(${jobs.title})) in (${sql.join(wanted.map((t) => sql`${t}`), sql`, `)})` : undefined));
   for (const r of rows) {
     const key = `${r.companyId}|${r.title.trim().toLowerCase()}`;
     const e = out.get(key) ?? { count: 0, names: [] };

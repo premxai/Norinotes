@@ -113,6 +113,13 @@
       "when": 1794089091827,
       "tag": "0015_dashboard_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794095278790,
+      "tag": "0016_job_title_search",
+      "breakpoints": true
     }
   ]
 }

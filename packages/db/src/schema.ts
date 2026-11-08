@@ -104,6 +104,8 @@ export const jobs = pgTable("jobs", {
   // Open jobs by their age (posted, else first seen): what freshJobSql's range and the newest-first lists use. No index on
   // dedupe_key: duplicates are folded in code, nothing looks a job up by it, and on text it was the largest index.
   index("jobs_open_recency_idx").on(sql`coalesce(${t.postedAt}, ${t.firstSeenAt})`).where(sql`${t.closedAt} IS NULL`),
+  // Jobs page search ("title contains"): a trigram index, so ilike '%words%' does not read every fresh job.
+  index("jobs_title_trgm_idx").using("gin", t.title.op("gin_trgm_ops")),
   index("jobs_company_idx").on(t.companyId),
   // Only jobs that still carry their text (fresh or referenced ones, a small share): the storage sweep walks these.
   index("jobs_with_text_idx").on(t.id).where(sql`${t.descriptionText} <> ''`),

@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { migrate as migratePg } from "drizzle-orm/node-postgres/migrator";
 import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
@@ -45,7 +46,7 @@ export async function openPglite(dir?: string): Promise<PGlite> {
   const persistent = dir !== undefined && dir !== ":memory:";
   // PGlite's own mkdir is not recursive: a fresh checkout has no ./data yet.
   if (persistent) mkdirSync(dir, { recursive: true });
-  const client = new PGlite({ ...(persistent ? { dataDir: dir } : {}), extensions: { vector } });
+  const client = new PGlite({ ...(persistent ? { dataDir: dir } : {}), extensions: { vector, pg_trgm } });
   await client.waitReady;
   return client;
 }
