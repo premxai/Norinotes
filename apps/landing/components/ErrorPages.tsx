@@ -119,7 +119,7 @@ export function FullError({ kind, reset }: { kind: ErrorKind; reset?: () => void
             <Link href="/" prefetch={false} className={buttonClass("primary", "min-h-12")}>
               Go to the home page
             </Link>
-            <Link href="/today" prefetch={false} className={buttonClass("outline", "min-h-12")}>
+            <Link href="/overview" prefetch={false} className={buttonClass("outline", "min-h-12")}>
               Open your dashboard
             </Link>
           </div>
@@ -146,7 +146,7 @@ export function ShellError({ kind, reset }: { kind: ErrorKind; reset?: () => voi
       </PageHead>
       <div className="flex max-w-[560px] flex-col items-start gap-4 rounded-card border-[1.5px] border-line bg-surface p-5 tablet:p-6">
         <p className="text-[1.0625rem] leading-[1.55] text-ink-2">{w.lead}</p>
-        <Buttons kind={kind} retry={retry} trying={trying} home={{ href: "/today", label: "Go to Today" }} />
+        <Buttons kind={kind} retry={retry} trying={trying} home={{ href: "/overview", label: "Go to Overview" }} />
       </div>
     </main>
   );

@@ -1,7 +1,7 @@
-// Phase 5 QA for dashboard part 4c (dashboard-4c-spec.md section 14): /you, /you/search, /you/nori and /you/account at
+// Phase 5 QA for dashboard part 4c (dashboard-4c-spec.md section 14): /graph, /settings/search, /settings/profile and /settings at
 // 11 sizes in Chromium, Firefox and WebKit, light and dark; the graph (lighting, filters, find, labels, card, Fix and its
-// errors, Remove, adding a fact, a newer resume, the list view, empty); lanes; the limit and No limit; the form groups;
-// the answers; Telegram's states and the link wait; the account; Send it over the limit; axe in both themes; keyboard;
+// errors, Remove, adding a fact, a newer resume, the list view, empty); the job search basics (v2); the form groups;
+// the answers; Connections (Gmail, Telegram's states and the link wait); the account; Send it over the limit; axe; keyboard;
 // budgets and a 250-dot graph; and optionally a real run against a local API.
 //   NEXT_PUBLIC_API_URL=http://localhost:4101 NEXT_DIST_DIR=.next-qa npm run build
 //   NEXT_DIST_DIR=.next-qa npx next start -p 3401
@@ -30,7 +30,7 @@ const MORNING = new Date("2026-11-04T09:00:00");
 const ALL_SIZES = [
   [360, 640], [390, 844], [430, 932], [768, 1024], [1024, 768], [1280, 720], [1366, 640], [1440, 900], [1920, 1080], [2560, 1440], [720, 450],
 ];
-const PAGES = ["/you", "/you/search", "/you/nori", "/you/account"];
+const PAGES = ["/graph", "/settings/search", "/settings/profile", "/settings/connections", "/settings"];
 
 mkdirSync(OUT, { recursive: true });
 const results = [];
@@ -48,6 +48,12 @@ const SKILLS = {
   "Journey mapping": [3, false, "2022-06"], "Interaction design": [8, true], "Data analysis": [2, true], React: [2, true], "HTML and CSS": [4, true],
   "UX writing": [1, false, "2021-09"], "Information architecture": [4, false, "2022-03"], Workshops: [3, false, "2021-05"], "WCAG 2.2": [1, true],
 };
+/** The graph's sources (dashboard v2 section 7): a GitHub account that added one card, and a LinkedIn link (kept only). */
+const GH_SOURCE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SOURCES = () => [
+  { id: GH_SOURCE, kind: "github", value: "alexr", status: "done", error: null, factsAdded: 1, lastReadAt: at("2026-11-02T10:00:00"), createdAt: at("2026-11-02T09:58:00") },
+  { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", kind: "linkedin", value: "https://www.linkedin.com/in/alexrivera", status: "done", error: null, factsAdded: 0, lastReadAt: null, createdAt: at("2026-11-02T09:59:00") },
+];
 const FACTS = () => [
   { id: "f-r1", type: "role", title: "Product designer", org: "Fernway", start: "2022", end: null, statement: "Leads research and design for checkout and onboarding.", skills: ["Figma", "User research", "Prototyping", "Design systems"], quote: "Product Designer, Fernway (2022–present)" },
   { id: "f-r2", type: "role", title: "UX designer", org: "Okra Health", start: "2019", end: "2022", statement: "Designed the patient app and the clinicians' tools.", skills: ["Figma", "Usability testing", "Accessibility", "Journey mapping"], quote: "UX Designer, Okra Health, 2019–2022" },
@@ -60,6 +66,7 @@ const FACTS = () => [
   { id: "f-m3", type: "metric", title: "Raised task success to 94%", org: "Okra Health", start: "2020", end: "2020", statement: "In usability tests of the patient app.", skills: ["Usability testing", "Accessibility"], user: true },
   { id: "f-e1", type: "education", title: "BFA, Interaction design", org: "Parsons School of Design", start: "2014", end: "2018", statement: "", skills: ["Interaction design", "Information architecture"], quote: "BFA Interaction Design, Parsons, 2018" },
   { id: "f-c1", type: "certification", title: "Google UX Design certificate", org: "Coursera", start: "2020", end: "2020", statement: "", skills: ["User research", "Usability testing"], quote: "Google UX Design Professional Certificate (2020)" },
+  { id: "f-p4", type: "project", title: "design-tokens", start: null, end: null, statement: "Design tokens as code for React apps. TypeScript; topics: design-systems.", skills: ["Design systems", "React"], gh: "alexr/design-tokens", src: GH_SOURCE },
 ];
 /** A big graph for the timing check: 90 facts and 160 skills. */
 const BIG = () => {
@@ -71,12 +78,14 @@ function graphOf(facts) {
   const nodes = facts.map((f) => ({
     id: f.id, type: f.type, label: f.org && f.type === "role" ? `${f.title} at ${f.org}` : f.title,
     props: { title: f.title, ...(f.org ? { org: f.org } : {}), ...(f.statement ? { statement: f.statement } : {}), skills: f.skills },
-    startDate: f.start ?? null, endDate: f.end ?? null, source: f.user ? "a fact you added" : "your resume", sourceQuote: f.user ? null : (f.quote ?? null),
+    startDate: f.start ?? null, endDate: f.end ?? null,
+    source: f.gh ? "GitHub" : f.site ? "your website" : f.user ? "a fact you added" : "your resume", sourceQuote: f.user || f.gh || f.site ? null : (f.quote ?? null),
+    origin: f.gh ? { kind: "github", ref: `https://github.com/${f.gh}`, label: f.gh } : f.site ? { kind: "site", ref: f.site, label: new URL(f.site).hostname } : f.user ? { kind: "user", ref: null, label: null } : { kind: "resume", ref: null, label: f.quote ?? null },
   }));
   const used = [...new Set(facts.flatMap((f) => f.skills))];
   for (const s of used) {
     const [years, current, lastUsed] = SKILLS[s] ?? [1, true];
-    nodes.push({ id: skillId(s), type: "skill", label: s, props: { years, current, ...(lastUsed ? { lastUsed } : {}) }, startDate: null, endDate: null, source: null, sourceQuote: null });
+    nodes.push({ id: skillId(s), type: "skill", label: s, props: { years, current, ...(lastUsed ? { lastUsed } : {}) }, startDate: null, endDate: null, source: null, sourceQuote: null, origin: null });
   }
   const edges = facts.flatMap((f) => f.skills.map((s) => ({ id: `${f.id}>${skillId(s)}`, src: f.id, dst: skillId(s), type: "used" })));
   return { nodes, edges };
@@ -104,16 +113,21 @@ const SESSIONS = () => [
   { id: "s3", current: false, device: "Firefox on Mac", createdAt: at("2026-10-12T09:00:00"), expiresAt: at("2026-11-12T09:00:00") },
 ];
 
-/** `o.empty` (no graph), `o.big` (250 dots), `o.telegram` ("off" | "unlinked" | "linked"), `o.noAnswers`, `o.cap`. */
+/** `o.empty` (no graph), `o.big` (250 dots), `o.telegram` ("off" | "unlinked" | "linked"), `o.gmail` ("off" | "unlinked" |
+    "expired" | "linked"; linked by default), `o.noAnswers`, `o.cap`. */
 async function mockApi(context, o = {}) {
   const cors = { "access-control-allow-origin": BASE, "access-control-allow-credentials": "true", "access-control-allow-headers": "Content-Type", "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
   const calls = [];
   let facts = o.empty ? [] : o.big ? BIG() : FACTS();
+  let sources = o.empty || o.big ? [] : SOURCES();
   let lanes = LANES();
   let profile = { ...PROFILE(), ...(o.cap !== undefined ? { autoApplyDailyCap: o.cap } : {}) };
   let answers = o.noAnswers ? [] : ANSWERS();
   let tg = { configured: o.telegram !== "off", botUsername: "NorinoteBot", linked: o.telegram === "linked", linkedAt: o.telegram === "linked" ? at("2026-11-01T10:00:00") : null, settings: TG_SETTINGS };
   let linking = 0;
+  const gm = o.gmail ?? "linked";
+  let gmail = { available: gm !== "off", connected: gm === "linked", status: gm === "expired" ? "EXPIRED" : gm === "linked" ? "ACTIVE" : null };
+  let nori = { spacingMinutes: 4, minFit: 0.7, skipCompanies: ["Brightline"], dailyLimit: 5 };
   let sessions = SESSIONS();
   let seq = 0;
   const user = { id: "u1", email: "alex.rivera@example.test", name: "Alex Rivera", emailVerifiedAt: o.unverified ? null : MORNING.toISOString(), createdAt: MORNING.toISOString() };
@@ -158,9 +172,39 @@ async function mockApi(context, o = {}) {
       } else facts = facts.filter((f) => f.id !== id);
       return reply(200, { ok: true });
     }
+    // The graph's sources: a new GitHub or site source is read by the second look after it's added (one card).
+    if (key === "GET /graph/sources") {
+      sources = sources.map((s) => {
+        if (s.status !== "pending" || ++s.looks < 2) return s;
+        facts = [...facts, { id: `f-s${++seq}`, type: "project", title: "Clinic check-in kiosk", start: "2021", end: "2021", statement: "A case study on my site.", skills: ["Interaction design"], site: s.kind === "site" ? s.value : undefined, gh: s.kind === "github" ? `${s.value}/kiosk` : undefined, src: s.id }];
+        return { ...s, status: "done", factsAdded: 1, lastReadAt: MORNING.toISOString() };
+      });
+      return reply(200, { sources: sources.map(({ looks: _looks, ...s }) => s) });
+    }
+    if (key === "POST /graph/sources") {
+      const { kind, value } = json();
+      if (kind === "github" && !/^[A-Za-z0-9-]+$/.test(value)) return reply(400, { error: "That is not a GitHub username" });
+      const norm = kind === "site" ? `https://${value.replace(/^https?:\/\//, "")}/` : kind === "linkedin" ? `https://www.${value.replace(/^https?:\/\/(www\.)?/, "")}` : value;
+      const same = sources.find((s) => s.kind === kind && s.value === norm);
+      if (same) return reply(200, { source: same });
+      const s = { id: `cccccccc-cccc-4ccc-8ccc-${String(++seq).padStart(12, "0")}`, kind, value: norm, status: kind === "linkedin" ? "done" : "pending", error: null, factsAdded: 0, lastReadAt: null, createdAt: MORNING.toISOString(), looks: 0 };
+      sources = [...sources, s];
+      const { looks: _looks, ...shown } = s;
+      return reply(201, { source: shown });
+    }
+    m = key.match(/^(POST|DELETE) \/graph\/sources\/([\w-]+)(\/refresh)?$/);
+    if (m) {
+      const s = sources.find((x) => x.id === m[2]);
+      if (!s) return reply(404, { error: "Source not found" });
+      if (m[1] === "POST") return reply(200, { source: s });
+      const gone = facts.filter((f) => f.src === s.id).length;
+      facts = facts.filter((f) => f.src !== s.id);
+      sources = sources.filter((x) => x.id !== s.id);
+      return reply(200, { ok: true, factsRemoved: gone });
+    }
     if (key === "POST /profile/resume" || key === "POST /profile/resume-file") {
-      facts = [...facts.filter((f) => f.user), ...FACTS().filter((f) => !f.user).slice(0, 6)];
-      return reply(200, { note: null, profilePatch: {}, nodes: graphOf(facts.filter((f) => !f.user)).nodes.filter((n) => n.type !== "skill") });
+      facts = [...facts.filter((f) => f.user || f.src), ...FACTS().filter((f) => !f.user && !f.src).slice(0, 6)];
+      return reply(200, { note: null, profilePatch: {}, nodes: graphOf(facts.filter((f) => !f.user && !f.src)).nodes.filter((n) => n.type !== "skill") });
     }
     if (key === "GET /lanes") return reply(200, lanes);
     if (key === "PUT /lanes") {
@@ -198,6 +242,17 @@ async function mockApi(context, o = {}) {
     if (key === "DELETE /channels/telegram") {
       tg = { ...tg, linked: false, linkedAt: null };
       return reply(200, { ok: true, linked: false });
+    }
+    if (key === "GET /inbox/gmail") return reply(200, gmail);
+    if (key === "POST /inbox/gmail/connect") return reply(200, { url: `${BASE}/settings/connections?gmail=back` });
+    if (key === "DELETE /inbox/gmail") {
+      gmail = { ...gmail, connected: false, status: null };
+      return reply(200, { ok: true });
+    }
+    if (key === "GET /nori/settings") return reply(200, { settings: nori });
+    if (key === "PUT /nori/settings") {
+      nori = { ...nori, ...json() };
+      return reply(200, { settings: nori });
     }
     if (key === "GET /auth/sessions") return reply(200, sessions);
     m = key.match(/^DELETE \/auth\/sessions\/([\w-]+)$/);
@@ -264,7 +319,7 @@ const shows = (page, text, timeout = 4000) => page.getByText(text, { exact: fals
 // ---- the size matrix --------------------------------------------------------------------------------------------------
 
 async function matrix(name, browser) {
-  const ready = { "/you": "Your career graph", "/you/search": "What Nori looks for", "/you/nori": "Daily limit", "/you/account": "Where you" };
+  const ready = { "/graph": "What Nori knows about your work", "/settings/search": "Companies to skip", "/settings/profile": "What forms ask", "/settings/connections": "Gmail, for emailed codes", "/settings": "Where you" };
   const runs = [...ALL_SIZES.map((s) => [s, "light"]), [[390, 844], "dark"], [[1440, 900], "dark"]];
   for (const path of PAGES) {
     for (const [[w, h], scheme] of runs) {
@@ -292,7 +347,7 @@ async function matrix(name, browser) {
           size: nori ? nori.getBoundingClientRect().width : 0,
           seat: seat ? { name: seat.dataset.noriSeat, ...(({ x, y }) => ({ x, y }))(seat.getBoundingClientRect()) } : null,
           h1: box(h1),
-          fixed: [...document.querySelectorAll("main h1, nav a, nav summary, main nav[aria-label=You] a, main [role=group] button")]
+          fixed: [...document.querySelectorAll("main h1, nav a, nav summary, main nav[aria-label=Settings] a, main [role=group] button")]
             .filter((el) => el.getClientRects().length && !el.closest(".nori"))
             .map((el) => ({ name: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 30), ...box(el) }))
             .filter((c) => c.y < innerHeight && c.y + c.h > 0),
@@ -324,10 +379,14 @@ async function matrix(name, browser) {
 async function graphFlows(browser) {
   const W = "chromium graph";
   {
-    const { context, page, calls } = await open(browser, "/you");
+    const { context, page, calls } = await open(browser, "/graph");
     const text = await mainText(page);
-    check(W, "the counts", text.includes("3 roles · 3 projects · 3 results · 2 degrees and certificates · 14 skills"), text.slice(0, 300));
-    check(W, "a dot per node (25)", (await page.locator("svg g[data-node]").count()) === 25, await page.locator("svg g[data-node]").count());
+    check(W, "the counts", text.includes("12 facts and 14 skills"), text.slice(0, 300));
+    check(W, "a dot per node (26)", (await page.locator("svg g[data-node]").count()) === 26, await page.locator("svg g[data-node]").count());
+    // Only the graph and Add a fact: the key is a key (no buttons), no kind filters, no list view.
+    const key = await page.locator("main ul[aria-label=Key]").innerText().catch(() => "");
+    check(W, "the key: each kind and its count, not buttons", ["Roles", "Projects 4", "Results 3", "Education 1", "Certifications 1", "Skills 14"].every((t) => key.replace(/\s+/g, " ").includes(t)) && (await page.locator("main ul[aria-label=Key] button").count()) === 0, key);
+    check(W, "no kind filters and no List view", (await page.locator("main [role=group][aria-label=Kinds]").count()) === 0 && (await page.getByRole("button", { name: "List", exact: true }).count()) === 0, null);
     const labels = await page.evaluate(() => [...document.querySelectorAll("figure svg text")].map((t) => { const r = t.getBoundingClientRect(); return { t: t.textContent, x: r.x, y: r.y, w: r.width, h: r.height }; }));
     const clash = labels.flatMap((a, i) => labels.slice(i + 1).filter((b) => overlap(a, b, 1)).map((b) => `${a.t} / ${b.t}`));
     check(W, "labels never overlap", clash.length === 0, clash);
@@ -345,10 +404,22 @@ async function graphFlows(browser) {
     // The card.
     await dot(page, "f-r2").click();
     const card = await dialog(page).innerText().catch(() => "");
-    check(W, "a click opens the card", card.includes("UX designer") && card.includes("Okra Health · 2019 – 2022") && card.includes("From your resume: “UX Designer, Okra Health, 2019–2022”"), card);
+    check(W, "a click opens the card", card.includes("UX designer") && card.includes("Okra Health · 2019 – 2022"), card);
+    check(W, "the card: From your resume and the line it quotes", card.includes("From: Your resume") && card.includes("“UX Designer, Okra Health, 2019–2022”"), card);
+    check(W, "the card: its linked skills", ["Figma", "Usability testing", "Accessibility", "Journey mapping"].every((s) => card.includes(s)), card);
     check(W, "focus moves into the card", (await page.evaluate(() => document.activeElement?.getAttribute("aria-label"))) === "Close", null);
     await page.keyboard.press("Escape");
     check(W, "Escape closes it", (await dialog(page).count()) === 0, null);
+    check(W, "focus returns to the dot", (await page.evaluate(() => document.activeElement?.getAttribute("data-node"))) === "f-r2", await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 80)));
+    // A card from GitHub links its repo; a fact you added says so.
+    await dot(page, "f-p4").click();
+    const gh = dialog(page).getByRole("link", { name: /alexr\/design-tokens/ });
+    check(W, "a GitHub card: From GitHub and the repo as a link (new tab)", (await dialog(page).innerText()).includes("From: GitHub") && (await gh.getAttribute("href")) === "https://github.com/alexr/design-tokens" && (await gh.getAttribute("target")) === "_blank", await dialog(page).innerText());
+    await page.keyboard.press("Escape");
+    await dot(page, "f-p3").click();
+    const mine = await dialog(page).innerText();
+    check(W, "a fact you added: From A fact you added, In your words", mine.includes("From: A fact you added") && mine.includes("In your words."), mine);
+    await page.keyboard.press("Escape");
 
     // Fix: no change, an end before the start, the API's 400, then a real edit.
     await dot(page, "f-r2").click();
@@ -375,20 +446,30 @@ async function graphFlows(browser) {
     const after = await dialog(page).innerText();
     check(W, "the card shows the edit and You fixed this card", after.includes("Senior UX designer") && after.includes("2019 – now") && after.includes("You fixed this card.") && after.includes("Service design"), after);
     await wait(500);
-    check(W, "the new skill is a new dot", (await page.locator("svg g[data-node]").count()) === 26, await page.locator("svg g[data-node]").count());
+    check(W, "the new skill is a new dot", (await page.locator("svg g[data-node]").count()) === 27, await page.locator("svg g[data-node]").count());
     check(W, "Nori nods", (await played(page)).includes("nod"), await played(page));
 
     // A skill: no Fix; Remove takes it off every fact.
     await dialog(page).getByRole("button", { name: "Figma" }).click();
     const skill = await dialog(page).innerText();
-    check(W, "a skill's card: years, used in, no Fix", skill.includes("7 years · used now") && skill.includes("Used in") && !(await dialog(page).getByRole("button", { name: "Fix" }).count()), skill);
+    check(W, "a skill's card: years, used in, no Fix, no PATCH", skill.includes("7 years · used now") && skill.includes("Used in 3 facts") && !(await dialog(page).getByRole("button", { name: "Fix" }).count()) && !calls.some((c) => c.key.startsWith("PATCH /graph/nodes/skill_")), skill);
     await dialog(page).getByRole("button", { name: "Remove", exact: true }).click();
     check(W, "Remove asks first, focus on Keep it", (await shows(page, "Remove Figma from 3 facts? Nori stops using it in matches and resumes.")) && (await page.evaluate(() => document.activeElement?.textContent)) === "Keep it", null);
     await dialog(page).getByRole("button", { name: "Remove", exact: true }).click();
     check(W, "removed: the request and the status", (await shows(page, "Removed Figma from 3 facts.")) && calls.some((c) => c.key === `DELETE /graph/nodes/${skillId("Figma")}`), null);
 
-    // Adding a fact.
-    await page.getByRole("button", { name: "Add a fact" }).first().click();
+    // Removing a card (not a skill) asks first too.
+    await dot(page, "f-m3").click();
+    await dialog(page).getByRole("button", { name: "Remove", exact: true }).click();
+    check(W, "a card's Remove asks first", await shows(page, "Remove this from your graph? Nori stops using it in matches and resumes."), null);
+    const beforeRemove = await page.locator("svg g[data-node]").count();
+    await dialog(page).getByRole("button", { name: "Remove", exact: true }).click();
+    check(W, "a card removed: the request, the status, the dot gone", (await shows(page, "Removed from your graph.")) && calls.some((c) => c.key === "DELETE /graph/nodes/f-m3") && (await dot(page, "f-m3").count()) === 0, { beforeRemove, after: await page.locator("svg g[data-node]").count() });
+
+    // Adding a fact: the dialog's Write it tab.
+    await page.getByRole("button", { name: "+ Add a fact" }).first().click();
+    const add = page.getByRole("dialog", { name: "Add to your graph" });
+    check(W, "Add a fact opens on Write it, focus in the box", (await add.getByRole("tab", { name: "Write it" }).getAttribute("aria-selected")) === "true" && (await page.evaluate(() => document.activeElement?.id)) === "fact-box", null);
     await page.getByRole("button", { name: "Add it" }).click();
     check(W, "too short: Tell us a bit more", await shows(page, "Tell us a bit more"), null);
     await page.fill("#fact-box", "Ran an accessibility audit of the patient app against WCAG 2.2");
@@ -398,79 +479,119 @@ async function graphFlows(browser) {
     await wait(600);
     check(W, "the new dots appear and pulse", (await page.locator("svg g[data-node]").count()) === before + 2 && (await page.locator("svg .graph-pulse").count()) >= 1, { before, after: await page.locator("svg g[data-node]").count() });
     check(W, "Nori thinks, then hops", (await played(page)).includes("think") && (await played(page)).includes("hop"), await played(page));
+    check(W, "the dialog closes once added", (await add.count()) === 0, null);
 
-    // Filters and find.
-    await page.getByRole("button", { name: "Skills" }).click();
-    check(W, "hiding Skills hides their dots", (await page.locator("svg g[data-node^=skill_]").count()) === 0, null);
-    await page.getByRole("button", { name: "Skills" }).click();
+    // Search (zoom and search stay): lights the matches, counts them, Enter opens the first.
     await page.fill("#graph-find", "fern");
     await wait(200);
     const found = await page.evaluate(() => [...document.querySelectorAll("svg g[data-node]")].filter((g) => g.getAttribute("opacity") === "1").length);
-    check(W, "find lights the matches only", found === 1, found);
-    await page.fill("#graph-find", "");
-
-    // The list view.
-    await page.getByRole("button", { name: "List", exact: true }).click();
-    await wait(400);
-    check(W, "List is kept in the address", page.url().endsWith("/you?view=list"), page.url());
-    const list = await mainText(page);
-    check(W, "the list: roles, projects, results, education, skills", ["Roles", "Projects", "Results", "Education and certifications", "Skills", "Senior UX designer · Okra Health"].every((t) => list.includes(t)), list.slice(0, 500));
-    await page.getByRole("button", { name: "Checkout redesign" }).click();
-    check(W, "the list opens the same card", (await dialog(page).innerText()).includes("Rebuilt checkout"), null);
+    check(W, "search lights the matches only, and counts them", found === 1 && (await shows(page, "1 found")), found);
+    await page.press("#graph-find", "Enter");
+    check(W, "Enter in search opens the first match's card", (await dialog(page).innerText().catch(() => "")).includes("Leads research and design for checkout"), null);
     await page.keyboard.press("Escape");
-    check(W, "focus returns to the list item", (await page.evaluate(() => document.activeElement?.textContent ?? "")).startsWith("Checkout redesign"), await page.evaluate(() => document.activeElement?.textContent));
+    await page.fill("#graph-find", "");
+    await page.getByRole("button", { name: "Zoom in" }).click();
+    await wait(100);
+    check(W, "zoom in scales the drawing", /scale\(1\.25\)/.test((await page.locator("figure svg > g").getAttribute("transform")) ?? ""), await page.locator("figure svg > g").getAttribute("transform"));
+    await page.getByRole("button", { name: "Fit the graph" }).click();
 
-    // A newer resume.
-    await page.getByRole("button", { name: "Add a newer resume" }).click();
+    // Add a source: the tab, what's never done, the list with each status, adding, a bad value, Read again, Remove.
+    await page.getByRole("button", { name: "+ Add a fact" }).first().click();
+    await add.getByRole("tab", { name: "Add a source" }).click();
+    await shows(page, "Your sources");
+    const src = await add.innerText();
+    check(W, "sources: reads only what you name, never searches by name, never reads LinkedIn", src.includes("Norinote reads only what you name here. It never searches for you by name.") && src.includes("Norinote never reads LinkedIn."), src);
+    check(W, "sources: each with its status and facts added", src.includes("GitHub · alexr") && src.includes("1 fact added") && src.includes("LinkedIn · linkedin.com/in/alexrivera") && src.includes("Kept, never read") && src.includes("Removing a source removes every fact read from it."), src);
+    check(W, "sources: LinkedIn has no Read again", (await add.getByRole("button", { name: "Read again, LinkedIn" }).count()) === 0, null);
+    await page.fill("#source-github", "not a name!");
+    await add.getByRole("button", { name: "Add GitHub username" }).click();
+    check(W, "a bad GitHub username: the API's words", await shows(page, "That is not a GitHub username"), null);
+    await page.fill("#source-site", "alexrivera.design");
+    await add.getByRole("button", { name: "Add your website" }).click();
+    check(W, "a site added: the request and the status", (await shows(page, "Added. Nori reads it in a minute or two.")) && JSON.parse(calls.findLast((c) => c.key === "POST /graph/sources")?.body ?? "{}").kind === "site", null);
+    check(W, "the new site waits to be read", await shows(page, "Waiting to be read"), null);
+    const dotsBefore = await page.locator("svg g[data-node]").count();
+    check(W, "once read: its fact count, and its dot in the graph", (await shows(page, "Website · alexrivera.design", 2000)) && (await page.getByText("1 fact added").nth(1).waitFor({ timeout: 9000 }).then(() => true, () => false)), await add.innerText());
+    await wait(600);
+    check(W, "the site's card joins the graph", (await page.locator("svg g[data-node]").count()) === dotsBefore + 1, { dotsBefore, after: await page.locator("svg g[data-node]").count() });
+    await add.getByRole("button", { name: "Read again, GitHub" }).click();
+    check(W, "Read again: the request", (await shows(page, "Nori reads GitHub again.")) && calls.some((c) => c.key === `POST /graph/sources/${GH_SOURCE}/refresh`), null);
+    await add.getByRole("button", { name: "Remove GitHub" }).click();
+    check(W, "removing a source says its facts go with it, focus on Keep it", (await shows(page, "Remove GitHub? Its 1 fact goes with it.")) && (await page.evaluate(() => document.activeElement?.textContent)) === "Keep it", null);
+    await add.getByRole("button", { name: "Remove", exact: true }).click();
+    check(W, "a source removed: the request and the status", (await shows(page, "Removed GitHub. 1 fact went with it.")) && calls.some((c) => c.key === `DELETE /graph/sources/${GH_SOURCE}`), null);
+    await wait(400);
+    check(W, "its fact leaves the graph", (await dot(page, "f-p4").count()) === 0, null);
+    await page.keyboard.press("Escape");
+    check(W, "Escape closes Add a fact", (await add.count()) === 0, null);
+
+    // A newer resume, from Write it.
+    await page.getByRole("button", { name: "+ Add a fact" }).first().click();
+    await add.getByRole("button", { name: "Add a newer resume" }).click();
     check(W, "the resume panel warns first", await shows(page, "Nori replaces what came from your old resume, including cards you’ve fixed. Facts you added stay."), null);
     await page.getByRole("button", { name: "Paste the text" }).click();
     await page.fill("#resume-text", "Alex Rivera. Product Designer, Fernway, 2022 to now. Figma, research, prototyping.");
     await page.getByRole("button", { name: "Read it" }).click();
     check(W, "a newer resume read: the status", await shows(page, "Nori read your resume: 6 cards from it."), null);
+
+    // No list view any more: ?view=list is the graph.
+    await page.goto(`${BASE}/graph?view=list`, { waitUntil: "load" });
+    await wait(1200);
+    check(W, "?view=list shows the graph", (await page.locator("figure svg g[data-node]").count()) > 0, null);
     await context.close();
   }
   {
-    const { context, page } = await open(browser, "/you", { empty: true });
-    check(W, "empty: Your graph is empty", await shows(page, "Add your resume or a fact and Nori builds it from there."), null);
+    const { context, page } = await open(browser, "/graph", { empty: true });
+    check(W, "empty: Your graph is empty", await shows(page, "Add a fact or a source and Nori builds it from there."), null);
     await context.close();
   }
   {
     // Phones: labels only for what's lit; the card is a sheet over a scrim.
-    const { context, page } = await open(browser, "/you", {}, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const { context, page } = await open(browser, "/graph", {}, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     check(W + " 390", "no labels until something is lit", (await page.locator("figure svg text").count()) === 0, await page.locator("figure svg text").count());
     await dot(page, "f-r1").tap();
     const box = await dialog(page).boundingBox();
     check(W + " 390", "the card is a bottom sheet", !!box && box.y + box.height >= 843 && box.width >= 389, box);
-    check(W + " 390", "the lit dots are labelled", (await page.locator("figure svg text").count()) === 5, await page.locator("figure svg text").count());
+    // Labels that would overlap are skipped (placeLabels), so it's "only lit dots, the open one first", not all five.
+    const phoneLabels = await page.locator("figure svg text").allTextContents();
+    const litNames = ["Product designer · Fernway", "Figma", "User research", "Prototyping", "Design systems"];
+    check(W + " 390", "only the lit dots are labelled, the open one included", phoneLabels.length >= 3 && phoneLabels.every((t) => litNames.includes(t)) && phoneLabels.includes("Product designer · Fernway"), phoneLabels);
+    await page.getByRole("button", { name: "Close" }).tap();
+    await page.getByRole("button", { name: "+ Add a fact" }).tap();
+    const sheet = await page.getByRole("dialog", { name: "Add to your graph" }).boundingBox();
+    check(W + " 390", "Add a fact is a bottom sheet", !!sheet && sheet.y + sheet.height >= 843 && sheet.width >= 389, sheet);
     await context.close();
   }
 }
 
 async function searchFlows(browser) {
+  // Dashboard v2 plan section 8: places, remote, the minimum salary and the skip list. Roles, the cap and the threshold
+  // are in the Nori chat.
   const W = "chromium job search";
-  const { context, page, calls } = await open(browser, "/you/search");
-  check(W, "both lanes", (await page.locator("main section[aria-label^='Lane:']").count()) === 2, null);
-  const sw = page.getByRole("switch", { name: "Look for Design systems" });
-  check(W, "the off lane's switch", (await sw.getAttribute("aria-checked")) === "false", null);
-  await sw.click();
-  check(W, "the switch turns it on", (await sw.getAttribute("aria-checked")) === "true", null);
-  await page.getByRole("button", { name: "Add a lane" }).click();
-  await wait(200);
-  check(W, "Add a lane focuses its name", (await page.evaluate(() => document.activeElement?.value)) === "New lane", null);
-  await page.keyboard.press("Control+A");
-  await page.keyboard.press("Delete");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  check(W, "a lane with no name: Name the lane, nothing sent", (await shows(page, "Name the lane")) && !calls.some((c) => c.key === "PUT /lanes"), null);
-  const third = page.locator("main section[aria-label^='Lane:']").nth(2);
-  await third.locator("input[id^=lane-name]").fill("Research");
-  await third.locator("input[id^=lane-titles]").fill("UX researcher");
+  const { context, page, calls } = await open(browser, "/settings/search");
+  check(W, "no roles, cap or threshold here", !(await page.locator("main section[aria-label^='Lane:']").count()) && !(await page.getByRole("button", { name: "Add a lane" }).count()) && !(await page.getByText("Lowest fit").count()), null);
+  const toNori = page.locator("main").getByRole("link", { name: "Open Nori" });
+  check(W, "points to Nori for roles, the cap and the threshold", (await toNori.getAttribute("href")) === "/nori" && (await shows(page, "Roles, the daily cap, the threshold score and the schedule are set by talking to Nori.")), null);
+  const chips = async (id) => (await page.locator(`section:has(#${id})`).innerText()).replace(/\s+/g, " ");
+  check(W, "every role's places, once each", (await chips("search-places")).includes("New York, NY"), await chips("search-places"));
+  check(W, "the salary and the skip list", (await page.inputValue("#search-salary")) === "95,000" && (await chips("search-skip")).includes("Brightline"), null);
+  const sw = page.getByRole("switch", { name: "Remote jobs count too" });
+  check(W, "remote is on (a role allows it)", (await sw.getAttribute("aria-checked")) === "true", null);
+  await page.fill("#search-places", "Seattle, WA");
   await page.keyboard.press("Enter");
+  await sw.click();
+  await page.fill("#search-salary", "110,000");
+  await page.fill("#search-skip", "Initech");
+  await page.keyboard.press("Enter");
+  check(W, "unsaved changes said", await shows(page, "Unsaved changes"), null);
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await shows(page, "Saved. Nori looks again with these.");
+  check(W, "saved", await shows(page, "Saved. Nori looks again with these."), null);
   const put = JSON.parse(calls.find((c) => c.key === "PUT /lanes")?.body ?? "[]");
-  check(W, "Save sends the whole list", put.length === 3 && put[1].enabled === true && put[0].minFit === 0.7 && put[2].id === null && put[2].titles[0] === "UX researcher", put);
+  check(W, "places and remote on every role, the rest kept", put.length === 2 && put.every((l) => l.locations.join("|") === "New York, NY|Seattle, WA" && l.remote === false) && put[0].minFit === 0.7 && put[1].enabled === false && put[1].titles[0] === "Design systems designer", put);
   const prefs = JSON.parse(calls.find((c) => c.key === "PUT /profile")?.body ?? "{}");
-  check(W, "and the preferences", prefs.preferences?.salaryMin === 95000 && prefs.preferences.excludeCompanies?.[0] === "Brightline", prefs);
+  check(W, "and the preferences", prefs.preferences?.salaryMin === 110000 && prefs.preferences.remote === "no" && prefs.preferences.locations?.length === 2, prefs);
+  const skip = JSON.parse(calls.find((c) => c.key === "PUT /nori/settings")?.body ?? "{}");
+  check(W, "the skip list is Nori's", skip.skipCompanies?.join("|") === "Brightline|Initech" && Object.keys(skip).length === 1, skip);
   await wait(1500);
   check(W, "Nori searches", (await played(page)).includes("search"), await played(page));
   await context.close();
@@ -479,15 +600,12 @@ async function searchFlows(browser) {
 async function noriFlows(browser) {
   const W = "chromium nori";
   {
-    const { context, page, calls } = await open(browser, "/you/nori", { telegram: "unlinked" });
-    for (let i = 0; i < 5; i++) await page.getByRole("button", { name: "One fewer" }).click();
-    check(W, "below 1: No limit", (await page.locator("output").innerText()) === "No limit", null);
-    await wait(900);
-    const cap = calls.filter((c) => c.key === "PUT /profile").map((c) => JSON.parse(c.body));
-    check(W, "saved once the clicking stops", cap.length === 1 && cap[0].autoApplyDailyCap === 0, cap);
-    await wait(600);
+    const { context, page, calls } = await open(browser, "/settings/profile", { telegram: "unlinked" });
+    // v2: the daily cap is set in the Nori chat, and Telegram is under Connections.
+    check(W, "no daily limit and no Telegram here", !(await page.getByRole("button", { name: "One fewer" }).count()) && !(await page.locator("section[aria-labelledby=tg-h]").count()), null);
     const rail = await page.locator("nav[aria-label=Dashboard]").first().innerText();
-    check(W, "the rail follows: no meter, Nori sends only what you approve", !(await page.locator("[role=meter]").count()) && rail.includes("Nori sends only what you approve."), rail);
+    // v2: the rail has no "Sent today" meter at all; the cap lives in Nori's setup.
+    check(W, "the rail has no meter", !(await page.locator("[role=meter]").count()), rail);
 
     // Contact: the check, then a save of the group's fields.
     await page.fill("#form-fullName", "");
@@ -499,7 +617,7 @@ async function noriFlows(browser) {
     await wait(400);
     const contact = JSON.parse(calls.filter((c) => c.key === "PUT /profile").at(-1)?.body ?? "{}");
     check(W, "contact saved: its fields only", contact.phone === "+1 212 555 0199" && contact.fullName === "Alex Rivera" && !("autoApplyDailyCap" in contact), contact);
-    const closed = await page.locator("details", { hasText: "Work authorisation" }).locator("summary").innerText();
+    const closed = await page.locator("details", { hasText: "Work authorization" }).locator("summary").innerText();
     check(W, "a closed group's summary", closed.includes("Allowed to work in the US · no sponsorship"), closed);
 
     // The answers.
@@ -516,7 +634,37 @@ async function noriFlows(browser) {
     check(W, "Delete asks first", (await shows(page, "Delete this answer? Nori will ask again next time.")) && (await page.evaluate(() => document.activeElement?.textContent)) === "Keep it", null);
     await page.locator("section[aria-labelledby=answers-h] [role=alertdialog]").getByRole("button", { name: "Delete" }).click();
     check(W, "deleted", (await shows(page, "Deleted. Nori will ask again next time.")) && calls.some((c) => c.key === "DELETE /profile/answers/a3"), null);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/settings/profile", { noAnswers: true });
+    check(W, "no answers yet", await shows(page, "Nothing yet. When a form asks something new, your answer is kept here for next time."), null);
+    await context.close();
+  }
+}
 
+async function connectionsFlows(browser) {
+  const W = "chromium connections";
+  {
+    const { context, page, calls } = await open(browser, "/settings/connections", { telegram: "unlinked", gmail: "linked" });
+    const g = page.locator("section[aria-labelledby=gmail-h]");
+    check(W, "Gmail connected, read-only, only during a code wait", (await g.innerText()).includes("Connected") && (await shows(page, "Only while an application is waiting for a verification code")), await g.innerText());
+    await g.getByRole("button", { name: "Disconnect" }).click();
+    check(W, "Disconnect asks first", await shows(page, "Disconnect Gmail? You’ll type each code yourself."), null);
+    await g.getByRole("button", { name: "Yes, disconnect" }).click();
+    check(W, "Gmail disconnected", (await shows(page, "Gmail disconnected. Nori no longer reads it.")) && calls.some((c) => c.key === "DELETE /inbox/gmail") && (await g.getByRole("button", { name: "Connect Gmail" }).count()) === 1, null);
+    await g.getByRole("button", { name: "Connect Gmail" }).click();
+    check(W, "Connect Gmail goes to Google's page", await page.waitForURL((u) => u.search === "?gmail=back", { timeout: 6000 }).then(() => calls.some((c) => c.key === "POST /inbox/gmail/connect"), () => false), page.url());
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/settings/connections", { telegram: "unlinked", gmail: "expired" });
+    check(W, "Gmail expired: connect again", (await shows(page, "The connection expired. Connect it again so codes keep arriving.")) && (await shows(page, "Connect Gmail")), null);
+    await context.close();
+  }
+  {
+    const { context, page, calls } = await open(browser, "/settings/connections", { telegram: "unlinked", gmail: "unlinked" });
+    check(W, "Gmail not connected", await shows(page, "Not connected"), null);
     // Telegram: connect, wait, linked.
     await page.getByRole("button", { name: "Connect Telegram" }).click();
     const opened = await page.waitForFunction(() => window.__opened.length > 0, null, { timeout: 4000 }).then(() => page.evaluate(() => window.__opened), () => []);
@@ -533,20 +681,20 @@ async function noriFlows(browser) {
     await context.close();
   }
   {
-    const { context, page, calls } = await open(browser, "/you/nori", { telegram: "linked" });
+    const { context, page, calls } = await open(browser, "/settings/connections", { telegram: "linked" });
     await page.getByLabel("Questions from Nori").uncheck();
     await page.locator("section[aria-labelledby=tg-h]").getByRole("button", { name: "Save" }).click();
     await wait(400);
     const tg = JSON.parse(calls.find((c) => c.key === "PUT /channels/telegram")?.body ?? "{}");
     check(W, "Telegram settings saved", tg.events?.questions === false && tg.count === 5 && tg.quietHours?.enabled === true, tg);
-    await page.getByRole("button", { name: "Disconnect" }).click();
+    await page.locator("section[aria-labelledby=tg-h]").getByRole("button", { name: "Disconnect" }).click();
     check(W, "Disconnect", (await shows(page, "Disconnected. Nori won’t message you in Telegram.")) && (await shows(page, "Connect Telegram")), null);
     await context.close();
   }
   {
-    const { context, page } = await open(browser, "/you/nori", { telegram: "off", noAnswers: true });
+    const { context, page } = await open(browser, "/settings/connections", { telegram: "off", gmail: "off" });
     check(W, "Telegram switched off", await shows(page, "Telegram isn’t switched on yet."), null);
-    check(W, "no answers yet", await shows(page, "Nothing yet. When a form asks something new, your answer is kept here for next time."), null);
+    check(W, "Gmail not available here", await shows(page, "Gmail can’t be connected here yet."), null);
     await context.close();
   }
 }
@@ -554,7 +702,7 @@ async function noriFlows(browser) {
 async function accountFlows(browser) {
   const W = "chromium account";
   {
-    const { context, page, calls } = await open(browser, "/you/account", { unverified: true });
+    const { context, page, calls } = await open(browser, "/settings", { unverified: true });
     check(W, "email, not confirmed, resend", (await shows(page, "Not confirmed yet")) && (await shows(page, "Changing your email isn’t available yet.")), null);
     await page.getByRole("button", { name: "Send the link again" }).click();
     check(W, "resent", await shows(page, "Sent. Check your inbox."), null);
@@ -598,13 +746,15 @@ async function accountFlows(browser) {
 // ---- accessibility, keyboard, performance -----------------------------------------------------------------------------
 
 async function axe(browser) {
-  const states = [["/you", {}, null], ["/you", {}, "card"], ["/you?view=list", {}, null], ["/you", { empty: true }, null], ["/you/search", {}, null], ["/you/nori", { telegram: "linked" }, null], ["/you/nori", { telegram: "unlinked" }, null], ["/you/account", { unverified: true }, null]];
+  const states = [["/graph", {}, null], ["/graph", {}, "card"], ["/graph", {}, "add"], ["/graph", {}, "sources"], ["/graph", { empty: true }, null], ["/settings/search", {}, null], ["/settings/profile", {}, null], ["/settings/connections", { telegram: "linked" }, null], ["/settings/connections", { telegram: "unlinked", gmail: "unlinked" }, null], ["/settings", { unverified: true }, null]];
   for (const scheme of ["light", "dark"]) {
     for (const [w, h] of [[1440, 900], [390, 844]]) {
       for (const [path, o, extra] of states) {
-        const where = `chromium ${path}${o.empty ? " (empty)" : ""}${extra ? ` (${extra})` : ""}${o.telegram ? ` (${o.telegram})` : ""} ${w}x${h} ${scheme} axe`;
+        const where = `chromium ${path}${o.empty ? " (empty)" : ""}${extra ? ` (${extra})` : ""}${o.telegram ? ` (${o.telegram})` : ""}${o.gmail ? ` (gmail ${o.gmail})` : ""} ${w}x${h} ${scheme} axe`;
         const { context, page } = await open(browser, path, o, { viewport: { width: w, height: h }, colorScheme: scheme });
         if (extra === "card") await dot(page, "f-p2").click();
+        if (extra === "add" || extra === "sources") await page.getByRole("button", { name: "+ Add a fact" }).first().click();
+        if (extra === "sources") await page.getByRole("tab", { name: "Add a source" }).click();
         await wait(500);
         await page.addScriptTag({ path: AXE });
         const r = await page.evaluate(async () => axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"] } }));
@@ -616,7 +766,7 @@ async function axe(browser) {
   }
   // The dots' colours against the box: at least 3:1 in both themes.
   for (const scheme of ["light", "dark"]) {
-    const { context, page } = await open(browser, "/you", {}, { colorScheme: scheme });
+    const { context, page } = await open(browser, "/graph", {}, { colorScheme: scheme });
     const ratios = await page.evaluate(() => {
       const lum = (c) => {
         const [r, g, b] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => v / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
@@ -635,16 +785,16 @@ async function axe(browser) {
       probe.remove();
       return out;
     });
-    check(`chromium /you ${scheme}`, "every dot colour is 3:1 or more on the box", Object.values(ratios).every((x) => x >= 3), ratios);
+    check(`chromium /graph ${scheme}`, "every dot colour is 3:1 or more on the box", Object.values(ratios).every((x) => x >= 3), ratios);
     await context.close();
   }
 }
 
 async function keyboard(browser) {
-  const where = "chromium /you 1440x900 keyboard";
-  const { context, page } = await open(browser, "/you");
+  const where = "chromium /graph 1440x900 keyboard";
+  const { context, page } = await open(browser, "/graph");
   const stops = [];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 50; i++) {
     await page.keyboard.press("Tab");
     stops.push(
       await page.evaluate(() => {
@@ -654,12 +804,12 @@ async function keyboard(browser) {
         const r = el.getBoundingClientRect();
         const copy = el.cloneNode(true);
         copy.querySelectorAll?.("[aria-hidden=true]").forEach((n) => n.remove());
-        return { name: (el.getAttribute("aria-label") || copy.textContent || el.getAttribute("placeholder") || el.tagName).trim().replace(/\s+/g, " ").slice(0, 40), ring: (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 2) || /\b[3-9]px\b/.test(cs.boxShadow), size: [Math.round(r.width), Math.round(r.height)], inSvg: !!el.closest("svg") };
+        return { name: (el.getAttribute("aria-label") || copy.textContent || el.getAttribute("placeholder") || el.tagName).trim().replace(/\s+/g, " ").slice(0, 40), ring: el.closest("svg") ? !!el.querySelector("[data-focus-ring]") : (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 2) || /\b[3-9]px\b/.test(cs.boxShadow), size: [Math.round(r.width), Math.round(r.height)], inSvg: !!el.closest("svg") };
       }),
     );
   }
   const seen = stops.filter(Boolean);
-  const order = ["Skip to content", "Graph", "Job search", "Nori", "Account", "Graph", "List", "Add a fact", "Add a newer resume", "Roles", "Skills", "Find in your graph", "Zoom in"];
+  const order = ["Skip to content", "Fold the menu to icons", "Career graph", "Settings", "+ Add a fact", "Search your graph", "Role: Product designer", "Zoom in", "Fit the graph"];
   const idx = order.map((n, i) => seen.findIndex((s, j) => s.name.startsWith(n) && j > (i ? -1 : -1)));
   let last = -1;
   const inOrder = order.every((n) => {
@@ -669,9 +819,13 @@ async function keyboard(browser) {
     return true;
   });
   check(where, `in order: ${order.join(", ")}`, inOrder, seen.map((s) => s.name));
-  check(where, "the graph's dots aren't in the tab order (the list is the keyboard route)", seen.every((s) => !s.inSvg), idx);
+  // With no list view, the dots are the keyboard route: each is a button that Enter opens.
+  check(where, "the graph's dots are in the tab order", seen.filter((s) => s.inSvg).length === 26, { dots: seen.filter((s) => s.inSvg).length, idx });
   check(where, "every stop shows the focus ring", seen.every((s) => s.ring), seen.filter((s) => !s.ring).map((s) => s.name));
   check(where, "targets at least 24 px", seen.every((s) => s.size[0] >= 24 && s.size[1] >= 24), seen.filter((s) => s.size[0] < 24 || s.size[1] < 24));
+  await dot(page, "f-r1").focus();
+  await page.keyboard.press("Enter");
+  check(where, "Enter on a dot opens its card", (await dialog(page).innerText().catch(() => "")).includes("Product designer"), null);
   await context.close();
 }
 
@@ -713,7 +867,7 @@ async function performance(browser) {
   }
   // 250 dots on a 4x slower CPU: settled and drawn quickly, hover frames under 16 ms.
   {
-    const where = "chromium /you 250 dots, 4x CPU";
+    const where = "chromium /graph 250 dots, 4x CPU";
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await mockApi(context, { big: true });
     const page = await context.newPage();
@@ -725,7 +879,7 @@ async function performance(browser) {
         if (!window.__drawn && document.querySelectorAll("svg g[data-node]").length >= 250) window.__drawn = performance.now();
       }).observe(document, { subtree: true, childList: true });
     });
-    await page.goto(`${BASE}/you`, { waitUntil: "load" });
+    await page.goto(`${BASE}/graph`, { waitUntil: "load" });
     await page.locator("svg g[data-node]").nth(249).waitFor({ timeout: 15000 }).catch(() => {});
     const t = await page.evaluate(() => {
       const g = performance.getEntriesByType("resource").find((e) => e.name.endsWith("/api/graph"));
@@ -754,7 +908,7 @@ async function performance(browser) {
   }
 }
 
-/** A real run (no mocks): sign up, onboard, then edit a card, save lanes, set the limit, and the account calls. */
+/** A real run (no mocks): sign up, onboard, then edit a card, save the job search basics, and the account calls. */
 async function endToEnd(browser) {
   const W = "chromium end to end";
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -775,8 +929,8 @@ async function endToEnd(browser) {
   // The test API's fake model reads nothing from a two-line resume, so the card to edit comes from a fact.
   const added = await page.evaluate(async (api) => (await fetch(`${api}/api/graph/facts`, { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "Product designer at Fernway since 2022, leading checkout research." }) })).json(), API);
   check(W, "a real fact added", added.nodesCreated >= 1, added);
-  await page.goto(`${BASE}/you`, { waitUntil: "load" });
-  const ready = await page.locator("main", { hasText: "Your career graph" }).waitFor({ timeout: 10000 }).then(() => true, () => false);
+  await page.goto(`${BASE}/graph`, { waitUntil: "load" });
+  const ready = await page.locator("main", { hasText: "What Nori knows about your work" }).waitFor({ timeout: 10000 }).then(() => true, () => false);
   const graph = await page.evaluate(async (api) => (await fetch(`${api}/api/graph`, { credentials: "include" })).json(), API);
   const fact = graph.nodes?.find((n) => n.type !== "skill");
   check(W, "the real graph shows", ready && !!fact, graph.nodes?.length);
@@ -791,22 +945,20 @@ async function endToEnd(browser) {
     await page.keyboard.press("Escape");
   }
 
-  await page.goto(`${BASE}/you/search`, { waitUntil: "load" });
-  await page.locator("main section[aria-label^='Lane:']").first().waitFor({ timeout: 8000 }).catch(() => {});
-  await page.getByRole("button", { name: "Add a lane" }).click();
-  await page.keyboard.press("Control+A");
-  await page.keyboard.type("Design systems");
+  await page.goto(`${BASE}/settings/search`, { waitUntil: "load" });
+  await page.locator("#search-places").waitFor({ timeout: 8000 }).catch(() => {});
+  await page.fill("#search-places", "Seattle, WA");
+  await page.keyboard.press("Enter");
+  await page.fill("#search-skip", "Initech");
+  await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  check(W, "real lanes saved", await shows(page, "Saved. Nori looks again with these.", 8000), null);
+  check(W, "real job search saved", await shows(page, "Saved. Nori looks again with these.", 8000), null);
   const lanes = await page.evaluate(async (api) => (await fetch(`${api}/api/lanes`, { credentials: "include" })).json(), API);
-  check(W, "the API has both lanes", lanes.length === 2 && lanes[1].name === "Design systems", lanes);
+  check(W, "the API has the place on the role", lanes.length >= 1 && lanes.every((l) => l.locations.includes("Seattle, WA")), lanes);
+  const nori = await page.evaluate(async (api) => (await fetch(`${api}/api/nori/settings`, { credentials: "include" })).json(), API);
+  check(W, "and the skip list", nori.settings?.skipCompanies?.includes("Initech"), nori);
 
-  await page.goto(`${BASE}/you/nori`, { waitUntil: "load" });
-  await page.getByRole("button", { name: "One more" }).click();
-  await page.getByRole("button", { name: "One more" }).click();
-  await wait(1200);
-  const status = await page.evaluate(async (api) => (await fetch(`${api}/api/agent/status`, { credentials: "include" })).json(), API);
-  check(W, "the real limit saved", status.dailyCap === 2, status);
+  await page.goto(`${BASE}/settings/profile`, { waitUntil: "load" });
   const answers = await page.evaluate(async (api) => (await fetch(`${api}/api/profile/answers`, { credentials: "include" })).json(), API);
   check(W, "the real answers list", Array.isArray(answers), answers);
   // A new account has no remembered answers to edit, so this proves the browser may send the edit: an unknown id gets
@@ -821,7 +973,7 @@ async function endToEnd(browser) {
   }, API);
   check(W, "an answer edit reaches the API (404 for an unknown answer)", edit === 404, edit);
 
-  await page.goto(`${BASE}/you/account`, { waitUntil: "load" });
+  await page.goto(`${BASE}/settings`, { waitUntil: "load" });
   check(W, "the real devices list", await shows(page, "This device", 8000), null);
   await page.locator("details summary", { hasText: "Delete your account" }).click();
   await page.fill("#delete-confirm", email);
@@ -846,6 +998,7 @@ for (const name of BROWSERS) {
       await graphFlows(browser);
       await searchFlows(browser);
       await noriFlows(browser);
+      await connectionsFlows(browser);
       await accountFlows(browser);
     }
     if (ONLY.includes("axe")) await axe(browser);

@@ -379,7 +379,7 @@ async function flows(browser) {
     ["a step behind is allowed", "/onboarding/contact", { progress: "screening" }, "/onboarding/contact"],
     ["signed out goes to sign-in", "/onboarding/contact", { signedOut: true }, "/signin"],
     ["done the first time shows the done page", "/onboarding", { progress: "done" }, "/onboarding/done"],
-    ["done and seen goes to the dashboard", "/onboarding", { progress: "done", seenDone: true }, "/today"],
+    ["done and seen goes to the dashboard", "/onboarding", { progress: "done", seenDone: true }, "/overview"],
   ]) {
     const { context, page } = await open(browser, path, o);
     await wait(800);

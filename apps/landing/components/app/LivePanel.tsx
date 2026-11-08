@@ -192,7 +192,7 @@ function CodeBox({ id, refresh, onGone }: { id: string; refresh: () => Promise<v
 }
 
 /** A quiet way to drop an application before Nori is on the employer's page, confirmed in place. */
-function CancelAction({ busy, onCancel }: { busy: boolean; onCancel: () => void }) {
+export function CancelAction({ busy, onCancel }: { busy: boolean; onCancel: () => void }) {
   const [asking, setAsking] = useState(false);
   const stop = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -407,7 +407,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
 function JobView({ jobId, reasons, onApply }: { jobId: string; reasons: string[]; onApply: () => void }) {
   const job = usePolling(`job:${jobId}`, () => api.job(jobId), 300_000);
   const [more, setMore] = useState(false);
-  const text = job.data?.descriptionText ?? "";
+  const text = job.data?.job.descriptionText ?? "";
   return (
     <div className="flex flex-col gap-3.5">
       {reasons.map((r) => (

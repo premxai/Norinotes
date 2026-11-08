@@ -53,8 +53,12 @@ export type GraphNode = {
   /** "your resume" or "a fact you added"; null for skills. */
   source?: string | null;
   sourceQuote?: string | null;
+  /** Where a card came from: `label` is the resume line it quotes, the repo as owner/name, or the site's host. Null for skills. */
+  origin?: { kind: "resume" | "user" | "github" | "site"; ref: string | null; label: string | null } | null;
 };
 export type GraphEdge = { id: string; src: string; dst: string; type: string };
+/** A source the person named for their graph (`GET /api/graph/sources`). LinkedIn links are kept, never read. */
+export type GraphSource = { id: string; kind: "github" | "site" | "linkedin"; value: string; status: "pending" | "reading" | "done" | "failed"; error: string | null; factsAdded: number; lastReadAt: string | null; createdAt: string };
 /** `PATCH /api/graph/nodes/:id`: any of these; null clears `org` or a date (`endDate: null` is "still doing it"). */
 export type NodePatch = { title?: string; org?: string | null; statement?: string; skills?: string[]; startDate?: string | null; endDate?: string | null };
 
@@ -68,7 +72,42 @@ export type Ingest = {
 export type Lane = { id: string; name: string; titles: string[]; locations: string[]; remote: boolean; minFit: number; enabled: boolean };
 
 /** A job as the API sends it (`toJob`). `companyLogoUrl`: a Brandfetch CDN logo, or null (see CompanyLogo). */
-export type Job = { id: string; companyName: string; companyLogoUrl?: string | null; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null; atsType?: string };
+export type Job = { id: string; companyName: string; companyLogoUrl?: string | null; title: string; location: string | null; remote: boolean | null; descriptionText?: string; applyUrl: string; postedAt: string | null; firstSeenAt?: string; closedAt?: string | null; atsType?: string; pay?: JobPay | null; employmentType?: EmploymentType | null; workplace?: Workplace | null };
+/** What the listing states (null when it doesn't; never estimated). */
+export type JobPay = { min: number | null; max: number | null; currency: "USD" | "EUR" | "GBP" | "CAD"; period: "year" | "month" | "hour" };
+export type EmploymentType = "full_time" | "part_time" | "contract" | "internship" | "temporary";
+export type Workplace = "remote" | "hybrid" | "onsite";
+/** The employer, on GET /api/jobs/:id (size and about are null until collected). */
+export type JobCompany = { name: string; website: string | null; logoUrl: string | null; size: string | null; about: string | null };
+/** GET /api/jobs/:id/preview, the Jobs page's Review tab: the form's questions and what Nori would put in. */
+export type PreviewQuestion = { key: string; label: string; type: string; required: boolean; status: "ready" | "ask" | "skip"; answer: string | null; source: string | null };
+export type JobPreview =
+  | { available: true; ats: string; questions: PreviewQuestion[]; counts: { total: number; ready: number; ask: number; skip: number } }
+  | { available: false; ats: string | null; reason: string };
+
+/** How the person's profile meets a job (`toMatch` in apps/api): requirements they cover and don't, and the reasons. */
+export type Match = {
+  jobId: string;
+  score: number;
+  explanation: { matched: { requirement: string; label: string; required: boolean }[]; missing: { requirement: string; required: boolean }[]; reasons: string[] };
+  widenedBy: string | null;
+  computedAt: string;
+};
+/** What a job asks for (`toRequirements`), on GET /api/jobs/:id; null until the job has been read. */
+export type Requirements = {
+  skills: { name: string; required: boolean }[];
+  seniority: string | null;
+  roleFamily: string | null;
+  mustHaves: string[];
+  niceToHaves: string[];
+  disqualifiers: string[];
+  summary?: string;
+  responsibilities?: string[];
+};
+/** A row of GET /api/jobs: the job, the person's fit (null when it hasn't been scored for them) and their application. */
+export type JobListItem = { job: Job; match: Match | null; applicationStatus: AppStatus | null; saved?: boolean; locations?: number; locationNames?: string[] };
+/** `saved`: the person's saved jobs, newest saved first, whatever their age. `location`: the place contains it. */
+export type JobsQuery = { view: "best" | "new" | "saved"; q?: string; maxAgeHours?: number; clearance?: "hide" | "show"; location?: string; remote?: boolean; limit?: number };
 
 /** One row of today's shortlist (`GET /api/shortlist`). */
 export type ShortlistEntry = {
@@ -102,7 +141,18 @@ export type Application = {
 };
 
 export type RunEvent = { id: string; ts: string; level: string; step: string; message: string };
-export type ResumeView = { changes: { before: string; after: string; reason: string }[] };
+/** The tailored resume's text (`toResume` content); bullets keep the ids that `changes` point at. */
+export type ResumeContent = {
+  name: string;
+  contact: Record<string, unknown>;
+  summary?: string;
+  experience: { title: string; company: string; location: string | null; start: string | null; end: string | null; bullets: { id: string; text: string }[] }[];
+  education: { school: string; degree: string | null; field: string | null; start: string | null; end: string | null }[];
+  skills: { group: string; items: string[] }[];
+  projects: { name: string; bullets: { id: string; text: string }[] }[];
+};
+/** `id` (for GET /resumes/:id.pdf) and `content` come with every stored resume; older callers read only `changes`. */
+export type ResumeView = { id?: string; content?: ResumeContent; changes: { before: string; after: string; reason: string; bulletId?: string }[]; pages?: number; createdAt?: string };
 export type ApplicationDetail = { application: Application; job: Job; resume: ResumeView | null; events: RunEvent[] };
 export type AgentStatus = { dailyCap: number; usedToday: number; liveSubmit: boolean };
 
@@ -150,6 +200,8 @@ export type InboxMessage = {
   links: string[];
   attachments: { filename: string; contentType: string; size: number }[];
   spam: boolean;
+  /** When an application run took this message's code or link; null when Nori never used it. */
+  usedAt: string | null;
 };
 export type InboxSettings = { forwardTo: string | null; forwardEnabled: boolean; retentionDays: number | null };
 
@@ -178,6 +230,10 @@ export type BatchSkip = { jobId: string; reason: "not_found" | "skipped_company"
 /** `questions` is how many; the questions themselves come with the application (GET /applications/:id). */
 export type NeedsItem = { applicationId: string; jobId: string; title: string; company: string; applyUrl: string; needs: Needs; reason: string | null; questions: number; batchId: string | null; updatedAt: string };
 export type GmailState = { available: boolean; connected: boolean; status: string | null };
+/** Nori chat and schedule (api-contract.md): every change Nori made is listed, with an undoId when it can be undone. */
+export type NoriAction = { kind: string; summary: string; undoId: string | null };
+export type NoriMessage = { id: string; role: "user" | "nori"; text: string; actions: NoriAction[]; createdAt: string };
+export type NoriSchedule = { enabled: boolean; days: string[]; time: string; timezone: string; paused: boolean; lastRunOn: string | null; nextRunOn: string | null };
 
 /** A failure carries the API's words (`error`) and, for some, more of them (`detail`: the daily limit's 429 names the limit). */
 export type Result<T> = { ok: true; status: number; data: T } | { ok: false; status: number; error: string; detail?: string };
@@ -232,7 +288,26 @@ export const api = {
   resendVerification: () => call<{ ok: true; verified?: boolean }>("/auth/resend-verification", { json: {} }),
   shortlistMeta: () => call<{ total: number; widened: string[]; lanesMatched: number; poolUsed: boolean }>("/shortlist/meta"),
   dismiss: (jobId: string) => call<{ ok: true }>(`/shortlist/${encodeURIComponent(jobId)}/dismiss`, { json: {} }),
-  job: (id: string) => call<Job>(`/jobs/${encodeURIComponent(id)}`),
+  // The server wraps the job ({ job, match }); only the job is read here.
+  job: (id: string) => call<{ job: Job }>(`/jobs/${encodeURIComponent(id)}`),
+  // The Jobs page: open jobs from the last 72 hours (all of them, or those that fit the person's searches), one job with
+  // what it asks for and the person's fit, and the counts.
+  jobs: ({ view, q, maxAgeHours, clearance, location, remote, limit }: JobsQuery) => {
+    const p = new URLSearchParams({ view, lanes: view === "best" ? "true" : "false", limit: String(limit ?? 100) });
+    if (q) p.set("q", q);
+    if (maxAgeHours) p.set("maxAgeHours", String(maxAgeHours));
+    if (clearance) p.set("clearance", clearance);
+    if (location) p.set("location", location);
+    if (remote) p.set("remote", "true");
+    return call<JobListItem[]>(`/jobs?${p}`);
+  },
+  jobDetail: (id: string) => call<{ job: Job & { requirements?: Requirements | null; saved?: boolean; company?: JobCompany }; match: Match | null }>(`/jobs/${encodeURIComponent(id)}`),
+  jobPreview: (id: string) => call<JobPreview>(`/jobs/${encodeURIComponent(id)}/preview`),
+  jobsSummary: () => call<{ open: number; newToday: number; fitsLanes: number; hasLanes: boolean }>("/jobs/summary"),
+  /** The 30 most common places of open jobs, for the location filter. */
+  jobLocations: () => call<{ locations: { name: string; count: number }[] }>("/jobs/locations"),
+  /** Save (bookmark) a job for the Saved tab, or take it off. */
+  saveJob: (id: string, on: boolean) => call<{ saved: boolean }>(`/jobs/${encodeURIComponent(id)}/save`, on ? { json: {} } : { method: "DELETE" }),
   applications: () => call<ApplicationRow[]>("/applications"),
   application: (id: string) => call<ApplicationDetail>(`/applications/${encodeURIComponent(id)}`),
   apply: (jobId: string) => call<Application>("/applications", { json: { jobId } }),
@@ -264,6 +339,9 @@ export const api = {
   removeOutcome: (id: string, outcomeId: string) => call<Outcomes & { ok: true }>(`/applications/${encodeURIComponent(id)}/outcomes/${encodeURIComponent(outcomeId)}`, { method: "DELETE" }),
   summary: () => call<OutcomeSummary>("/outcomes/summary"),
   flow: (days: 7 | 30 | 90 | null) => call<Flow>(`/applications/flow${days ? `?days=${days}` : ""}`),
+  /** Overview's graph: applications sent per local day in `tz`, every day listed oldest first (0 when none). */
+  activity: (days: number, tz: string) =>
+    call<{ days: { date: string; sent: number }[]; total: number; timezone: string }>(`/applications/activity?days=${days}&tz=${encodeURIComponent(tz)}`),
   inbox: () => call<InboxMessage[]>("/inbox?limit=200"),
   message: (id: string) => call<InboxMessage>(`/inbox/${encodeURIComponent(id)}`),
   inboxSettings: (settings: InboxSettings) => call<{ settings: InboxSettings }>("/inbox/settings", { method: "PUT", json: settings }),
@@ -271,6 +349,10 @@ export const api = {
   addFact: (text: string) => call<{ nodesCreated: number; note: string | null }>("/graph/facts", { json: { text } }),
   editNode: (id: string, patch: NodePatch) => call<{ node: GraphNode }>(`/graph/nodes/${encodeURIComponent(id)}`, { method: "PATCH", json: patch }),
   removeNode: (id: string) => call<{ ok: true }>(`/graph/nodes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  graphSources: () => call<{ sources: GraphSource[] }>("/graph/sources"),
+  addGraphSource: (kind: GraphSource["kind"], value: string) => call<{ source: GraphSource }>("/graph/sources", { json: { kind, value } }),
+  refreshGraphSource: (id: string) => call<{ source: GraphSource }>(`/graph/sources/${encodeURIComponent(id)}/refresh`, { json: {} }),
+  removeGraphSource: (id: string) => call<{ ok: true; factsRemoved: number }>(`/graph/sources/${encodeURIComponent(id)}`, { method: "DELETE" }),
   saveLanes: (lanes: (Omit<Lane, "id"> & { id: string | null })[]) => call<Lane[]>("/lanes", { method: "PUT", json: lanes }),
   saveProfile: (patch: Record<string, unknown>) => call<Profile>("/profile", { method: "PUT", json: patch }),
   answers: () => call<BankAnswer[]>("/profile/answers"),
@@ -284,6 +366,13 @@ export const api = {
   startBatch: (jobIds: string[]) => call<{ batch: Batch; added: number; skipped: BatchSkip[] }>("/nori/batches", { json: { jobIds } }),
   stopBatch: (id: string) => call<{ ok: true }>(`/nori/batches/${encodeURIComponent(id)}/stop`, { json: {} }),
   needsYou: () => call<{ items: NeedsItem[] }>("/nori/needs-you"),
+  noriChat: (before?: string) => call<{ messages: NoriMessage[] }>(`/nori/chat${before ? `?before=${encodeURIComponent(before)}` : ""}`),
+  sendNori: (message: string) => call<{ message: NoriMessage; reply: NoriMessage }>("/nori/chat", { json: { message } }),
+  undoNori: (undoId: string) => call<{ ok: boolean; summary: string }>(`/nori/chat/undo/${encodeURIComponent(undoId)}`, { json: {} }),
+  noriSchedule: () => call<{ schedule: NoriSchedule }>("/nori/schedule"),
+  applyRecommended: (limit?: number) => call<{ batch: Batch; added: number; skipped: BatchSkip[] }>("/nori/batches", { json: { recommended: true, ...(limit ? { limit } : {}) } }),
+  /** Recommended: matches in the person's roles at or above the threshold (GET /jobs?view=best&minScore=). */
+  recommended: (minScore: number) => call<JobListItem[]>(`/jobs?view=best&lanes=true&limit=200&minScore=${minScore}`),
   gmail: () => call<GmailState>("/inbox/gmail"),
   connectGmail: () => call<{ url: string }>("/inbox/gmail/connect", { json: {} }),
   disconnectGmail: () => call<{ ok: true }>("/inbox/gmail", { method: "DELETE" }),

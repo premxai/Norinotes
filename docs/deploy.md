@@ -48,8 +48,8 @@ root directory" left on (the app imports workspace packages). No `vercel.json` i
 | `NEXT_PUBLIC_SITE_URL` | `https://norinote.xyz` |
 
 Domains: `norinote.xyz` (and `www.norinote.xyz` redirecting to it), and `jobs.norinote.xyz` as a redirect to
-`norinote.xyz` that keeps the path, so links to the old dashboard still land: `/applications/<id>` exists in the new app,
-and the old `/jobs`, `/profile`, `/settings` and `/login` paths redirect inside it.
+`norinote.xyz` that keeps the path, so links to the old dashboard still land: `/applications/<id>` and `/jobs?job=<id>`
+exist in the new app, and the old `/profile`, `/settings` and `/login` paths redirect inside it.
 
 The site and the API are on the same site (`norinote.xyz`), so the API's session cookie (httpOnly, `SameSite=Lax`,
 `Secure`) is sent with the app's calls. `WEB_URL` and `LANDING_URL` on the API are both `https://norinote.xyz`: it is the

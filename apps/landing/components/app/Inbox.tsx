@@ -9,6 +9,7 @@ import { api, type InboxKind, type InboxMessage, type InboxSettings } from "@/li
 import { fullTime, shortDate } from "@/lib/app-state";
 import { noriReact } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
+import { CompanyLogo } from "./CompanyLogo";
 import { PageHead } from "./PageHead";
 
 /* /inbox and /inbox/:id (4b spec section 5): the address and settings, the list, and the open message (a pane beside
@@ -156,10 +157,27 @@ function Settings({ initial, onSaved }: { initial: InboxSettings; onSaved: (s: I
   );
 }
 
+/** "today at 10:42", "yesterday at 09:05", "on 2 Nov at 11:20": when Nori used a code or link (usedAt). */
+function usedWhen(iso: string) {
+  const d = new Date(iso);
+  const at = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return `today at ${at}`;
+  if (d.toDateString() === new Date(now.getTime() - 86_400_000).toDateString()) return `yesterday at ${at}`;
+  return `on ${shortDate(iso)} at ${at}`;
+}
+
+const CHECK_ICON = (
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="flex-none">
+    <path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 function MessageView({ m, onPhone }: { m: InboxMessage; onPhone: boolean }) {
   const title = useRef<HTMLHeadingElement>(null);
   const link = safeLink(m.verificationLink);
-  const entered = m.kind === "verification_code" && !!m.application && m.application.status !== "awaiting_code";
+  const app = m.application ? `${m.application.jobTitle} at ${m.application.companyName}` : null;
+  const used = m.usedAt ? `${m.code ? "Nori entered it" : "Nori used this link"} ${usedWhen(m.usedAt)}${app ? ` to finish ${app}` : ""}.` : null;
 
   // On phones the message is a new page, so focus goes to its subject (section 8).
   useEffect(() => {
@@ -188,15 +206,34 @@ function MessageView({ m, onPhone }: { m: InboxMessage; onPhone: boolean }) {
           <p className="text-[2rem] leading-none font-semibold tracking-[0.12em] text-ink tabular-nums">{m.code}</p>
           <div className="flex flex-wrap items-center gap-3">
             <CopyButton text={m.code} label="Copy the code" />
-            {entered && <span className="text-small text-ink-2">Nori already entered it.</span>}
+            {used ? (
+              <span data-testid="code-used" className="inline-flex items-center gap-1.5 text-small font-semibold text-accent">
+                {CHECK_ICON}
+                {used}
+              </span>
+            ) : (
+              !m.spam && (
+                <span data-testid="code-unused" className="text-small text-ink-2">
+                  Nori didn&rsquo;t use this code. Copy it if you need it.
+                </span>
+              )
+            )}
           </div>
         </div>
       )}
 
       {link && !m.spam && (
-        <a href={link} target="_blank" rel="noreferrer noopener" className={buttonClass("outline", "min-h-11 self-start")}>
-          Confirm with the employer<span className="sr-only"> (opens in a new tab)</span>
-        </a>
+        <div className="flex flex-wrap items-center gap-3">
+          <a href={link} target="_blank" rel="noreferrer noopener" className={buttonClass("outline", "min-h-11")}>
+            Confirm with the employer<span className="sr-only"> (opens in a new tab)</span>
+          </a>
+          {used && !m.code && (
+            <span data-testid="link-used" className="inline-flex items-center gap-1.5 text-small font-semibold text-accent">
+              {CHECK_ICON}
+              {used}
+            </span>
+          )}
+        </div>
       )}
 
       <div className="text-small leading-[1.65] break-words whitespace-pre-line text-ink tablet:text-body">{m.bodyText || "This message has no text."}</div>
@@ -214,9 +251,19 @@ function MessageView({ m, onPhone }: { m: InboxMessage; onPhone: boolean }) {
         </div>
       )}
 
-      {m.application && (
-        <Link href={`/applications/${m.application.id}`} className={buttonClass("outline", "min-h-11 self-start")}>
-          Open the application
+      {m.application && !m.spam && (
+        <Link
+          href={`/applications/${m.application.id}`}
+          className="flex min-h-11 items-center gap-3.5 rounded-[14px] border-[1.5px] border-line bg-surface p-3 text-ink no-underline hover:border-line-strong"
+        >
+          <CompanyLogo name={m.application.companyName} url={null} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[0.8125rem] text-ink-2">Linked application</span>
+            <span className="block truncate font-semibold">
+              {m.application.jobTitle} · {m.application.companyName}
+            </span>
+          </span>
+          <span className="flex-none text-small font-semibold whitespace-nowrap">Open in Applications ›</span>
         </Link>
       )}
     </article>
@@ -358,8 +405,10 @@ export function Inbox() {
                       <Link
                         href={`/inbox/${m.id}`}
                         aria-current={on ? "true" : undefined}
-                        className={`flex flex-col gap-1 rounded-card border-[1.5px] px-4 py-3 no-underline ${on ? "border-ink bg-tint" : "border-line bg-surface hover:border-line-strong"}`}
+                        className={`flex gap-3.5 rounded-[14px] border-[1.5px] p-3.5 no-underline tablet:pl-4 ${on ? "border-accent bg-accent-tint" : "border-line bg-surface hover:border-line-strong"}`}
                       >
+                        <CompanyLogo name={m.application?.companyName ?? m.fromName ?? m.fromAddress} url={null} />
+                        <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="flex items-baseline justify-between gap-3">
                           <span className={`flex min-w-0 items-center gap-2 truncate text-[0.9375rem] text-ink ${fresh ? "font-bold" : "font-medium"}`}>
                             {fresh && <span aria-hidden="true" className="size-2 flex-none rounded-full bg-accent" />}
@@ -376,6 +425,7 @@ export function Inbox() {
                               {m.application.jobTitle} · {m.application.companyName}
                             </span>
                           )}
+                        </span>
                         </span>
                       </Link>
                     </li>

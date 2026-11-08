@@ -189,7 +189,7 @@ export function Today() {
     const entry = list.data.find((e) => e.jobId === jobId);
     if (app) open({ kind: "apps", ids: [app.id], index: 0 });
     else if (entry) open({ kind: "job", entry });
-    else void api.job(jobId).then((r) => setGone(r.ok ? r.data : "unknown"));
+    else void api.job(jobId).then((r) => setGone(r.ok ? r.data.job : "unknown"));
   }, [list.data, apps.data, apps.error, open]);
 
   async function applyTo(jobIds: string[]) {

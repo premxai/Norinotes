@@ -59,6 +59,12 @@ const APPS = () => [
   { app: base("a8", "failed", { createdAt: at("2026-11-03T12:00:00"), error: "The page stopped responding while Nori was uploading your resume." }), job: job("j8", "Content designer", "Tern", null) },
   { app: sent("a9", "2026-10-28"), job: job("j9", "Product designer II", "Wren", "Remote"), outcomes: [{ id: "o9", kind: "offer", at: at("2026-11-02T15:00:00"), source: "manual", messageId: null }] },
 ];
+/** A stored resume as GET /applications/:id sends it (`toResume`): one line changed for the job. */
+const RESUME = (appId) => ({
+  id: `r-${appId}`, applicationId: appId, pages: 1, atsChecks: [], createdAt: at("2026-11-04T07:58:00"),
+  content: { name: "Alex Rivera", contact: { email: "alex@example.test", location: "Brooklyn, NY" }, experience: [{ title: "Product designer", company: "Fernway", location: null, start: "2022", end: null, bullets: [{ id: "b1", text: "Led research and design for the checkout redesign" }, { id: "b2", text: "Built the design system in Figma" }] }], education: [], skills: [{ group: "Tools", items: ["Figma", "Prototyping"] }], projects: [] },
+  changes: [{ bulletId: "b1", kind: "rewrite", before: "Led checkout research", after: "Led research and design for the checkout redesign", reason: "The role asks for end-to-end research", nodeIds: [] }],
+});
 // The worker's words when no typed code arrived in time (packages/apply EMAIL_CODE_REASON).
 const CODE_LATE = "The employer emailed you a verification code and none reached Norinote in time. Retry and type the code in Norinote when asked, or finish on the employer's page.";
 /** APPS plus one run waiting for a typed code (a10), one whose wait ran out (a11) and one the person cancelled (a12). */
@@ -96,13 +102,54 @@ const NEEDS = () => [
   { applicationId: "a2", jobId: "j-a2", title: "Interaction designer", company: "Pallet", applyUrl: "https://jobs.example.test/j2", needs: "questions", reason: null, questions: 2, batchId: "b1", updatedAt: at("2026-11-04T08:40:00") },
   { applicationId: "a8", jobId: "j-a8", title: "Content designer", company: "Tern", applyUrl: "https://jobs.example.test/j8", needs: "captcha", reason: "The site showed a captcha.", questions: 0, batchId: "b1", updatedAt: at("2026-11-04T08:20:00") },
 ];
+// The Nori page (v2): the conversation so far, the roles (one switched off) and the schedule.
+const CHAT = () => [
+  { id: "c1", role: "user", text: "Add Brand designer as a role", actions: [], createdAt: at("2026-11-03T18:00:00") },
+  { id: "c2", role: "nori", text: "Added Brand designer. I'll look for it from the next search.", actions: [{ kind: "add_role", summary: 'Added the role "Brand designer"', undoId: "u-old" }], createdAt: at("2026-11-03T18:00:01") },
+];
+const LANE = (id, name, enabled = true) => ({ id, name, titles: [name], locations: [], remote: true, minFit: 0.7, enabled });
+const LANES = () => [LANE("l1", "Product designer"), LANE("l2", "Brand designer"), LANE("l3", "Illustrator", false)];
+const SCHEDULE = (on = true) => ({ enabled: on, days: ["mon", "tue", "wed", "thu", "fri"], time: "09:00", timezone: "America/New_York", paused: false, lastRunOn: null, nextRunOn: on ? "2026-11-05" : null });
+// The Jobs page: GET /jobs rows (job, match, applicationStatus), the counts, and one job's detail.
+const MATCH_OF = (id, score, reasons) => ({ jobId: id, score, explanation: { matched: [{ requirement: "Figma", label: "Figma, 4 years at Fernway", required: true }, { requirement: "Design systems", label: "Built Fernway's design system", required: true }], missing: [{ requirement: "Motion design", required: true }, { requirement: "Webflow", required: false }], reasons }, widenedBy: null, computedAt: at("2026-11-04T07:00:00") });
+// `stated`: what the listing states (pay, employmentType, workplace); null when it doesn't, as the API sends it.
+const LISTING = (id, title, company, location, fit, extra = {}, stated = {}) => ({
+  job: { ...job(id, title, company, location, company === "Mirro" ? LOGO("mirro.example.test") : null), postedAt: at("2026-11-04T07:00:00"), firstSeenAt: at("2026-11-04T07:10:00"), atsType: "greenhouse", pay: null, employmentType: null, workplace: null, ...stated },
+  match: fit === null ? null : MATCH_OF(id, fit, [`Your ${title.toLowerCase()} work at Fernway`, "You list Figma and research"]),
+  applicationStatus: null,
+  ...extra,
+});
+const LISTINGS = () => [
+  LISTING("jb1", "Senior product designer", "Mirro", "New York, NY", 0.84, { locations: 3, locationNames: ["New York, NY", "Boston, MA", "Austin, TX"] }, { employmentType: "full_time", workplace: "hybrid" }),
+  LISTING("jb2", "UX designer", "Halden Labs", null, 0.78, {}, { pay: { min: 120000, max: 150000, currency: "USD", period: "year" }, employmentType: "full_time", workplace: "remote" }),
+  LISTING("jb3", "Design systems designer", "Lumen", "Brooklyn, NY", 0.71),
+  LISTING("jb4", "Visual designer", "Kestrel", "Austin, TX", null),
+  LISTING("jb5", "Product designer", "Fernway", "Brooklyn, NY", 0.66, { applicationStatus: "submitted" }),
+];
+const JOB_DETAIL = (l) => ({
+  job: { ...l.job, descriptionText: `${l.job.title} at ${l.job.companyName}. You'll shape how people plan their week.
+
+We work in small teams.`, requirements: { skills: [{ name: "Figma", required: true }], seniority: "senior", roleFamily: "design", mustHaves: ["Figma", "Design systems", "Motion design"], niceToHaves: ["Webflow"], disqualifiers: l.job.id === "jb3" ? ["Requires US citizenship"] : [], summary: "Lead research for the planner. Ship the new onboarding." },
+    company: { name: l.job.companyName, website: l.job.companyName === "Mirro" ? "https://mirro.example.test" : null, logoUrl: l.job.companyLogoUrl, size: null, about: null } },
+  match: l.match,
+});
+// GET /jobs/:id/preview (Review): Mirro's form is read ahead of time; the others say why not.
+const PREVIEW = (id) =>
+  id === "jb1"
+    ? { available: true, ats: "greenhouse", questions: [
+        { key: "resume", label: "Resume/CV", type: "file", required: true, status: "ready", answer: "Your tailored resume", source: "profile" },
+        { key: "q_auth", label: "Are you legally authorized to work in the US?", type: "boolean", required: true, status: "ready", answer: "Yes", source: "profile" },
+        { key: "q_start", label: "Earliest start date?", type: "text", required: true, status: "ask", answer: null, source: null },
+        { key: "q_ref", label: "How did you hear about us?", type: "text", required: false, status: "skip", answer: null, source: null },
+      ], counts: { total: 4, ready: 2, ask: 1, skip: 1 } }
+    : { available: false, ats: "lever", reason: "Nori reads this form when you press Apply and asks you anything it can't answer before sending." };
 const MESSAGES = () => [
-  { id: "m2", applicationId: "a3", application: { id: "a3", status: "submitted", jobTitle: "Product designer", companyName: "Fernway" }, fromAddress: "no-reply@greenhouse.example.test", fromName: "Fernway via Greenhouse", subject: "Your security code", bodyText: "Copy and paste this code into the security code field on your application: 482913", receivedAt: at("2026-11-04T08:00:05"), kind: "verification_code", code: "482913", verificationLink: null, links: [], attachments: [], spam: false },
-  { id: "m1", applicationId: "a5", application: { id: "a5", status: "submitted", jobTitle: "Design systems designer", companyName: "Mirro" }, fromAddress: "talent@mirro.example.test", fromName: "Priya at Mirro", subject: "Interview: Design systems designer", bodyText: "Hi Alex,\n\nThanks for applying. We'd love to talk. Could you do a 30 minute call next week?\n\nPriya", receivedAt: at("2026-11-04T07:00:00"), kind: "interview", code: null, verificationLink: null, links: [], attachments: [{ filename: "interview-guide.pdf", contentType: "application/pdf", size: 84_000 }], spam: false },
-  { id: "m4", applicationId: "a6", application: { id: "a6", status: "submitted", jobTitle: "Senior product designer", companyName: "Orchard" }, fromAddress: "jobs@orchard.example.test", fromName: "Orchard", subject: "About your application", bodyText: "Thank you for your interest. We've decided to move forward with other candidates.", receivedAt: at("2026-11-04T06:30:00"), kind: "rejection", code: null, verificationLink: null, links: [], attachments: [], spam: false },
-  { id: "m3", applicationId: "a4", application: { id: "a4", status: "submitted", jobTitle: "UX designer", companyName: "Halden Labs" }, fromAddress: "sam@halden.example.test", fromName: "Sam Ortiz", subject: "Re: UX designer", bodyText: "Thanks Alex, we're reviewing and will be in touch.", receivedAt: at("2026-11-03T10:00:00"), kind: "recruiter_reply", code: null, verificationLink: null, links: [], attachments: [], spam: false },
-  { id: "m5", applicationId: "a3", application: { id: "a3", status: "submitted", jobTitle: "Product designer", companyName: "Fernway" }, fromAddress: "no-reply@fernway.example.test", fromName: "Fernway", subject: "Confirm your email", bodyText: "Confirm your email to finish your application.", receivedAt: at("2026-11-02T09:00:00"), kind: "confirmation", code: null, verificationLink: "https://fernway.example.test/confirm?t=abc", links: ["https://fernway.example.test/confirm?t=abc"], attachments: [], spam: false },
-  { id: "m6", applicationId: null, application: null, fromAddress: "deals@spammy.example.test", fromName: "Career Boost", subject: "You won a free resume review", bodyText: "Click here.", receivedAt: at("2026-11-01T09:00:00"), kind: "other", code: null, verificationLink: "https://spammy.example.test/x", links: [], attachments: [], spam: true },
+  { id: "m2", applicationId: "a3", application: { id: "a3", status: "submitted", jobTitle: "Product designer", companyName: "Fernway" }, fromAddress: "no-reply@greenhouse.example.test", fromName: "Fernway via Greenhouse", subject: "Your security code", bodyText: "Copy and paste this code into the security code field on your application: 482913", receivedAt: at("2026-11-04T08:00:05"), kind: "verification_code", code: "482913", verificationLink: null, links: [], attachments: [], spam: false, usedAt: at("2026-11-04T08:00:20") },
+  { id: "m1", applicationId: "a5", application: { id: "a5", status: "submitted", jobTitle: "Design systems designer", companyName: "Mirro" }, fromAddress: "talent@mirro.example.test", fromName: "Priya at Mirro", subject: "Interview: Design systems designer", bodyText: "Hi Alex,\n\nThanks for applying. We'd love to talk. Could you do a 30 minute call next week?\n\nPriya", receivedAt: at("2026-11-04T07:00:00"), kind: "interview", code: null, verificationLink: null, links: [], attachments: [{ filename: "interview-guide.pdf", contentType: "application/pdf", size: 84_000 }], spam: false, usedAt: null },
+  { id: "m4", applicationId: "a6", application: { id: "a6", status: "submitted", jobTitle: "Senior product designer", companyName: "Orchard" }, fromAddress: "jobs@orchard.example.test", fromName: "Orchard", subject: "About your application", bodyText: "Thank you for your interest. We've decided to move forward with other candidates.", receivedAt: at("2026-11-04T06:30:00"), kind: "rejection", code: null, verificationLink: null, links: [], attachments: [], spam: false, usedAt: null },
+  { id: "m3", applicationId: "a4", application: { id: "a4", status: "submitted", jobTitle: "UX designer", companyName: "Halden Labs" }, fromAddress: "sam@halden.example.test", fromName: "Sam Ortiz", subject: "Re: UX designer", bodyText: "Thanks Alex, we're reviewing and will be in touch.", receivedAt: at("2026-11-03T10:00:00"), kind: "recruiter_reply", code: null, verificationLink: null, links: [], attachments: [], spam: false, usedAt: null },
+  { id: "m5", applicationId: "a3", application: { id: "a3", status: "submitted", jobTitle: "Product designer", companyName: "Fernway" }, fromAddress: "no-reply@fernway.example.test", fromName: "Fernway", subject: "Confirm your email", bodyText: "Confirm your email to finish your application.", receivedAt: at("2026-11-02T09:00:00"), kind: "confirmation", code: null, verificationLink: "https://fernway.example.test/confirm?t=abc", links: ["https://fernway.example.test/confirm?t=abc"], attachments: [], spam: false, usedAt: null },
+  { id: "m6", applicationId: null, application: null, fromAddress: "deals@spammy.example.test", fromName: "Career Boost", subject: "You won a free resume review", bodyText: "Click here.", receivedAt: at("2026-11-01T09:00:00"), kind: "other", code: null, verificationLink: "https://spammy.example.test/x", links: [], attachments: [], spam: true, usedAt: null },
 ];
 
 /** As the API resolves it (`resolveApplication` in packages/match). */
@@ -140,7 +187,8 @@ function summaryOf(rows, now, small) {
  * out first) or "bad" (the API's 400). `o.startsWaiting`: an applying run starts waiting for a code on its third poll.
  * Cancel (POST /applications/:id/cancel) follows the API: 409 on the employer's page or once sent; `o.cancelLate` makes
  * the run reach the employer's page just before the request lands. `o.flow`: what GET /applications/flow sends (FLOW).
- * The Nori page: `o.shortlist` (matches), `o.batches`, `o.needs`, `o.gmail`, `o.batchRefused` (POST /nori/batches 409),
+ * The Nori page: `o.chat` (the conversation), `o.lanes`, `o.schedule`, `o.budget` (the chat's AI budget is used up: the
+ * reply says so and changes nothing), `o.batches`, `o.needs`, `o.gmail`, `o.batchRefused` (POST /nori/batches 409),
  * `o.skipReason` (why the last picked job is skipped; same_company).
  */
 async function mockApi(context, o = {}) {
@@ -149,8 +197,11 @@ async function mockApi(context, o = {}) {
   const rows = o.apps ?? APPS();
   const messages = o.messages ?? MESSAGES();
   let settings = { forwardTo: null, forwardEnabled: false, retentionDays: null };
-  const nori = { settings: { spacingMinutes: 4, minFit: 0.7, skipCompanies: ["Initech"], dailyLimit: 20 }, batches: o.batches ?? [BATCH(), { ...BATCH("done"), id: "b0", createdAt: at("2026-11-02T08:30:00"), waitingFor: null, nextAt: null, counts: { total: 5, sent: 4, working: 0, preparing: 0, ready: 0, needsYou: 0, cancelled: 1, failed: 0 } }], needs: o.needs ?? NEEDS(), gmail: o.gmail ?? { available: true, connected: false, status: null } };
+  const nori = { settings: { spacingMinutes: 4, minFit: 0.7, skipCompanies: ["Initech"], dailyLimit: 20 }, batches: o.batches ?? [BATCH(), { ...BATCH("done"), id: "b0", createdAt: at("2026-11-02T08:30:00"), waitingFor: null, nextAt: null, counts: { total: 5, sent: 4, working: 0, preparing: 0, ready: 0, needsYou: 0, cancelled: 1, failed: 0 } }], needs: o.needs ?? NEEDS(), gmail: o.gmail ?? { available: true, connected: false, status: null }, chat: o.chat ?? CHAT(), lanes: o.lanes ?? LANES(), schedule: o.schedule ?? SCHEDULE(), undo: {}, undone: new Set() };
   let seq = 0;
+  let m0;
+  const listings = o.listings ?? LISTINGS();
+  const jobSaves = new Set(o.jobSaves ?? ["jb4"]);
   let inflight = 0;
   let maxInflight = 0;
   const now = MORNING.getTime();
@@ -175,6 +226,41 @@ async function mockApi(context, o = {}) {
     if (key === "GET /me") return reply(200, { user, profile: { fullName: "Alex Rivera" } });
     if (key === "GET /agent/status") return reply(200, { dailyCap: 5, usedToday: 2, liveSubmit: false });
     if (key === "GET /shortlist") return reply(200, o.shortlist ?? []);
+    if (key === "GET /jobs/summary") return reply(200, { open: 1248, newToday: 310, fitsLanes: 42, hasLanes: true });
+    if (key === "GET /jobs/locations") return reply(200, { locations: [{ name: "New York, NY", count: 212 }, { name: "Austin, TX", count: 64 }, { name: "Brooklyn, NY", count: 31 }] });
+    if (key === "GET /jobs") {
+      if (o.jobsOffline) return route.abort("connectionrefused");
+      const p = url.searchParams;
+      const needle = (p.get("q") ?? "").toLowerCase();
+      const where = (p.get("location") ?? "").toLowerCase();
+      const list = listings
+        .filter((l) => (p.get("view") !== "best" || l.match) && (p.get("view") !== "saved" || jobSaves.has(l.job.id)) && (!p.get("minScore") || (l.match?.score ?? 0) >= Number(p.get("minScore"))))
+        .filter((l) => (!needle || `${l.job.title} ${l.job.companyName}`.toLowerCase().includes(needle)) && (!where || (l.job.location ?? "").toLowerCase().includes(where)) && (p.get("remote") !== "true" || l.job.remote))
+        .map((l) => ({ ...l, saved: jobSaves.has(l.job.id) }));
+      return reply(200, p.get("view") === "best" ? list.sort((a, b) => b.match.score - a.match.score) : list);
+    }
+    m0 = key.match(/^(POST|DELETE) \/jobs\/([\w-]+)\/save$/);
+    if (m0) {
+      if (m0[1] === "POST") jobSaves.add(m0[2]);
+      else jobSaves.delete(m0[2]);
+      return reply(200, { saved: m0[1] === "POST" });
+    }
+    const previewOf = key.match(/^GET \/jobs\/([\w-]+)\/preview$/)?.[1];
+    if (previewOf) return listings.some((x) => x.job.id === previewOf) ? reply(200, PREVIEW(previewOf)) : reply(404, { error: "Job not found" });
+    const jobId = key.match(/^GET \/jobs\/([\w-]+)$/)?.[1];
+    if (jobId) {
+      const l = listings.find((x) => x.job.id === jobId);
+      if (!l) return reply(404, { error: "Job not found" });
+      const d = JOB_DETAIL(l);
+      return reply(200, { ...d, job: { ...d.job, saved: jobSaves.has(jobId) } });
+    }
+    if (key === "POST /applications") {
+      const jid = JSON.parse(body ?? "{}").jobId;
+      const l = listings.find((x) => x.job.id === jid);
+      const r = { app: base(`a${20 + ++seq}`, "queued", { jobId: jid, createdAt: MORNING.toISOString() }), job: l?.job ?? job(jid, "Job", "Company", null), outcomes: [] };
+      rows.unshift(r);
+      return reply(201, r.app);
+    }
     if (key === "GET /nori/settings") return reply(200, { settings: nori.settings });
     if (key === "PUT /nori/settings") return (nori.settings = { ...nori.settings, ...JSON.parse(body ?? "{}") }), reply(200, { settings: nori.settings });
     if (key === "GET /nori/batches") return reply(200, { batches: nori.batches });
@@ -182,6 +268,45 @@ async function mockApi(context, o = {}) {
     if (batchId && batchId !== "b1") return reply(200, { batch: nori.batches.find((b) => b.id === batchId), applications: [{ id: "a4", jobId: "j-a4", title: "UX designer", company: "Halden Labs", status: "submitted", error: null, submittedAt: at("2026-11-02T08:40:00") }] });
     if (key === "GET /nori/batches/b1") return reply(200, { batch: nori.batches.find((b) => b.id === "b1") ?? BATCH(), applications: [{ id: "a1", jobId: "j-a1", title: "Brand designer", company: "Lumen", status: "applying", error: null, submittedAt: null }, { id: "a3", jobId: "j-a3", title: "Product designer", company: "Fernway", status: "submitted", error: null, submittedAt: at("2026-11-04T08:00:18") }] });
     if (key === "POST /nori/batches/b1/stop") return (nori.batches = nori.batches.map((b) => (b.id === "b1" ? { ...b, status: "stopped" } : b))), reply(200, { ok: true });
+    if (key === "POST /nori/batches" && JSON.parse(body ?? "{}").recommended) {
+      if (o.batchRefused) return reply(409, { error: "No Recommended jobs to send right now", detail: "Nori sends new matches at or above your threshold that you haven't applied to." });
+      nori.batches = [{ ...BATCH(), id: "b2", counts: { total: 3, sent: 0, working: 0, preparing: 3, ready: 0, needsYou: 0, cancelled: 0, failed: 0 }, waitingFor: "preparing", nextAt: null }, ...nori.batches];
+      return reply(201, { batch: nori.batches[0], added: 3, skipped: [] });
+    }
+    if (key === "GET /lanes") return reply(200, nori.lanes);
+    if (key === "GET /nori/schedule") return reply(200, { schedule: nori.schedule });
+    if (key === "GET /nori/chat") return reply(200, { messages: url.searchParams.get("before") ? [] : nori.chat });
+    if (key === "POST /nori/chat") {
+      // A few phrases stand in for the model: a daily cap and Apply now, each listed and undoable.
+      const text = JSON.parse(body ?? "{}").message ?? "";
+      const mine = { id: `c${100 + ++seq}`, role: "user", text, actions: [], createdAt: MORNING.toISOString() };
+      const cap = text.match(/daily cap to (\d+)/i);
+      let say = "Sure.";
+      let actions = [];
+      if (o.budget) say = "I've used today's AI budget for chatting. Everything else keeps working; we can talk again tomorrow.";
+      else if (cap) {
+        actions = [{ kind: "set_daily_limit", summary: `Daily limit set to ${cap[1]} (was ${nori.settings.dailyLimit})`, undoId: "u-cap" }];
+        nori.undo["u-cap"] = { dailyLimit: nori.settings.dailyLimit };
+        nori.settings = { ...nori.settings, dailyLimit: Number(cap[1]) };
+        say = `I'll send at most ${cap[1]} a day.`;
+      } else if (/apply now/i.test(text)) {
+        nori.batches = [{ ...BATCH(), id: "b3", counts: { total: 3, sent: 0, working: 0, preparing: 3, ready: 0, needsYou: 0, cancelled: 0, failed: 0 }, waitingFor: "preparing", nextAt: null }, ...nori.batches];
+        actions = [{ kind: "apply_now", summary: "Started Apply for me with 3 Recommended jobs", undoId: "u-apply" }];
+        say = "Started applying to 3 Recommended jobs. Watch them in Applications.";
+      }
+      const said = { id: `c${100 + ++seq}`, role: "nori", text: say, actions, createdAt: new Date(MORNING.getTime() + 1000).toISOString() };
+      nori.chat = [...nori.chat, mine, said];
+      return reply(200, { message: mine, reply: said });
+    }
+    const undoId = key.match(/^POST \/nori\/chat\/undo\/([\w-]+)$/)?.[1];
+    if (undoId) {
+      if (undoId === "u-old" || nori.undone.has(undoId)) return reply(200, { ok: false, summary: "Already undone" });
+      if (!["u-cap", "u-apply"].includes(undoId)) return reply(404, { error: "Not found" });
+      nori.undone.add(undoId);
+      if (undoId === "u-cap") return (nori.settings = { ...nori.settings, ...nori.undo["u-cap"] }), reply(200, { ok: true, summary: `Daily limit back to ${nori.settings.dailyLimit}` });
+      nori.batches = nori.batches.map((b) => (b.id === "b3" ? { ...b, status: "stopped" } : b));
+      return reply(200, { ok: true, summary: "Stopped that batch (3 not sent)" });
+    }
     if (key === "POST /nori/batches") {
       const ids = JSON.parse(body ?? "{}").jobIds ?? [];
       if (o.batchRefused) return reply(409, { error: "None of these jobs can be added to a batch" });
@@ -244,13 +369,16 @@ async function mockApi(context, o = {}) {
     if (m) {
       const r = rows.find((x) => x.app.id === m[2]);
       if (!r) return reply(404, { error: "Application not found" });
+      if (m[3] === "answer" && o.answerGoesLive) Object.assign(r.app, { status: "applying", pendingQuestions: [], approvedAt: r.app.approvedAt ?? MORNING.toISOString() });
       if (m[3]) return reply(200, { ok: true, status: r.app.status });
       r.polls = (r.polls ?? 0) + 1;
+      if (o.advance && r.app.status === "preparing") Object.assign(r.app, { status: "applying", preparedAt: MORNING.toISOString() });
       if (o.startsWaiting && r.app.status === "applying" && r.polls >= 3) r.app.status = "awaiting_code";
       if (r.typed && ++r.typed > 2) Object.assign(r.app, { status: "submitted", submittedAt: new Date(now + 20_000).toISOString(), receipt: { confirmation: "LR-1180", dryRun: false } });
       const events = r.app.approvedAt ? ["Opened the application page", "Filled 9 fields", "Uploaded your tailored resume", "Answered 2 questions from your answer bank", "Submitting", "Code 482 913 arrived; entered it", "Sent"].map((message, i) => ({ id: String(i + 1), ts: r.app.approvedAt, level: "info", step: "run", message })) : [];
-      return reply(200, { application: r.app, job: r.job, resume: { changes: [{ before: "Led checkout research", after: "Led research and design for the checkout redesign", reason: "The role asks for end-to-end research" }] }, events });
+      return reply(200, { application: r.app, job: r.job, resume: ["queued", "preparing"].includes(r.app.status) ? null : RESUME(r.app.id), events });
     }
+    if (key.startsWith("GET /artifacts/")) return route.fulfill({ status: 200, headers: { ...cors, "content-type": "image/png" }, body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") });
     if (key === "GET /inbox/address") return reply(200, o.inboxOff ? { address: null, configured: false, settings } : { address: "alex.r@inbox.norinote.test", configured: true, settings });
     if (key === "PUT /inbox/settings") {
       const b = JSON.parse(body ?? "{}");
@@ -266,7 +394,7 @@ async function mockApi(context, o = {}) {
     if (key === "POST /auth/logout") return reply(200, { ok: true });
     return reply(200, { ok: true });
   });
-  return { calls, rows, maxInflight: () => maxInflight };
+  return { calls, rows, jobSaves, maxInflight: () => maxInflight };
 }
 
 async function open(browser, path, o = {}, ctx = {}) {
@@ -305,7 +433,7 @@ const rowText = (page, title) => page.locator("main ul[aria-label='Applications'
 // ---- the size matrix --------------------------------------------------------------------------------------------------
 
 async function matrix(name, browser) {
-  const pages = [["/applications", "Product designer"], ["/applications/a5", "Timeline"], ["/inbox", "Priya at Mirro"]];
+  const pages = [["/applications", "Product designer"], ["/applications/a5", "What happened?"], ["/inbox", "Priya at Mirro"]];
   const runs = [...ALL_SIZES.map((s) => [s, "light"]), [[390, 844], "dark"], [[1440, 900], "dark"]];
   for (const [path, ready] of pages) {
     for (const [[w, h], scheme] of runs) {
@@ -367,133 +495,156 @@ async function matrix(name, browser) {
 
 async function flows(browser) {
   const W = "chromium flows";
-  // The list: each state's chip and line, newest first.
+  // Applications v2: the list beside the open application; a chip per row; tabs All, In progress, Applied, Closed.
   {
-    const { context, page, calls, maxInflight } = await open(browser, "/applications", { slow: 300 }, {});
-    await page.locator("main [role=group] button", { hasText: "Replied" }).locator("span").waitFor({ timeout: 8000 }).catch(() => {});
-    const expected = [
-      ["Brand designer", "Applying", "Applying now"],
-      ["Interaction designer", "Needs you", "Nori needs 2 answers"],
-      ["Product designer · Fernway", "Waiting", "Sent 4 Nov"],
-      ["UX designer", "Reply", "Replied in 1 day"],
-      ["Design systems designer", "Interview", "Interview invitation, 2 days after sending"],
-      ["Senior product designer", "Rejected", "Rejected after 1 day"],
-      ["Visual designer", "No response", "Sent 1 Oct · no answer in 30 days"],
-      ["Content designer", "Didn't go through", "Nothing was sent"],
-      ["Product designer II", "Offer", "An offer, 5 days after sending"],
-    ];
-    for (const [title, chip, line] of expected) {
-      const t = await rowText(page, title);
-      check(W, `row ${title}: ${chip}, "${line}"`, t.includes(chip) && t.includes(line), t);
+    const { context, page } = await open(browser, "/applications");
+    await page.locator("main ul[aria-label='Applications'] li").first().waitFor({ timeout: 8000 }).catch(() => {});
+    const expected = [["Lumen", "Applying"], ["Pallet", "Needs help"], ["Fernway", "Applied"], ["Halden Labs", "Applied"], ["Mirro", "Applied"], ["Orchard", "Applied"], ["Kestrel", "Applied"], ["Tern", "Didn't go through"], ["Wren", "Applied"]];
+    for (const [company, chip] of expected) {
+      const t = await rowText(page, company);
+      check(W, `apps: row ${company} has the chip ${chip}`, t.includes(chip), t);
     }
     const logos = await page.evaluate(() =>
       [...document.querySelectorAll("main ul[aria-label='Applications'] li a")].map((a) => {
-        const el = a.firstElementChild?.firstElementChild;
+        const el = a.firstElementChild;
         const r = el?.getBoundingClientRect();
         return { tag: el?.tagName.toLowerCase(), text: el?.textContent ?? "", w: Math.round(r?.width ?? 0), h: Math.round(r?.height ?? 0), loaded: el?.tagName === "IMG" ? el.complete && el.naturalWidth > 0 : null, lazy: el?.getAttribute("loading"), alt: el?.getAttribute("alt") };
       }),
     );
-    const mirro = logos[4];
-    const halden = logos[3];
-    check(W, "a logo from the CDN: a lazy <img>, alt empty", mirro?.tag === "img" && mirro.loaded && mirro.lazy === "lazy" && mirro.alt === "", mirro);
-    check(W, "the CDN's 404: the letter tile instead", halden?.tag === "span" && halden.text === "H", halden);
-    check(W, "no logo: the letter tile", logos[0]?.tag === "span" && logos[0].text === "L", logos[0]);
-    check(W, "logo and tile are the same size", logos.every((l) => l.w === logos[0].w && l.h === logos[0].h && l.w === 40), logos.map((l) => `${l.tag} ${l.w}x${l.h}`));
-    const order = await page.locator("main ul[aria-label='Applications'] li").count();
-    check(W, "all nine rows", order === 9, order);
-    check(W, "outcomes fetched for each sent application, at most 6 at once", calls.filter((c) => /^GET \/applications\/a\d\/outcomes$/.test(c.key)).length === 6 && maxInflight() <= 6, { calls: calls.filter((c) => c.key.endsWith("/outcomes")).length, max: maxInflight() });
-    const text = await page.locator("main").innerText();
-    check(W, "the numbers", text.includes("6 sent · 4 replies · 2 interviews · 1 offer") && text.includes("Response rate 80%"), text.slice(0, 400));
+    check(W, "apps: a logo from the CDN: a lazy <img>, alt empty", logos[4]?.tag === "img" && logos[4].loaded && logos[4].lazy === "lazy" && logos[4].alt === "", logos[4]);
+    check(W, "apps: the CDN's 404 or no logo: the letter tile", logos[3]?.tag === "span" && logos[3].text === "H" && logos[0]?.tag === "span" && logos[0].text === "L", [logos[3], logos[0]]);
+    check(W, "apps: all nine rows", logos.length === 9, logos.length);
     const tabs = await page.locator("main [role=group][aria-label=Show] button").allInnerTexts();
-    check(W, "tabs with counts", tabs.map((t) => t.replace(/\s+/g, "")).join("|") === "All9|Inprogress2|Sent1|Replied3|Closed3", tabs);
-    await page.locator("main [role=group][aria-label=Show] button", { hasText: "Replied" }).click();
-    const replied = await page.locator("main ul[aria-label='Applications'] li").allInnerTexts();
-    check(W, "Replied shows reply, interview and offer", replied.length === 3 && replied.every((r) => /Reply|Interview|Offer/.test(r)), replied);
-    check(W, "the tab is kept in the URL", page.url().endsWith("?show=replied"), page.url());
+    check(W, "apps: tabs with counts", tabs.map((t) => t.replace(/\s+/g, "")).join("|") === "All9|Inprogress2|Applied6|Closed1", tabs);
+    check(W, "apps: from 1024 px the first one is open beside the list, the address unchanged", (await page.locator("main h2").first().innerText()) === "Brand designer" && new URL(page.url()).pathname === "/applications" && (await page.locator("main ul[aria-label='Applications'] a[aria-current=true]").innerText()).includes("Brand designer"), page.url());
+    await page.locator("main [role=group][aria-label=Show] button", { hasText: "Applied" }).click();
+    const applied = await page.locator("main ul[aria-label='Applications'] li").allInnerTexts();
+    check(W, "apps: Applied shows the six sent", applied.length === 6 && applied.every((r) => r.includes("Applied")), applied);
+    check(W, "apps: the tab is kept in the URL", page.url().endsWith("?show=applied"), page.url());
     await page.reload({ waitUntil: "load" });
     await wait(1500);
-    check(W, "and survives a reload", (await page.locator("main [role=group][aria-label=Show] button[aria-pressed=true]").innerText()).startsWith("Replied"), null);
+    check(W, "apps: and survives a reload", (await page.locator("main [role=group][aria-label=Show] button[aria-pressed=true]").innerText()).startsWith("Applied"), null);
+    await page.locator("main [role=group][aria-label=Show] button", { hasText: "All" }).click();
+    await page.getByLabel("Search applications").fill("mirro");
+    const found = await page.locator("main ul[aria-label='Applications'] li").allInnerTexts();
+    check(W, "apps: search by title or company", found.length === 1 && found[0].includes("Design systems designer"), found);
     await context.close();
   }
-  // The week strip: marks, today, the day filter, weeks.
   {
-    const { context, page } = await open(browser, "/applications");
-    const days = page.locator("section[aria-labelledby=week-title] [role=group] button");
-    check(W, "seven days, Monday first", (await days.count()) === 7 && (await days.first().innerText()).startsWith("Mon"), await days.first().innerText());
-    const wed = await days.nth(2).innerText();
-    check(W, "Wednesday 4 November: what happened, for screen readers, and today", /November: 1 sent, 1 interview, 1 rejection, today/.test(wed), wed);
-    check(W, "Monday 2 November: two sent and an offer", /2 sent, 1 offer/.test(await days.nth(0).innerText()), await days.nth(0).innerText());
-    check(W, "days after today can't be chosen", (await days.nth(3).isDisabled()) && !(await days.nth(2).isDisabled()), null);
-    check(W, "this week has no next week", await page.getByRole("button", { name: "Next week" }).isDisabled(), null);
-    await days.nth(2).click();
-    const shown = await page.locator("main ul[aria-label='Applications'] li").allInnerTexts();
-    check(W, "a day filters the list to what happened that day", shown.length === 3 && ["Fernway", "Mirro", "Orchard"].every((c) => shown.some((s) => s.includes(c))), shown);
-    check(W, "the day is pressed", (await days.nth(2).getAttribute("aria-pressed")) === "true", null);
-    await page.getByRole("button", { name: /^Clear Wed 4 Nov/ }).click();
-    check(W, "Clear brings everything back", (await page.locator("main ul[aria-label='Applications'] li").count()) === 9, null);
-    await page.getByRole("button", { name: "Previous week" }).click();
-    check(W, "the previous week", (await page.locator("#week-title").innerText()).startsWith("Last week") && (await days.nth(2).innerText()).includes("October"), await page.locator("#week-title").innerText());
-    await context.close();
-  }
-  // Fewer than 5 settled: counts only.
-  {
-    const { context, page } = await open(browser, "/applications", { small: true });
-    check(W, "small sample: counts and the note, no rates", (await page.locator("main").innerText()).includes("Rates show once 5 applications have had an answer or 30 days.") && !(await page.locator("main").innerText()).includes("Response rate"), null);
+    const { context, page } = await open(browser, "/applications?show=replied");
+    check(W, "apps: an older ?show=replied link lands on Applied", (await page.locator("main [role=group][aria-label=Show] button[aria-pressed=true]").innerText().catch(() => "")).startsWith("Applied"), null);
     await context.close();
   }
   // Empty and offline.
-  for (const [label, o, text] of [["empty: Nothing sent yet, Go to Today", { apps: [] }, "Nothing sent yet"], ["offline: can't reach Norinote", { offline: true }, "Couldn’t reach Norinote"]]) {
+  for (const [label, o, text] of [["apps: empty: Nothing sent yet, Find jobs", { apps: [] }, "Nothing sent yet"], ["apps: offline: can't reach Norinote", { offline: true }, "Couldn’t reach Norinote"]]) {
     const { context, page } = await open(browser, "/applications", o);
     check(W, label, await page.locator("main", { hasText: text }).isVisible(), null);
-    if (o.apps) check(W, "Go to Today links to /today", (await page.locator("main a", { hasText: "Go to Today" }).getAttribute("href")) === "/today", null);
+    if (o.apps) check(W, "apps: Find jobs links to /jobs", (await page.locator("main a", { hasText: "Find jobs" }).getAttribute("href")) === "/jobs", null);
     await context.close();
   }
-  // A row opens its page; the page's header, timeline, resume and receipt.
+  // A row opens beside the list and the address follows; Back goes back.
   {
     const { context, page } = await open(browser, "/applications");
     await page.locator("main ul[aria-label='Applications'] a", { hasText: "Design systems designer" }).click();
-    check(W, "a row opens /applications/:id", await landsOn(page, "/applications/a5"), page.url());
-    await page.locator("main", { hasText: "Timeline" }).waitFor({ timeout: 6000 }).catch(() => {});
-    await wait(800);
-    check(W, "the header: title, chip, Open the job posting", (await page.locator("main h1").innerText()) === "Design systems designer" && (await page.locator("main a", { hasText: "Open the job posting" }).getAttribute("href")) === "https://jobs.example.test/j5" && (await page.locator("main").innerText()).includes("Interview"), null);
-    const entries = await page.locator("ol[aria-label^='What happened'] > li").allInnerTexts();
-    check(W, "the timeline, newest first: the interview from the inbox, sent, what Nori did, created", /^Interview/.test(entries[0] ?? "") && entries[0].includes("From Nori's inbox · Interview: Design systems designer") && entries.some((e) => e.startsWith("Sent")) && entries.at(-1)?.startsWith("Created from Today"), entries);
-    check(W, "the interview links to its message", (await page.locator("ol[aria-label^='What happened'] a", { hasText: "Interview" }).first().getAttribute("href")) === "/inbox/m1", null);
-    check(W, "the run log's last 5 lines, the rest folded", (await page.locator("text=Show everything Nori did").count()) === 1, null);
-    check(W, "the resume sent", (await page.locator("main").innerText()).includes("1 line changed for this job"), null);
+    check(W, "apps: a row opens /applications/:id beside the list", (await landsOn(page, "/applications/a5")) && (await page.locator("main ul[aria-label='Applications']").isVisible()), page.url());
+    await page.locator("main h2", { hasText: "Design systems designer" }).waitFor({ timeout: 6000 }).catch(() => {});
+    check(W, "apps: its header: title, company and place", (await page.locator("main h2").first().innerText()) === "Design systems designer" && (await page.locator("#dtab-panel").locator("..").innerText()).includes("Mirro · New York, NY"), null);
+    await page.goBack();
+    check(W, "apps: Back returns to /applications", await landsOn(page, "/applications"), page.url());
     await context.close();
   }
-  // Marking by hand, Undo, the receipt.
+  // Applied: the resume that was sent, the screenshot, What happened? with Undo, Job details.
   {
     const { context, page, calls } = await open(browser, "/applications/a3");
-    const text = await page.locator("main").innerText();
-    check(W, "the receipt: confirmation, time, practice run, screenshot", text.includes("Confirmation FW-20931 · sent in 18 s") && text.includes("A practice run: nothing reached the employer.") && (await page.locator("main a", { hasText: "See the screenshot" }).getAttribute("href")) === `${API}/api/artifacts/a3/filled.png`, text.slice(0, 600));
-    await page.locator("main section[aria-labelledby=mark-title] button", { hasText: "Interview" }).click();
+    const panel = page.locator("#dtab-panel");
+    await panel.locator("text=The resume that was sent").waitFor({ timeout: 6000 }).catch(() => {});
+    const text = await panel.innerText();
+    check(W, "applied: sent, how fast, the confirmation and a practice run", text.includes("Sent 4 Nov in 18 seconds") && text.includes("Confirmation FW-20931") && text.includes("A practice run: nothing reached the employer."), text.slice(0, 400));
+    await panel.getByRole("button", { name: /The resume that was sent/ }).click();
+    const resume = await panel.innerText();
+    check(W, "applied: the resume that was sent opens the Resume tab, its changed line highlighted", (await page.locator("#dtab-resume").getAttribute("aria-selected")) === "true" && resume.includes("Tailored for Fernway · 1 line changed (highlighted)") && (await panel.locator("mark").first().innerText()) === "Led research and design for the checkout redesign" && resume.includes("Alex Rivera"), resume.slice(0, 400));
+    check(W, "applied: Download PDF is the resume's PDF", (await panel.getByRole("link", { name: /Download PDF/ }).getAttribute("href")) === `${API}/api/resumes/r-a3.pdf`, null);
+    await page.locator("#dtab-app").click();
+    await panel.getByRole("button", { name: /The application screenshot/ }).click();
+    const shot = await panel.locator('img[src^="blob:"]').waitFor({ timeout: 5000 }).then(() => true, () => false);
+    check(W, "applied: the screenshot after Submit shows in place, fetched with the session", shot && calls.some((c) => c.key === "GET /artifacts/a3/filled.png"), null);
+    await panel.getByRole("button", { name: "‹ Back" }).click();
+    await panel.locator("section[aria-labelledby=mark-title] button", { hasText: "Interview" }).click();
     await wait(500);
     const posted = calls.find((c) => c.key === "POST /applications/a3/outcomes");
-    check(W, "Interview is sent to the API", JSON.parse(posted?.body ?? "{}").kind === "interview", posted);
-    const first = await page.locator("ol[aria-label^='What happened'] > li").first().innerText();
-    check(W, "it's at the top of the timeline, marked by you, with Undo", first.startsWith("Interview") && first.includes("Marked by you") && first.includes("Undo"), first);
-    check(W, "the chip follows", (await page.locator("main > div").first().innerText()).includes("Interview"), null);
-    check(W, "it's announced", (await page.locator("main p[role=status]").innerText()) === "Marked as interview. Undo is available.", await page.locator("main p[role=status]").innerText());
+    check(W, "applied: Interview is sent to the API", JSON.parse(posted?.body ?? "{}").kind === "interview", posted);
+    const marked = await panel.locator("ul[aria-label^='What came of it'] li").first().innerText().catch(() => "");
+    check(W, "applied: it's listed, marked by you, with Undo", marked.startsWith("Interview") && marked.includes("Marked by you") && marked.includes("Undo"), marked);
+    check(W, "applied: it's announced", (await panel.locator("p[role=status]").innerText()) === "Marked as interview. Undo is available.", null);
     await wait(400);
-    check(W, "Nori celebrates", (await noriRow(page)) === "celebrate", await noriRow(page));
-    await page.locator("ol[aria-label^='What happened'] button", { hasText: "Undo" }).click();
+    check(W, "applied: Nori celebrates", (await noriRow(page)) === "celebrate", await noriRow(page));
+    await panel.getByRole("button", { name: "Undo" }).click();
     await wait(500);
-    check(W, "Undo removes it", calls.some((c) => /^DELETE \/applications\/a3\/outcomes\/n\d$/.test(c.key)) && !(await page.locator("ol[aria-label^='What happened'] > li").first().innerText()).startsWith("Interview"), null);
-    check(W, "and the chip goes back to Waiting", (await page.locator("main > div").first().innerText()).includes("Waiting"), null);
+    check(W, "applied: Undo removes it", calls.some((c) => /^DELETE \/applications\/a3\/outcomes\/n\d$/.test(c.key)) && (await panel.locator("ul[aria-label^='What came of it'] li").count()) === 0, null);
+    await page.locator("#dtab-job").click();
+    check(W, "applied: Job details: the listing and Open the job posting", (await panel.innerText()).includes("Product designer at Fernway.") && (await panel.getByRole("link", { name: /Open the job posting/ }).getAttribute("href")) === "https://jobs.example.test/j3", null);
     await context.close();
   }
-  // Still in progress: the live panel's content; not sent, so nothing to mark.
+  // Optimizing resume, then live: no resume until it's ready, then Watch Nori apply and the Resume tab.
   {
-    const { context, page } = await open(browser, "/applications/a2");
-    check(W, "needs you: the questions on the page", (await page.locator("main").innerText()).includes("Nori needs 2 answers to finish this one."), null);
-    check(W, "not sent yet: no What happened?", (await page.locator("#mark-title").count()) === 0, null);
+    const apps = [{ app: base("a13", "preparing", { createdAt: at("2026-11-04T08:55:00"), approvedAt: at("2026-11-04T08:55:00") }), job: job("j13", "Research designer", "Quill", "Denver, CO"), outcomes: [] }, ...APPS()];
+    // `advance` is read on each poll: the resume is "ready" (and the run starts) once the test sets it.
+    const opts = { apps, advance: false };
+    const { context, page, errors } = await open(browser, "/applications/a13", opts);
+    const panel = page.locator("#dtab-panel");
+    const opt = await panel.innerText().catch(() => "");
+    check(W, "optimizing: Optimizing your resume, and what comes next", opt.includes("Optimizing your resume for Quill") && opt.includes("kept in the Resume tab, and Nori starts the application"), opt.slice(0, 300));
+    check(W, "optimizing: the chip, and no resume yet", (await rowText(page, "Quill")).includes("Optimizing resume") && (await page.locator("#dtab-resume").getAttribute("aria-disabled")) === "true" && (await panel.locator("article").count()) === 0, null);
+    await page.locator("#dtab-resume").click({ force: true });
+    check(W, "optimizing: the Resume tab can't open yet", (await page.locator("#dtab-app").getAttribute("aria-selected")) === "true", null);
+    opts.advance = true;
+    const live = await panel.locator("figcaption", { hasText: "Watch Nori apply" }).waitFor({ timeout: 12000 }).then(() => true, () => false);
+    check(W, "optimizing: then live, without a reload", live, (await panel.innerText()).slice(0, 300));
+    check(W, "optimizing: and the Resume tab opens once the resume exists", (await page.locator("#dtab-resume").getAttribute("aria-disabled")) === null, null);
+    check(W, "optimizing: no errors", errors.length === 0, errors);
+    await context.close();
+  }
+  // Needs help: its questions as a form; answering sends it on, back to live.
+  {
+    const { context, page, calls } = await open(browser, "/applications/a2", { answerGoesLive: true });
+    const panel = page.locator("#dtab-panel");
+    check(W, "needs help: the chip and the questions", (await rowText(page, "Pallet")).includes("Needs help") && (await panel.innerText()).includes("Nori needs 2 answers to finish this one."), null);
+    await panel.locator("label", { hasText: "Yes" }).first().click();
+    await page.locator("#answer-q2").fill("alex.design");
+    await panel.getByRole("button", { name: "Send answers" }).click();
+    await wait(500);
+    const sent = JSON.parse(calls.find((c) => c.key === "POST /applications/a2/answer")?.body ?? "{}");
+    check(W, "needs help: the answers are sent", sent.answers?.q1 === "Yes" && sent.answers?.q2 === "alex.design", sent);
+    const live = await panel.locator("figcaption", { hasText: "Watch Nori apply" }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+    check(W, "needs help: then back to live", live && !(await panel.innerText()).includes("Send answers"), null);
+    await context.close();
+  }
+  // Didn't go through: why, and Try again.
+  {
+    const { context, page, calls } = await open(browser, "/applications/a8");
+    const text = await page.locator("#dtab-panel").innerText();
+    check(W, "didn't go through: the reason and Nothing was sent", text.includes("The page stopped responding while Nori was uploading your resume.") && text.includes("Nothing was sent."), text.slice(0, 300));
+    await page.locator("#dtab-panel").getByRole("button", { name: "Try again" }).click();
+    await wait(400);
+    check(W, "didn't go through: Try again asks for a retry", calls.some((c) => c.key === "POST /applications/a8/retry"), null);
+    await context.close();
+  }
+  // Phones: the list, then the application on its own screen, and back.
+  {
+    const { context, page } = await open(browser, "/applications", {}, { viewport: { width: 390, height: 844 } });
+    check(W, "apps phones: the list, nothing open", (await page.locator("main ul[aria-label='Applications']").isVisible()) && !(await page.locator("#dtab-panel").count()), null);
+    await page.locator("main ul[aria-label='Applications'] a", { hasText: "Design systems designer" }).click();
+    await landsOn(page, "/applications/a5");
+    await wait(500);
+    check(W, "apps phones: the application on its own screen, the list hidden", (await page.locator("#dtab-panel").isVisible()) && !(await page.locator("main ul[aria-label='Applications']").isVisible()), null);
+    check(W, "apps phones: focus on its title", (await page.evaluate(() => document.activeElement?.textContent)) === "Design systems designer", await page.evaluate(() => document.activeElement?.textContent));
+    await page.locator("main button", { hasText: "Applications" }).click();
+    check(W, "apps phones: back to the list", (await landsOn(page, "/applications")) && (await page.locator("main ul[aria-label='Applications']").isVisible()), page.url());
     await context.close();
   }
   {
     const { context, page } = await open(browser, "/applications/a-missing");
-    check(W, "not found", (await page.locator("main h1").innerText()).startsWith("That application isn"), await page.locator("main h1").innerText());
+    check(W, "apps: not found", (await page.locator("main h2", { hasText: "That application isn" }).count()) === 1, await page.locator("main").innerText());
     await context.close();
   }
   // The Inbox: newest open, the code, Copy, filters, new mail.
@@ -502,7 +653,7 @@ async function flows(browser) {
     check(W, "from 1024 px the newest message opens", await landsOn(page, "/inbox/m2"), page.url());
     await wait(600);
     const pane = await page.locator("main article").innerText();
-    check(W, "the code, large, with Copy and 'already entered'", pane.includes("482913") && pane.includes("Nori already entered it."), pane);
+    check(W, "the code, large, with Copy, and when and for which application Nori used it (usedAt)", pane.includes("482913") && pane.includes("Nori entered it today at 08:00 to finish Product designer at Fernway."), pane);
     check(W, "Nori catches the code", ["catch", "hold"].includes(await noriRow(page)), await noriRow(page));
     await page.getByRole("button", { name: "Copy the code" }).click();
     await wait(200);
@@ -515,7 +666,7 @@ async function flows(browser) {
     check(W, "a message opens in the pane and the URL follows", await landsOn(page, "/inbox/m1"), page.url());
     await wait(400);
     const p2 = await page.locator("main article").innerText();
-    check(W, "the interview: body, attachment, Open the application", p2.includes("We'd love to talk") && p2.includes("interview-guide.pdf · 82 KB") && (await page.locator("main article a", { hasText: "Open the application" }).getAttribute("href")) === "/applications/a5", p2);
+    check(W, "the interview: body, attachment, the linked application opens in Applications", p2.includes("We'd love to talk") && p2.includes("interview-guide.pdf · 82 KB") && p2.includes("Linked application") && (await page.locator("main article a", { hasText: "Open in Applications" }).getAttribute("href")) === "/applications/a5", p2);
     check(W, "Nori checks the mail", (await noriRow(page)) === "check-mail", { now: await noriRow(page), played: await played(page) });
     await page.goBack();
     check(W, "Back goes to the previous message", await landsOn(page, "/inbox/m2"), page.url());
@@ -534,6 +685,17 @@ async function flows(browser) {
     await page.getByRole("button", { name: "Copy", exact: true }).click();
     await wait(200);
     check(W, "Copy the address", (await page.evaluate(() => navigator.clipboard.readText())) === "alex.r@inbox.norinote.test", null);
+    await context.close();
+  }
+  // A code Nori never used says so; the linked application opens in Applications.
+  {
+    const unused = { ...MESSAGES()[0], id: "m9", usedAt: null };
+    const { context, page } = await open(browser, "/inbox/m9", { messages: [unused] });
+    await wait(400);
+    const pane = await page.locator("main article").innerText();
+    check(W, "a code Nori didn't use says so", pane.includes("Nori didn’t use this code. Copy it if you need it.") && !pane.includes("Nori entered it"), pane);
+    await page.locator("main article a", { hasText: "Open in Applications" }).click();
+    check(W, "the linked application opens in Applications", await landsOn(page, "/applications/a3"), page.url());
     await context.close();
   }
   // Settings.
@@ -572,117 +734,267 @@ async function flows(browser) {
     check(W, label, await page.locator("main", { hasText: text }).isVisible(), null);
     await context.close();
   }
-  // Nori on Applications: the most important outcome since the last visit, once; nothing on a first visit.
+  // Nori (v2): the chat with Nori beside its setup card. Every change Nori makes is listed under its reply with Undo
+  // (Stop for Apply now), and the card reads everything again after each one. Needs you, the live run, Gmail, Telegram
+  // and the batch history live elsewhere now.
   {
-    const { context, page } = await open(browser, "/applications", { seen: { "norinote-last-seen-outcomes": at("2026-11-03T00:00:00") } });
-    await wait(600);
-    check(W, "since the last visit: an interview and a rejection, so Nori celebrates", (await played(page)).includes("celebrate"), await played(page));
-    const stored = await page.evaluate(() => localStorage.getItem("norinote-last-seen-outcomes"));
-    check(W, "the last visit moves on", stored === at("2026-11-04T07:00:00"), stored);
-    await context.close();
-  }
-  {
-    const { context, page } = await open(browser, "/applications");
-    await wait(600);
-    check(W, "a first visit stays quiet", !(await played(page)).includes("celebrate"), await played(page));
-    await context.close();
-  }
-  // Nori ("Apply for me"): what needs you, the running batch with Watch Nori apply, building a batch, settings,
-  // connections and history.
-  {
-    const { context, page, calls, errors } = await open(browser, "/nori", { shortlist: MATCHES() });
-    await context.route("https://accounts.example.test/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>Google</title>" }));
-    check(W, "nori: in the nav, and current", (await page.locator('nav[aria-label="Dashboard"] a[aria-current="page"]', { hasText: "Nori" }).count()) >= 1, null);
+    const { context, page, calls, errors } = await open(browser, "/nori");
     const main = () => page.locator("main").innerText();
-    // Needs you, grouped; the questions are the application's own, answered here.
-    const needs = page.locator("section", { has: page.locator("#needs-title") });
-    check(W, "nori: needs you, grouped", (await needs.innerText()).includes("Questions only you can answer") && (await needs.innerText()).includes("A captcha") && (await needs.getByRole("link", { name: /Finish on the employer/ }).getAttribute("href")) === "https://jobs.example.test/j8", null);
-    await page.locator("#q-a2-q1").waitFor({ timeout: 5000 }).catch(() => {});
-    await needs.locator("label", { hasText: "Yes" }).first().click();
-    await page.locator("#q-a2-q2").fill("prem.design");
-    await needs.getByRole("button", { name: "Send answers" }).click();
-    await wait(400);
-    const sent = JSON.parse(calls.find((c) => c.key === "POST /applications/a2/answer")?.body ?? "{}");
-    check(W, "nori: answering a parked application sends the answers", sent.answers?.q1 === "Yes" && sent.answers?.q2 === "prem.design", sent);
-    // Now working: progress, the next one, and Watch Nori apply for the application on a page.
+    const card = page.locator("aside", { has: page.locator("#setup-title") });
+    const log = page.getByRole("log");
+    check(W, "nori: in the nav, and current", (await page.locator('nav[aria-label="Dashboard"] a[aria-current="page"]', { hasText: "Nori" }).count()) >= 1, null);
+    const history = await log.innerText();
+    check(W, "nori: the conversation so far, with what Nori changed under its reply", history.includes("Add Brand designer as a role") && history.includes('Added the role "Brand designer"') && (await log.getByRole("button", { name: 'Undo: Added the role "Brand designer"' }).count()) === 1, history.slice(0, 300));
+    const roles = await card.getByRole("list", { name: "Your roles" }).locator("li").allInnerTexts();
+    check(W, "nori: the card's roles are the switched-on ones", roles.join(",") === "Product designer,Brand designer", roles);
+    const c = await card.innerText();
+    check(W, "nori: the daily cap with what went out today", c.includes("20 a day") && c.includes("2 sent today"), c.slice(0, 400));
+    const asked = calls.find((x) => x.key === "GET /jobs");
+    const q = new URLSearchParams(asked?.search ?? "");
+    check(W, "nori: the threshold and how many are Recommended (GET /jobs at minScore)", c.includes("70 or above") && c.includes("3 Recommended now") && q.get("view") === "best" && q.get("minScore") === "0.7", { search: asked?.search });
+    check(W, "nori: the schedule, as the API has it", c.includes("Weekdays at 9:00 am") && c.includes("Next: Thu 5 Nov"), c);
+    check(W, "nori: a running batch shows on the card with Stop", c.includes("Applying now: 4 of 10 sent") && (await card.getByRole("button", { name: "Stop" }).count()) === 1, null);
+    const chips = await page.getByRole("list", { name: "Quick asks" }).locator("button").allInnerTexts();
+    check(W, "nori: quick asks under the chat", chips.join(",") === "Apply now,Set a daily cap,Add a role,Pause the schedule", chips);
     const text = await main();
-    check(W, "nori: now working, 4 of 10 sent · 1 needs you · 5 waiting", text.includes("4 of 10 sent · 1 needs you · 5 waiting") && text.includes("Next one at 9:12"), text.slice(0, 600));
-    const live = await page.locator('main figure img[src^="blob:"]').waitFor({ timeout: 6000 }).then(() => true, () => false);
-    check(W, "nori: Watch Nori apply for the batch's running application", live && text.includes("Brand designer"), null);
-    // Apply for me: Greenhouse jobs only for now, the shortcuts, the one-time confirmation, the skipped one in plain words.
-    const listed = await page.locator("section", { has: page.locator("#apply-title") }).locator("fieldset label").allInnerTexts();
-    check(W, "nori: only Greenhouse jobs are listed, and it says so", listed.length === 4 && !listed.join(" ").includes("Motion designer") && (await main()).includes("Nori sends Greenhouse applications for now, so 1 other match isn’t listed here."), listed.length);
-    await page.getByRole("button", { name: /All strong matches \(3\)/ }).click();
-    check(W, "nori: All strong matches ticks those at or above 0.70", (await page.locator('main input[type="checkbox"]:checked').count()) === 3, null);
-    await page.getByRole("button", { name: "Top 10" }).click();
-    check(W, "nori: Top 10 ticks up to ten", (await page.locator('main input[type="checkbox"]:checked').count()) === 4, null);
-    await page.getByRole("button", { name: "Apply for me (4)" }).click();
-    const ask = await page.getByRole("group", { name: /Nori will send these 4 applications in your name, one at a time/ }).isVisible();
-    check(W, "nori: Apply for me asks once first", ask && !calls.some((c) => c.key === "POST /nori/batches"), null);
-    await page.getByRole("button", { name: "Yes, apply for me" }).click();
+    check(W, "nori: no Greenhouse badge, and none of the old page's parts", !/Greenhouse/.test(text) && !/Needs you|Connect Gmail|Telegram|History|How Nori works/.test(text), null);
+    // Set a daily cap: the chip starts the sentence, the person finishes it; the card follows, and Undo puts it back.
+    await page.getByRole("button", { name: "Set a daily cap" }).click();
+    const box = page.getByLabel("Message Nori");
+    check(W, "nori: Set a daily cap starts the message", (await box.inputValue()) === "Set my daily cap to ", await box.inputValue());
+    const before = calls.filter((x) => x.key === "GET /nori/settings").length;
+    await box.press("End");
+    await box.pressSequentially("15");
+    await box.press("Enter");
+    await log.getByText("Daily limit set to 15 (was 20)").waitFor({ timeout: 5000 }).catch(() => {});
     await wait(500);
-    const started = JSON.parse(calls.find((c) => c.key === "POST /nori/batches")?.body ?? "{}");
-    const after = await main();
-    check(W, "nori: the batch starts, and what was left out says why", started.jobIds?.length === 4 && after.includes("Nori is on it: 3 applications") && after.includes("Visual designer is at a company already in this batch, so it was left out."), after.slice(0, 400));
-    // How Nori works for you.
-    const how = page.locator("section", { has: page.locator("#how-title") });
-    await how.getByLabel("Daily limit").fill("8");
-    await how.getByRole("button", { name: "Stop skipping Initech" }).click();
-    await how.locator("#skip-company").fill("Globex");
-    await how.locator("#skip-company").press("Enter");
-    await how.getByRole("button", { name: "Save" }).click();
-    await wait(400);
-    const put = JSON.parse(calls.findLast((c) => c.key === "PUT /nori/settings")?.body ?? "{}");
-    check(W, "nori: settings save (limit 8, skip Globex not Initech)", put.dailyLimit === 8 && JSON.stringify(put.skipCompanies) === '["Globex"]' && (await how.innerText()).includes("Saved."), put);
-    // History opens a batch.
-    const hist = page.locator("section", { has: page.locator("#history-title") });
-    await hist.getByRole("button", { name: /2 Nov/ }).click();
-    check(W, "nori: history opens a batch's applications", await hist.getByRole("link", { name: /UX designer/ }).waitFor({ timeout: 4000 }).then(() => true, () => false), null);
-    // Stop the rest, confirmed first.
-    const now = page.locator("section", { has: page.locator("#now-title") });
-    if (await now.count()) {
-      await now.getByRole("button", { name: "Stop the rest" }).click();
-      await now.getByRole("group").getByRole("button", { name: "Stop the rest" }).click();
-      await wait(400);
-    }
-    check(W, "nori: Stop the rest asks first, then stops it", calls.some((c) => /^POST \/nori\/batches\/b\d+\/stop$/.test(c.key)), calls.filter((c) => /nori\/batches/.test(c.key)).map((c) => c.key));
-    // Connect Gmail goes to Google's consent page.
-    await page.getByRole("button", { name: "Connect Gmail" }).click();
-    const google = await page.waitForURL((u) => u.hostname === "accounts.example.test", { timeout: 6000 }).then(() => true, () => false);
-    check(W, "nori: Connect Gmail opens the consent page", google && calls.some((c) => c.key === "POST /inbox/gmail/connect"), page.url());
+    const sent = JSON.parse(calls.find((x) => x.key === "POST /nori/chat")?.body ?? "{}");
+    check(W, "nori: the message goes to POST /nori/chat", sent.message === "Set my daily cap to 15", sent);
+    check(W, "nori: the reply lists the change, and the card refreshes", (await log.innerText()).includes("Daily limit set to 15 (was 20)") && (await card.innerText()).includes("15 a day") && calls.filter((x) => x.key === "GET /nori/settings").length > before, null);
+    await log.getByRole("button", { name: "Undo: Daily limit set to 15 (was 20)" }).click();
+    await log.getByText("Daily limit back to 20").waitFor({ timeout: 5000 }).catch(() => {});
+    await wait(500);
+    check(W, "nori: Undo puts it back, on the chat and the card", calls.some((x) => x.key === "POST /nori/chat/undo/u-cap") && (await log.innerText()).includes("Daily limit back to 20") && (await card.innerText()).includes("20 a day"), null);
+    await log.getByRole("button", { name: 'Undo: Added the role "Brand designer"' }).click();
+    await wait(500);
+    check(W, "nori: undoing twice says so", (await log.innerText()).includes("Already undone"), null);
     check(W, "nori: no errors", errors.filter((e) => !/404/.test(e)).length === 0, errors);
     await context.close();
   }
   {
-    const { context, page, calls } = await open(browser, "/nori?pick=m2,m3,m5", { shortlist: MATCHES(), gmail: { available: true, connected: true, status: "ACTIVE" }, batches: [], needs: [], skipReason: "not_supported" });
-    const ticked = await page.locator('main input[type="checkbox"]:checked').count();
-    check(W, "nori: ?pick from Today ticks those jobs, leaving out one not on Greenhouse", ticked === 2 && (await page.getByRole("button", { name: "Apply for me (2)" }).count()) === 1, ticked);
-    check(W, "nori: nothing running, nothing waiting: no Now working or Needs you", (await page.locator("#now-title").count()) === 0 && (await page.locator("#needs-title").count()) === 0, null);
-    await page.getByRole("button", { name: "Apply for me (2)" }).click();
-    await page.getByRole("button", { name: "Yes, apply for me" }).click();
+    const { context, page, calls } = await open(browser, "/nori", { chat: [], batches: [], schedule: SCHEDULE(false) });
+    const card = page.locator("aside", { has: page.locator("#setup-title") });
+    const log = page.getByRole("log");
+    check(W, "nori: a first visit, Nori says what it can do", (await log.innerText()).includes("Ask me which roles I look for"), null);
+    check(W, "nori: schedule off reads plainly", (await card.innerText()).includes("Off. Nori only applies when you say so."), null);
+    await page.getByRole("button", { name: "Schedule it" }).click();
+    check(W, "nori: Schedule it starts the message", (await page.getByLabel("Message Nori").inputValue()) === "Apply every weekday at 9:00", null);
+    await page.getByLabel("Message Nori").fill("");
+    // Apply now from the chat: listed with Stop, which stops that batch.
+    await page.getByRole("list", { name: "Quick asks" }).getByRole("button", { name: "Apply now" }).click();
+    const stopChat = log.getByRole("button", { name: "Stop: Started Apply for me with 3 Recommended jobs" });
+    const listed = await stopChat.waitFor({ timeout: 5000 }).then(() => true, () => false);
     await wait(500);
-    const body = JSON.parse(calls.find((c) => c.key === "POST /nori/batches")?.body ?? "{}");
-    check(W, "nori: only the listed picks are sent, and not on Greenhouse reads plainly", JSON.stringify(body.jobIds) === '["m2","m3"]' && (await page.locator("main").innerText()).includes("Design systems designer isn’t on Greenhouse yet, so it was left out."), body);
-    await page.getByRole("button", { name: "Disconnect" }).click();
-    await page.getByRole("button", { name: "Yes, disconnect" }).click();
-    await wait(400);
-    check(W, "nori: Gmail disconnects after a confirm", calls.some((c) => c.key === "DELETE /inbox/gmail"), null);
+    check(W, "nori: Apply now from the chat, its Stop, and the card shows the batch", listed && (await card.innerText()).includes("Applying now: 0 of 3 sent"), await card.innerText());
+    await stopChat.click();
+    await log.getByText("Stopped that batch (3 not sent)").waitFor({ timeout: 5000 }).catch(() => {});
+    await wait(500);
+    check(W, "nori: Stop stops it, and the card offers Apply now again", calls.some((x) => x.key === "POST /nori/chat/undo/u-apply") && (await card.getByRole("button", { name: "Apply now" }).count()) === 1, null);
+    // Apply now on the card asks once, then sends Recommended jobs (up to the Recommended count and the cap).
+    await card.getByRole("button", { name: "Apply now" }).click();
+    const ask = await card.getByRole("group", { name: /Nori sends up to 3 Recommended jobs in your name/ }).isVisible();
+    check(W, "nori: the card's Apply now asks once first", ask && !calls.some((x) => x.key === "POST /nori/batches"), null);
+    await card.getByRole("button", { name: "Yes, apply now" }).click();
+    await wait(600);
+    const body = JSON.parse(calls.find((x) => x.key === "POST /nori/batches")?.body ?? "{}");
+    check(W, "nori: Apply now is POST /nori/batches { recommended: true }", body.recommended === true && body.limit === 3 && (await card.innerText()).includes("Started: 3 applications"), body);
     await context.close();
   }
   {
-    const { context, page } = await open(browser, "/nori", { shortlist: MATCHES(), gmail: { available: false, connected: false, status: null } });
-    check(W, "nori: Gmail unavailable says so", (await page.locator("main").innerText()).includes("Not available here yet."), null);
+    const { context, page } = await open(browser, "/nori", { batches: [], batchRefused: true, budget: true });
+    const card = page.locator("aside", { has: page.locator("#setup-title") });
+    await card.getByRole("button", { name: "Apply now" }).click();
+    await card.getByRole("button", { name: "Yes, apply now" }).click();
+    await wait(500);
+    check(W, "nori: Apply now with nothing Recommended (409) says so", (await card.innerText()).includes("No Recommended jobs to send right now."), null);
+    await page.getByLabel("Message Nori").fill("Set my daily cap to 9");
+    await page.getByRole("button", { name: "Send" }).click();
+    await wait(600);
+    const text = await page.locator("main").innerText();
+    check(W, "nori: the AI budget used up is said plainly, and nothing changed", text.includes("used today's AI budget") && text.includes("Today’s AI budget for chatting is used up") && (await card.innerText()).includes("20 a day"), null);
     await context.close();
   }
   {
-    const { context, page } = await open(browser, "/nori", { shortlist: MATCHES() }, { viewport: { width: 390, height: 844 } });
+    const { context, page } = await open(browser, "/nori", {}, { viewport: { width: 390, height: 844 } });
     const tabs = await page.locator('nav[aria-label="Dashboard"]').last().locator("a").allInnerTexts();
     const fit = await page.evaluate(() => {
       const vw = document.documentElement.clientWidth;
       const over = [...document.querySelectorAll("body *")].filter((el) => el.getBoundingClientRect().right > vw + 0.5).slice(0, 6).map((el) => `${el.tagName}.${String(el.className).slice(0, 50)} ${Math.round(el.getBoundingClientRect().right)}`);
       return over.length ? { width: document.documentElement.scrollWidth, over } : document.documentElement.scrollWidth;
     });
-    check(W, "nori: phones have six tabs, Applications as Apps, and no sideways scroll", tabs.map((t) => t.trim()).join(",") === "Today,Apps,Tracker,Inbox,Nori,You" && fit <= 390, { tabs, fit });
+    const more = await page.locator('nav[aria-label="Dashboard"]').last().getByRole("button", { name: "More" }).isVisible();
+    check(W, "nori: phones have four tabs and More, and no sideways scroll", tabs.map((t) => t.trim()).join(",") === "Overview,Jobs,Applications,Nori" && more && fit <= 390, { tabs, more, fit });
+    const fold = page.getByRole("button", { name: /^Setup/ });
+    const folded = (await fold.getAttribute("aria-expanded")) === "false" && !(await page.locator("#setup-body").isVisible());
+    const above = await page.evaluate(() => document.querySelector("main aside")?.getBoundingClientRect().top < document.querySelector('[role="log"]')?.getBoundingClientRect().top);
+    check(W, "nori: on phones the setup is folded above the chat, with a summary", folded && above && (await fold.innerText()).includes("2 roles · 20 a day · 70+ · Weekdays"), await fold.innerText());
+    await fold.click();
+    check(W, "nori: the setup opens", await page.locator("#setup-body").isVisible(), null);
+    await context.close();
+  }
+  // Jobs: search, tabs and the list beside the picked job (the user's Jobs boards), on the API's real fields only.
+  {
+    const { context, page, calls, errors } = await open(browser, "/jobs");
+    const nav = await page.locator('nav[aria-label="Dashboard"]').first().locator("a").allTextContents();
+    const order = nav.map((t) => t.trim().replace(/\d+$/, "")).filter((t) => /^(Overview|Jobs|Applications)$/.test(t));
+    check(W, "jobs: in the nav between Overview and Applications, and current", order.join(",") === "Overview,Jobs,Applications" && (await page.locator('nav[aria-label="Dashboard"] a[aria-current="page"]', { hasText: "Jobs" }).count()) >= 1, nav);
+    const main = page.locator("main");
+    const listCount = () => main.locator('section[role="tabpanel"] p[aria-live]').first().textContent();
+    check(W, "jobs: the title and the line under it", (await main.locator("h1").textContent()) === "Jobs" && (await main.innerText()).includes("Discover and apply to roles that fit your goals."), null);
+    const count = await listCount();
+    check(W, "jobs: All counts the open postings from GET /jobs/summary", count === "1,248 open postings · newest 5 shown", count);
+    const first = calls.find((c) => c.key === "GET /jobs");
+    check(W, "jobs: All asks for every open job, newest first", !!first && new URLSearchParams(first.search).get("view") === "new" && new URLSearchParams(first.search).get("lanes") === "false", first?.search);
+    const rowsList = main.locator('ul[aria-label="Jobs"] > li');
+    check(W, "jobs: five rows, the first tinted and open beside the list", (await rowsList.count()) === 5 && (await rowsList.first().locator("button").getAttribute("aria-current")) === "true" && (await main.locator("article h2").textContent()) === "Senior product designer", await rowsList.count());
+    const row1 = await rowsList.first().innerText();
+    check(W, "jobs: a row has its fit, place, other places and when", row1.includes("Fit 0.84") && row1.includes("New York, NY") && row1.includes("and 2 more") && row1.includes("2h ago"), row1);
+    check(W, "jobs: a row tags the job type and workplace the listing states, and no pay when it states none", row1.includes("Full-time") && row1.includes("Hybrid") && !/\$\d|\/ year/.test(row1), row1);
+    const row2 = await rowsList.nth(1).innerText();
+    check(W, "jobs: a row shows the pay its listing states, and Remote once", row2.includes("$120k – $150k / year") && row2.match(/Remote/g)?.length === 1, row2);
+    check(W, "jobs: a sent application shows as Sent in its row", (await rowsList.nth(4).innerText()).includes("Sent"), await rowsList.nth(4).innerText());
+    const box = { list: await main.locator('section[role="tabpanel"]').boundingBox(), job: await main.locator('section[aria-label="The job"]').boundingBox() };
+    check(W, "jobs: at 1440 the job sits right of the list", !!box.list && !!box.job && box.job.x > box.list.x + box.list.width && Math.abs(box.job.y - box.list.y) < 4, box);
+    const article = await main.locator("article").innerText();
+    check(W, "jobs: the job's description, what you'll do and why it matches", article.includes("plan their week") && article.includes("Lead research for the planner") && article.includes("Your senior product designer work at Fernway"), article.slice(0, 400));
+    check(W, "jobs: Save is there beside Apply, not pressed", (await main.locator("article").getByRole("button", { name: "Save", exact: true }).getAttribute("aria-pressed")) === "false" && (await main.locator("article").getByRole("button", { name: "Apply to Senior product designer at Mirro" }).count()) === 1, null);
+    const dtabs = (await main.locator('article [role="tablist"] [role="tab"]').allTextContents()).map((t) => t.trim());
+    check(W, "jobs: the job's tabs are Overview, Company, Insights and Review", dtabs.join(",") === "Overview,Company,Insights,Review", dtabs);
+    check(W, "jobs: nothing made up (no Offering when the listing states no pay)", !/Offering|\/ year|\$\d/.test(article) && article.includes("Full-time") && article.includes("Hybrid"), article.slice(0, 300));
+    const sticky = await main.locator('section[aria-label="The job"]').evaluate((el) => getComputedStyle(el).position);
+    check(W, "jobs: side by side, the job's panel (and its Apply) stays put while the page scrolls", sticky === "sticky", sticky);
+    check(W, "jobs: Review's form isn't read until its tab is opened", !calls.some((c) => /\/preview$/.test(c.key)), null);
+    await main.getByRole("tab", { name: "Company" }).click();
+    const companyTab = (await main.locator('article [role="tabpanel"]').innerText()).replace(/\s+/g, " ");
+    check(W, "jobs: Company names the employer and links its website, nothing invented about it", companyTab.includes("Mirro") && (await main.locator('article [role="tabpanel"] a', { hasText: "mirro.example.test" }).getAttribute("href")) === "https://mirro.example.test" && !/employees|Founded/.test(companyTab), companyTab);
+    await main.getByRole("tab", { name: "Review" }).click();
+    await main.locator('article ul[aria-label="The form’s questions"]').waitFor({ timeout: 5000 }).catch(() => {});
+    const review = (await main.locator('article [role="tabpanel"]').innerText()).replace(/\s+/g, " ");
+    check(W, "jobs: Review reads the form (GET /jobs/:id/preview) and lists what Nori would send", calls.some((c) => c.key === "GET /jobs/jb1/preview") && review.includes("2 of 4 questions Nori can answer from what it knows; it would ask you 1") && review.includes("Your tailored resume") && review.includes("Yes · from your profile") && review.includes("Earliest start date?") && review.includes("Nori will ask you") && review.includes("Optional, left empty"), review.slice(0, 400));
+    check(W, "jobs: no Greenhouse-only badge on Review", !/Greenhouse/i.test(review), null);
+    await main.getByRole("tab", { name: "Insights" }).click();
+    const insights = (await main.locator('article [role="tabpanel"]').innerText()).replace(/\s+/g, " ");
+    check(W, "jobs: Insights shows the fit, must-haves covered and the form", insights.includes("0.84 match with your profile") && insights.includes("2 of 3 must-haves you cover") && insights.includes("Greenhouse application form") && insights.includes("Motion design (must-have)"), insights.slice(0, 300));
+    await rowsList.nth(1).locator("button").click();
+    await wait(500);
+    check(W, "jobs: picking a row opens it beside the list and puts it in the address", (await main.locator("article h2").textContent()) === "UX designer" && new URL(page.url()).searchParams.get("job") === "jb2" && (await rowsList.nth(1).locator("button").getAttribute("aria-current")) === "true", page.url());
+    const offering = (await main.locator("article").innerText()).replace(/\s+/g, " ");
+    check(W, "jobs: a job whose listing states pay shows it as Offering", offering.includes("Offering $120k – $150k / year") && offering.includes("Full-time"), offering.slice(0, 300));
+    await main.getByRole("button", { name: "Apply to UX designer at Halden Labs" }).click();
+    const panelUp = await page.locator("[data-live-panel]").waitFor({ timeout: 5000 }).then(() => true, () => false);
+    const posted = JSON.parse(calls.find((c) => c.key === "POST /applications")?.body ?? "{}");
+    check(W, "jobs: Apply now starts the application and opens the live panel", posted.jobId === "jb2" && panelUp, posted);
+    await page.keyboard.press("Escape");
+    await wait(1500);
+    const chip = await main.locator('article [role="status"]').first().textContent().catch(() => "");
+    check(W, "jobs: then the job shows how it's going instead of Apply", chip === "Getting it ready" && (await main.getByRole("button", { name: /^Apply to/ }).count()) === 0, chip);
+    const search = page.locator('main input[type="search"]');
+    await search.fill("mirro");
+    await wait(900);
+    const searched = calls.filter((c) => c.key === "GET /jobs").map((c) => new URLSearchParams(c.search).get("q"));
+    check(W, "jobs: search asks the API once, after typing stops", searched.filter((x) => x === "mirro").length === 1 && (await rowsList.count()) === 1, searched);
+    await search.fill("zzz");
+    await wait(900);
+    check(W, "jobs: a search with nothing says so", (await main.innerText()).includes("No open jobs match “zzz”."), null);
+    await search.fill("");
+    await wait(900);
+    await main.getByRole("tab", { name: "All" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await wait(900);
+    const best = calls.findLast((c) => c.key === "GET /jobs");
+    check(W, "jobs: arrow keys move to Recommended, which asks for best fit on your searches", (await main.getByRole("tab", { name: "Recommended" }).getAttribute("aria-selected")) === "true" && new URLSearchParams(best.search).get("view") === "best" && new URLSearchParams(best.search).get("lanes") === "true", best.search);
+    check(W, "jobs: Recommended counts what fits", (await listCount()) === "4 that fit your searches", await listCount());
+    await main.getByRole("tab", { name: "Saved" }).click();
+    await wait(700);
+    check(W, "jobs: Saved lists the jobs you saved", (await listCount()) === "1 saved" && (await rowsList.first().innerText()).includes("Visual designer") && new URLSearchParams(calls.findLast((c) => c.key === "GET /jobs").search).get("view") === "saved", await listCount());
+    const saveBtn = main.locator("article").getByRole("button", { name: "Saved", exact: true });
+    await saveBtn.click();
+    await wait(800);
+    check(W, "jobs: Saved again takes it off (DELETE), and the Saved tab empties", calls.some((c) => c.key === "DELETE /jobs/jb4/save") && (await main.innerText()).includes("Nothing saved yet. Save a job to keep it here."), calls.filter((c) => /save$/.test(c.key)).map((c) => c.key));
+    await main.getByRole("tab", { name: "All" }).click();
+    await wait(700);
+    const saveIt = main.locator("article").getByRole("button", { name: "Save", exact: true });
+    await saveIt.click();
+    await wait(300);
+    check(W, "jobs: Save bookmarks the open job (POST) and shows it pressed", calls.some((c) => c.key === "POST /jobs/jb1/save") && (await main.locator("article").getByRole("button", { name: "Saved", exact: true }).getAttribute("aria-pressed")) === "true", null);
+    await main.getByLabel("Where").selectOption("Austin, TX");
+    await wait(700);
+    const loc = calls.findLast((c) => c.key === "GET /jobs");
+    check(W, "jobs: the place picker lists the common places and asks for one", new URLSearchParams(loc.search).get("location") === "Austin, TX" && (await rowsList.count()) === 1 && (await main.getByLabel("Where").locator("option").count()) === 5, loc.search);
+    await main.getByLabel("Where").selectOption("remote");
+    await wait(700);
+    check(W, "jobs: Remote asks for remote jobs only", new URLSearchParams(calls.findLast((c) => c.key === "GET /jobs").search).get("remote") === "true" && (await rowsList.count()) === 1, null);
+    await main.getByLabel("Where").selectOption("");
+    await main.getByRole("tab", { name: "Applied" }).click();
+    await wait(600);
+    check(W, "jobs: Applied lists the jobs you applied to (GET /applications), one row each", (await listCount()) === "10 applied" && (await rowsList.count()) === 10, await listCount());
+    await main.getByRole("tab", { name: "All" }).click();
+    await main.getByRole("button", { name: "Filters" }).click();
+    await main.getByLabel("24 hours").check();
+    await wait(700);
+    const day = calls.findLast((c) => c.key === "GET /jobs");
+    check(W, "jobs: the 24 hours filter asks for it and counts as one filter on", new URLSearchParams(day.search).get("maxAgeHours") === "24" && (await main.getByRole("button", { name: /Filters/ }).innerText()).includes("1"), day.search);
+    await main.getByLabel("Hide jobs that need US citizenship or a security clearance").check();
+    await wait(700);
+    check(W, "jobs: hiding citizenship and clearance jobs asks the API to", new URLSearchParams(calls.findLast((c) => c.key === "GET /jobs").search).get("clearance") === "hide", null);
+    check(W, "jobs: no errors", errors.length === 0, errors);
+    await context.close();
+  }
+  {
+    // On a phone the list comes first and a job is its own screen with Back, Apply pinned above the tabs.
+    const { context, page } = await open(browser, "/jobs", {}, { viewport: { width: 390, height: 844 } });
+    const main = page.locator("main");
+    const rowsList = main.locator('ul[aria-label="Jobs"] > li');
+    check(W, "jobs: phones show the list first, no job open", (await rowsList.count()) === 5 && (await main.locator("article").count()) === 0, null);
+    await rowsList.nth(2).locator("button").click();
+    await wait(500);
+    const focused = await page.evaluate(() => document.activeElement?.textContent);
+    check(W, "jobs: a phone opens the job on its own screen, its title focused", (await main.locator('ul[aria-label="Jobs"]').count()) === 0 && focused === "Design systems designer" && (await main.locator("h1").textContent()) === "Jobs", focused);
+    check(W, "jobs: a requirement that rules people out is said up front", (await main.locator("article").innerText()).includes("Heads up: Requires US citizenship."), null);
+    const apply = await main.getByRole("button", { name: /^Apply to/ }).boundingBox();
+    const tabs = await page.locator('nav[aria-label="Dashboard"]').last().boundingBox();
+    check(W, "jobs: Apply stays pinned just above the tabs", !!apply && !!tabs && apply.y + apply.height <= tabs.y && tabs.y - (apply.y + apply.height) < 40, { apply, tabs });
+    await main.getByRole("button", { name: "Back to jobs" }).click();
+    await wait(600);
+    check(W, "jobs: Back returns to the list and to the row you opened", (await rowsList.count()) === 5 && !new URL(page.url()).searchParams.get("job") && (await page.evaluate(() => document.activeElement?.getAttribute("data-job"))) === "jb3", page.url());
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/jobs?job=jb4", {}, { viewport: { width: 360, height: 640 } });
+    const fit = await page.evaluate(() => document.documentElement.scrollWidth);
+    const links = page.locator('nav[aria-label="Dashboard"]').last().locator("a");
+    const tabs = await links.allInnerTexts();
+    const fits = await links.evaluateAll((els) => els.every((a) => [...a.childNodes].every((n) => n.nodeType !== 3 || (() => { const r = document.createRange(); r.selectNodeContents(n); const b = r.getBoundingClientRect(); const box = a.getBoundingClientRect(); return b.left >= box.left - 0.5 && b.right <= box.right + 0.5; })())));
+    check(W, "jobs: a link opens that job; at 360 the four tabs' labels fit and nothing scrolls sideways", (await page.locator("main article h2").textContent()) === "Visual designer" && fit <= 360 && fits && tabs.length === 4, { fit, tabs, fits });
+    await page.locator("main").getByRole("tab", { name: "Insights" }).click();
+    check(W, "jobs: a job Nori hasn't scored says so instead of a fit", (await page.locator("main article").innerText()).includes("Nori hasn’t scored this job"), null);
+    await page.locator("main").getByRole("tab", { name: "Review" }).click();
+    await page.locator("main article").getByText("Nori reads this form when you press Apply").waitFor({ timeout: 5000 }).catch(() => {});
+    const why = await page.locator("main article").innerText();
+    const wide360 = await page.evaluate(() => document.documentElement.scrollWidth);
+    check(W, "jobs: a form Nori can't read ahead says why (the API's reason), at 360 without sideways scroll", why.includes("Nori reads this form when you press Apply and asks you anything it can't answer before sending.") && wide360 <= 360, wide360);
+    await context.close();
+  }
+  {
+    const { context, page } = await open(browser, "/jobs", { jobsOffline: true });
+    check(W, "jobs: offline says so, with Try again", (await page.locator("main").innerText()).includes("Couldn’t reach Norinote") && (await page.getByRole("button", { name: "Try again" }).count()) === 1, null);
+    await context.close();
+  }
+  {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const res = await page.goto(`${BASE}/jobs/nope`);
+    check(W, "jobs: an address under /jobs is a real 404", res?.status() === 404, res?.status());
     await context.close();
   }
   // Tracker: where applications went, as a Sankey with the headline numbers, a period switch and links into Applications.
@@ -693,6 +1005,13 @@ async function flows(browser) {
     check(W, "tracker: in the nav between Applications and Inbox, and current", order.join(",") === "Applications,Tracker,Inbox" && (await page.locator('nav[aria-label="Dashboard"] a[aria-current="page"]', { hasText: "Tracker" }).count()) >= 1, nav);
     const stats = await page.locator("main dl > div").allInnerTexts();
     check(W, "tracker: Sent 15, Replies 3, Interviews 4, Offers 1, response rate 47%", stats.map((t) => t.replace(/\s+/g, " ")).join(" | ") === "Sent 15 | Replies 3 | Interviews 4 | Offers 1 | Response rate 47%", stats);
+    // v2 plan section 4: plain, no header art; the period switch beside the title from 1024 px.
+    const head = await page.evaluate(() => {
+      const h1 = document.querySelector("main h1")?.getBoundingClientRect();
+      const g = document.querySelector("main [role=group][aria-label=Period]")?.getBoundingClientRect();
+      return { imgs: document.querySelectorAll("main img, main picture").length, beside: !!h1 && !!g && g.left > h1.right && g.top < h1.bottom + 40, h1: h1 && [h1.left, h1.right, h1.top, h1.bottom].map(Math.round), group: g && [g.left, g.right, g.top, g.bottom].map(Math.round) };
+    });
+    check(W, "tracker: plain (no header image), the period switch beside the title", head.imgs === 0 && head.beside, head);
     const nodes = page.locator("main svg a");
     check(W, "tracker: every node is a link with its count", (await nodes.count()) === 14 && (await nodes.first().getAttribute("aria-label")).startsWith("24 Started."), await nodes.count());
     check(W, "tracker: one band per link", (await page.locator("main svg g[aria-hidden] path").count()) === FLOW.links.length, null);
@@ -733,7 +1052,14 @@ async function flows(browser) {
     const { context, page } = await open(browser, "/tracker", {}, { viewport: { width: 390, height: 844 } });
     const fit = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, region: (() => { const r = document.querySelector('main [role="region"]'); return r ? r.scrollWidth > r.clientWidth : null; })() }));
     check(W, "tracker: phones keep the page still and scroll the chart", fit.page <= 390 && fit.region === true, fit);
-    check(W, "tracker: phones show Tracker in the tab bar", await page.locator('nav[aria-label="Dashboard"]').last().getByRole("link", { name: "Tracker" }).isVisible(), null);
+    // v2: Tracker is under More on phones; More shows as current, and opening it shows Tracker as the current page.
+    const moreBtn = page.locator('nav[aria-label="Dashboard"]').last().getByRole("button", { name: "More" });
+    const moreCurrent = (await moreBtn.getAttribute("aria-current")) === "page";
+    await moreBtn.click();
+    const tracker = page.locator("#more-sections").getByRole("link", { name: "Tracker" });
+    check(W, "tracker: phones reach Tracker under More, marked current", moreCurrent && (await tracker.isVisible()) && (await tracker.getAttribute("aria-current")) === "page", null);
+    await page.keyboard.press("Escape");
+    check(W, "tracker: Escape closes More and puts focus back on it", (await page.locator("#more-sections").count()) === 0 && (await page.evaluate(() => document.activeElement?.textContent?.trim())) === "More", null);
     await context.close();
   }
   // Watch Nori apply on the application's page: the live frame beside the run log, and the stage bar.
@@ -743,7 +1069,7 @@ async function flows(browser) {
     check(W, "live: the application's page shows Watch Nori apply", shown && (await page.locator("main figcaption", { hasText: "Watch Nori apply" }).count()) === 1, null);
     const fig = await page.locator("main figure").boundingBox({ timeout: 3000 }).catch(() => null);
     const log = await page.locator('main ol[aria-label^="What Nori has done"]').boundingBox({ timeout: 3000 }).catch(() => null);
-    check(W, "live: the run log sits beside the frame at 1440", !!fig && !!log && log.x > fig.x + fig.width - 2 && Math.abs(log.y - fig.y) < 40, { fig, log });
+    check(W, "live: the run log sits under the frame, beside the list", !!fig && !!log && log.y >= fig.y + fig.height - 2, { fig, log });
     check(W, "live: the stage bar is at Filling the form", (await page.locator('main ol[aria-label="Where the run is"] [aria-current="step"]').textContent().catch(() => "")).includes("Filling the form"), null);
     check(W, "live: no errors", errors.length === 0, errors);
     await context.close();
@@ -767,7 +1093,7 @@ async function flows(browser) {
     await cancel.click();
     await page.getByRole("button", { name: "Stop it" }).click();
     const done = await page.locator("main", { hasText: "You cancelled this application" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
-    const text = await page.locator("main").innerText();
+    const text = await page.locator("#dtab-panel").locator("..").innerText();
     check(W, "cancel: sent, then shown as cancelled", done && calls.some((c) => c.key === "POST /applications/a2/cancel") && !text.includes("Didn't go through") && !text.includes("Something went wrong"), text.slice(0, 500));
     check(W, "cancel: the chip says Cancelled, and the action is gone", text.includes("Cancelled") && !(await cancel.count()), null);
     await page.getByRole("button", { name: "Try again" }).click();
@@ -792,7 +1118,7 @@ async function flows(browser) {
   {
     const { context, page } = await open(browser, "/applications", { apps: CODE_APPS() });
     const t = await rowText(page, "Packaging designer");
-    check(W, "cancel: the list says Cancelled, You cancelled it", t.includes("Cancelled") && t.includes("You cancelled it") && !t.includes("Didn't go through"), t);
+    check(W, "cancel: the list says Cancelled", t.includes("Cancelled") && !t.includes("Didn't go through"), t);
     await context.close();
   }
   // A verification code emailed to the person's own address: they type it while the run waits (awaiting_code).
@@ -800,7 +1126,7 @@ async function flows(browser) {
     const { context, page, calls, errors } = await open(browser, "/applications/a10", { apps: CODE_APPS() });
     const box = page.locator("main form", { hasText: "The employer just emailed you a verification code" });
     const input = page.locator("#code-a10");
-    const first = await page.locator("main section").first().evaluate((el) => el.firstElementChild?.firstElementChild?.tagName ?? el.firstElementChild?.tagName).catch(() => null);
+    const first = await page.locator("#dtab-panel").evaluate((el) => el.firstElementChild?.firstElementChild?.tagName).catch(() => null);
     check(W, "code: the box leads the page's status card", (await box.isVisible()) && first === "FORM", first);
     check(W, "code: the field has the focus", (await page.evaluate(() => document.activeElement?.id)) === "code-a10", await page.evaluate(() => document.activeElement?.id));
     check(W, "code: labelled, one-time-code, text keyboard", (await page.getByLabel("Type it here and Nori will finish the application").count()) === 1 && (await input.getAttribute("autocomplete")) === "one-time-code" && (await input.getAttribute("inputmode")) === "text", null);
@@ -859,7 +1185,7 @@ async function flows(browser) {
 // ---- accessibility, keyboard, performance -----------------------------------------------------------------------------
 
 async function axe(browser) {
-  const states = [["/applications", {}], ["/applications/a3", {}], ["/applications/a2", {}], ["/applications/a10", { apps: CODE_APPS() }], ["/applications/a11", { apps: CODE_APPS() }], ["/inbox", {}], ["/inbox/m1", {}], ["/inbox", { inboxOff: true }], ["/tracker", {}], ["/tracker", { flow: FLOW_EMPTY }], ["/nori", { shortlist: MATCHES() }]];
+  const states = [["/applications", {}], ["/applications/a3", {}], ["/applications/a2", {}], ["/applications/a10", { apps: CODE_APPS() }], ["/applications/a11", { apps: CODE_APPS() }], ["/inbox", {}], ["/inbox/m1", {}], ["/inbox", { inboxOff: true }], ["/tracker", {}], ["/tracker", { flow: FLOW_EMPTY }], ["/nori", { shortlist: MATCHES() }], ["/jobs", {}], ["/jobs?job=jb3", {}]];
   for (const scheme of ["light", "dark"]) {
     for (const [w, h] of [[1440, 900], [390, 844]]) {
       for (const [path, o] of states) {
@@ -878,7 +1204,7 @@ async function axe(browser) {
 }
 
 async function keyboard(browser) {
-  for (const [path, count, order] of [["/applications", 30, ["Applications", "Previous week", "All", "Brand designer"]], ["/inbox", 24, ["Inbox", "Copy", "Settings", "All", "Fernway via Greenhouse", "Copy the code"]]]) {
+  for (const [path, count, order] of [["/applications", 30, ["Applications", "All", "Search applications", "Brand designer"]], ["/inbox", 24, ["Inbox", "Copy", "Settings ·", "All", "Fernway via Greenhouse", "Copy the code"]]]) {
     const where = `chromium ${path} 1440x900 keyboard`;
     const { context, page } = await open(browser, path);
     const stops = [];

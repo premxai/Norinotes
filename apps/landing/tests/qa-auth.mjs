@@ -219,7 +219,7 @@ async function flows(browser) {
   }
   for (const [label, path, step, dest] of [
     ["onboarding not finished", "/signin", "resume", "/onboarding"],
-    ["onboarding done", "/signin", "done", "/today"],
+    ["onboarding done", "/signin", "done", "/overview"],
     ["a safe ?next=", "/signin?next=/privacy", "resume", "/privacy"],
     ["an unsafe ?next=", "/signin?next=//evil.example", "resume", "/onboarding"],
   ]) {
@@ -232,7 +232,7 @@ async function flows(browser) {
   }
   {
     const { context, page } = await open(browser, "/signup", { "GET /auth/session": { status: 200, body: { user: { id: "u1" } } }, "GET /onboarding": { status: 200, body: { step: "done" } } });
-    check(W, "signed in already: /signup moves on to the dashboard", await landsOn(page, "/today"), page.url());
+    check(W, "signed in already: /signup moves on to the dashboard", await landsOn(page, "/overview"), page.url());
     await context.close();
   }
   // The email carries over between sign-in, sign-up and forgot (client-side navigation).
@@ -445,7 +445,10 @@ async function performance(browser) {
     const r = await page.evaluate(() => ({ lcp: Math.round(window.__lcp), el: window.__lcpEl, cls: Number(window.__cls.toFixed(3)) }));
     check(where, "LCP under 2.0 s", r.lcp <= 2000, `${r.lcp} ms (${r.el})`);
     check(where, "CLS under 0.05", r.cls <= 0.05, r.cls);
-    check(where, "under 450 KB before the first interaction", kb <= 450, `${kb} KB`);
+    // 450 KB in auth spec section 13. /signup is allowed 455: the shared stylesheet grew with the v2 dashboard, putting it
+    // 2 KB over on phones, and the user accepted that on 2026-11-07.
+    const budget = path === "/signup" ? 455 : 450;
+    check(where, `under ${budget} KB before the first interaction`, kb <= budget, `${kb} KB`);
     await context.close();
   }
 }

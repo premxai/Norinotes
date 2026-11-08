@@ -29,6 +29,11 @@
   --color-graph-cert: #7a5aa6;
   --color-accent-tint: #e6efe8; /* the "From your resume" tag (onboarding spec section 5) */
   --color-warning: #8a5a00;
+  /* Dashboard v2's status chips (components/app/v2/StatusChip): working (Applying), waiting, needs you. */
+  --color-info: #1d4e89;
+  --color-info-tint: #e3eef9;
+  --color-warning-tint: #fbeedb;
+  --color-needs: #9a4a12;
   --color-sky: #fcd8b3; /* the Dawn hero sky's average: the fill shown before the scene loads */
 
   --font-*: initial;
@@ -315,6 +320,10 @@ dialog.sheet[open] > * {
     --color-graph-project: #8fb3da;
     --color-graph-result: #eba585;
     --color-graph-cert: #bba4da;
+    --color-info: #a9c8ea;
+    --color-info-tint: #1c2c3d;
+    --color-warning-tint: #33280f;
+    --color-needs: #f0b48a;
     color-scheme: dark;
   }
 }
@@ -338,7 +347,23 @@ dialog.sheet[open] > * {
   --color-graph-project: #8fb3da;
   --color-graph-result: #eba585;
   --color-graph-cert: #bba4da;
+  --color-info: #a9c8ea;
+  --color-info-tint: #1c2c3d;
+  --color-warning-tint: #33280f;
+  --color-needs: #f0b48a;
   color-scheme: dark;
+}
+/* The rail folded to icons (dashboard v2): Nori has no room on it, so from 1024 px it uses the page's own seat, as it
+   does below 1024 px (Overview's hilltop, or beside the title), and the title row makes room for it. */
+@media (min-width: 1024px) {
+  .app-theme[data-rail="icons"] [data-nori-seat="strip"],
+  .app-theme[data-rail="icons"] [data-nori-seat="head"] {
+    display: block;
+  }
+  .app-theme[data-rail="icons"] .page-head {
+    min-height: 120px;
+    padding-right: 9rem;
+  }
 }
 /* A scene for each theme (the Today strip): only the one for the current theme shows, and lazy loading skips the other. */
 .app-theme .theme-dark-only {

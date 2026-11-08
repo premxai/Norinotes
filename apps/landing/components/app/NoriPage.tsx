@@ -532,7 +532,7 @@ function Connections() {
           <p className="font-semibold text-ink">Telegram, for questions and news</p>
           <p className="text-small text-ink-2">{!telegram.data ? (telegram.error ?? "Checking…") : telegram.data.linked ? "Connected. Nori messages you when it needs you, and when something is sent." : "Not connected. You’ll see what needs you here and in your email."}</p>
         </div>
-        <Link href="/you/nori" className={buttonClass("outline", "min-h-11 self-start")}>
+        <Link href="/settings/connections" className={buttonClass("outline", "min-h-11 self-start")}>
           {telegram.data?.linked ? "Telegram settings" : "Set up Telegram"}
         </Link>
       </div>

@@ -172,17 +172,20 @@ export function Tracker() {
   ];
   return (
     <main id="main" className="mx-auto flex max-w-[1040px] flex-col gap-4 px-4 pb-24 tablet:gap-5 tablet:px-8 tablet:pb-12 laptop:px-10 laptop:pt-7">
-      <PageHead>
-        <h1 className="font-serif text-[2rem] leading-[1.05] text-ink laptop:text-[2.5rem]">Tracker</h1>
-        <p className="mt-1 text-small text-ink-2 tablet:text-body">Where your applications went.</p>
-      </PageHead>
+      {/* Dashboard v2 plan section 4: plain, no header art; the period switch sits beside the title from 1024 px. */}
+      <div className="flex flex-col gap-4 tablet:gap-5 laptop:flex-row laptop:flex-wrap laptop:items-end laptop:justify-between">
+        <PageHead>
+          <h1 className="font-serif text-[2rem] leading-[1.05] text-ink laptop:text-[2.5rem]">Tracker</h1>
+          <p className="mt-1 text-small text-ink-2 tablet:text-body">Where your applications went.</p>
+        </PageHead>
 
-      <div role="group" aria-label="Period" className="flex flex-wrap gap-2">
-        {PERIODS.map(([d, label]) => (
-          <button key={label} type="button" aria-pressed={days === d} onClick={() => setDays(d)} className={`min-h-11 rounded-full border-[1.5px] px-4 text-small font-semibold ${days === d ? "border-ink bg-ink text-bg" : "border-line-strong bg-surface text-ink hover:bg-tint"}`}>
-            {label}
-          </button>
-        ))}
+        <div role="group" aria-label="Period" className="flex flex-wrap gap-2">
+          {PERIODS.map(([d, label]) => (
+            <button key={label} type="button" aria-pressed={days === d} onClick={() => setDays(d)} className={`min-h-11 rounded-full border-[1.5px] px-4 text-small font-semibold ${days === d ? "border-ink bg-ink text-bg" : "border-line-strong bg-surface text-ink hover:bg-tint"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {!f && flow.error && flow.status !== 401 ? (
@@ -203,7 +206,7 @@ export function Tracker() {
             {numbers.map(([k, v]) => (
               <div key={k} className="rounded-card border-[1.5px] border-line bg-surface px-4 py-3">
                 <dt className="text-small text-ink-2">{k}</dt>
-                <dd className="mt-0.5 text-[1.5rem] font-semibold text-ink tabular-nums">{v}</dd>
+                <dd className="mt-0.5 text-[1.5rem] font-semibold text-ink tabular-nums tablet:text-[1.75rem]">{v}</dd>
               </div>
             ))}
           </dl>

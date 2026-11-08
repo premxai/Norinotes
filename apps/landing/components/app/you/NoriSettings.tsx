@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/Button";
 import { Field } from "@/components/auth/fields";
 import { ChoiceGroup, Label, SelectField } from "@/components/onboarding/controls";
@@ -9,21 +9,19 @@ import { checkEmail, noriReact } from "@/lib/auth-flow";
 import { shortDate } from "@/lib/app-state";
 import { CARD, DANGER_BUTTON, DANGER_FILL, H2, HINT, Status, TEXT_BUTTON } from "./YouTabs";
 
-/* /you/nori: the daily limit, what Nori puts on forms, the answers it remembered, and Telegram (4c spec section 5). */
+/* /settings/profile (dashboard v2 plan section 8): contact, work authorization, the standard questions and the answers
+   from past forms. The daily limit moved to the Nori chat; Telegram moved to Connections (Telegram is exported for it). */
 
-/** Tells the shell to read today's use and the limit again, so the rail's meter follows a change at once. */
-export const refreshAgent = () => dispatchEvent(new Event("norinote:agent"));
-
-type Loaded = { profile: Profile; used: number | null; answers: BankAnswer[] | string; telegram: TelegramState | string };
+type Loaded = { profile: Profile; answers: BankAnswer[] | string };
 
 export function NoriSettings() {
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Everything at once, so no section pushes the next one down as it arrives (4c spec section 11).
   useEffect(() => {
-    void Promise.all([api.me(), api.agentStatus(), api.answers(), api.telegram()]).then(([me, agent, answers, telegram]) => {
+    void Promise.all([api.me(), api.answers()]).then(([me, answers]) => {
       if (!me.ok) return setError(me.error);
-      setData({ profile: me.data.profile, used: agent.ok ? agent.data.usedToday : null, answers: answers.ok ? answers.data : answers.error, telegram: telegram.ok ? telegram.data : telegram.error });
+      setData({ profile: me.data.profile, answers: answers.ok ? answers.data : answers.error });
     });
   }, []);
   if (error)
@@ -33,60 +31,12 @@ export function NoriSettings() {
         <p className={HINT}>{error}</p>
       </div>
     );
-  if (!data) return <div aria-hidden="true" className="h-[900px] animate-pulse rounded-card border-[1.5px] border-line bg-surface" />;
+  if (!data) return <div aria-hidden="true" className="h-[700px] animate-pulse rounded-card border-[1.5px] border-line bg-surface" />;
   return (
     <>
-      <DailyLimit initial={data.profile.autoApplyDailyCap} used={data.used} />
       <FormGroups profile={data.profile} onSaved={(profile) => setData((d) => (d ? { ...d, profile } : d))} />
       <Answers initial={data.answers} />
-      <Telegram initial={data.telegram} />
     </>
-  );
-}
-
-// ---- the daily limit ------------------------------------------------------------------------------------------------------
-
-function DailyLimit({ initial, used }: { initial: number; used: number | null }) {
-  const [cap, setCap] = useState(initial);
-  const [state, setState] = useState<"idle" | "saved" | string>("idle");
-  const timer = useRef(0);
-  function change(next: number) {
-    setCap(next);
-    setState("idle");
-    clearTimeout(timer.current);
-    // Saved once the clicking stops.
-    timer.current = window.setTimeout(async () => {
-      const r = await api.saveProfile({ autoApplyDailyCap: next });
-      setState(r.ok ? "saved" : r.error);
-      if (r.ok) refreshAgent();
-    }, 600);
-  }
-  const btn = "grid size-11 place-items-center rounded-[12px] border-[1.5px] border-line-strong text-[1.25rem] font-semibold text-ink hover:bg-tint";
-  return (
-    <section aria-labelledby="limit-h" className={CARD}>
-      <h2 id="limit-h" className={H2}>
-        Daily limit
-      </h2>
-      <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex items-center gap-1.5">
-          <button type="button" aria-label="One fewer" onClick={() => change(cap <= 1 ? 0 : cap - 1)} disabled={cap === 0} className={`${btn} disabled:opacity-35`}>
-            −
-          </button>
-          <output aria-live="polite" aria-label="Daily limit" className="min-w-[88px] text-center text-[1.5rem] font-semibold text-ink tabular-nums">
-            {cap === 0 ? "No limit" : cap}
-          </output>
-          <button type="button" aria-label="One more" onClick={() => change(cap === 0 ? 1 : Math.min(100, cap + 1))} disabled={cap >= 100} className={`${btn} disabled:opacity-35`}>
-            +
-          </button>
-        </div>
-        <p className="text-[0.9375rem] text-ink">
-          {cap > 0 && "applications a day · "}
-          <b className="tabular-nums">{used === null ? "…" : `${used} sent today`}</b>
-        </p>
-        {state === "saved" ? <Status>Saved.</Status> : state !== "idle" && <Status tone="error">{state}</Status>}
-      </div>
-      <p className={`${HINT} text-[0.875rem]`}>Nori sends only what you approve, one at a time or as a batch you start on the Nori page. The count starts again at midnight UTC.</p>
-    </section>
   );
 }
 
@@ -194,9 +144,9 @@ function FormGroups({ profile, onSaved }: { profile: Profile; onSaved: (p: Profi
     <section aria-labelledby="forms-h" className="flex flex-col gap-2.5">
       <div>
         <h2 id="forms-h" className={H2}>
-          What Nori puts on forms
+          What forms ask
         </h2>
-        <p className={`${HINT} mt-1`}>From onboarding. Nori fills these in on every application, and asks you when a form wants something new.</p>
+        <p className={`${HINT} mt-1`}>Nori fills application forms with these. Change them any time.</p>
       </div>
 
       <Group
@@ -227,7 +177,7 @@ function FormGroups({ profile, onSaved }: { profile: Profile; onSaved: (p: Profi
       </Group>
 
       <Group
-        title="Work authorisation"
+        title="Work authorization"
         summary={workText}
         open={!!open.work}
         onToggle={toggle("work")}
@@ -367,7 +317,7 @@ function Answers({ initial }: { initial: BankAnswer[] | string }) {
     <section aria-labelledby="answers-h" className="flex flex-col gap-2.5">
       <div>
         <h2 id="answers-h" className={H2}>
-          Answers Nori remembered
+          Answers from past forms
         </h2>
         <p className={`${HINT} mt-1`}>What you told Nori on past applications. Nori reuses these when a form asks the same thing.</p>
       </div>
@@ -472,7 +422,7 @@ const zones = () => {
   return intl.supportedValuesOf?.("timeZone") ?? ["UTC"];
 };
 
-function Telegram({ initial }: { initial: TelegramState | string }) {
+export function Telegram({ initial }: { initial: TelegramState | string }) {
   const [state, setState] = useState<TelegramState | null>(typeof initial === "string" ? null : initial);
   const error = typeof initial === "string" ? initial : null;
   const [link, setLink] = useState<{ url: string; until: number } | null>(null);

@@ -106,7 +106,7 @@ const realErrors = (errors, p) => errors.filter((e) => !/favicon/i.test(e) && !(
 async function statuses() {
   const where = "http";
   const codes = {};
-  for (const path of ["/nowhere-at-all", "/today/old", "/you/settings", "/applications/a1/extra", "/inbox/m1/extra", "/today", "/you/search", "/applications/a1"]) {
+  for (const path of ["/nowhere-at-all", "/today/old", "/you/settings", "/applications/a1/extra", "/inbox/m1/extra", "/overview", "/settings/search", "/applications/a1"]) {
     const r = await fetch(BASE + path, { redirect: "manual" });
     codes[path] = r.status;
     if (path === "/nowhere-at-all") {
@@ -116,7 +116,7 @@ async function statuses() {
     }
   }
   check(where, "unknown addresses answer 404, outside and under each section", ["/nowhere-at-all", "/today/old", "/you/settings", "/applications/a1/extra", "/inbox/m1/extra"].every((p) => codes[p] === 404), codes);
-  check(where, "real pages still answer 200 (static routes win over the catch-alls)", ["/today", "/you/search", "/applications/a1"].every((p) => codes[p] === 200), codes);
+  check(where, "real pages still answer 200 (static routes win over the catch-alls)", ["/overview", "/settings/search", "/applications/a1"].every((p) => codes[p] === 200), codes);
 }
 
 // ---- the size matrix ----------------------------------------------------------------------------------------------------
@@ -182,7 +182,7 @@ async function flows(browser) {
   {
     const { context, page } = await open(browser, "/nowhere-at-all");
     const links = await page.locator("main a").evaluateAll((as) => as.map((a) => `${a.textContent?.trim()} → ${a.getAttribute("href")}`));
-    check(W, "not found: Go to the home page and Open your dashboard", JSON.stringify(links) === JSON.stringify(["Go to the home page → /", "Open your dashboard → /today"]), links);
+    check(W, "not found: Go to the home page and Open your dashboard", JSON.stringify(links) === JSON.stringify(["Go to the home page → /", "Open your dashboard → /overview"]), links);
     check(W, "a fresh 404 doesn't move focus", (await page.evaluate(() => document.activeElement?.tagName)) !== "H1", null);
     await page.waitForFunction(() => window.__rows.includes("look"), null, { timeout: 5000 }).catch(() => {});
     check(W, "Nori looks around", (await played(page)).includes("look"), await played(page));
@@ -212,9 +212,9 @@ async function flows(browser) {
   }
   {
     const { context, page, fixed } = await open(browser, "/inbox", { badInbox: true });
-    check(W, "something broke in the shell: the rail stays", (await h1(page)) === BROKE && (await page.locator("nav[aria-label=Dashboard] a", { hasText: "Today" }).first().isVisible()), await h1(page));
+    check(W, "something broke in the shell: the rail stays", (await h1(page)) === BROKE && (await page.locator("nav[aria-label=Dashboard] a", { hasText: "Overview" }).first().isVisible()), await h1(page));
     const links = await page.locator("main a").evaluateAll((as) => as.map((a) => `${a.textContent?.trim()} → ${a.getAttribute("href")}`));
-    check(W, "in the shell: Go to Today", links.includes("Go to Today → /today"), links);
+    check(W, "in the shell: Go to Overview", links.includes("Go to Overview → /overview"), links);
     fixed();
     await page.getByRole("button", { name: "Try again" }).click();
     const back = await page.locator("main", { hasText: "Nothing here yet" }).waitFor({ timeout: 8000 }).then(() => true, () => false);
@@ -223,9 +223,9 @@ async function flows(browser) {
   }
   {
     const { context, page } = await open(browser, "/you/settings");
-    check(W, "an unknown You address: the in-shell 404", (await h1(page)) === LOST && (await page.locator("main a", { hasText: "Go to Today" }).count()) === 1, await h1(page));
-    await page.locator("main a", { hasText: "Go to Today" }).click();
-    check(W, "Go to Today works", await page.waitForURL((u) => u.pathname === "/today", { timeout: 6000 }).then(() => true, () => false), page.url());
+    check(W, "an unknown You address: the in-shell 404", (await h1(page)) === LOST && (await page.locator("main a", { hasText: "Go to Overview" }).count()) === 1, await h1(page));
+    await page.locator("main a", { hasText: "Go to Overview" }).click();
+    check(W, "Go to Overview works", await page.waitForURL((u) => u.pathname === "/overview", { timeout: 6000 }).then(() => true, () => false), page.url());
     await context.close();
   }
 }

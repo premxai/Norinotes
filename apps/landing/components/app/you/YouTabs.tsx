@@ -5,24 +5,36 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { PageHead } from "../PageHead";
 
-/* You's frame (4c spec section 2): the title row, the sub-tab row, then the sub-page. */
+/* The frames of the pages that came from You (4c spec section 2, dashboard v2 plan sections 7 and 8): Career graph is
+   one page; Settings has a row of sub-tabs. Same title row and width as before. */
 
-const TABS = [
-  { href: "/you", label: "Graph" },
-  { href: "/you/search", label: "Job search" },
-  { href: "/you/nori", label: "Nori" },
-  { href: "/you/account", label: "Account" },
+const SETTINGS_TABS = [
+  { href: "/settings", label: "Account" },
+  { href: "/settings/profile", label: "Profile" },
+  { href: "/settings/search", label: "Job search" },
 ] as const;
 
-export function YouFrame({ children }: { children: ReactNode }) {
-  const path = usePathname();
+function Frame({ title, children }: { title: string; children: ReactNode }) {
   return (
     <main id="main" className="mx-auto flex max-w-[960px] flex-col gap-4 px-4 pb-24 tablet:gap-5 tablet:px-8 tablet:pb-12 laptop:px-10 laptop:pt-7">
       <PageHead>
-        <h1 className="font-serif text-[2rem] leading-[1.05] text-ink laptop:text-[2.5rem]">You</h1>
+        <h1 className="font-serif text-[2rem] leading-[1.05] text-ink laptop:text-[2.5rem]">{title}</h1>
       </PageHead>
-      <nav aria-label="You" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] tablet:mx-0 tablet:px-0 [&::-webkit-scrollbar]:hidden">
-        {TABS.map((t) => {
+      {children}
+    </main>
+  );
+}
+
+export function GraphFrame({ children }: { children: ReactNode }) {
+  return <Frame title="Career graph">{children}</Frame>;
+}
+
+export function SettingsFrame({ children }: { children: ReactNode }) {
+  const path = usePathname();
+  return (
+    <Frame title="Settings">
+      <nav aria-label="Settings" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] tablet:mx-0 tablet:px-0 [&::-webkit-scrollbar]:hidden">
+        {SETTINGS_TABS.map((t) => {
           const current = path === t.href;
           return (
             <Link
@@ -37,7 +49,7 @@ export function YouFrame({ children }: { children: ReactNode }) {
         })}
       </nav>
       {children}
-    </main>
+    </Frame>
   );
 }
 

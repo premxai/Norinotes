@@ -416,5 +416,63 @@
         "webp": "/scenes/fork-band-1080.webp"
       }
     ]
+  },
+  "overview-dawn": {
+    "aspect": 3,
+    "color": "#e8d8b8",
+    "preview": "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAADwAwCdASoYAAgAPu1mq04ppaQiMAgBMB2JQBOmUABpy4h2qRKK7vQAAP7UY556C353rmXpSe/FIWGWP0see5pfjS/duRE2mXAfmpjCfWPi8Nnpe1IfVBW/R9Hnmz+IygeIAAAA",
+    "seat": {
+      "x": 0.82,
+      "y": 0.55
+    },
+    "sources": [
+      {
+        "width": 768,
+        "height": 256,
+        "avif": "/scenes/overview-dawn-768.avif",
+        "webp": "/scenes/overview-dawn-768.webp"
+      },
+      {
+        "width": 1152,
+        "height": 384,
+        "avif": "/scenes/overview-dawn-1152.avif",
+        "webp": "/scenes/overview-dawn-1152.webp"
+      },
+      {
+        "width": 1536,
+        "height": 512,
+        "avif": "/scenes/overview-dawn-1536.avif",
+        "webp": "/scenes/overview-dawn-1536.webp"
+      }
+    ]
+  },
+  "overview-night": {
+    "aspect": 3,
+    "color": "#081808",
+    "preview": "data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAAAwAwCdASoYAAgAPu1krU2ppaSiMAgBMB2JZwAAg+oC32QAAP7wb0pj7ot9jh/qQ48Pjcifp+OEPK+p80AAAA==",
+    "seat": {
+      "x": 0.82,
+      "y": 0.55
+    },
+    "sources": [
+      {
+        "width": 768,
+        "height": 256,
+        "avif": "/scenes/overview-night-768.avif",
+        "webp": "/scenes/overview-night-768.webp"
+      },
+      {
+        "width": 1152,
+        "height": 384,
+        "avif": "/scenes/overview-night-1152.avif",
+        "webp": "/scenes/overview-night-1152.webp"
+      },
+      {
+        "width": 1536,
+        "height": 512,
+        "avif": "/scenes/overview-night-1536.avif",
+        "webp": "/scenes/overview-night-1536.webp"
+      }
+    ]
   }
 }

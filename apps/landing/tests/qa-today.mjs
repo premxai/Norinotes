@@ -118,10 +118,14 @@ async function mockApi(context, o = {}) {
     if (key === "GET /shortlist") return o.offline ? route.abort("connectionrefused") : reply(200, entries);
     if (key === "GET /shortlist/meta") return reply(200, { total: entries.length, widened: o.widened ? ["role_pool"] : [], lanesMatched: 3, poolUsed: false });
     if (/^POST \/shortlist\/.+\/dismiss$/.test(key)) return reply(200, { ok: true });
+    // The Jobs page (an old /jobs?job= link lands there): an empty list is enough for these checks.
+    if (key === "GET /jobs") return reply(200, []);
+    if (key === "GET /jobs/locations") return reply(200, { locations: [] });
     if (/^GET \/jobs\//.test(key)) {
       const listed = entries.find((e) => key.endsWith(`/${e.jobId}`))?.job;
-      if (!listed && "oldJob" in o) return o.oldJob ? reply(200, o.oldJob) : reply(404, { error: "Job not found" });
-      return reply(200, listed ?? ENTRIES[0].job);
+      // As the API sends it: the job wrapped with the person's match.
+      if (!listed && "oldJob" in o) return o.oldJob ? reply(200, { job: o.oldJob, match: null }) : reply(404, { error: "Job not found" });
+      return reply(200, { job: listed ?? ENTRIES[0].job, match: null });
     }
     if (key === "GET /applications") return reply(200, [...apps.values()].reverse().map((a) => ({ application: a.app, job: a.job, resume: null })));
     if (key === "POST /applications") return reply(201, add(JSON.parse(body ?? "{}").jobId).app);
@@ -461,7 +465,7 @@ async function flows(browser) {
   for (const [label, o, test] of [
     ["signed out goes to sign-in", { signedOut: true }, async (page) => landsOn(page, "/signin")],
     ["onboarding not finished goes to onboarding", { onboarding: "contact" }, async (page) => landsOn(page, "/onboarding/contact")],
-    ["/dashboard opens Today", {}, async (page) => (await page.goto(`${BASE}/dashboard`), landsOn(page, "/today"))],
+    ["/dashboard opens Overview", {}, async (page) => (await page.goto(`${BASE}/dashboard`), landsOn(page, "/overview"))],
     ["the first morning", { entries: [] }, async (page) => page.locator("text=Nori is still finding your first jobs").isVisible()],
     ["can't reach Norinote", { offline: true }, async (page) => page.locator("text=Couldn’t reach Norinote").isVisible()],
   ]) {
@@ -472,7 +476,7 @@ async function flows(browser) {
   // Telegram's Details links (/today?job=<jobId>) and the old dashboard's addresses (next.config.ts redirects).
   const OLD = job("j9", "Brand designer", "Quill & Co", "Austin, TX", false, 80);
   for (const [label, path, o, test] of [
-    ["?job= opens that job's panel", "/today?job=j3", {}, async (page) => (await waitPanel(page, "Design systems designer")) && (await panelText(page)).startsWith("Job")],
+    ["?job= opens that job's panel, with its description", "/today?job=j3", {}, async (page) => (await waitPanel(page, "Design systems designer")) && (await panelText(page)).startsWith("Job") && (await page.locator("[data-live-panel]").getByText("A small team rebuilding").first().isVisible({ timeout: 5000 }).catch(() => false))],
     ["?job= opens its application when there is one", "/today?job=j1", { apps: [["j1", "prepared"]] }, async (page) => (await waitPanel(page, "Product designer")) && (await panelText(page)).startsWith("Application")],
     ["?job= leaves the address", "/today?job=j3", {}, async (page) => (await waitPanel(page, "Design systems designer")) && new URL(page.url()).search === ""],
     ["?job= not on today's list: a note with the posting", "/today?job=j9", { oldJob: OLD }, async (page) => {
@@ -483,11 +487,12 @@ async function flows(browser) {
     }],
     ["?job= unknown: a plain note", "/today?job=nope", { oldJob: null }, async (page) => page.getByRole("status").filter({ hasText: "That job isn’t on today’s list any more." }).isVisible()],
     ["signed out keeps ?job= through sign-in", "/today?job=j3", { signedOut: true }, async (page) => (await landsOn(page, "/signin")) && new URL(page.url()).searchParams.get("next") === "/today?job=j3"],
-    ["/jobs?job= opens Today with that job", "/jobs?job=j3", {}, async (page) => (await landsOn(page, "/today")) && (await waitPanel(page, "Design systems designer"))],
+    ["/jobs?job= stays on the Jobs page, with that job", "/jobs?job=j3", {}, async (page) => new URL(page.url()).pathname === "/jobs" && new URL(page.url()).searchParams.get("job") === "j3"],
     ["/login goes to sign-in", "/login", { signedOut: true }, async (page) => landsOn(page, "/signin")],
-    ["/profile goes to You", "/profile", {}, async (page) => landsOn(page, "/you")],
-    ["/settings goes to You", "/settings", {}, async (page) => landsOn(page, "/you")],
-    ["/graph goes to You", "/graph", {}, async (page) => landsOn(page, "/you")],
+    ["/profile goes to Settings, Profile", "/profile", {}, async (page) => landsOn(page, "/settings/profile")],
+    ["/you goes to Career graph", "/you", {}, async (page) => landsOn(page, "/graph")],
+    ["/you/nori goes to Settings, Profile", "/you/nori", {}, async (page) => landsOn(page, "/settings/profile")],
+    ["/you/account goes to Settings", "/you/account", {}, async (page) => landsOn(page, "/settings")],
     ["/resume/<id> goes to Applications", "/resume/r1", {}, async (page) => landsOn(page, "/applications")],
   ]) {
     const { context, page, errors } = await open(browser, path, o);
@@ -631,7 +636,7 @@ async function endToEnd(browser) {
   }, API);
   check(W, "onboarding through the API", steps.every((s) => s === 200), steps);
   await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
-  check(W, "/dashboard opens Today", await landsOn(page, "/today"), page.url());
+  check(W, "/dashboard opens Overview", await landsOn(page, "/overview"), page.url());
   await page.locator("main h1", { hasText: "Alex" }).waitFor({ timeout: 10000 }).catch(() => {});
   const text = await page.locator("main").innerText();
   check(W, "Today greets by name and shows the first morning", /Good (morning|afternoon|evening), Alex/.test(text) && /still finding your first jobs|for today/.test(text), text.slice(0, 200));

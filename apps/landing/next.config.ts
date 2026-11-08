@@ -30,15 +30,18 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   poweredByHeader: false,
   transpilePackages: ["@norinote/nori-pet"],
-  // Sign-in and onboarding send people to /dashboard; the dashboard's first page is Today (4a spec section 1). The rest
-  // are the old dashboard's (apps/web) addresses, which reach this site through jobs.norinote.xyz (docs/deploy.md). The
-  // query comes along, so /jobs?job=<id> lands on /today?job=<id>, which opens that job.
+  // Sign-in and onboarding send people to /dashboard; the dashboard's first page is Overview (dashboard v2 plan). You's
+  // pages moved to Career graph and Settings. The rest are the old dashboard's (apps/web) addresses, which reach this
+  // site through jobs.norinote.xyz (docs/deploy.md). The old /jobs?job=<id> needs none: the Jobs page opens that job.
   async redirects() {
     return [
-      { source: "/dashboard", destination: "/today", permanent: false },
-      { source: "/jobs", destination: "/today", permanent: false },
+      { source: "/dashboard", destination: "/overview", permanent: false },
       { source: "/login", destination: "/signin", permanent: false },
-      ...["/profile", "/settings", "/graph"].map((source) => ({ source, destination: "/you", permanent: false })),
+      { source: "/you", destination: "/graph", permanent: false },
+      { source: "/you/search", destination: "/settings/search", permanent: false },
+      { source: "/you/nori", destination: "/settings/profile", permanent: false },
+      { source: "/you/account", destination: "/settings", permanent: false },
+      { source: "/profile", destination: "/settings/profile", permanent: false },
       { source: "/resume/:id", destination: "/applications", permanent: false },
     ];
   },
