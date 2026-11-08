@@ -77,7 +77,10 @@ describe("jobs list", () => {
     expect(res.status).toBe(200);
     const titles = res.json.map((r: { job: { companyName: string } }) => r.job.companyName);
     expect(titles.slice(0, 2)).toEqual(["Strong Co", "Weak Co"]);
-    expect(titles).toContain("Plain Co");
+    // Best match is the person's matches; a job that fits a role but isn't scored yet shows in the role-filtered list.
+    expect(titles).not.toContain("Plain Co");
+    const inRoles = (await api.call("GET", "/api/jobs?view=new&lanes=true&limit=200", { cookie })).json.map((r: { job: { companyName: string } }) => r.job.companyName);
+    expect(inRoles).toContain("Plain Co");
     for (const gone of [wrongTitle, old, closed]) expect(titles).not.toContain(gone.company.name);
     expect(unmatched.job.id).toBeTruthy();
 
@@ -88,7 +91,8 @@ describe("jobs list", () => {
     expect(first.match.explanation.matched).toEqual([{ requirement: "TypeScript", nodeId: "p1", label: "Built dashboards", required: true }]);
     expect(first.match.explanation.missing).toEqual([{ requirement: "Kubernetes", required: false }]);
     expect(first.match.explanation.reasons).toHaveLength(1);
-    expect(res.json.find((r: { job: { companyName: string } }) => r.job.companyName === "Plain Co").match).toBeNull();
+    const rolesList = (await api.call("GET", "/api/jobs?view=new&lanes=true&limit=200", { cookie })).json as { job: { companyName: string }; match: unknown }[];
+    expect(rolesList.find((r) => r.job.companyName === "Plain Co")!.match).toBeNull();
   });
 
   it("honours view, sort, lanes, maxAgeHours, status and limit, and never lists a job older than 72 hours", async () => {
@@ -153,7 +157,7 @@ describe("jobs list", () => {
   it("annotates the user's application status", async () => {
     const { job } = await seedJob(api.db, { title: "Software Engineer", company: "Applied Co" });
     await seedApplication(api.db, userId, job.id, { status: "submitted" });
-    const res = await api.call("GET", "/api/jobs?q=applied", { cookie });
+    const res = await api.call("GET", "/api/jobs?view=new&lanes=false&q=applied", { cookie });
     expect(res.json[0].applicationStatus).toBe("submitted");
   });
 });
@@ -223,7 +227,8 @@ describe("jobs the user added by link", () => {
     const id = added.json.job.id;
     const ids = async (cookie: string, query: string) => (await linkApi.call("GET", `/api/jobs?${query}`, { cookie })).json.map((r: { job: { id: string } }) => r.job.id);
 
-    expect(await ids(me.cookie, "view=best")).toContain(id);
+    // Best match is the person's scored matches only; a job added by link shows in every other list.
+    expect(await ids(me.cookie, "view=best")).not.toContain(id);
     expect(await ids(me.cookie, "view=new")).toContain(id);
     expect(await ids(me.cookie, "view=new&lanes=true")).toContain(id);
     expect(await ids(me.cookie, "view=today")).toContain(id); // added in the last 24 hours

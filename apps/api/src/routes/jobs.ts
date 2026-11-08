@@ -30,6 +30,8 @@ const Query = z.object({
   remote: flag(false),
 });
 
+const SUMMARY_TTL_MS = 5 * 60_000;
+
 const AddUrl = z.object({ url: z.string().trim().min(4, "Paste the link of a job posting").max(2000) });
 
 export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
@@ -51,7 +53,18 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
     return c.json(await listJobs(db, c.get("user").id, params, ctx.now(), logo));
   });
 
-  r.get("/summary", auth, async (c) => c.json(await jobsSummary(db, c.get("user").id, ctx.now())));
+  // The counts read ~100k rows; they change slowly, so each person's are kept for a few minutes.
+  const summaries = new Map<string, { at: number; value: Awaited<ReturnType<typeof jobsSummary>> }>();
+  r.get("/summary", auth, async (c) => {
+    const userId = c.get("user").id;
+    const at = ctx.now().getTime();
+    const hit = summaries.get(userId);
+    if (hit && at - hit.at < SUMMARY_TTL_MS) return c.json(hit.value);
+    const value = await jobsSummary(db, userId, ctx.now());
+    if (summaries.size > 5000) summaries.clear();
+    summaries.set(userId, { at, value });
+    return c.json(value);
+  });
 
   r.get("/locations", auth, async (c) => c.json({ locations: await jobLocations(db, ctx.now()) }));
 

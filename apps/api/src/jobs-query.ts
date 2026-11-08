@@ -92,7 +92,13 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
   if (p.view === "best") conds.push(or(isNull(shortlist.status), ne(shortlist.status, "dismissed")));
   if (p.location) conds.push(sql`${jobs.location} ilike ${likePattern(p.location)}`);
   if (p.remote) conds.push(eq(jobs.remote, true));
-  if (p.lanes && !ownList) {
+  if (p.view === "best" && p.lanes && (await hasEnabledLanes(db, userId))) {
+    // With roles, Best match is the person's own matches (the shortlist, scored against those roles), plus jobs they
+    // added by link. Re-checking every fresh job against the roles here took seconds and starved the connection pool.
+    // Only the matches (no "or added by link"): the OR stopped Postgres from starting at the person's few shortlist rows,
+    // and the query scanned every fresh job (over a minute). Jobs added by link show in the New list.
+    conds.push(isNotNull(shortlist.id), eq(shortlist.status, "new"));
+  } else if (p.lanes && !ownList) {
     const fits = await laneCondition(db, userId, now);
     // Jobs on the user's own shortlist (including ones added by widening) always belong to Best match.
     if (fits) conds.push(p.view === "best" ? or(fits, and(isNotNull(shortlist.id), eq(shortlist.status, "new")), saved) : or(fits, saved));

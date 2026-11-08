@@ -26,7 +26,7 @@ kill_timeout = "30s"
   # the keys match. S3_ENDPOINT is https://<project-ref>.supabase.co/storage/v1/s3; the keys are secrets.
   # Database connections, over Supabase's direct connection (60 at most, shared by both apps; docs/deploy.md).
   # API 5 + 2, worker 10 + 5, plus a pg-boss listener each: about 24. The API answers short requests and only sends queue jobs.
-  DB_POOL_MAX = "5"
+  DB_POOL_MAX = "15"
   QUEUE_POOL_MAX = "2"
   ARTIFACTS_DIR = "/app/data/artifacts"
   S3_REGION = "us-west-1"
