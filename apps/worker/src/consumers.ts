@@ -171,7 +171,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
 
   /** Candidates are validated by their first poll; they get their own budget so a long seed list cannot crowd out the refresh of live boards (or the other way round). */
   async function enqueueValidations(): Promise<number> {
-    const due = await nextBoards(db, { now: now(), limit: config.validatePerRun, perHostLimit: config.hostBoardsPerRun, candidates: "only" });
+    const due = await nextBoards(db, { now: now(), limit: config.validatePerRun, perHostLimit: config.hostBoardsPerRun, candidates: "only", atsTypes: config.engineAts });
     const queued = await enqueueBoards(due);
     if (due.length) log.info("scheduler.validate", { due: due.length, queued });
     return queued;
@@ -180,7 +180,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
   async function enqueueDueBoards(): Promise<number> {
     // A new cycle starts with a clean slate: hosts that refused us last time are tried again.
     backoff = new HostBackoff();
-    const due = await nextBoards(db, { now: now(), limit: config.boardsPerRun, perHostLimit: config.hostBoardsPerRun, candidates: "exclude" });
+    const due = await nextBoards(db, { now: now(), limit: config.boardsPerRun, perHostLimit: config.hostBoardsPerRun, candidates: "exclude", atsTypes: config.engineAts });
     const queued = await enqueueBoards(due);
     log.info("scheduler", { due: due.length, queued });
     return queued + await enqueueValidations();
@@ -262,7 +262,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
       }
       throw err;
     }
-    const wanted = await jobsFittingLanes(db, result.newJobIds, { now: now() });
+    const wanted = await jobsFittingLanes(db, result.newJobIds, { now: now(), engineAts: config.engineAts });
     const understand = await enqueueUnderstand(wanted);
     return {
       board: `${company.atsType}/${company.atsToken}`, added: result.added, updated: result.updated, closed: result.closed, total: result.total, trimmed: result.trimmed,
@@ -289,7 +289,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
 
   // match.new-jobs: which users the new jobs fit.
   await queue.work(JOBS.matchNewJobs, instrument(log, JOBS.matchNewJobs, async ({ jobIds }) => {
-    const r = await matchNewJobs(db, jobIds, { now: now() });
+    const r = await matchNewJobs(db, jobIds, { now: now(), engineAts: config.engineAts, limit: config.shortlistSize });
     return { usersEvaluated: r.usersEvaluated, lanePairs: r.lanePairs, fitted: r.pairsFitted, saved: r.saved };
   }));
 
@@ -298,7 +298,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
   // reach the user through the match batch as each one finishes. Then the shortlist is built from what is understood now.
   // Without the AI service, unembedded points stay for the next run and jobs and points are compared by skill overlap.
   await queue.work(JOBS.matchUser, instrument(log, JOBS.matchUser, async ({ userId }) => {
-    const backlog = await unspeccedJobsForUser(db, userId, { now: now() });
+    const backlog = await unspeccedJobsForUser(db, userId, { now: now(), engineAts: config.engineAts });
     const understandQueued = await enqueueUnderstand(backlog);
     let embedPending = false;
     try {
@@ -308,7 +308,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
       embedPending = true;
     }
     const vector = await profileEmbedding(db, userId, now());
-    const stats = await buildShortlist(db, userId, { now: now(), profileEmbedding: vector, limit: config.shortlistSize, ...(config.explainTop > 0 ? { explain: { top: config.explainTop } } : {}) });
+    const stats = await buildShortlist(db, userId, { now: now(), profileEmbedding: vector, limit: config.shortlistSize, engineAts: config.engineAts, ...(config.engineAts.length ? { widen: false } : {}), ...(config.explainTop > 0 ? { explain: { top: config.explainTop } } : {}) });
     // Poll first the companies whose jobs fit this user's lanes, so a new user's list fills up sooner.
     const boosted = await boostCompaniesForUser(db, userId, now());
     return {

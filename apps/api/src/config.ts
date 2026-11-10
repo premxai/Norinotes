@@ -35,6 +35,8 @@ export type ApiConfig = {
   composioApiKey: string | undefined;
   /** Job systems "Apply for me" batches may send through (BATCH_ATS, comma separated, e.g. "greenhouse"). Empty = all. */
   batchAts: string[];
+  /** The engine scope (ENGINE_ATS, e.g. "greenhouse"): the job lists show only these systems' jobs with a form Nori can fill. Empty = all. */
+  engineAts: string[];
   mailFrom: string | undefined;
   /** BRANDFETCH_CLIENT_ID: public id for company logos on job cards. Unset = no logo URLs (cards show a letter tile). */
   brandfetchClientId: string | undefined;
@@ -66,6 +68,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     resendApiKey: clean(env.RESEND_API_KEY),
     composioApiKey: clean(env.COMPOSIO_API_KEY),
     batchAts: (clean(env.BATCH_ATS) ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+    engineAts: (clean(env.ENGINE_ATS) ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     mailFrom: clean(env.MAIL_FROM),
     brandfetchClientId: clean(env.BRANDFETCH_CLIENT_ID),
   };

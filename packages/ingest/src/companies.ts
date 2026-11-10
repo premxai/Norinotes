@@ -74,6 +74,8 @@ export type NextBoardsOptions = {
   perHostLimit?: number;
   /** `only` returns just candidates (validation polls), `exclude` returns none of them. Default both. */
   candidates?: "include" | "only" | "exclude";
+  /** Only these job systems (the engine scope, ENGINE_ATS). Default every supported one. */
+  atsTypes?: readonly string[] | null;
 };
 
 type Row = {
@@ -94,7 +96,9 @@ export async function nextBoards(db: Db, opts: NextBoardsOptions): Promise<DueBo
   const perHost = opts.perHostLimit ?? 10;
   const mode = opts.candidates ?? "include";
   const now = opts.now.toISOString();
-  const systems = sql.join([...SUPPORTED_ATS_TYPES].map((t) => sql`${t}`), sql`, `);
+  const supported = [...SUPPORTED_ATS_TYPES].filter((t) => !opts.atsTypes?.length || opts.atsTypes.includes(t));
+  if (supported.length === 0) return [];
+  const systems = sql.join(supported.map((t) => sql`${t}`), sql`, `);
   const scope = mode === "only" ? sql`and c.status = 'candidate'` : mode === "exclude" ? sql`and c.status <> 'candidate'` : sql``;
   const rows = await queryRows<Row>(db, sql`
     select id, ats_type, ats_token, name, status, eff as priority, host, next_poll_at, last_polled_at from (

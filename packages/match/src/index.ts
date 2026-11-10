@@ -42,6 +42,7 @@ export {
 } from "./widen.js";
 export type { SimpleLane, TemporaryLane, WidenedBy, WideningStep } from "./widen.js";
 export { inlineLanesFitSql } from "./lanes.js";
+export { engineJobSql, hostedFormSql, isHostedForm, readEngineAts } from "./engine.js";
 export {
   FIT_BANDS, NO_RESPONSE_DAYS, OUTCOME_KINDS, OUTCOME_REASON_PREFIX, SMALL_SAMPLE, addManualOutcome, boardSizeOf, fitBandOf, listOutcomes, loadOutcomeHistory,
   outcomeNudgeOf, removeOutcome, removeOutcomesOfKind, resolveApplication, stampTailoringVersions, statsOf, summarizeOutcomes, syncInboxOutcomes,

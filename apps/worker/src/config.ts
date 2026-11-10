@@ -27,6 +27,8 @@ export type WorkerConfig = {
   batchDrainMs: number;
   /** Job systems scheduled and chat batches may send through (BATCH_ATS, e.g. "greenhouse"). Empty = all. */
   batchAts: string[];
+  /** The engine scope (ENGINE_ATS, e.g. "greenhouse"): job systems collected, read, matched and sent end to end. Empty = all. */
+  engineAts: string[];
   /** How many jobs a person's daily list (Today) holds at most. Default 50. */
   shortlistSize: number;
   /** How long a run waits on the page for an emailed code (from the person's mail filter, or typed in Norinote). Default 8 min. */
@@ -70,6 +72,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     shortlistSize: int(env.SHORTLIST_SIZE, 50, 1),
     batchDrainMs: int(env.BATCH_DRAIN_SECONDS, 30, 0) * 1000,
     batchAts: (env.BATCH_ATS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+    engineAts: (env.ENGINE_ATS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     matchBatchMs: int(env.MATCH_BATCH_MS, 5000),
     explainTop: int(env.MATCH_EXPLAIN_TOP, 3),
     jobSweepEveryMs: int(env.JOB_SWEEP_EVERY_MINUTES, 60) * 60_000,

@@ -9,7 +9,8 @@ import { matchTargetOf, widenedTooFar, type MatchTarget } from "./alignment.js";
 import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitMapItem, type QualityLevel } from "./fit.js";
 import { checkGates } from "./gates.js";
 import { heuristicSpec } from "./heuristic-spec.js";
-import { inlineLanesFitSql, laneFitsSql, matchingLanes } from "./lanes.js";
+import { engineJobSql } from "./engine.js";
+import { inlineLanesFitSql, laneFitsSql, locationFitsSql, matchingLanes } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
 import { applyOutcomeLearning } from "./outcome-learning.js";
 import { placeFactor } from "./location.js";
@@ -42,6 +43,11 @@ export type MatchOptions = {
   embedFn?: EmbedFn;
   /** Off unless given. One small-model call per listed match, charged to the user's budget; failures are ignored. */
   explain?: ExplainOptions;
+  /**
+   * The engine scope (ENGINE_ATS). When set, candidates are the scope's jobs in the person's places (any title, ranked by
+   * closeness to their graph and scored on evidence) instead of jobs whose title fits a role; widening is off.
+   */
+  engineAts?: readonly string[] | null;
 };
 
 export type BuildShortlistOptions = MatchOptions & {
@@ -407,10 +413,12 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
   }
   if (profile.lanes.length === 0 || (opts.profileEmbedding === null && profile.points.length === 0)) return emptyStats(0);
   const limit = opts.candidates ?? 200;
+  const engine = engineJobSql(opts.engineAts);
+  // Engine scope: the person's places decide, not title words; closeness to their graph ranks and evidence scores.
   const laneFilter = temporary
     ? inlineLanesFitSql(profile.lanes)
-    : sql`EXISTS (SELECT 1 FROM ${lanes} WHERE ${lanes.userId} = ${userId} AND ${lanes.enabled} AND ${laneFitsSql()})`;
-  const fitsUser = and(openAndFreshSql(opts.now), laneFilter, notActedOnSql(userId));
+    : sql`EXISTS (SELECT 1 FROM ${lanes} WHERE ${lanes.userId} = ${userId} AND ${lanes.enabled} AND ${engine ? locationFitsSql() : laneFitsSql()})`;
+  const fitsUser = and(openAndFreshSql(opts.now), laneFilter, engine, notActedOnSql(userId));
 
   const vectorPage = async (offset: number): Promise<CandidateJob[]> => {
     if (!opts.profileEmbedding) return [];
@@ -685,7 +693,7 @@ export async function matchNewJobs(db: Db, jobIds: readonly string[], opts: Matc
       inArray(jobs.id, [...jobIds]),
       or(isNotNull(jobEmbeddings.jobId), specExistsSql()),
       openAndFreshSql(opts.now),
-      laneFitsSql(),
+      engineJobSql(opts.engineAts) ? and(engineJobSql(opts.engineAts), locationFitsSql()) : laneFitsSql(),
       sql`EXISTS (SELECT 1 FROM ${careerPoints} WHERE ${careerPoints.userId} = ${lanes.userId})`,
       notActedOnSql(lanes.userId),
     ));

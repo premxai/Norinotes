@@ -74,6 +74,20 @@ describe("starting a batch", () => {
     expect(res.skipped).toEqual([{ jobId: lv!.id, reason: "not_supported" }]);
   });
 
+  it("never sends an embedded form, nor a second job at a company applied to recently", async () => {
+    const u = await user();
+    const ok = await job("Fresh Co");
+    const emb = await job("Embedded Co");
+    await t.db.update(jobs).set({ applyUrl: "https://embedded.example/careers/1?gh_jid=1" }).where(eq(jobs.id, emb));
+    const first = await job("Again Co");
+    const [again] = await t.db.select({ c: jobs.companyId }).from(jobs).where(eq(jobs.id, first));
+    await t.db.insert(applications).values({ userId: u, jobId: first, status: "submitted", approvedAt: new Date() });
+    const second = await jobAt(again!.c, "Another Role");
+    const res = await startBatch(t.db, u, [ok, emb, second]);
+    expect(res.added.map((x) => x.jobId)).toEqual([ok]);
+    expect(res.skipped).toEqual(expect.arrayContaining([{ jobId: emb, reason: "embedded_form" }, { jobId: second, reason: "applied_recently" }]));
+  });
+
   it("makes no batch when nothing can be added", async () => {
     const u = await user();
     await saveNoriSettings(t.db, u, { skipCompanies: ["Nope"] });

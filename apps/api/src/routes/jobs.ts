@@ -49,6 +49,7 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
       lanes: q.lanes === undefined ? q.view === "best" : q.lanes === "true" || q.lanes === "1",
       maxAgeHours: q.maxAgeHours, clearance: q.clearance, limit: q.limit, q: q.q || undefined, minScore: q.minScore, status: q.status,
       group: q.view === "saved" || q.view === "applied" ? false : q.group, location: q.location || undefined, remote: q.remote,
+      engineAts: ctx.config.engineAts,
     };
     return c.json(await listJobs(db, c.get("user").id, params, ctx.now(), logo));
   });
@@ -60,7 +61,7 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
     const at = ctx.now().getTime();
     const hit = summaries.get(userId);
     if (hit && at - hit.at < SUMMARY_TTL_MS) return c.json(hit.value);
-    const value = await jobsSummary(db, userId, ctx.now());
+    const value = await jobsSummary(db, userId, ctx.now(), ctx.config.engineAts);
     if (summaries.size > 5000) summaries.clear();
     summaries.set(userId, { at, value });
     return c.json(value);

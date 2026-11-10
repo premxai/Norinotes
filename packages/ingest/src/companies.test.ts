@@ -87,6 +87,13 @@ describe("nextBoards", () => {
     expect(first).toMatchObject({ token: "curated", atsType: "greenhouse", status: "active", priority: 100, host: "boards-api.greenhouse.io" });
   });
 
+  it("reads only the engine scope's job systems when one is set", async () => {
+    await add("gh-board");
+    await add("ashby-board", { atsType: "ashby" });
+    expect(await tokens({ atsTypes: ["greenhouse"] })).toEqual(["gh-board"]);
+    expect(new Set(await tokens())).toEqual(new Set(["gh-board", "ashby-board"]));
+  });
+
   it("polls a boosted company first only while boost_until lies in the future", async () => {
     await add("curated", { priority: 100, nextPollAt: ago(1) });
     await add("boosted", { priority: 0, nextPollAt: ago(1), boostUntil: later(5) });

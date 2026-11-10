@@ -6,5 +6,6 @@ export * from "./skills.js";
 export * from "./work-auth.js";
 export * from "./profile.js";
 export * from "./skip-companies.js";
+export * from "./hosted-form.js";
 export * from "./inbox.js";
 export * from "./inbox.js";

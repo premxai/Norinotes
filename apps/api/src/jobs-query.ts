@@ -1,5 +1,5 @@
 import { and, applications, companies, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobBookmarks, jobs, lanes, ne, or, queryRows, savedJobs, shortlist, sql, type Db } from "@norinote/db";
-import { inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
+import { engineJobSql, inlineLanesFitSql, laneFitsSql, loadTemporaryLane, needsUsCitizenshipOrClearance } from "@norinote/match";
 import type { SQL } from "drizzle-orm";
 import { PAY_SQL_PATTERN } from "./listing-facts.js";
 import { companyLogoDomain, toJob, toMatch, type LogoUrl } from "./serialize.js";
@@ -28,6 +28,8 @@ export type JobListParams = {
   location?: string;
   /** Remote jobs only. */
   remote?: boolean;
+  /** The engine scope: only these systems' jobs with a form Nori can fill. Saved and Applied keep everything. */
+  engineAts?: readonly string[] | null;
 };
 
 /** The user added this job by pasting its link (`since`: only links added since then). */
@@ -90,6 +92,7 @@ export async function listJobs(db: Db, userId: string, p: JobListParams, now: Da
   else conds.push(or(freshJobSql(now, today ? Math.min(24, p.maxAgeHours) : p.maxAgeHours), saved));
   if (p.status === "open" && !ownList) conds.push(isNull(jobs.closedAt));
   if (p.view === "best") conds.push(or(isNull(shortlist.status), ne(shortlist.status, "dismissed")));
+  if (!ownList) conds.push(engineJobSql(p.engineAts));
   if (p.location) conds.push(sql`${jobs.location} ilike ${likePattern(p.location)}`);
   if (p.remote) conds.push(eq(jobs.remote, true));
   if (p.view === "best" && p.lanes && (await hasEnabledLanes(db, userId))) {
@@ -187,7 +190,8 @@ async function postingPlaces(db: Db, companyIds: string[], now: Date, p: JobList
 }
 
 /** Counts over open jobs posted in the last 72 hours: all of them, the last 24 hours, and those that fit the user's lanes. */
-export async function jobsSummary(db: Db, userId: string, now: Date) {
+export async function jobsSummary(db: Db, userId: string, now: Date, engineAts?: readonly string[] | null) {
+  const scope = engineJobSql(engineAts) ?? sql`true`;
   const hasLanes = await hasEnabledLanes(db, userId);
   const fitsCondition = hasLanes ? laneExists(userId) : await laneCondition(db, userId, now);
   const [row] = await queryRows<{ open: number; today: number; fits: number }>(db, sql`
@@ -195,7 +199,7 @@ export async function jobsSummary(db: Db, userId: string, now: Date) {
       (count(*) FILTER (WHERE ${freshJobSql(now, 24)}))::int AS today,
       ${fitsCondition ? sql`(count(*) FILTER (WHERE ${fitsCondition}))::int` : sql`0`} AS fits
     FROM ${jobs} INNER JOIN ${companies} ON ${companies.id} = ${jobs.companyId}
-    WHERE ${jobs.closedAt} IS NULL AND ${companies.blocked} = false AND ${freshJobSql(now)}`);
+    WHERE ${jobs.closedAt} IS NULL AND ${companies.blocked} = false AND ${freshJobSql(now)} AND ${scope}`);
   return { open: row?.open ?? 0, newToday: row?.today ?? 0, fitsLanes: row?.fits ?? 0, hasLanes };
 }
 

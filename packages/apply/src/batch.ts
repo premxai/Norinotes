@@ -5,7 +5,7 @@
  * whatever has not started. The batch counts as the person's approval for each of its applications.
  */
 import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql, gte, inArray, isNull, jobs, lanes, profiles, shortlist, sql, type Db } from "@norinote/db";
-import { readSkipCompanies } from "@norinote/shared";
+import { isHostedForm, readSkipCompanies } from "@norinote/shared";
 import { approveAndSubmit, createApplication, dailyCapUse, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
 
 /** The batch error an application carries when Stop cancelled it (the same words as a single cancel). */
@@ -74,7 +74,24 @@ export async function saveNoriSettings(db: Db, userId: string, patch: Partial<No
 
 // ---- starting a batch ---------------------------------------------------------------------------------------------
 
-export type BatchSkip = { jobId: string; reason: "not_found" | "not_supported" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" };
+export type BatchSkip = { jobId: string; reason: "not_found" | "not_supported" | "embedded_form" | "applied_recently" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" };
+
+/** A company the person applied to within this many days is not sent another application by a batch. */
+export const RECENT_COMPANY_DAYS = 60;
+
+/**
+ * Companies the person has an application with (any status but failed) in the last RECENT_COMPANY_DAYS, with the jobs
+ * those applications are for. Another job at such a company is skipped; the same job is not (an unsent application of
+ * it is taken over, a sent one is reported as already applied).
+ */
+async function recentlyAppliedCompanies(db: Db, userId: string, now: Date): Promise<{ blocks: (companyId: string, jobId: string) => boolean }> {
+  const since = new Date(now.getTime() - RECENT_COMPANY_DAYS * 86_400_000);
+  const rows = await db.select({ companyId: jobs.companyId, jobId: jobs.id }).from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
+    .where(and(eq(applications.userId, userId), gte(applications.createdAt, since), sql`${applications.status} <> 'failed'`));
+  const byCompany = new Map<string, Set<string>>();
+  for (const r of rows) byCompany.set(r.companyId, (byCompany.get(r.companyId) ?? new Set()).add(r.jobId));
+  return { blocks: (companyId, jobId) => { const js = byCompany.get(companyId); return !!js && !js.has(jobId); } };
+}
 export type StartBatchResult = { batchId: string | null; added: Array<{ jobId: string; applicationId: string; created: boolean }>; skipped: BatchSkip[] };
 
 /**
@@ -87,9 +104,10 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
   const settings = await getNoriSettings(db, userId);
   const skipSet = new Set(settings.skipCompanies.map(normalizeCompany));
   const rows = ids.length
-    ? await db.select({ id: jobs.id, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(inArray(jobs.id, ids))
+    ? await db.select({ id: jobs.id, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType, applyUrl: jobs.applyUrl }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(inArray(jobs.id, ids))
     : [];
   const byId = new Map(rows.map((r) => [r.id, r]));
+  const recent = await recentlyAppliedCompanies(db, userId, now);
   const skipped: BatchSkip[] = [];
   const picked: string[] = [];
   const companiesSeen = new Set<string>();
@@ -98,6 +116,9 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
     if (!job) { skipped.push({ jobId: id, reason: "not_found" }); continue; }
     // Job systems Nori sends batches through (BATCH_ATS); others stay for the person to apply to one at a time.
     if (opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType)) { skipped.push({ jobId: id, reason: "not_supported" }); continue; }
+    // A Greenhouse posting kept on the company's own site is an embedded form: Nori never fills those.
+    if (!isHostedForm(job.atsType, job.applyUrl)) { skipped.push({ jobId: id, reason: "embedded_form" }); continue; }
+    if (recent.blocks(job.companyId, job.id)) { skipped.push({ jobId: id, reason: "applied_recently" }); continue; }
     if (skipSet.has(normalizeCompany(job.companyName))) { skipped.push({ jobId: id, reason: "skipped_company" }); continue; }
     if (companiesSeen.has(job.companyId)) { skipped.push({ jobId: id, reason: "same_company" }); continue; }
     companiesSeen.add(job.companyId);
@@ -264,7 +285,8 @@ export async function recommendedJobIds(db: Db, userId: string, opts: { now?: Da
   const now = opts.now ?? new Date();
   const settings = await getNoriSettings(db, userId);
   const skip = new Set(settings.skipCompanies.map(normalizeCompany));
-  const rows = await db.select({ jobId: shortlist.jobId, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType })
+  const recent = await recentlyAppliedCompanies(db, userId, now);
+  const rows = await db.select({ jobId: shortlist.jobId, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType, applyUrl: jobs.applyUrl })
     .from(shortlist).innerJoin(jobs, eq(jobs.id, shortlist.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(applications, and(eq(applications.jobId, shortlist.jobId), eq(applications.userId, userId)))
     .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), gte(shortlist.fit, settings.minFit), isNull(jobs.closedAt),
@@ -275,6 +297,7 @@ export async function recommendedJobIds(db: Db, userId: string, opts: { now?: Da
   for (const r of rows) {
     if (out.length >= Math.min(opts.limit ?? 10, MAX_BATCH)) break;
     if (opts.atsTypes?.length && !opts.atsTypes.includes(r.atsType)) continue;
+    if (!isHostedForm(r.atsType, r.applyUrl) || recent.blocks(r.companyId, r.jobId)) continue;
     if (skip.has(normalizeCompany(r.companyName)) || seen.has(r.companyId)) continue;
     seen.add(r.companyId);
     out.push(r.jobId);

@@ -12,6 +12,10 @@ kill_timeout = "60s"
 [env]
   # Scheduled (autopilot) and chat batches send through Greenhouse only for now; empty = every job system.
   BATCH_ATS = "greenhouse"
+  # The engine: Greenhouse end to end (collect, read, match, send). Other job systems are left until this one is solid.
+  ENGINE_ATS = "greenhouse"
+  # With one system, read up to 60 Greenhouse boards every 3 minutes (about 7,200 boards revisited every ~6 hours).
+  HOST_BOARDS_PER_RUN = "60"
   NODE_ENV = "production"
   # The app is one site now: apps/landing serves the landing page, sign-in, onboarding and the dashboard.
   WEB_URL = "https://norinote.xyz"
