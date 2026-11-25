@@ -4,13 +4,14 @@
  * the answers on the application and the classifications in the cache. Required questions nobody can answer come back as
  * pending, so the person answers them (batched with every other pending question) before the click, not after.
  */
-import { planForm, type FormPlan, type Slot } from "@norinote/answers";
+import { fieldAnswerKey, planForm, type FormPlan, type Slot } from "@norinote/answers";
 import { applications, companies, eq, jobs, type Db } from "@norinote/db";
 import type { PendingQuestion } from "@norinote/shared";
 import { detectDriver } from "./drivers/index.js";
 import { WORKDAY_REASON, NOT_YET_REASON } from "./drivers/stubs.js";
 import { discoverFields, PREFERRED_FORM_SELECTORS } from "./form.js";
 import type { BrowserPool } from "./pool.js";
+import type { DraftedAnswer } from "./receipt.js";
 import { labelKey, loadRecipe, saveRecipe, touchRecipe, type RecipeField } from "./recipes.js";
 import { OFFSITE_FORM_REASON, fetchGreenhouseSchema, formFingerprint, greenhouseFormIsOffsite, parseJobUrl, schemaFieldsFromDom, type FormSchema } from "./schema.js";
 import { loadApplication, logEvent, saveAnswers } from "./store.js";
@@ -122,8 +123,12 @@ export async function prepareForm(db: Db, applicationId: string, deps: PrepareFo
   const sources: Record<string, number> = {};
   for (const e of plan.entries) if (e.source) sources[e.source] = (sources[e.source] ?? 0) + 1;
   timings.totalMs = Date.now() - t0;
-  const prepared = { fingerprint, ats: schema.ats, schemaSource: schema.source, recipeHit: !!recipe, ...counts, sources, usage: plan.usage, timings, at: new Date().toISOString() };
+  // Answers Nori wrote (story and motivation drafts), marked "Nori wrote this" on the receipt. A draft from an earlier
+  // preparation comes back as an answer on the application; it stays marked while the form still gets the same text.
   const latest = await loadApplication(db, applicationId);
+  const earlier = ((latest?.receipt?.prepared as { drafted?: DraftedAnswer[] } | undefined)?.drafted ?? []).filter((d) => row.answers[fieldAnswerKey(d.key)] === d.value);
+  const drafted: DraftedAnswer[] = [...earlier, ...plan.entries.filter((e) => e.source === "large" && e.value !== undefined && !earlier.some((d) => d.key === e.key)).map((e) => ({ key: e.key, label: e.label, value: e.value! }))];
+  const prepared = { fingerprint, ats: schema.ats, schemaSource: schema.source, recipeHit: !!recipe, ...counts, sources, usage: plan.usage, timings, drafted, at: new Date().toISOString() };
   await db.update(applications).set({ receipt: { ...(latest?.receipt ?? {}), prepared }, updatedAt: new Date() }).where(eq(applications.id, applicationId));
   await logEvent(db, applicationId, "prepare_form", `Form read (${schema.source}${recipe ? ", recipe hit" : ""}): ${counts.ready} of ${counts.fields} fields ready, ${counts.pending} pending`, { data: prepared });
 

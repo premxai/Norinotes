@@ -12,7 +12,14 @@ export type ReceiptField = {
   kind: FilledField["kind"];
   /** True for select, radio and checkbox fields: `value` is the selected choice. */
   choice: boolean;
+  /** Nori drafted this answer (a story or motivation question); shown as "Nori wrote this". */
+  noriWrote?: true;
 };
+
+/** A story or motivation answer Nori drafted when preparing the form (`receipt.prepared.drafted`). */
+export type DraftedAnswer = { key: string; label: string; value: string };
+
+const labelOf = (s: string) => s.toLowerCase().replace(/\*/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 export type ReceiptSection = { name: ReceiptSectionName; count: number; fields: ReceiptField[] };
 
@@ -57,11 +64,12 @@ export function sectionFor(field: Pick<FilledField, "label" | "kind">): ReceiptS
 
 const CHOICE_KINDS = new Set<FilledField["kind"]>(["select", "radio", "checkbox"]);
 
-export function groupFields(fields: FilledField[]): ReceiptSection[] {
+export function groupFields(fields: FilledField[], drafted: readonly DraftedAnswer[] = []): ReceiptSection[] {
   const sections = RECEIPT_SECTIONS.map((name): ReceiptSection => ({ name, count: 0, fields: [] }));
+  const wrote = new Set(drafted.map((d) => labelOf(d.label)));
   for (const f of fields) {
     const section = sections.find((s) => s.name === sectionFor(f))!;
-    section.fields.push({ label: f.label, value: f.value, kind: f.kind, choice: CHOICE_KINDS.has(f.kind) });
+    section.fields.push({ label: f.label, value: f.value, kind: f.kind, choice: CHOICE_KINDS.has(f.kind), ...(wrote.has(labelOf(f.label)) ? { noriWrote: true as const } : {}) });
     section.count++;
   }
   return sections;
@@ -75,6 +83,8 @@ export type ReceiptInput = {
   screenshotPath?: string;
   tracePath?: string;
   awaitingCode?: boolean;
+  /** Answers Nori drafted when preparing the form, marked on their fields. */
+  drafted?: readonly DraftedAnswer[];
   now?: Date;
 };
 
@@ -82,7 +92,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 export function buildReceipt(input: ReceiptInput): ApplicationReceipt {
   const { fill, submit } = input;
-  const sections = groupFields(fill.fields);
+  const sections = groupFields(fill.fields, input.drafted);
   const files = fill.files.map((f) => ({ label: f.label, name: path.basename(f.path), path: f.path }));
   const submitted = submit?.status === "submitted";
   const submitClicked = submit?.submitClicked ?? false;
@@ -116,7 +126,7 @@ export function formatReceipt(r: ApplicationReceipt): string {
   for (const s of r.sections) {
     if (!s.count) continue;
     lines.push("", `${s.name} (${s.count})`);
-    for (const f of s.fields) lines.push(`  ${f.choice ? "[x]" : "-"} ${f.label}: ${f.value}`);
+    for (const f of s.fields) lines.push(`  ${f.choice ? "[x]" : "-"} ${f.label}: ${f.value}${f.noriWrote ? " (Nori wrote this)" : ""}`);
   }
   if (r.files.length) lines.push("", `Files: ${r.files.map((f) => f.name).join(", ")}`);
   if (r.confirmationText) lines.push("", `Confirmation: ${r.confirmationText}`);

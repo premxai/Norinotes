@@ -36,6 +36,15 @@ describe("receipt sections", () => {
     expect(sections[0]!.fields.every((x) => !x.choice)).toBe(true);
   });
 
+  it("marks the answers Nori drafted as Nori's, by label", () => {
+    const fill = { fields: [f("First Name", "Ada"), f("Why do you want to work here? *", "The role needs APIs. I built APIs.", "textarea")], files: [], formUrl: null, durationMs: 1, needsUser: undefined };
+    const r = buildReceipt({ driver: "greenhouse", dryRun: true, fill, drafted: [{ key: "question_1", label: "Why do you want to work here?", value: "The role needs APIs. I built APIs." }] });
+    const all = r.sections.flatMap((s) => s.fields);
+    expect(all.find((x) => x.label.startsWith("Why"))).toMatchObject({ noriWrote: true });
+    expect(all.find((x) => x.label === "First Name")!.noriWrote).toBeUndefined();
+    expect(formatReceipt(r)).toContain("Why do you want to work here? *: The role needs APIs. I built APIs. (Nori wrote this)");
+  });
+
   it("records files, confirmation text, duration and an honest summary", () => {
     const fill = { fields: [f("First Name", "Ada"), f("Resume/CV", "resume.pdf", "file")], files: [{ label: "Resume/CV", path: "/tmp/x/resume.pdf" }], formUrl: "https://x.test/form", durationMs: 4000, needsUser: undefined };
     const dry = buildReceipt({ driver: "greenhouse", dryRun: true, fill });
