@@ -11,7 +11,7 @@ export function startTelegram(db: Db, queue: QueueAdapter, log: Logger, env: Rec
   const token = env.TELEGRAM_BOT_TOKEN?.trim();
   const secret = env.SESSION_SECRET?.trim() || (env.NODE_ENV === "production" ? undefined : DEV_SESSION_SECRET);
   if (!token || !secret) return () => undefined;
-  const webUrl = (env.WEB_URL?.trim() || "http://localhost:3000").replace(/\/+$/, "");
+  const webUrl = (env.WEB_URL?.trim() || "http://localhost:3400").replace(/\/+$/, "");
   const everyMs = Math.max(5, Number.parseInt(env.TELEGRAM_TICK_SECONDS ?? "", 10) || 30) * 1000;
   return startTelegramNotifier({
     db, client: createBotClient({ token }), queue: new SendQueue(), secret, webUrl,

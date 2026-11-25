@@ -6,6 +6,14 @@ export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:400
 
 export const OFFLINE = "Couldn't reach Norinote. Check your connection and try again.";
 
+/**
+ * A request that never got an answer. Against a local API that is almost never the person's connection: the API is not
+ * running, or it refuses this site because its WEB_URL is another address (CORS), so say which.
+ */
+export const UNREACHABLE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(API_URL)
+  ? `Couldn't reach the API at ${API_URL}. Check that it's running and that its WEB_URL is this site's address.`
+  : OFFLINE;
+
 /** The API's `userView`. */
 export type User = { id: string; email: string; name: string | null; emailVerifiedAt: string | null; createdAt: string };
 
@@ -252,7 +260,7 @@ async function call<T>(path: string, { method, json, form }: { method?: string; 
       body: form ?? (json === undefined ? undefined : JSON.stringify(json)),
     });
   } catch {
-    return { ok: false, status: 0, error: OFFLINE };
+    return { ok: false, status: 0, error: UNREACHABLE };
   }
   const body: unknown = await res.json().catch(() => null);
   if (res.ok) return { ok: true, status: res.status, data: body as T };
