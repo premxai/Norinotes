@@ -86,6 +86,7 @@ Per user:
 | `match.user` | profile, graph or lanes change | queue `understand` for the user's unspecced lane-fitting jobs, then rebuild the shortlist from the stored index (jobs without an embedding are ranked by skill overlap) |
 | `prepare.application` | job reaches the top of a shortlist, or user queues it | tailor resume, draft answers from the answer bank, mark prepared |
 | `apply.run` | user click (counts as approval) or autopilot within the daily cap | fill and submit with the warm browser pool |
+| `apply.finish` | the person's Finish on applications with one step left (`ready_to_finish`) | one live-view session: fill again, hand the captcha or sign-in to the person, then submit |
 | `inbox.receive` | inbound email webhook (`/api/inbox/webhook/:provider` stores first) | settle ambiguous mail with the small model, relink, record outcomes, wake `awaitVerification`, forward if enabled; a 6-hourly retention sweep deletes mail older than `INBOX_RETENTION_DAYS` (90) |
 
 The Telegram notifier is not a queue: a 30-second timer in the worker (with `TELEGRAM_BOT_TOKEN`) queues and sends the daily
