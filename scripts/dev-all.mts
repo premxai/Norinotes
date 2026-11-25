@@ -8,6 +8,7 @@
 import path from "node:path";
 import { serve } from "@hono/node-server";
 import { connect, loadDotEnv, migrate } from "@norinote/db";
+import { sharedMemoryInputBus } from "@norinote/apply";
 import { createQueue } from "@norinote/queue";
 import { createApp, loadConfig } from "../apps/api/src/index.js";
 import { startWorker } from "../apps/worker/src/worker.js";
@@ -20,7 +21,8 @@ await migrate(handle);
 const queue = createQueue(url ? { connectionString: url } : { adapter: "memory" });
 await queue.start();
 
-const worker = await startWorker({ db: handle.db, queue });
+// One process: the live view's inputs go from the API to the worker in memory, never through the database.
+const worker = await startWorker({ db: handle.db, queue, liveInputs: sharedMemoryInputBus() });
 const config = loadConfig(process.env);
 const app = createApp({ db: handle.db, enqueue: (name, payload, opts) => queue.enqueue(name, payload, opts), config });
 const server = serve({ fetch: app.fetch, port: config.port });

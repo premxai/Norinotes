@@ -4,6 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { addJobByUrl } from "@norinote/ingest";
 import { fileStoreFromEnv } from "@norinote/shared/files";
+import { sharedMemoryInputBus } from "@norinote/apply";
 import { createMailer } from "./mailer.js";
 import { errorHandler, HttpError } from "./http.js";
 import { browserOrigins, originGuard, RateLimiter, securityHeaders } from "./security.js";
@@ -49,6 +50,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
     files: deps.files === undefined ? fileStoreFromEnv() : deps.files,
     gmail: deps.gmail === undefined ? (config.composioApiKey ? createComposioGmail({ apiKey: config.composioApiKey }) : null) : deps.gmail,
     previewFetch: deps.previewFetch ?? ((input, init) => fetch(input, init)),
+    liveInputs: deps.liveInputs ?? sharedMemoryInputBus(),
     ...(deps.telegram ? { telegram: deps.telegram } : {}),
   };
 

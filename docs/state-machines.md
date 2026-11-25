@@ -12,6 +12,11 @@ Change a machine here first, then in code.
   `captchaHeld`: the challenge held the form, so it was not sent). `ready_to_finish → applying` only for the person
   (`by: "user"`, approved), with a fresh set of attempts: Finish in the live view, or Retry. `ready_to_finish → failed` on
   Cancel. The worker never moves it on its own; Telegram groups these into "N applications need one tap".
+- **Finish session** (`apply.finish`, `finishApplications`): up to 5 applications, one after another on one fresh browser
+  context. Each moves `ready_to_finish → applying` when its turn comes, never earlier. While the person is at the wall the
+  receipt holds `handoff`; afterwards the usual `applying` exits apply. A wall the person did not get past, or a run that
+  broke, goes back to `ready_to_finish` (never a background retry: nobody would be there to take the step). The handoff
+  wait (10 minutes) stays well inside `staleRuns`' 25 minutes.
 
 - **One table of allowed moves:** `TRANSITIONS` in `packages/apply/src/state.ts`. Every write goes through `transitionApplication` (`packages/apply/src/store.ts`), guarded on the status it read.
 - **Hidden state that changes behaviour:**

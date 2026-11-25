@@ -108,7 +108,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - `status: "ready_to_finish"` ("One step left"): Nori filled the form and stopped at a visible captcha or a sign-in page
   that only the person can do. The resume, answers and receipt stay; `error` holds the one-line reason (it names a
   captcha or a sign-in). Approve is 409; Cancel works; Retry runs it again without the person (a captcha is not always
-  shown twice). Finish (the live view where the person does the step) comes with its own endpoint. A submit the site
+  shown twice); Finish (below) is the way with the person. A submit the site
   stopped with a captcha challenge carries `receipt.captchaHeld: true`: the challenge held the form, so it may be sent
   again. Telegram sends one "N applications need one tap" message per new set of these.
 - GET `/api/applications/flow` (optional `?days=`): the tracker's Sankey. `{ since, total, nodes: [{ id, label, count,
@@ -132,6 +132,20 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   The waiting run picks it up within seconds and carries on. 409 when the application is not waiting for a code, 400
   for a malformed code. Telegram sends an urgent "Type your code" message with a link when a run starts waiting. If no
   code arrives in time the application parks as `needs_user`; Retry starts the form again and a new code is emailed.
+- POST `/api/applications/finish` with optional `{ ids }` (1 to 5 application ids; default: the oldest 5 with one step
+  left): starts one Finish session and returns `{ ok: true, applicationIds }` in the order Nori takes them. 409 when none
+  of them (or none at all) is `ready_to_finish`. Nori opens each in turn (status `applying`, the live view shows it),
+  fills it again from its recipe and answers, and at the captcha or sign-in sets `receipt.handoff: { kind: "captcha" |
+  "account", since }`: the person's turn. The dashboard then makes the live view clickable and polls frames faster (a new
+  one about every half second). When the wall is gone Nori clears `handoff` and submits; if the person stops or 10 minutes
+  pass it goes back to `ready_to_finish`. A sign-in carries over to the next application in the same session; the
+  browser context, with every sign-in, is thrown away when the session ends. Nothing in a session is traced.
+- POST `/api/applications/:id/live/input` with one input, while `receipt.handoff` is set: `{ kind: "click", x, y }` (x and
+  y are fractions 0 to 1 of the frame), `{ kind: "type", text }` (1 to 200 characters), `{ kind: "key", key, shift? }`
+  (Enter, Tab, Backspace, Delete, Escape, ArrowUp/Down/Left/Right, Home, End, Space), `{ kind: "scroll", dy }`,
+  `{ kind: "done" }` (check now), `{ kind: "cancel" }` (stop; back to one step left). Returns `{ ok: true }`; 409 when Nori
+  is not waiting for the person on that application, 400 for anything else. Inputs go straight to the browser and are
+  never stored or logged: they may be a password. Nori never types into a sign-in page itself.
 - Approve is refused with 429 when the daily limit is used up (`autoApplyDailyCap` above 0 and that many already
   approved today, UTC); nothing changes and the application stays prepared. An application approved earlier (from
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
