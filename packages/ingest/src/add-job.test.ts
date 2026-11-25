@@ -75,6 +75,8 @@ describe("addJobByUrl", () => {
     expect(err).toBeInstanceOf(UnsupportedJobUrlError);
     expect((err as Error).message).toMatch(/www\.example\.com is not a job system/);
     await expect(addJobByUrl(t.db, "https://myworkday.example.com/job/1", opts(f))).rejects.toBeInstanceOf(UnsupportedJobUrlError);
+    // SmartRecruiters' robots.txt disallows every path, so its links are refused like an unknown host.
+    await expect(addJobByUrl(t.db, "https://jobs.smartrecruiters.com/Hooli/743999-sre", opts(f))).rejects.toBeInstanceOf(UnsupportedJobUrlError);
     await expect(addJobByUrl(t.db, "   ", opts(f))).rejects.toBeInstanceOf(UnsupportedJobUrlError);
     expect(f).not.toHaveBeenCalled();
   });

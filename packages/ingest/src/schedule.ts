@@ -25,7 +25,6 @@ const MIN_INTERVAL_MS: Partial<Record<AtsType, number>> = {
   workday: 6 * HOUR,
   oracle: 6 * HOUR,
   icims: 6 * HOUR,
-  smartrecruiters: 2 * HOUR,
   workable: 3 * HOUR,
 };
 const DEFAULT_MIN_INTERVAL_MS = 30 * 60_000;

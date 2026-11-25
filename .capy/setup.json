@@ -7,7 +7,7 @@
   },
   "timeouts": { "initialize": 1200, "refresh": 600 },
   "startup": [
-    { "name": "api", "command": "npm run dev", "port": 4000 },
+    { "name": "api", "command": "ENGINE_ATS=greenhouse npm run dev", "port": 4000 },
     { "name": "web", "command": "NEXT_PUBLIC_API_URL=http://localhost:4000 npm run dev --workspace apps/landing", "port": 3400 }
   ],
   "commands": [

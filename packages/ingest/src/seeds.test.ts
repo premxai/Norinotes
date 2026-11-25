@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { and, companies, eq, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import {
-  importSeeds, parseCsv, parseOpenAtsFeed, parseOracleUrl, parseSeedCsv, parseSeedRow, parseWorkdayUrl, type SeedCompany,
+  importSeeds, parseCsv, parseOpenAtsFeed, parseOracleUrl, parseSeedCsv, parseSeedRow, parseWorkdayUrl, SEED_CSV_SYSTEMS, type SeedCompany,
 } from "./seeds.js";
 
 describe("parseCsv", () => {
@@ -62,10 +62,9 @@ describe("parseSeedRow per system", () => {
     expect(row("rippling", "11:FS Group Ltd", "11fs-group-ltd", "https://ats.rippling.com/11fs-group-ltd/jobs")?.token).toBe("11fs-group-ltd");
   });
 
-  it("SmartRecruiters keeps the company identifier case from the URL", () => {
-    expect(row("smartrecruiters", "IOTA GROUP", "iotagroup", "https://careers.smartrecruiters.com/IOTAGROUP/iota")?.token).toBe("IOTAGROUP");
-    expect(row("smartrecruiters", "1871", "1871", "https://careers.smartrecruiters.com/1871")?.token).toBe("1871");
-    expect(row("smartrecruiters", "Hooli", "hooli", "https://jobs.smartrecruiters.com/Hooli")?.token).toBe("Hooli");
+  it("never seeds SmartRecruiters (robots.txt disallows it)", () => {
+    expect(row("smartrecruiters", "Hooli", "hooli", "https://jobs.smartrecruiters.com/Hooli")).toBeNull();
+    expect(SEED_CSV_SYSTEMS).not.toContain("smartrecruiters");
   });
 
   it("subdomain systems read the tenant from the host", () => {
@@ -190,6 +189,11 @@ describe("importSeeds", () => {
     const again = await importSeeds(t.db, rows, all);
     expect(again.inserted).toEqual({});
     expect(again.duplicates).toBe(2);
+  });
+
+  it("drops SmartRecruiters rows by default (its connector is not ready)", async () => {
+    const res = await importSeeds(t.db, [seed("smartrecruiters", "Hooli"), seed("lever", "ok2")]);
+    expect(res).toMatchObject({ inserted: { lever: 1 }, unsupported: 1 });
   });
 
   it("skips unsupported systems and blocklisted names", async () => {

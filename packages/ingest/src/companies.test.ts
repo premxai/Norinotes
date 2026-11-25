@@ -27,6 +27,14 @@ describe("seedCompanies", () => {
     expect(await t.db.select().from(companies)).toHaveLength(BOARD_REGISTRY.length);
   });
 
+  it("holds no SmartRecruiters boards, and an old SmartRecruiters row is never due (robots.txt disallows it)", async () => {
+    expect(BOARD_REGISTRY.filter((b) => b.atsType === "smartrecruiters")).toEqual([]);
+    await seedCompanies(t.db);
+    await t.db.insert(companies).values({ name: "Hooli", atsType: "smartrecruiters", atsToken: "Hooli", status: "active", priority: 100 });
+    const due = await nextBoards(t.db, { now, limit: 1000, perHostLimit: 1000 });
+    expect(due.some((d) => d.atsType === "smartrecruiters")).toBe(false);
+  });
+
   it("keeps user-added rows and existing poll state, and never renames", async () => {
     const entry = BOARD_REGISTRY[0]!;
     await t.db.insert(companies).values({ atsType: entry.atsType, atsToken: entry.token, name: "My Name", lastPolledAt: ago(1) });

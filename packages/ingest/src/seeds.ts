@@ -39,8 +39,8 @@ export type SeedCompany = {
   discoveredVia: SeedSource;
 };
 
-/** The job systems that have a `{system}.csv` in kalil0321/ats-scrapers (the file name is the system name). */
-export const SEED_CSV_SYSTEMS: readonly AtsType[] = ATS_TYPES;
+/** The job systems read from kalil0321/ats-scrapers' `{system}.csv` (the file name is the system name): every supported one. */
+export const SEED_CSV_SYSTEMS: readonly AtsType[] = ATS_TYPES.filter(isSupportedAts);
 
 // ---------------------------------------------------------------------------------------------------------------------
 // CSV
@@ -135,7 +135,7 @@ function firstSegment(raw: string, hosts: RegExp): string | null {
 /**
  * The board token for one seed row, in the format the connector expects (docs/job-collection.md), or null when the row
  * cannot be a board of that system. The URL is preferred over the slug column because it keeps the tenant's own
- * spelling (Workday, Oracle and SmartRecruiters are case-sensitive in places).
+ * spelling (Workday and Oracle are case-sensitive in places).
  */
 function tokenFor(atsType: AtsType, slug: string, link: string): string | null {
   switch (atsType) {
@@ -144,7 +144,8 @@ function tokenFor(atsType: AtsType, slug: string, link: string): string | null {
     case "greenhouse": return firstSegment(link, /(^|\.)greenhouse\.io$/i) ?? cleanSlug(slug);
     case "lever": return firstSegment(link, /^jobs(\.eu)?\.lever\.co$/i) ?? cleanSlug(slug);
     case "ashby": return firstSegment(link, /^jobs\.ashbyhq\.com$/i) ?? cleanSlug(slug);
-    case "smartrecruiters": return firstSegment(link, /^(jobs|careers)\.smartrecruiters\.com$/i) ?? cleanSlug(slug);
+    // Never seeded: robots.txt disallows every path for our User-Agent.
+    case "smartrecruiters": return null;
     case "workable": return firstSegment(link, /^apply\.workable\.com$/i) ?? cleanSlug(slug);
     case "rippling": return firstSegment(link, /^ats\.rippling\.com$/i) ?? cleanSlug(slug);
     case "recruitee": return subdomain(link, /^([a-z0-9-]+)\.recruitee\.com$/) ?? cleanSlug(slug);
