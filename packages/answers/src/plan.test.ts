@@ -75,6 +75,31 @@ describe("grounding checks", () => {
     expect(unsupportedSentences([{ text: "I found unindexed database queries causing intermittent slowdowns and fixed them.", support: "Led the rebuild of the event ingestion pipeline" }], corpus, "Tell us about a time")).toHaveLength(1);
     expect(unsupportedSentences([{ text: "I led the rebuild.", support: "a quote that is nowhere in the facts" }], corpus, "q")).toHaveLength(1);
   });
+
+  const facts = "Software Engineer at Acme 2021-03 present. Built payment APIs in Python serving 2 million requests a day.";
+  const posting = "Senior Backend Engineer at Initech. You have 5+ years of experience with Kubernetes and Go. You will build production services for small businesses.";
+
+  it("checks a claim about the candidate against their facts, never the posting", () => {
+    expect(ungroundedTokens("I have 5 years of experience with Kubernetes and Go.", facts)).toEqual(expect.arrayContaining(["5", "kubernetes", "go"]));
+    const claim = { text: "I have 5+ years of experience with Kubernetes and Go.", support: "You have 5+ years of experience with Kubernetes and Go" };
+    expect(unsupportedSentences([claim], facts, "Why are you a good fit for this role?", posting)).toHaveLength(1);
+    // A year count is a claim about the candidate even without "I".
+    expect(unsupportedSentences([{ text: "Five-plus years of experience with Kubernetes and Go.", support: "5+ years of experience with Kubernetes and Go" }], facts, "q", posting)).toHaveLength(1);
+  });
+
+  it("lets the posting support what is said about the company or the role", () => {
+    const about = { text: "The team builds production services for small businesses.", support: "You will build production services for small businesses" };
+    expect(unsupportedSentences([about], facts, "Why do you want to work here?", posting)).toEqual([]);
+    expect(unsupportedSentences([about], facts, "Why do you want to work here?")).toHaveLength(1);
+  });
+
+  it("finds tools in any case and by alias, and never lets the question lend a claim its terms", () => {
+    expect(ungroundedTokens("yes, i run terraform and kafka in production daily", facts)).toEqual(expect.arrayContaining(["terraform", "kafka"]));
+    expect(ungroundedTokens("i deployed it with k8s", "Ran the services on Kubernetes")).toEqual([]);
+    expect(ungroundedTokens("i built payment apis in python", facts)).toEqual([]);
+    const borrowed = { text: "I have run Kubernetes clusters for the payment APIs.", support: "Built payment APIs in Python serving 2 million requests a day" };
+    expect(unsupportedSentences([borrowed], facts, "Describe your Kubernetes experience.", posting)).toHaveLength(1);
+  });
 });
 
 describe("planForm", () => {
@@ -136,11 +161,13 @@ describe("planForm", () => {
             { key: "q2", slot: "custom", decision: "unsure", options: [], text: null, evidence: null },
             { key: "q3", slot: "custom", decision: "answer", options: [], text: "I wrote Kubernetes operators at Initech", evidence: "made up" },
             { key: "q4", slot: "salary", decision: "answer", options: [], text: "200000", evidence: null },
+            { key: "q8", slot: "custom", decision: "answer", options: [], text: "i use typescript and kafka daily", evidence: "Built payment APIs in TypeScript" },
           ] };
         }
         return { answers: [
           { key: "q5", answerable: true, sentences: [{ text: "I built payment APIs in TypeScript serving 2 million requests per day.", support: "Built payment APIs in TypeScript serving 2 million requests per day" }] },
           { key: "q6", answerable: true, sentences: [{ text: "I led a team of 40 at Google.", support: "Built payment APIs in TypeScript" }] },
+          { key: "q7", answerable: true, sentences: [{ text: "I build and run APIs with a small platform team.", support: "You will build and run APIs with a small platform team" }] },
         ] };
       },
     }));
@@ -151,6 +178,8 @@ describe("planForm", () => {
       f("q4", "Pay you would accept"),
       f("q5", "Describe a project you are proud of.", "textarea"),
       f("q6", "Tell us about your leadership.", "textarea"),
+      f("q7", "Describe your experience with platform teams.", "textarea"),
+      f("q8", "Which tools do you use every day?"),
     ] });
     expect(requests.filter((r) => r.jsonSchema?.name === "form_fields")).toHaveLength(1);
     expect(requests.filter((r) => r.jsonSchema?.name === "long_answers")).toHaveLength(1);
@@ -161,8 +190,10 @@ describe("planForm", () => {
     expect(by.q4).toMatchObject({ status: "ready", slot: "salary", source: "profile", value: "150,000 USD per year" }); // never the model's number
     expect(by.q5).toMatchObject({ status: "ready", source: "large" });
     expect(by.q6).toMatchObject({ status: "pending" });
+    expect(by.q7).toMatchObject({ status: "pending" }); // a claim about the candidate quoting the posting
+    expect(by.q8).toMatchObject({ status: "pending" }); // kafka, lower case, is not in the facts
     expect(plan.learned["pay you would accept"]).toBe("salary");
-    expect(plan.pending.map((p) => p.id).sort()).toEqual(["field:q2", "field:q3", "field:q6"]);
+    expect(plan.pending.map((p) => p.id).sort()).toEqual(["field:q2", "field:q3", "field:q6", "field:q7", "field:q8"]);
   });
 });
 

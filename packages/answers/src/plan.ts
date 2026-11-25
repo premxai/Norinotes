@@ -20,6 +20,7 @@ import { fitAnswer, loadContext, pickBankAnswer } from "./answers.js";
 import { DEFAULT_MATCH_THRESHOLD, findSimilar, loadBank, markUsed, saveAnswer, type BankRow } from "./bank.js";
 import { candidatePrefix, NEVER_DRAFT, PROSE } from "./draft.js";
 import { careerFacts, classifySlot, EEO_SLOTS, LEGAL_SLOTS, SLOTS, slotValue, type Slot, type SlotField } from "./slots.js";
+import { findTerms, mentionsSkill } from "@norinote/tailor/terms";
 import { contentTokens, distinctiveTokens, matchOption, MULTI_SEPARATOR, normalizeQuestion } from "./text.js";
 
 export type PlanField = SlotField & {
@@ -93,23 +94,34 @@ const toPending = (f: SlotField): PendingQuestion => ({
     : f.options.length > 0 ? "select" : f.type === "checkbox" || f.type === "boolean" ? "boolean" : "text",
 });
 
-/** Tokens of an answer the facts must contain: numbers, acronyms, names and tools (see distinctiveTokens). */
+/**
+ * Tokens of an answer the facts must contain: numbers, acronyms, names (see distinctiveTokens), and every skill or tool
+ * the alias table knows, in any case and by any of its names ("kafka", "k8s").
+ */
 export function ungroundedTokens(answer: string, corpus: string): string[] {
   const hay = corpus.toLowerCase().replace(/,/g, "");
-  const out: string[] = [];
+  const terms = findTerms(answer).map((t) => ({ as: t.as.toLowerCase(), grounded: mentionsSkill(corpus, t.as) }));
+  const out = terms.filter((t) => !t.grounded).map((t) => t.as);
   for (const t of distinctiveTokens(answer)) {
-    const word = t.startsWith("#") ? t.slice(1) : t;
-    if (!hay.includes(word.toLowerCase())) out.push(word);
+    const word = (t.startsWith("#") ? t.slice(1) : t).toLowerCase();
+    // A grounded alias ("k8s" for Kubernetes) is not new because its spelling differs.
+    if (out.includes(word) || terms.some((x) => x.grounded && (x.as === word || (/^\d/.test(word) && x.as.includes(word))))) continue;
+    if (!hay.includes(word)) out.push(word);
   }
   return out;
 }
 
-function corpusOf(points: CareerPoint[], facts: { fullName: string; location: string }, job: { title: string; company: string; description: string }): string {
+/** What the person's own data says: their career points, name and location. The only ground for a claim about them. */
+function factsCorpus(points: CareerPoint[], facts: { fullName: string; location: string }): string {
   return [
-    facts.fullName, facts.location, job.title, job.company, job.description,
+    facts.fullName, facts.location,
     ...points.map((p) => [p.title, p.org ?? "", p.text, p.skills.join(" "), JSON.stringify(p.metrics), JSON.stringify(p.scope), p.startDate ?? "", p.endDate ?? ""].join(" ")),
   ].join("\n");
 }
+
+/** A sentence that says something about the candidate: first person, or a year count ("5 years of Go"). */
+const CANDIDATE_CLAIM = /\b(i|i'm|i've|i'd|i'll|me|my|mine|myself)\b|\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty|several|many)\s*(\+|-?\s*plus)?\s*(years?|yrs?)\b/i;
+export const isCandidateClaim = (sentence: string): boolean => CANDIDATE_CLAIM.test(sentence.replace(/[’`]/g, "'"));
 
 // ---- the batched small-model call -------------------------------------------------------------------------------------
 
@@ -245,7 +257,10 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
   }
   timings.bankMs = Date.now() - t1;
 
-  const corpus = corpusOf(points, ctx.facts, { title: ctx.job.title, company: ctx.job.company, description: ctx.job.description });
+  // Claims about the candidate are grounded in their own facts only; the posting may support what is said about the
+  // company or the role (long answers), and a short answer may name its title and company.
+  const facts = factsCorpus(points, ctx.facts);
+  const posting = [ctx.job.title, ctx.job.company, ctx.job.description].join("\n");
   const long = rest.filter((f) => isLongText(f));
   // Optional prose is left blank: a wrong essay costs more than an empty optional box.
   for (const f of long.filter((x) => !x.required)) set(f, "custom", { status: "skip", reason: "optional free text" });
@@ -300,7 +315,7 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
           continue;
         }
         const text = (r.text ?? "").trim();
-        const bad = text ? ungroundedTokens(text, corpus) : ["(empty)"];
+        const bad = text ? ungroundedTokens(text, `${facts}\n${ctx.job.title}\n${ctx.job.company}`) : ["(empty)"];
         if (!text || bad.length || text.split(/\s+/).length > 40) { unresolved(f, slot, bad.length ? `A drafted answer mentioned facts not in your profile (${bad.slice(0, 3).join(", ")})` : "The drafted answer was too long"); continue; }
         set(f, slot, { status: "ready", value: text, source: "model" });
         remember(f, text);
@@ -337,7 +352,7 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
         const sentences = r?.answerable ? r.sentences.filter((x) => x.text.trim()) : [];
         const text = sentences.map((x) => x.text.trim()).join(" ");
         if (!text) { unresolved(f, "custom", "Your profile does not support an honest answer to this question"); continue; }
-        const bad = unsupportedSentences(sentences, corpus, f.label);
+        const bad = unsupportedSentences(sentences, facts, f.label, posting);
         if (bad.length || text.split(/\s+/).length > 130) { unresolved(f, "custom", bad.length ? `A drafted answer said things your profile does not (${bad[0]!.slice(0, 80)})` : "The draft was too long"); continue; }
         set(f, "custom", { status: "ready", value: text, source: "large" });
         remember(f, text);
@@ -373,18 +388,23 @@ function candidateFacts(points: CareerPoint[], facts: { location: string; countr
 }
 
 /**
- * The grounding check for a long answer: every sentence names its supporting quote, the quote must be in the facts or the
- * posting, every number, name and tool of the sentence must be in its quote (or the question), and most of its content
- * words must come from the quote. A story detail the facts do not contain fails the whole answer.
+ * The grounding check for a long answer: every sentence names its supporting quote. A sentence about the candidate
+ * (`isCandidateClaim`) must quote the person's facts, and every number, name and tool in it must be in that quote; the
+ * question cannot lend it a term. Any other sentence (about the company or the role) may quote the facts or the posting,
+ * and may also use the question's terms. Most of a sentence's content words must come from its quote. A story detail the
+ * facts do not contain fails the whole answer.
  */
-export function unsupportedSentences(sentences: { text: string; support: string }[], corpus: string, question: string): string[] {
+export function unsupportedSentences(sentences: { text: string; support: string }[], facts: string, question: string, posting = ""): string[] {
   const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-  const hay = norm(corpus);
+  const own = norm(facts);
+  const job = norm(posting);
   const bad: string[] = [];
   for (const s of sentences) {
     const quote = norm(s.support);
-    if (quote.split(" ").length < 3 || !hay.includes(quote)) { bad.push(s.text); continue; }
-    const allowed = `${s.support} ${question}`;
+    const claim = isCandidateClaim(s.text);
+    const found = own.includes(quote) || (!claim && job.includes(quote));
+    if (quote.split(" ").length < 3 || !found) { bad.push(s.text); continue; }
+    const allowed = claim ? s.support : `${s.support} ${question}`;
     if (ungroundedTokens(s.text, allowed).length) { bad.push(s.text); continue; }
     const words = contentTokens(s.text).filter((w) => w.length > 3 && !contentTokens(question).includes(w));
     const have = new Set(contentTokens(allowed).map((w) => w.slice(0, 5)));

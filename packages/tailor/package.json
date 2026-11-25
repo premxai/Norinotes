@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./terms": "./src/text.ts"
   },
   "dependencies": {
     "@norinote/db": "*",
