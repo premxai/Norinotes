@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 /**
- * queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | failed
- * (awaiting_code returns to applying when the code arrives; needs_user returns to applying once the user answers.)
+ * queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | ready_to_finish | failed
+ * (awaiting_code returns to applying when the code arrives; needs_user returns to applying once the user answers;
+ * ready_to_finish returns to applying when the person presses Finish to solve a captcha or sign in in the live view.)
  */
-export const APPLICATION_STATUSES = ["queued", "preparing", "prepared", "applying", "awaiting_code", "submitted", "needs_user", "failed"] as const;
+export const APPLICATION_STATUSES = ["queued", "preparing", "prepared", "applying", "awaiting_code", "submitted", "needs_user", "ready_to_finish", "failed"] as const;
 export const ApplicationStatus = z.enum(APPLICATION_STATUSES);
 export type ApplicationStatus = z.infer<typeof ApplicationStatus>;
 

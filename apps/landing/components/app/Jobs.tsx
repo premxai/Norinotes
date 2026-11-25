@@ -61,7 +61,7 @@ function listingTags(job: Job, place: string) {
   } else if (remoteTag(job, place)) tags.push("Remote");
   return tags;
 }
-const TONE: Record<AppStatus, ChipTone> = { queued: "waiting", preparing: "working", prepared: "waiting", applying: "working", awaiting_code: "waiting", needs_user: "needs", submitted: "done", failed: "bad" };
+const TONE: Record<AppStatus, ChipTone> = { queued: "waiting", preparing: "working", prepared: "waiting", applying: "working", awaiting_code: "waiting", needs_user: "needs", ready_to_finish: "needs", submitted: "done", failed: "bad" };
 /** The application systems' own names (jobs.ats_type). */
 const ATS: Record<string, string> = { greenhouse: "Greenhouse", lever: "Lever", ashby: "Ashby", workday: "Workday", smartrecruiters: "SmartRecruiters", workable: "Workable", icims: "iCIMS", jobvite: "Jobvite", bamboohr: "BambooHR", recruitee: "Recruitee", teamtailor: "Teamtailor" };
 const atsName = (t: string | undefined) => (t ? (ATS[t] ?? t.charAt(0).toUpperCase() + t.slice(1)) : null);

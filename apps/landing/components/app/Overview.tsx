@@ -17,7 +17,7 @@ import { Scene } from "@/components/Scene";
    Recommended jobs as square cards with View all, and the applications sent per day over the last 6 months. Every number
    on it is the API's. */
 
-const WAITING: AppStatus[] = ["prepared", "needs_user"];
+const WAITING: AppStatus[] = ["prepared", "needs_user", "ready_to_finish"];
 const MOVING: AppStatus[] = ["queued", "preparing", "applying", "awaiting_code"];
 const DAYS = 182;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -39,7 +39,7 @@ const place = (r: JobListItem) => (r.job.remote && !r.job.location ? "Remote" : 
 function tone(a: Application): { tone: ChipTone; busy: boolean } {
   if (a.status === "failed") return { tone: a.error === "Cancelled by you" ? "neutral" : "bad", busy: false };
   if (a.status === "submitted") return { tone: "done", busy: false };
-  if (a.status === "needs_user") return { tone: "needs", busy: false };
+  if (a.status === "needs_user" || a.status === "ready_to_finish") return { tone: "needs", busy: false };
   if (a.status === "prepared" || a.status === "awaiting_code") return { tone: "waiting", busy: false };
   return { tone: "working", busy: true };
 }

@@ -50,6 +50,8 @@ export function stageOf(a: Application): Stage {
       return { label: "Applying", tone: "working", busy: true, tab: "in_progress" };
     case "needs_user":
       return { label: "Needs help", tone: "needs", tab: "in_progress" };
+    case "ready_to_finish":
+      return { label: "One step left", tone: "needs", tab: "in_progress" };
     case "submitted":
       return { label: "Applied", tone: "done", tab: "applied" };
     default:

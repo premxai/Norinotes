@@ -224,7 +224,7 @@ export function countBatch(apps: ReadonlyArray<Pick<ApplicationRow, "status" | "
     else if (a.status === "applying" || a.status === "awaiting_code") c.working++;
     else if (a.status === "queued" || a.status === "preparing") c.preparing++;
     else if (a.status === "prepared") c.ready++;
-    else if (a.status === "needs_user") c.needsYou++;
+    else if (a.status === "needs_user" || a.status === "ready_to_finish") c.needsYou++;
     else if (a.status === "failed") { if (a.error === BATCH_CANCELLED) c.cancelled++; else c.failed++; }
   }
   return c;

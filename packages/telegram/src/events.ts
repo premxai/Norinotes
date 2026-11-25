@@ -53,6 +53,31 @@ export async function needsUserEvents(db: Db, userId: string, since: Date, webUr
 }
 
 /**
+ * Applications with one step left (status ready_to_finish): filled, stopped at a captcha or a sign-in only the person can
+ * do. One message for all of them, "3 applications need one tap", sent again only when a new one joins the set. Urgent
+ * when any of them was approved, like the other walls.
+ */
+export async function finishEvents(db: Db, userId: string, since: Date, webUrl: string): Promise<EventMessage[]> {
+  const rows = await db.select({ app: applications, title: jobs.title, company: companies.name })
+    .from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(eq(applications.userId, userId), eq(applications.status, "ready_to_finish"))).limit(50);
+  if (!rows.some(({ app }) => app.updatedAt >= since)) return [];
+  const n = rows.length;
+  const list = rows.slice(0, 5).map(({ title, company }) => `• ${esc(clip(title, 70))} at ${esc(clip(company, 50))}`);
+  if (n > 5) list.push(`and ${n - 5} more`);
+  const text = [
+    `<b>${plural(n, "application")} need${n === 1 ? "s" : ""} one tap</b>`,
+    `Nori filled ${n === 1 ? "it" : "them"}, and the site wants a captcha or a sign-in only you can do. Press Finish, do that step in Nori's live view, and Nori sends ${n === 1 ? "it" : "them"}.`,
+    ...list,
+  ].join("\n");
+  const ids = rows.map(({ app }) => app.id).sort().join(",");
+  return [{
+    kind: "needs_user", dedupeKey: `finish:${shortHash(ids)}`, applicationId: n === 1 ? rows[0]!.app.id : null, urgent: rows.some(({ app }) => !!app.approvedAt),
+    payload: { text, keyboard: button("Finish in Norinote", n === 1 ? appLink(webUrl, rows[0]!.app.id) : `${webUrl}/applications?show=in-progress`) },
+  }];
+}
+
+/**
  * Applications waiting on the page for the code the employer just emailed the person: type it in Norinote before the
  * wait runs out. Urgent, once per wait.
  */
@@ -101,7 +126,7 @@ export async function summaryEvent(db: Db, userId: string, dayStart: Date, date:
   const n = sql<number>`count(*)::int`;
   const [submitted, waiting, replies, found] = await Promise.all([
     count(db.select({ n }).from(applications).where(and(eq(applications.userId, userId), eq(applications.status, "submitted"), gte(applications.submittedAt, dayStart)))),
-    count(db.select({ n }).from(applications).where(and(eq(applications.userId, userId), eq(applications.status, "needs_user")))),
+    count(db.select({ n }).from(applications).where(and(eq(applications.userId, userId), inArray(applications.status, ["needs_user", "ready_to_finish"])))),
     count(db.select({ n }).from(inboxMessages).where(and(eq(inboxMessages.userId, userId), inArray(inboxMessages.kind, [...INBOX_KINDS]), gte(inboxMessages.receivedAt, dayStart)))),
     count(db.select({ n }).from(shortlist).where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), gte(shortlist.createdAt, dayStart)))),
   ]);

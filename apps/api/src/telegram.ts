@@ -56,6 +56,8 @@ export function telegramActions(ctx: Ctx): TelegramActions {
           case "applying":
           case "awaiting_code":
             return { ok: true, message: `Already applying to ${label}.` };
+          case "ready_to_finish":
+            return { ok: true, message: `${label} has one step left: press Finish in the app and do it in Nori's live view.` };
           case "submitted":
             return { ok: true, message: `Already submitted ${label}.` };
           case "failed":

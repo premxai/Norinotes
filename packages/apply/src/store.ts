@@ -275,5 +275,7 @@ export async function retryApplication(db: Db, applicationId: string): Promise<T
     const to = row.resumeId && row.approvedAt ? "applying" : "preparing";
     return transitionApplication(db, applicationId, to, { by: "user", message: "Resumed by the user" });
   }
+  // One step left, tried again without the live view: a captcha is not always shown twice.
+  if (row.status === "ready_to_finish") return transitionApplication(db, applicationId, "applying", { by: "user", message: "Tried again by the user" });
   return { ok: false, reason: `nothing to retry in ${row.status}`, application: row };
 }

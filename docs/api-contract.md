@@ -105,6 +105,12 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   with the reason (never `ok` without a resume). Approve on a parked application with no question to answer (captcha,
   unsupported form, a code that never came) is 409 with the reason and changes nothing; Retry is the way back. Retrying a
   failed application clears its approval: it waits for the person's OK (or its batch's turn) again.
+- `status: "ready_to_finish"` ("One step left"): Nori filled the form and stopped at a visible captcha or a sign-in page
+  that only the person can do. The resume, answers and receipt stay; `error` holds the one-line reason (it names a
+  captcha or a sign-in). Approve is 409; Cancel works; Retry runs it again without the person (a captcha is not always
+  shown twice). Finish (the live view where the person does the step) comes with its own endpoint. A submit the site
+  stopped with a captcha challenge carries `receipt.captchaHeld: true`: the challenge held the form, so it may be sent
+  again. Telegram sends one "N applications need one tap" message per new set of these.
 - GET `/api/applications/flow` (optional `?days=`): the tracker's Sankey. `{ since, total, nodes: [{ id, label, count,
   stage }], links: [{ source, target, value }] }`. Stage 0 `started`; 1 `sent`, `needs_you`, `in_progress`, `cancelled`,
   `failed`; 2 (from sent) `interview`, `replied`, `rejected`, `waiting`, `silent` (no reply after 30 days); 3 (from
@@ -160,8 +166,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   lastStartedAt, counts: { total, sent, working, preparing, ready, needsYou, cancelled, failed }, waitingFor:
   spacing|daily_limit|preparing|you|null, nextAt }`.
 - POST `/api/nori/batches/:id/stop`: cancels what has not started (`"Cancelled by you"`); sent ones stay sent.
-- GET `/api/nori/needs-you`: `{ items: [{ applicationId, jobId, title, company, applyUrl, needs: questions|code|captcha|
-  account|other, reason, questions, batchId, updatedAt }] }`, newest first.
+- GET `/api/nori/needs-you`: `{ items: [{ applicationId, jobId, title, company, applyUrl, status, needs: questions|code|captcha|
+  account|offsite|other, reason, questions, batchId, updatedAt }] }`, newest first. `status` is `needs_user` or
+  `ready_to_finish` (one step left: `needs` is captcha or account). Batch counts' `needsYou` include both.
 
 ## Nori chat
 - GET `/api/nori/chat?before=<ISO time>` returning `{ messages: [{ id, role: "user" | "nori", text, actions, createdAt }] }`,
@@ -201,7 +208,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - GET `/api/agent/status` returning `{ dailyCap, usedToday, liveSubmit?, lastTickAt?, nextTickAt? }`; `usedToday`
   counts applications approved since midnight UTC, the same count the limit is enforced on.
 - GET `/api/agent/activity?limit=` returning events of kind discovered, scored, queued, skipped, prepared, approved,
-  submitted, needs_user, reply, interview.
+  submitted, needs_user (also for ready_to_finish), reply, interview.
 
 ## Inbox and channels
 - GET `/api/inbox` (newest first) returning `[{ id, applicationId, application: { id, status, companyName, jobTitle } | null,

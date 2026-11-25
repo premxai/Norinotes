@@ -4,7 +4,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, applications, applyBatches, companies, desc, eq, gte, jobs } from "@norinote/db";
+import { and, applications, applyBatches, companies, desc, eq, gte, inArray, jobs } from "@norinote/db";
 import { MAX_BATCH, WEEKDAYS, batchView, dailyCapUse, getNoriSettings, getSchedule, nextRunOn, recentBatches, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -96,7 +96,7 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
       batch: await batchView(db, batch, ctx.now()),
       applications: rows.map(({ app, title, company }) => ({
         id: app.id, jobId: app.jobId, title, company, status: app.status, error: app.error, updatedAt: app.updatedAt, submittedAt: app.submittedAt,
-        ...(app.status === "needs_user" ? { needs: needOf(app) } : {}),
+        ...(app.status === "needs_user" || app.status === "ready_to_finish" ? { needs: needOf(app) } : {}),
       })),
     });
   });
@@ -153,15 +153,15 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
     return c.json(res);
   });
 
-  /** Everything parked for the person, newest first, with what it needs. */
+  /** Everything parked for the person, newest first, with what it needs (`status` ready_to_finish: one step left, Finish does it). */
   r.get("/needs-you", auth, async (c) => {
     const rows = await db.select({ app: applications, title: jobs.title, company: companies.name, applyUrl: jobs.applyUrl })
       .from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
-      .where(and(eq(applications.userId, c.get("user").id), eq(applications.status, "needs_user")))
+      .where(and(eq(applications.userId, c.get("user").id), inArray(applications.status, ["needs_user", "ready_to_finish"])))
       .orderBy(desc(applications.updatedAt)).limit(100);
     return c.json({
       items: rows.map(({ app, title, company, applyUrl }) => ({
-        applicationId: app.id, jobId: app.jobId, title, company, applyUrl, needs: needOf(app), reason: app.error,
+        applicationId: app.id, jobId: app.jobId, title, company, applyUrl, status: app.status, needs: needOf(app), reason: app.error,
         questions: app.pendingQuestions.length, batchId: app.batchId, updatedAt: app.updatedAt,
       })),
     });

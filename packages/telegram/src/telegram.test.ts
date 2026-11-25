@@ -283,6 +283,33 @@ describe("events and quiet hours", () => {
     expect(fake.sent().length).toBe(count);
   });
 
+  it("tells the person how many applications need one tap, once per set", async () => {
+    const u = await user();
+    await link(u.id, "7401");
+    await saveTelegramSettings(db, u.id, { quietHours: { enabled: false }, events: { digest: false, summary: false } });
+    const [a, b] = [await job({ title: "Data Engineer", company: "Foxtrot" }), await job({ title: "ML Engineer", company: "Golf" })];
+    await db.insert(applications).values({ userId: u.id, jobId: a.id, status: "ready_to_finish", error: "One step left: the site shows a captcha.", approvedAt: new Date() });
+    await db.insert(applications).values({ userId: u.id, jobId: b.id, status: "ready_to_finish", error: "One step left: the site asks you to sign in." });
+    const fake = fakeBotApi();
+    await runTelegramTick(deps(fake, () => new Date()));
+    const sent = fake.sent().filter((m) => m.text.includes("one tap"));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.text).toContain("2 applications need one tap");
+    expect(sent[0]!.text).toContain("Data Engineer");
+    expect(sent[0]!.text).toContain("ML Engineer");
+    expect(sent[0]!.reply_markup!.inline_keyboard![0]![0]!).toMatchObject({ text: "Finish in Norinote", url: "https://app.test/applications?show=in-progress" });
+    // Nothing new joined the set: no second message.
+    await runTelegramTick(deps(fake, () => new Date()));
+    expect(fake.sent().filter((m) => m.text.includes("one tap"))).toHaveLength(1);
+    // A third one joins: one fresh message for all three.
+    const c = await job({ title: "SRE", company: "Hotel" });
+    await db.insert(applications).values({ userId: u.id, jobId: c.id, status: "ready_to_finish", error: "One step left: the site shows a captcha." });
+    await runTelegramTick(deps(fake, () => new Date()));
+    const all = fake.sent().filter((m) => m.text.includes("one tap"));
+    expect(all).toHaveLength(2);
+    expect(all[1]!.text).toContain("3 applications need one tap");
+  });
+
   it("unlinks a chat that blocked the bot", async () => {
     const u = await user();
     await link(u.id, "7201");

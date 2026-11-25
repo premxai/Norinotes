@@ -13,7 +13,7 @@ type Activity = {
 
 /** Run-log steps (packages/apply) that are worth a line in the activity feed. */
 const STEP_KIND: Record<string, Kind> = {
-  created: "queued", "status:prepared": "prepared", "status:applying": "approved", "status:submitted": "submitted", "status:needs_user": "needs_user",
+  created: "queued", "status:prepared": "prepared", "status:applying": "approved", "status:submitted": "submitted", "status:needs_user": "needs_user", "status:ready_to_finish": "needs_user",
 };
 
 export function agentRoutes(ctx: Ctx): Hono<AppEnv> {

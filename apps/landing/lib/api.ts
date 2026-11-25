@@ -130,7 +130,7 @@ export type ShortlistEntry = {
   job: Job;
 };
 
-export type AppStatus = "queued" | "preparing" | "prepared" | "applying" | "awaiting_code" | "submitted" | "needs_user" | "failed";
+export type AppStatus = "queued" | "preparing" | "prepared" | "applying" | "awaiting_code" | "submitted" | "needs_user" | "ready_to_finish" | "failed";
 export type Question = { id: string; text: string; type: string; options: string[]; required: boolean };
 
 /** An application (`toApplication`). */

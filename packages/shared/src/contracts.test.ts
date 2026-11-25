@@ -3,7 +3,7 @@ import { APPLICATION_STATUSES, ApplicationStatus, JobSpec, Lane, ShortlistItem }
 
 describe("shared contracts", () => {
   it("has the application states from the architecture, in order", () => {
-    expect(APPLICATION_STATUSES).toEqual(["queued", "preparing", "prepared", "applying", "awaiting_code", "submitted", "needs_user", "failed"]);
+    expect(APPLICATION_STATUSES).toEqual(["queued", "preparing", "prepared", "applying", "awaiting_code", "submitted", "needs_user", "ready_to_finish", "failed"]);
     expect(ApplicationStatus.safeParse("done").success).toBe(false);
   });
 
