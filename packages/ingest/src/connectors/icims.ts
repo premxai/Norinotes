@@ -182,7 +182,8 @@ async function readBoard(token: string, http?: HttpOptions): Promise<ListResult>
 /** iCIMS career portals: HTML search pages for the list, JobPosting JSON-LD on each job page for the description. */
 export const icims: Connector = {
   atsType: "icims",
-  ready: true,
+  // Parked: not collected for now (docs/job-collection.md). The code stays; set ready to true to bring it back.
+  ready: false,
   capabilities: { maxConcurrencyPerHost: 2 },
   listJobs: (token, http) => readBoard(token, http),
   async fetchJob(token, externalId, http) {

@@ -13,6 +13,15 @@ there is no per-user web search.
   where supported. No residential proxies, no captcha or Cloudflare challenge solving, no logged-in endpoints, no
   LinkedIn/Indeed/Glassdoor scraping.
 
+## Live and parked job systems
+
+- Live (`SUPPORTED_ATS_TYPES`): Greenhouse, Lever, Ashby, Workday, Workable, Rippling. A connector test pins this set.
+- Parked (`ready: false`, code kept): SmartRecruiters, iCIMS, Oracle Cloud, Recruitee, Teamtailor, Personio, BambooHR,
+  Breezy, Pinpoint. A parked system's boards are never polled (`nextBoards`), seeded (`importSeeds`, and its seed CSV is
+  not downloaded), or added from a pasted link (`addJobByUrl`). To bring one back, set its connector's `ready` to true.
+- SmartRecruiters stays parked whatever we decide about the others: its robots.txt disallows every path for our
+  User-Agent, so it has no registry entries either.
+
 ## Connector contract (`packages/ingest/src/types.ts`)
 
 - `Connector { atsType, ready?, capabilities?, listJobs(token, http?, { etag? }), fetchJob?, parseUrl }`.
@@ -24,6 +33,7 @@ there is no per-user web search.
 - Token formats:
   - greenhouse, lever, ashby, workable, recruitee, teamtailor, personio, bamboohr, breezy, rippling, pinpoint:
     the tenant slug.
+  - smartrecruiters: the company identifier.
   - workday: `tenant|wdN|site` (for example `nvidia|wd5|NVIDIAExternalCareerSite`). Tenant is case-sensitive.
   - oracle: `host|region|siteNumber` (for example `ehtf|us2|CX_1`), from `https://{host}.fa.{region}.oraclecloud.com/hcmUI/CandidateExperience/en/sites/{siteNumber}`.
   - icims: the portal subdomain from `careers-{slug}.icims.com`.
@@ -34,6 +44,7 @@ there is no per-user web search.
 |---|---|---|
 | Workday | `POST https://{tenant}.{wdN}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs` body `{"appliedFacets":{},"limit":20,"offset":0,"searchText":""}`; detail `GET /wday/cxs/{tenant}/{site}{externalPath}` | `limit` max 20; `total` capped at 2,000 and only reliable on page 1; offsets can wrap. Split large tenants by facets in `appliedFacets` (jobFamilyGroup, locations, timeType, workerSubType; recursion depth up to 4). About 10 concurrent requests per host at most. A wrong wdN returns 422; some tenants answer 401/403 to servers: skip them. |
 | Oracle | `GET https://{host}.fa.{region}.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.workLocation,requisitionList.secondaryLocations&finder=findReqs;siteNumber={site},limit=200,offset={n},sortBy=POSTING_DATES_DESC`; detail `recruitingCEJobRequisitionDetails?finder=ById;Id="{id}",siteNumber={site}` | Without `expand` the requisition list is empty. `TotalJobsCount` in `items[0]`. Field names vary by version. |
+| SmartRecruiters | `GET https://api.smartrecruiters.com/v1/companies/{id}/postings?limit=100&offset=n` | 10 requests/second documented. |
 | Workable | `GET https://apply.workable.com/api/v1/widget/accounts/{slug}?details=true` | Strict: 429 above 2 to 4 concurrent. |
 | Recruitee | `GET https://{slug}.recruitee.com/api/offers/` | One response with descriptions. |
 | Teamtailor | `GET https://{slug}.teamtailor.com/jobs.rss` | Documented public RSS. |
@@ -75,13 +86,11 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
 ## Seeds (discovery without crawling, for now)
 
 - `kalil0321/ats-scrapers` `ats-companies/*.csv` (MIT code; data licence to confirm before redistributing): Workday,
-  Oracle, Workable, iCIMS, BambooHR, Personio, Teamtailor, Rippling, Breezy, Recruitee, Greenhouse,
+  Oracle, SmartRecruiters, Workable, iCIMS, BambooHR, Personio, Teamtailor, Rippling, Breezy, Recruitee, Greenhouse,
   Lever, Ashby and more.
 - `veresk06/open-ats-feed` (MIT, data public domain): verified Greenhouse, Lever, Ashby, Breezy, Recruitee, Teamtailor
   boards.
 - Excluded: `Riley-Dorrington/job-board-aggregator` data (CC BY-NC, non-commercial only).
-- Not collected: SmartRecruiters. Its robots.txt disallows every path for our User-Agent, so its connector is a
-  placeholder (`ready: false`): its boards are never seeded or polled, and its posting links are refused.
 - Seeds are imported by a script into `companies` as `candidate`; nothing is trusted until validated.
 - Later: Common Crawl columnar index (Athena) discovery and a career-page scan for custom domains.
 

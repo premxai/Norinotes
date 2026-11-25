@@ -5,6 +5,7 @@ const FEED_HOSTS: Partial<Record<AtsType, string>> = {
   greenhouse: "boards-api.greenhouse.io",
   lever: "api.lever.co",
   ashby: "api.ashbyhq.com",
+  smartrecruiters: "api.smartrecruiters.com",
   workable: "apply.workable.com",
   rippling: "ats.rippling.com",
   // Tenant-subdomain systems: every tenant is its own subdomain but they share infrastructure, so they share a group.

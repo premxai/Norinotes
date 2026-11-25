@@ -47,8 +47,8 @@ describe("oracle parseUrl", () => {
     expect(oracle.parseUrl(`${ORIGIN}/hcmUI/Other/en/sites/CX_1`)).toBeNull();
     expect(oracle.parseUrl("https://example.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1")).toBeNull();
   });
-  it("is a ready connector with a host concurrency limit", () => {
-    expect(oracle.ready).toBe(true);
+  it("is parked (not ready) and keeps its host concurrency limit", () => {
+    expect(oracle.ready).toBe(false);
     expect(oracle.capabilities?.maxConcurrencyPerHost).toBe(4);
   });
 });

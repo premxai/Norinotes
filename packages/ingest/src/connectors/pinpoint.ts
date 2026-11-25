@@ -78,7 +78,8 @@ async function readBoard(token: string, http?: HttpOptions, etag?: string | null
 /** Pinpoint public postings feed. One request reads the whole board, descriptions included. */
 export const pinpoint: Connector = {
   atsType: "pinpoint",
-  ready: true,
+  // Parked: not collected for now (docs/job-collection.md). The code stays; set ready to true to bring it back.
+  ready: false,
   capabilities: { conditional: true, maxConcurrencyPerHost: 4 },
   listJobs: (token, http, opts) => readBoard(token, http, opts?.etag),
   async fetchJob(token, externalId, http) {

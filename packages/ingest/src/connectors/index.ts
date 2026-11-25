@@ -19,13 +19,13 @@ import { workday } from "./workday.js";
 export { ashby, bamboohr, breezy, greenhouse, icims, lever, oracle, personio, pinpoint, recruitee, rippling, smartrecruiters, teamtailor, workable, workday };
 export { greenhouseFormUrl } from "./greenhouse.js";
 
-/** Every job system, including placeholders (`ready: false`) that are not implemented yet. */
+/** Every job system, including parked ones and placeholders (`ready: false`). */
 export const CONNECTORS: Record<AtsType, Connector> = {
   greenhouse, lever, ashby, smartrecruiters, workday, oracle,
   workable, recruitee, teamtailor, personio, bamboohr, breezy, rippling, pinpoint, icims,
 };
 
-/** Job systems whose connector works today (derived from `ready`). Boards of other systems are never polled. */
+/** The live job systems (derived from `ready`). Boards of other systems are never polled, seeded or added from a link. */
 export const SUPPORTED_ATS_TYPES: readonly AtsType[] = (Object.values(CONNECTORS) as Connector[])
   .filter((c) => c.ready !== false).map((c) => c.atsType);
 

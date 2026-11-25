@@ -176,7 +176,8 @@ async function readBoard(token: string, http?: HttpOptions): Promise<ListResult>
 /** BambooHR careers pages: list (or embed widget) plus per-job detail JSON. */
 export const bamboohr: Connector = {
   atsType: "bamboohr",
-  ready: true,
+  // Parked: not collected for now (docs/job-collection.md). The code stays; set ready to true to bring it back.
+  ready: false,
   capabilities: { maxConcurrencyPerHost: 4 },
   listJobs: (token, http) => readBoard(token, http),
   async fetchJob(token, externalId, http) {

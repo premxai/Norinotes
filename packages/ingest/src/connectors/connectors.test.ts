@@ -5,9 +5,11 @@ import ghBoard from "../__fixtures__/greenhouse-board.json";
 import ghJob from "../__fixtures__/greenhouse-job.json";
 import { json, noSleep, routeFetch } from "../__fixtures__/helpers.js";
 import leverBoard from "../__fixtures__/lever-board.json";
+import srDetail from "../__fixtures__/smartrecruiters-detail.json";
+import srList from "../__fixtures__/smartrecruiters-list.json";
 import { RateLimitedError } from "../http.js";
 import type { ListResult } from "../types.js";
-import { ashby, CONNECTORS, getConnector, greenhouse, greenhouseFormUrl, isSupportedAts, lever, matchJobUrl, oracle, smartrecruiters, workday } from "./index.js";
+import { ashby, CONNECTORS, getConnector, greenhouse, greenhouseFormUrl, isSupportedAts, lever, matchJobUrl, SUPPORTED_ATS_TYPES, oracle, smartrecruiters, workday } from "./index.js";
 
 describe("greenhouse", () => {
   it("normalises the board", async () => {
@@ -122,25 +124,50 @@ describe("ashby", () => {
 });
 
 describe("smartrecruiters", () => {
-  it("is a placeholder: never polled, seeded or read from a pasted link (robots.txt disallows it)", async () => {
-    expect(smartrecruiters.ready).toBe(false);
-    expect(isSupportedAts("smartrecruiters")).toBe(false);
-    expect(smartrecruiters.parseUrl("https://jobs.smartrecruiters.com/Hooli/743999-sre")).toBeNull();
-    expect(matchJobUrl("https://jobs.smartrecruiters.com/Hooli/743999-sre")).toBeNull();
-    await expect(smartrecruiters.listJobs("Hooli")).rejects.toThrow(/not implemented/);
+  const routes = () => routeFetch({
+    "https://api.smartrecruiters.com/v1/companies/Hooli/postings/743999": () => json(srDetail),
+    "https://api.smartrecruiters.com/v1/companies/Hooli/postings/744000": () => new Response("boom", { status: 500 }),
+    "https://api.smartrecruiters.com/v1/companies/Hooli/postings?": () => json(srList),
+  });
+
+  it("lists, reads each detail, and keeps list data when a detail fails", async () => {
+    const out = (await smartrecruiters.listJobs("Hooli", { fetch: routes() }) as ListResult).jobs;
+    expect(out.map((j) => j.externalId)).toEqual(["743999", "744000"]);
+    expect(out[0]).toMatchObject({
+      companyName: "Hooli", title: "SRE", location: "Austin, US", remote: false, applyUrl: "https://jobs.smartrecruiters.com/Hooli/743999-sre",
+    });
+    expect(out[0]?.descriptionText).toBe("Job Description\nKeep it up\n\nQualifications\n- Kubernetes");
+    expect(out[0]?.postedAt?.toISOString()).toBe("2025-03-15T12:00:00.000Z");
+    expect(out[1]).toMatchObject({ remote: true, descriptionText: "", applyUrl: "https://jobs.smartrecruiters.com/Hooli/744000", postedAt: new Date("2025-04-01T00:00:00.000Z") });
+  });
+
+  it("returns [] for an unknown company, fetches one job, and parses URLs", async () => {
+    expect(await smartrecruiters.listJobs("Nobody", { fetch: routeFetch({}) })).toMatchObject({ jobs: [], complete: true, notFound: true });
+    expect(await smartrecruiters.fetchJob?.("Hooli", "743999", { fetch: routes() })).toMatchObject({ title: "SRE" });
+    expect(await smartrecruiters.fetchJob?.("Hooli", "1", { fetch: routes() })).toBeNull();
+    expect(smartrecruiters.parseUrl("https://jobs.smartrecruiters.com/Hooli/743999-site-reliability-engineer")).toEqual({ token: "Hooli", externalId: "743999" });
+    expect(smartrecruiters.parseUrl("https://careers.smartrecruiters.com/Hooli")).toEqual({ token: "Hooli", externalId: null });
   });
 });
 
 describe("connector registry", () => {
-  it("covers every job system, and Workday and Oracle are real connectors now", () => {
+  it("covers every job system, and Workday is a real connector", () => {
     expect(Object.keys(CONNECTORS).sort()).toEqual([...ATS_TYPES].sort());
     expect(getConnector("lever")).toBe(lever);
     expect(isSupportedAts("greenhouse")).toBe(true);
     expect(isSupportedAts("workday")).toBe(true);
-    expect(isSupportedAts("oracle")).toBe(true);
     expect(workday.ready).not.toBe(false);
-    expect(oracle.ready).not.toBe(false);
     expect(typeof workday.fetchJob).toBe("function");
+  });
+
+  it("pins the live job systems; the rest are parked and their links are not accepted", () => {
+    expect([...SUPPORTED_ATS_TYPES].sort()).toEqual(["ashby", "greenhouse", "lever", "rippling", "workable", "workday"]);
+    const parked = ["smartrecruiters", "icims", "oracle", "recruitee", "teamtailor", "personio", "bamboohr", "breezy", "pinpoint"] as const;
+    for (const s of parked) expect(getConnector(s).ready, s).toBe(false);
+    expect(oracle.ready).toBe(false);
+    expect(matchJobUrl("https://jobs.smartrecruiters.com/Hooli/743999-sre")).toBeNull();
+    expect(matchJobUrl("https://acme.recruitee.com/o/backend-engineer")).toBeNull();
+    expect(matchJobUrl("https://acme.breezy.hr/p/abc-engineer")).toBeNull();
   });
 
   it("matches a URL to the right connector", () => {
@@ -180,4 +207,24 @@ describe("conditional reads (ETag)", () => {
       expect(sent).toEqual([null]);
     });
   }
+
+  it("smartrecruiters: a board bigger than the cap is an incomplete read", async () => {
+    const page = (offset: number) => ({ totalFound: 450, content: Array.from({ length: 100 }, (_, i) => ({ id: String(offset + i), name: "J", company: { name: "Big" }, location: {} })) });
+    const f = routeFetch({
+      "https://api.smartrecruiters.com/v1/companies/Big/postings?limit=100&offset=0": () => json(page(0)),
+      "https://api.smartrecruiters.com/v1/companies/Big/postings?limit=100&offset=100": () => json(page(100)),
+      "https://api.smartrecruiters.com/v1/companies/Big/postings/": () => new Response("", { status: 404 }),
+    });
+    const res = await smartrecruiters.listJobs("Big", { fetch: f }) as ListResult;
+    expect(res.jobs).toHaveLength(200);
+    expect(res.complete).toBe(false);
+  });
+
+  it("smartrecruiters: a small board is complete", async () => {
+    const f = routeFetch({
+      "https://api.smartrecruiters.com/v1/companies/Hooli/postings?": () => json(srList),
+      "https://api.smartrecruiters.com/v1/companies/Hooli/postings/": () => json(srDetail),
+    });
+    expect(await smartrecruiters.listJobs("Hooli", { fetch: f })).toMatchObject({ complete: true });
+  });
 });

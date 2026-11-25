@@ -102,7 +102,8 @@ async function readBoard(token: string, http?: HttpOptions, etag?: string | null
 /** Breezy HR public JSON listing plus each position's page for the description. */
 export const breezy: Connector = {
   atsType: "breezy",
-  ready: true,
+  // Parked: not collected for now (docs/job-collection.md). The code stays; set ready to true to bring it back.
+  ready: false,
   capabilities: { conditional: true, maxConcurrencyPerHost: 4 },
   listJobs: (token, http, opts) => readBoard(token, http, opts?.etag),
   async fetchJob(token, externalId, http) {

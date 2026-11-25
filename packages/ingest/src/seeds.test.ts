@@ -62,9 +62,14 @@ describe("parseSeedRow per system", () => {
     expect(row("rippling", "11:FS Group Ltd", "11fs-group-ltd", "https://ats.rippling.com/11fs-group-ltd/jobs")?.token).toBe("11fs-group-ltd");
   });
 
-  it("never seeds SmartRecruiters (robots.txt disallows it)", () => {
-    expect(row("smartrecruiters", "Hooli", "hooli", "https://jobs.smartrecruiters.com/Hooli")).toBeNull();
-    expect(SEED_CSV_SYSTEMS).not.toContain("smartrecruiters");
+  it("SmartRecruiters keeps the company identifier case from the URL", () => {
+    expect(row("smartrecruiters", "IOTA GROUP", "iotagroup", "https://careers.smartrecruiters.com/IOTAGROUP/iota")?.token).toBe("IOTAGROUP");
+    expect(row("smartrecruiters", "1871", "1871", "https://careers.smartrecruiters.com/1871")?.token).toBe("1871");
+    expect(row("smartrecruiters", "Hooli", "hooli", "https://jobs.smartrecruiters.com/Hooli")?.token).toBe("Hooli");
+  });
+
+  it("downloads seed CSVs only for live job systems", () => {
+    expect([...SEED_CSV_SYSTEMS].sort()).toEqual(["ashby", "greenhouse", "lever", "rippling", "workable", "workday"]);
   });
 
   it("subdomain systems read the tenant from the host", () => {
@@ -191,9 +196,9 @@ describe("importSeeds", () => {
     expect(again.duplicates).toBe(2);
   });
 
-  it("drops SmartRecruiters rows by default (its connector is not ready)", async () => {
-    const res = await importSeeds(t.db, [seed("smartrecruiters", "Hooli"), seed("lever", "ok2")]);
-    expect(res).toMatchObject({ inserted: { lever: 1 }, unsupported: 1 });
+  it("drops rows of parked job systems by default", async () => {
+    const res = await importSeeds(t.db, [seed("smartrecruiters", "Hooli"), seed("icims", "peraton"), seed("oracle", "ehtf|us2|CX_1"), seed("lever", "ok2")]);
+    expect(res).toMatchObject({ inserted: { lever: 1 }, unsupported: 3 });
   });
 
   it("skips unsupported systems and blocklisted names", async () => {
