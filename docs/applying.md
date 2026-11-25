@@ -77,6 +77,10 @@ read without a key is read before the click.
 - **Stops** (needs_user, nothing guessed): a visible captcha challenge (the invisible reCAPTCHA Enterprise badge of
   Greenhouse and Ashby and Lever's invisible hCaptcha are not challenges), an emailed-code prompt, a password or account
   wall, a site that turns automation away, required questions without an answer or that could not be set.
+- **Questions raised at the click**: after the run, the worker answers them only from the person's own data (`planForm`
+  with `ownDataOnly`: their answers, profile slots, and bank answers they typed or saved; no model call and no model draft
+  from the bank). Nobody reviews these before they are sent, so when every required one is answered the run starts again;
+  otherwise the application stays `needs_user` until the person answers.
 - **Submit** (only `dryRun === false && ALLOW_REAL_SUBMIT === "true"`, checked again at the click): race success
   signals (a 2xx answer to the submit request, confirmation text, the form detached, the URL changed) against failure
   signals (error text, a captcha challenge, an email-code prompt). Event driven; no fixed sleeps.

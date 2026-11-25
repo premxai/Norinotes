@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { companies, eq, type Db } from "@norinote/db";
 import { PendingQuestion } from "@norinote/shared";
-import { answerQuestions } from "@norinote/answers";
+import { planForm } from "@norinote/answers";
 import {
   approveAndSubmit, createApplyHandler, createPrepareHandler, loadApplication, saveAnswers, staleRuns, STALE_RUN_MS, type ApplyDeps,
 } from "@norinote/apply";
@@ -138,20 +138,28 @@ const BOARD_DEDUPE_SECONDS = 15 * 60;
 const BACKED_OFF_RETRY_SECONDS = 5 * 60;
 
 /**
- * If an application stopped on questions the form asked, try to answer them from the profile and the answer bank. When
- * every required one is answered the application goes straight back to applying (the user already clicked). Returns what
- * happened for the log. The attempt counter on the application bounds how often this can repeat.
+ * If an application stopped on questions the form asked, answer what the person's own data answers: the profile and the
+ * answers they typed or saved (planForm with ownDataOnly: no model call, no model draft). Nobody reviews these before
+ * they are sent, so anything else stays a pending question. When every required one is answered the application goes
+ * straight back to applying (the user already clicked). Returns what happened for the log. The attempt counter on the
+ * application bounds how often this can repeat.
  */
 async function autoAnswerPending(db: Db, applicationId: string): Promise<{ answered: number; resumed: boolean }> {
   const row = await loadApplication(db, applicationId);
   if (!row || row.status !== "needs_user" || !row.approvedAt || row.pendingQuestions.length === 0) return { answered: 0, resumed: false };
   const questions = row.pendingQuestions.flatMap((q) => { const p = PendingQuestion.safeParse(q); return p.success ? [p.data] : []; });
   if (questions.length === 0) return { answered: 0, resumed: false };
-  const res = await answerQuestions(db, { userId: row.userId, jobId: row.jobId, questions });
-  const answered = Object.keys(res.answers).length;
+  const plan = await planForm(db, {
+    userId: row.userId, jobId: row.jobId, explicit: row.answers, ownDataOnly: true,
+    fields: questions.map((q) => ({ key: q.id, label: q.text, type: q.type, required: q.required, options: q.options })),
+  });
+  // Keyed by the question's own id, where the form drivers and unansweredQuestions look.
+  const answers: Record<string, string> = {};
+  for (const e of plan.entries) if (e.status === "ready" && e.value !== undefined) answers[e.key] = e.value;
+  const answered = Object.keys(answers).length;
   if (answered === 0) return { answered: 0, resumed: false };
-  await saveAnswers(db, applicationId, res.answers);
-  if (res.pending.length > 0) return { answered, resumed: false };
+  await saveAnswers(db, applicationId, answers);
+  if (plan.pending.length > 0) return { answered, resumed: false };
   const approved = await approveAndSubmit(db, applicationId);
   return { answered, resumed: approved.ok && approved.started };
 }
@@ -346,7 +354,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return restored;
   }));
 
-  // apply.run: the browser step; afterwards, questions the form asked get answered from the bank when they can be.
+  // apply.run: the browser step; afterwards, questions the form asked get answered from the person's own data when they can be.
   const applyHandler = createApplyHandler(db, apply);
   await queue.work(JOBS.applyRun, instrument(log, JOBS.applyRun, async (payload) => {
     await applyHandler(payload);

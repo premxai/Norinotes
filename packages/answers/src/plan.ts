@@ -65,6 +65,11 @@ export type PlanFormInput = {
   threshold?: number;
   /** No model calls at all (tests, an exhausted budget): what would go to a model becomes pending. */
   noModel?: boolean;
+  /**
+   * Only the person's own data: their answers, profile slots and bank answers they typed or saved. No model calls and
+   * no model drafts from the bank. For answers nobody reviews before they are sent (questions raised at the click).
+   */
+  ownDataOnly?: boolean;
 };
 
 export const fieldAnswerKey = (key: string): string => `field:${key}`;
@@ -172,6 +177,7 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
   const career = careerFacts(points);
   const explicit = input.explicit ?? {};
   const threshold = input.threshold ?? DEFAULT_MATCH_THRESHOLD;
+  const noModel = input.noModel || input.ownDataOnly;
   const entries = new Map<string, PlanEntry>();
   const learned: Record<string, Slot> = {};
   const fields = input.fields;
@@ -210,7 +216,7 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
   const t1 = Date.now();
   let rest = custom;
   if (rest.length) {
-    const bank = await loadBank(db, input.userId);
+    const bank = (await loadBank(db, input.userId)).filter((r) => !input.ownDataOnly || r.source !== "model");
     if (bank.length) {
       const used: string[] = [];
       const byText = new Map<string, BankRow[]>();
@@ -222,7 +228,7 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
         if (hit) { set(f, "custom", { status: "ready", value: hit.answer, source: "bank" }); used.push(hit.row.id); } else left.push(f);
       }
       rest = left;
-      if (rest.length && !input.noModel) {
+      if (rest.length && !noModel) {
         let vectors: number[][] = [];
         try { vectors = await embed(rest.map((f) => f.label), { userId: input.userId, db }); usage.embedCalls++; } catch { vectors = []; }
         const left2: PlanField[] = [];
@@ -255,7 +261,7 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
   // 4: one small-model call for the short unknowns.
   const t2 = Date.now();
   if (short.length) {
-    if (input.noModel || points.length === 0) {
+    if (noModel || points.length === 0) {
       for (const f of short) unresolved(f, "custom", "No rule or saved answer covers this question");
     } else {
       const items: SmallItem[] = short.map((f) => ({ key: f.key, label: f.label.slice(0, 400), type: isMulti(f) ? "multiselect" : isChoice(f) ? "choice" : "text", required: f.required, options: f.options.slice(0, 60) }));
@@ -306,7 +312,7 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
   // 5: one large-model call for required long free text.
   const t3 = Date.now();
   if (longRequired.length) {
-    if (input.noModel || points.length === 0) {
+    if (noModel || points.length === 0) {
       for (const f of longRequired) unresolved(f, "custom", "This question needs a written answer from you");
     } else {
       let reply: z.infer<typeof LargeReply> | null = null;
