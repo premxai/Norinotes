@@ -80,6 +80,7 @@ describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
       dryRun: true,
       waitForCode: async () => null,
       onEvent: (step, message) => { events.push({ step, message }); },
+      recordSubmitClick: async () => {},
       ...over,
     };
     return { ctx, events };

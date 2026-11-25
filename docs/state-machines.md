@@ -12,7 +12,7 @@ Change a machine here first, then in code.
   - `attempts`: at most 3 browser tries. A browser retry counts; the person's own answer or Retry starts again at 1.
   - `approvedAt`: the person said send. Cleared on retry.
   - `batchId`: the batch drain sends it when its spacing slot comes.
-  - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` decide whether a re-run could duplicate an application.
+  - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` decide whether a re-run could duplicate an application. `submitClicked` is written, and the write confirmed, before every submit click; no confirmed write, no click.
 - **Recovery:** the worker's drain loop re-queues `preparing` / `applying` / `awaiting_code` rows untouched for 25 minutes (`staleRuns`). A row whose submit may already have been clicked is never re-sent; it goes to `needs_user`.
 - **Who sends:** the prepare consumer sends approved applications (batch or not); the batch drain sends the batch's prepared, unapproved ones. The API's `sendsOnItsOwn` tells the UI which ones go out without another OK.
 

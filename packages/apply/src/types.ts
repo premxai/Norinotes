@@ -55,6 +55,12 @@ export type DriverContext = {
   /** Widget strategies remembered by the form recipe cache, by normalised label. */
   strategyHints?: Record<string, WidgetStrategy>;
   onEvent: OnEvent;
+  /**
+   * Stores that submit is about to be clicked and resolves once the write is confirmed. The driver awaits it right
+   * before every submit click and does not click when it rejects, so a crash after the click can never lead to a
+   * second submit.
+   */
+  recordSubmitClick: () => Promise<void>;
 };
 
 export type FilledField = { label: string; value: string; kind: FormField["kind"] };

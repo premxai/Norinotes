@@ -121,6 +121,7 @@ async function main() {
       const ctx: DriverContext = {
         applicationId: fx.id, applyUrl: localUrl, profile: APPLICANT_PROFILE, resumePdfPath: resumePath, answers: plan.answers, dryRun: true,
         onEvent: (step, _m, data) => { events.push({ step, data }); },
+        recordSubmitClick: async () => { throw new Error("the replay never submits"); },
       };
       const fill = (await pool.run(`fill-${fx.id}`, (page) => DRIVER[fx.ats].fill(page, ctx), { timeoutMs: 90_000 })).value as FillResult;
 
