@@ -28,5 +28,5 @@ With no `OPENAI_API_KEY`, or a key the vendor rejects, the AI service is off: re
 ## Checks
 
 ```
-npm run gate     # typecheck, unit tests (PGlite with pgvector), lint, web build
+npm run gate     # typecheck, unit tests (PGlite with pgvector), lint, and the apps/landing build
 ```
