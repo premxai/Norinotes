@@ -48,7 +48,7 @@ export async function applicationFlow(db: Db, userId: string, opts: { now: Date;
   for (const a of apps) {
     counts.set("started", (counts.get("started") ?? 0) + 1);
     if (a.status !== "submitted") {
-      const first = a.status === "needs_user" ? "needs_you"
+      const first = a.status === "needs_user" || a.status === "ready_to_finish" ? "needs_you"
         : a.status === "failed" ? (a.error === CANCELLED ? "cancelled" : "failed")
         : "in_progress";
       step("started", first);

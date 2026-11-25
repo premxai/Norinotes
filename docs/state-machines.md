@@ -5,14 +5,20 @@ Change a machine here first, then in code.
 
 ## Applications (`applications.status`)
 
-`queued → preparing → prepared → applying → (awaiting_code →) submitted`, with `needs_user` and `failed` as exits.
+`queued → preparing → prepared → applying → (awaiting_code →) submitted`, with `needs_user`, `ready_to_finish` and `failed` as exits.
+
+- **One step left (`ready_to_finish`):** `applying → ready_to_finish` when the form is filled (every question answered) and
+  a visible captcha or a sign-in page is all that is left, or when the submit click met a captcha challenge (receipt
+  `captchaHeld`: the challenge held the form, so it was not sent). `ready_to_finish → applying` only for the person
+  (`by: "user"`, approved), with a fresh set of attempts: Finish in the live view, or Retry. `ready_to_finish → failed` on
+  Cancel. The worker never moves it on its own; Telegram groups these into "N applications need one tap".
 
 - **One table of allowed moves:** `TRANSITIONS` in `packages/apply/src/state.ts`. Every write goes through `transitionApplication` (`packages/apply/src/store.ts`), guarded on the status it read.
 - **Hidden state that changes behaviour:**
   - `attempts`: at most 3 browser tries. A browser retry counts; the person's own answer or Retry starts again at 1.
   - `approvedAt`: the person said send. Cleared on retry. Today's approvals count against the daily limit. Every approval (`approveAndSubmit`, `approveBeforePrepared`) counts and stamps inside one transaction that holds the user's row lock, so two at once cannot both take the last place.
   - `batchId`: the batch drain sends it when its spacing slot comes.
-  - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` decide whether a re-run could duplicate an application. `submitClicked` is written, and the write confirmed, before every submit click; no confirmed write, no click.
+  - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` / `captchaHeld` decide whether a re-run could duplicate an application. `submitClicked` is written, and the write confirmed, before every submit click; no confirmed write, no click.
 - **Recovery:** the worker's drain loop re-queues `preparing` / `applying` / `awaiting_code` rows untouched for 25 minutes (`staleRuns`). A row whose submit may already have been clicked is never re-sent; it goes to `needs_user`.
 - **Who sends:** the prepare consumer sends approved applications (batch or not); the batch drain sends the batch's prepared, unapproved ones. The API's `sendsOnItsOwn` tells the UI which ones go out without another OK.
 

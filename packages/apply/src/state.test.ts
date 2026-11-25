@@ -96,6 +96,30 @@ describe("guards", () => {
     expect(checkTransition(applying, "prepared", { receipt: { dryRun: true } })).toEqual({ ok: true });
   });
 
+  it("ready_to_finish -> applying only for the person (Finish), approved, and with a fresh set of attempts", () => {
+    const parked = app({ status: "ready_to_finish", resumeId: "r1", approvedAt: new Date(), attempts: MAX_ATTEMPTS });
+    expect(checkTransition(parked, "applying")).toMatchObject({ ok: false, reason: expect.stringMatching(/Finish/) });
+    expect(checkTransition(parked, "applying", { by: "user" })).toEqual({ ok: true });
+    expect(checkTransition({ ...parked, approvedAt: null }, "applying", { by: "user" })).toMatchObject({ ok: false, reason: expect.stringMatching(/not approved/) });
+    expect(transitionPatch(parked, "applying", { by: "user" })).toMatchObject({ status: "applying", attempts: 1 });
+    expect(canTransition("ready_to_finish", "failed")).toBe(true);
+    expect(canTransition("ready_to_finish", "submitted")).toBe(false);
+    expect(canTransition("ready_to_finish", "prepared")).toBe(false);
+    expect(isTerminal("ready_to_finish")).toBe(false);
+  });
+
+  it("applying -> ready_to_finish keeps the reason and clears questions", () => {
+    expect(canTransition("applying", "ready_to_finish")).toBe(true);
+    expect(canTransition("prepared", "ready_to_finish")).toBe(false);
+    expect(transitionPatch(app({ status: "applying" }), "ready_to_finish", { error: "One step left" })).toMatchObject({ status: "ready_to_finish", error: "One step left", pendingQuestions: [] });
+  });
+
+  it("a submit the site stopped with a captcha challenge did not go through, so Finish may send it", () => {
+    expect(submitMayHaveHappened({ receipt: { submitClicked: true, captchaHeld: true } })).toBe(false);
+    const parked = app({ status: "ready_to_finish", approvedAt: new Date(), receipt: { submitClicked: true, captchaHeld: true } });
+    expect(checkTransition(parked, "applying", { by: "user" })).toEqual({ ok: true });
+  });
+
   it("only the user can retry a failed application, and not after a submit click", () => {
     const failed = app({ status: "failed" });
     expect(checkTransition(failed, "queued")).toMatchObject({ ok: false });

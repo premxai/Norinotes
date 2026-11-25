@@ -14,7 +14,7 @@ import { statusLabel, waitsOnYou } from "./LivePanel";
 
 /* /today (4a spec section 8): the greeting, the day line, what needs you, and today's job cards. */
 
-const WAITING: Application["status"][] = ["prepared", "needs_user"];
+const WAITING: Application["status"][] = ["prepared", "needs_user", "ready_to_finish"];
 const MOVING: Application["status"][] = ["queued", "preparing", "applying", "awaiting_code"];
 const UNDO_MS = 5000;
 /** One column on phones, two from 768 px, three from 1280. */

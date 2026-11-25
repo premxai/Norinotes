@@ -21,13 +21,14 @@ export const STATUS_LABEL: Record<AppStatus, string> = {
   applying: "Applying",
   awaiting_code: "Waiting for a code",
   needs_user: "Needs you",
+  ready_to_finish: "One step left",
   submitted: "Sent",
   failed: "Didn't go through",
 };
 /** Ready, but part of a batch the worker sends by itself: it isn't waiting for the person. */
 export const sendsByItself = (a: Application) => a.status === "prepared" && a.sendsOnItsOwn === true;
 /** Waiting on the person: questions to answer, or an application that needs their OK to go out. */
-export const waitsOnYou = (a: Application) => a.status === "needs_user" || (a.status === "prepared" && !sendsByItself(a));
+export const waitsOnYou = (a: Application) => a.status === "needs_user" || a.status === "ready_to_finish" || (a.status === "prepared" && !sendsByItself(a));
 /** The status chip's words; a cancelled application isn't a failure. */
 export const statusLabel = (a: Application) => (isCancelled(a) ? "Cancelled" : sendsByItself(a) ? "Sending soon" : STATUS_LABEL[a.status]);
 const MOVING: AppStatus[] = ["queued", "preparing", "applying", "awaiting_code"];
@@ -39,6 +40,7 @@ const NORI: Record<AppStatus, string> = {
   applying: "applying",
   awaiting_code: "awaiting-code",
   needs_user: "needs-user",
+  ready_to_finish: "needs-user",
   submitted: "submitted",
   failed: "failed",
 };

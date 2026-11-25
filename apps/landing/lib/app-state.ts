@@ -14,14 +14,14 @@ export const isMoving = (a: Application) => MOVING.includes(a.status);
 /** Dropped by the person (POST /applications/:id/cancel): failed, with exactly this error. Try again brings it back. */
 export const isCancelled = (a: Application) => a.status === "failed" && a.error === "Cancelled by you";
 /** Statuses that can still be cancelled: before Nori is on the employer's page. */
-export const CANCELLABLE: Application["status"][] = ["queued", "preparing", "prepared", "needs_user"];
+export const CANCELLABLE: Application["status"][] = ["queued", "preparing", "prepared", "needs_user", "ready_to_finish"];
 /** Sent, as the API counts it: submitted, or a submit time on record. */
 export const isSent = (a: Application) => a.status === "submitted" || !!a.submittedAt;
 
 /** First match wins; "sent" is a submitted row whose outcomes haven't loaded yet. */
 export function rowState(a: Application, o: Outcomes | undefined): RowState {
   if (MOVING.includes(a.status)) return "applying";
-  if (a.status === "prepared" || a.status === "needs_user") return "needs_you";
+  if (a.status === "prepared" || a.status === "needs_user" || a.status === "ready_to_finish") return "needs_you";
   if (a.status === "failed") return isCancelled(a) ? "cancelled" : "failed";
   if (!o?.state) return "sent";
   return o.state === "pending" ? "waiting" : o.state === "rejection" ? "rejected" : o.state;

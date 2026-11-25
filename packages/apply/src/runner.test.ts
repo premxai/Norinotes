@@ -7,6 +7,7 @@ import {
   MAX_ATTEMPTS, PoolRunError, STALE_RUN_MS, staleRuns, submitMayHaveHappened, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
 } from "./index.js";
 import type { ApplyInputs } from "./inputs.js";
+import { FINISH_ACCOUNT_REASON, FINISH_CAPTCHA_REASON } from "./flow.js";
 import { CompanyGate } from "./gate.js";
 
 let t: TestDb;
@@ -400,24 +401,72 @@ describe("applying", () => {
     expect(row.pendingQuestions).toEqual([]);
   });
 
-  it("stops with needs_user and the reason on a captcha, never submitting", async () => {
+  it("parks a captcha as ready_to_finish (one step left), never submitting, with the receipt kept", async () => {
     process.env.ALLOW_REAL_SUBMIT = "true";
     const reason = "A captcha is on the form. Norinote never solves or bypasses captchas: open the posting and apply yourself.";
     const { driver, calls } = fakeDriver({ fill: () => ({ ...filled(), status: "needs_user", needsUser: { kind: "captcha", reason } }) });
     const pool = fakePool();
     const { app, d } = await prepared(deps({ driver, pool: pool.pool }));
     await approveAndSubmit(t.db, app.id);
-    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "needs_user", waiting: "user" });
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "ready_to_finish", waiting: "user" });
     const row = await getApp(app.id);
-    expect(row.error).toBe(reason);
+    expect(row.error).toBe(FINISH_CAPTCHA_REASON);
     expect(row.pendingQuestions).toEqual([]);
+    expect(row.receipt).toMatchObject({ needsUser: { kind: "captcha" }, totals: { fields: 2 } });
+    expect(row.resumeId).not.toBeNull();
     expect(calls.submit).toHaveLength(0);
     expect(pool.state.kept).toBe(1); // screenshot and trace kept for the person to look at
-    // No questions to answer, so it stays parked until the user retries.
-    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "needs_user", advanced: false });
-    // An explicit retry from the user resumes it.
+    // Nothing the worker can do on its own: it waits for the person.
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "ready_to_finish", advanced: false, waiting: "user" });
+    expect(await approveAndSubmit(t.db, app.id)).toMatchObject({ ok: false });
+    // The person's Finish (or Retry) resumes it.
     expect(await retryApplication(t.db, app.id)).toMatchObject({ ok: true });
-    expect((await getApp(app.id)).status).toBe("applying");
+    expect(await getApp(app.id)).toMatchObject({ status: "applying", attempts: 1 });
+  });
+
+  it("parks a sign-in wall as ready_to_finish with the account reason", async () => {
+    const { driver } = fakeDriver({ fill: () => ({ ...filled(), fields: [], files: [], status: "needs_user", needsUser: { kind: "account", reason: "Sign in" } }) });
+    const { app, d } = await prepared(deps({ driver }));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "ready_to_finish", waiting: "user" });
+    expect((await getApp(app.id)).error).toBe(FINISH_ACCOUNT_REASON);
+    expect(await eventSteps(app.id)).toContain("status:ready_to_finish");
+  });
+
+  it("a captcha with unanswered questions still asks the questions first (needs_user)", async () => {
+    const ask = { id: "why", text: "Why us?", type: "textarea" as const, options: [], required: true };
+    const { driver } = fakeDriver({ fill: () => ({ ...filled(), status: "needs_user", pending: [ask], needsUser: { kind: "captcha", reason: "Captcha" } }) });
+    const { app, d } = await prepared(deps({ driver }));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "needs_user" });
+    expect((await getApp(app.id)).pendingQuestions).toHaveLength(1);
+  });
+
+  it("a captcha challenge after the click holds the form: ready_to_finish, and Finish may send it again", async () => {
+    process.env.ALLOW_REAL_SUBMIT = "true";
+    let crash = false;
+    const { driver, calls } = fakeDriver({
+      submit: async (ctx) => {
+        await ctx.recordSubmitClick();
+        ctx.onEvent("submit", "Clicking Submit");
+        if (crash) throw new Error("browser crashed");
+        return { status: "needs_user", submitClicked: true, durationMs: 1, needsUser: { kind: "captcha", reason: "Captcha after submit" } };
+      },
+    });
+    const { app, d } = await prepared(deps({ driver }));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "ready_to_finish" });
+    const row = await getApp(app.id);
+    expect(row.receipt).toMatchObject({ submitClicked: true, captchaHeld: true });
+    expect(submitMayHaveHappened(row)).toBe(false);
+    expect(calls.submit).toHaveLength(1);
+    expect(await retryApplication(t.db, app.id)).toMatchObject({ ok: true });
+    // The new click clears the old hold: a crash after it may have sent the application, so it is never sent again.
+    crash = true;
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "failed" });
+    const after = await getApp(app.id);
+    expect(after.receipt).toMatchObject({ submitClicked: true, captchaHeld: false });
+    expect(submitMayHaveHappened(after)).toBe(true);
   });
 
   it("an unknown form type goes to the fallback handler, which parks it as needs_user", async () => {

@@ -3,7 +3,7 @@ import { and, applications, asc, eq, inArray, lt, sql } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import type { Payload } from "@norinote/queue";
 import { defaultUnknownFormHandler, detectDriver, DRIVERS } from "./drivers/index.js";
-import { submitAllowed } from "./flow.js";
+import { FINISH_ACCOUNT_REASON, FINISH_CAPTCHA_REASON, submitAllowed } from "./flow.js";
 import { loadApplyInputs, type ApplyInputs } from "./inputs.js";
 import { PoolRunError, type BrowserPool, type PoolArtifacts } from "./pool.js";
 import { buildReceipt } from "./receipt.js";
@@ -69,7 +69,10 @@ const DEFAULT_RUN_TIMEOUT_MS = 150_000;
 /** Applications whose browser step is running in this process. Guards against two workers' handlers overlapping on one. */
 const inflight = new Set<string>();
 
-const WAITING_AFTER: Partial<Record<ApplicationStatus, WaitingFor>> = { submitted: "done", failed: "done", needs_user: "user", prepared: "approval" };
+const WAITING_AFTER: Partial<Record<ApplicationStatus, WaitingFor>> = { submitted: "done", failed: "done", needs_user: "user", ready_to_finish: "user", prepared: "approval" };
+
+/** Walls only the person can get past, in Nori's live view: the application parks as ready_to_finish, not needs_user. */
+const FINISH_REASON: Partial<Record<NeedsUserKind, string>> = { captcha: FINISH_CAPTCHA_REASON, account: FINISH_ACCOUNT_REASON };
 
 const result = (applicationId: string, status: StepResult["status"], extra: Partial<StepResult> = {}): StepResult =>
   ({ applicationId, status, advanced: false, ...extra });
@@ -85,6 +88,7 @@ const result = (applicationId: string, status: StepResult["status"], extra: Part
  *   applying        -> submitted | needs_user | failed | prepared (dry run)   (runs the browser)
  *   awaiting_code   -> applying again if the waiting page is gone
  *   needs_user      -> applying / preparing once the questions are answered
+ *   ready_to_finish -> waits for the person's Finish (a captcha or a sign-in only they can do)
  */
 export async function runApplication(db: Db, applicationId: string, deps: ApplyDeps): Promise<StepResult> {
   const row = await loadApplication(db, applicationId);
@@ -117,6 +121,8 @@ export async function runApplication(db: Db, applicationId: string, deps: ApplyD
       if (r.ok) return result(applicationId, r.application.status, { advanced: !r.noop });
       return result(applicationId, "needs_user", { waiting: "user", message: r.reason });
     }
+    case "ready_to_finish":
+      return result(applicationId, "ready_to_finish", { waiting: "user", message: row.error ?? undefined });
     case "submitted":
     case "failed":
       return result(applicationId, row.status, { waiting: "done" });
@@ -248,11 +254,12 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   };
 
   // The click is the one step that cannot be undone: it is stored, and the write confirmed, before the driver clicks.
-  // A code that went missing on an earlier run says nothing about this click, so its mark goes.
+  // A code that went missing, or a captcha that held the form, on an earlier run says nothing about this click, so their
+  // marks go.
   const recordSubmitClick = async () => {
     await flush();
     const [marked] = await db.update(applications)
-      .set({ receipt: sql`coalesce(${applications.receipt}, '{}'::jsonb) || '{"submitClicked":true,"awaitingCode":false,"codeMissing":false}'::jsonb`, updatedAt: new Date() })
+      .set({ receipt: sql`coalesce(${applications.receipt}, '{}'::jsonb) || '{"submitClicked":true,"awaitingCode":false,"codeMissing":false,"captchaHeld":false}'::jsonb`, updatedAt: new Date() })
       .where(and(eq(applications.id, id), eq(applications.status, "applying")))
       .returning({ id: applications.id });
     if (!marked) throw new Error("Could not record the submit click, so submit was not clicked");
@@ -372,6 +379,13 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     ...(fill.timings ? { timings: { ...fill.timings, ...(submit ? { submitMs: submit.durationMs } : {}) } } : {}),
   });
 
+  // Filling stopped at a captcha or a sign-in with every answer in hand: one step left, for the person in the live view.
+  const finishReason = fill.status === "needs_user" && fill.pending.length === 0 && fill.needsUser ? FINISH_REASON[fill.needsUser.kind] : undefined;
+  if (finishReason) {
+    return done("ready_to_finish", await transitionApplication(db, id, "ready_to_finish", {
+      from: "applying", error: finishReason, receipt: receiptFor(), message: finishReason, data: { kind: fill.needsUser!.kind },
+    }));
+  }
   // Filling stopped: something is for the person.
   if (fill.status === "needs_user") {
     const reason = fill.needsUser?.reason ?? "Needs your input";
@@ -395,6 +409,12 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   if (submit.status === "submitted") {
     return done("submitted", await transitionApplication(db, id, "submitted", {
       from: "applying", receipt: receiptFor(), message: submit.confirmationText ?? "Submitted", data: { confirmed: Boolean(submit.confirmationText) },
+    }));
+  }
+  // The click met a captcha challenge: the challenge holds the form until it is solved, so nothing was sent yet.
+  if (submit.status === "needs_user" && submit.needsUser?.kind === "captcha") {
+    return done("ready_to_finish", await transitionApplication(db, id, "ready_to_finish", {
+      from: "applying", error: FINISH_CAPTCHA_REASON, receipt: { ...receiptFor(), captchaHeld: true }, message: FINISH_CAPTCHA_REASON, data: { kind: "captcha", afterSubmit: true },
     }));
   }
   if (submit.status === "needs_user") {

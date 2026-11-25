@@ -1,7 +1,8 @@
 /**
  * Typed stubs for job systems Norinote does not fill yet. Each recognises its URLs (so the application is not mistaken for
  * an unknown form) and parks it with the person with a clear reason. Workday stays parked on purpose: it needs an account
- * per employer tenant, and Norinote never creates accounts.
+ * per employer tenant, and Norinote never creates accounts. A Workday driver that can fill the form will report its
+ * sign-in page as kind "account", which parks the application as ready_to_finish for the person to sign in in the live view.
  */
 import type { Driver, DriverName, FillResult, SubmitResult } from "../types.js";
 import { parseHttpUrl } from "./util.js";
@@ -17,7 +18,7 @@ function stub(name: DriverName, display: string, host: RegExp, reason: string): 
     formUrl: () => null,
     async fill(_page, ctx): Promise<FillResult> {
       ctx.onEvent("unsupported_form", reason, { url: ctx.applyUrl, system: display }, "warn");
-      return { status: "needs_user", formUrl: null, fields: [], files: [], pending: [], needsUser: { kind: name === "workday" ? "account" : "unsupported", reason }, durationMs: 0 };
+      return { status: "needs_user", formUrl: null, fields: [], files: [], pending: [], needsUser: { kind: "unsupported", reason }, durationMs: 0 };
     },
     async submit(): Promise<SubmitResult> {
       return { status: "failed", submitClicked: false, error: reason, durationMs: 0 };

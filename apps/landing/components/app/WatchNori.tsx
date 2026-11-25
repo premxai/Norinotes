@@ -70,7 +70,7 @@ function stagesOf(a: Application, events: RunEvent[]): Stage[] | null {
     : submitting ? 2
     : a.approvedAt ? 1
     : 0;
-  const stop = a.status === "needs_user" ? "needs" : a.status === "failed" ? "failed" : null;
+  const stop = a.status === "needs_user" || a.status === "ready_to_finish" ? "needs" : a.status === "failed" ? "failed" : null;
   const source = events.map((e) => codeSource(e.message)).filter(Boolean).at(-1) ?? undefined;
   return labels.map((label, i) => ({ label, state: i < at ? "done" : i === at ? (stop ?? "now") : "next", note: label === "Waiting for code" && i < at ? source : undefined }));
 }

@@ -3,11 +3,12 @@
  * Nothing here touches the database or a browser. `store.ts` applies these moves with an optimistic update and logs a
  * run event for each one.
  *
- *   queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | failed
+ *   queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | ready_to_finish | failed
  *
  * Also legal: awaiting_code -> applying (the code arrived, or the waiting page was lost), needs_user -> applying (the
  * person answered), applying -> prepared (a dry run filled the form and stopped before submit), failed -> queued (the
- * person asked to retry).
+ * person asked to retry), ready_to_finish -> applying (the person pressed Finish: Nori fills the form again and hands
+ * the captcha or sign-in to them in the live view).
  */
 import type { ApplicationStatus } from "@norinote/shared";
 import { TERMINAL_APPLICATION_STATUSES } from "@norinote/shared";
@@ -19,9 +20,10 @@ export const TRANSITIONS: Readonly<Record<ApplicationStatus, readonly Applicatio
   queued: ["preparing", "failed"],
   preparing: ["prepared", "needs_user", "failed"],
   prepared: ["applying", "failed"],
-  applying: ["awaiting_code", "submitted", "needs_user", "failed", "prepared"],
+  applying: ["awaiting_code", "submitted", "needs_user", "ready_to_finish", "failed", "prepared"],
   awaiting_code: ["applying", "submitted", "needs_user", "failed"],
   needs_user: ["preparing", "applying", "failed"],
+  ready_to_finish: ["applying", "failed"],
   submitted: [],
   failed: ["queued"],
 };
@@ -74,10 +76,11 @@ export function unansweredQuestions(app: Pick<AppSnapshot, "pendingQuestions" | 
 /**
  * Whether the employer may already have this application, which rules out sending it again on its own. A submit that
  * stopped on an emailed code that never arrived (`codeMissing`) did not go through: the site holds the application
- * until the code is entered, so starting again is safe.
+ * until the code is entered, so starting again is safe. The same goes for a submit the site stopped with a visible
+ * captcha challenge (`captchaHeld`): the challenge holds the form until it is solved.
  */
 export function submitMayHaveHappened(app: Pick<AppSnapshot, "receipt">): boolean {
-  return app.receipt?.submitClicked === true && app.receipt?.awaitingCode !== true && app.receipt?.codeMissing !== true;
+  return app.receipt?.submitClicked === true && app.receipt?.awaitingCode !== true && app.receipt?.codeMissing !== true && app.receipt?.captchaHeld !== true;
 }
 
 /** Legal move? Returns the reason when not. */
@@ -94,12 +97,13 @@ export function checkTransition(app: AppSnapshot, to: ApplicationStatus, opts: T
       return { ok: true };
     case "applying":
       if (!app.approvedAt) return no("not approved: a prepared application needs the user's click (or autopilot)");
+      if (from === "ready_to_finish" && opts.by !== "user") return no("only the person's Finish resumes an application waiting for its last step");
       if (from === "needs_user") {
         const open = unansweredQuestions(app);
         if (open.length) return no(`${open.length} required question(s) still unanswered`);
       }
       // The person's own answers (or Retry) start a fresh set of attempts; only the worker's own resumes are bounded.
-      if (from !== "awaiting_code" && !(from === "needs_user" && opts.by === "user") && app.attempts >= MAX_ATTEMPTS) return no(`attempt limit of ${MAX_ATTEMPTS} reached`);
+      if (from !== "awaiting_code" && from !== "ready_to_finish" && !(from === "needs_user" && opts.by === "user") && app.attempts >= MAX_ATTEMPTS) return no(`attempt limit of ${MAX_ATTEMPTS} reached`);
       if (submitMayHaveHappened(app)) return no("submit was already clicked; sending it again could create a duplicate");
       return { ok: true };
     case "queued":
@@ -147,7 +151,7 @@ export function transitionPatch(app: AppSnapshot, to: ApplicationStatus, opts: T
       break;
     case "applying":
       patch.error = null;
-      if (app.status === "needs_user" && opts.by === "user") patch.attempts = 1;
+      if ((app.status === "needs_user" || app.status === "ready_to_finish") && opts.by === "user") patch.attempts = 1;
       else if (app.status !== "awaiting_code") patch.attempts = app.attempts + 1;
       if (app.status === "needs_user") patch.pendingQuestions = [];
       break;
@@ -158,6 +162,10 @@ export function transitionPatch(app: AppSnapshot, to: ApplicationStatus, opts: T
       patch.error = null;
       patch.pendingQuestions = [];
       patch.submittedAt = now;
+      break;
+    case "ready_to_finish":
+      patch.error = opts.error ?? app.error ?? "One step left: finish it in Nori's live view";
+      patch.pendingQuestions = [];
       break;
     case "needs_user":
     case "failed":
