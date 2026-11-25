@@ -74,7 +74,8 @@ type JobRow = { title: string; location: string | null; remote: boolean; descrip
 /**
  * Model output made safe and consistent, then corrected by the deterministic detectors. A detector that finds a
  * restriction ("must be a US citizen", "Active TS/SCI") wins over the model; one that finds an explicit "no clearance or
- * citizenship needed" can clear the model's guess; the no-sponsorship wording wins over the model's sponsorship value.
+ * citizenship needed" can clear the model's guess; the no-sponsorship wording wins over the model's sponsorship value, and the
+ * detector's "yes" only fills in a sponsorship the model left unknown.
  */
 export function finalizeSpec(model: JobSpecModelOutput, job: Pick<JobRow, "title" | "descriptionText" | "remote">, skills: SkillMap = DEFAULT_SKILL_MAP): StoredJobSpec {
   const weights: Record<string, number> = {};
@@ -111,7 +112,8 @@ export function finalizeSpec(model: JobSpecModelOutput, job: Pick<JobRow, "title
 
   const description = job.descriptionText ?? "";
   const restrictions = detectRestrictions({ title: job.title, descriptionText: description, extraText: mustHaves });
-  const sponsorship = detectSponsorship(description) ?? model.sponsorship;
+  const detected = detectSponsorship(description);
+  const sponsorship = detected === "no" || model.sponsorship === "unknown" ? (detected ?? model.sponsorship) : model.sponsorship;
   const yearsMin = model.yearsMin != null && Number.isFinite(model.yearsMin) ? Math.min(30, Math.max(0, model.yearsMin)) : null;
 
   return {

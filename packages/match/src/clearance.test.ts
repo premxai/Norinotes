@@ -98,6 +98,16 @@ describe("detectSponsorship", () => {
     "Candidates must be authorized to work without sponsorship.",
     "We cannot sponsor work visas at this time.",
     "No visa sponsorship.",
+    "We are not able to sponsor visas.",
+    "We're not able to offer visa sponsorship at this time.",
+    "This role is not eligible for visa sponsorship.",
+    "We will not be sponsoring visas for this role.",
+    "Unfortunately we cannot provide immigration sponsorship.",
+    "We do not offer visa sponsorship.",
+    "This position does not support sponsorship.",
+    "We are not in a position to sponsor visas.",
+    "Visa sponsorship is unavailable.",
+    "We can’t sponsor H-1B visas.",
   ])("says no: %s", (t) => expect(detectSponsorship(t)).toBe("no"));
 
   it.each([
@@ -106,7 +116,8 @@ describe("detectSponsorship", () => {
     "H-1B sponsorship available for qualified candidates.",
   ])("says yes: %s", (t) => expect(detectSponsorship(t)).toBe("yes"));
 
-  it.each(["", "Great benefits and a friendly team.", "Sponsors of our events include...", "We can sponsor visas but cannot sponsor green cards. No sponsorship for contractors."])(
+  it.each(["", "Great benefits and a friendly team.", "Sponsors of our events include...", "We can sponsor visas but cannot sponsor green cards. No sponsorship for contractors.",
+    "Do you now or will you in the future require sponsorship?", "Candidates who do not require sponsorship are preferred."])(
     "is silent or contradictory: %s",
     (t) => expect(detectSponsorship(t)).toBeNull(),
   );
