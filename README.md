@@ -28,5 +28,5 @@ With no valid `OPENAI_API_KEY`, resumes and job specs are read with rule-based p
 ## Checks
 
 ```
-npm run gate     # typecheck, unit tests (PGlite with pgvector), lint, web build
+npm run gate     # typecheck, unit tests (PGlite with pgvector), lint, and the apps/landing build
 ```

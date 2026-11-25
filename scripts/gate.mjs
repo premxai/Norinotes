@@ -5,7 +5,7 @@
  *   node scripts/gate.mjs                    run every step
  *   node scripts/gate.mjs --only typecheck,tests
  *
- * Exit code 0 only when every step passed. To add a step (for example the web build), add one entry to STEPS.
+ * Exit code 0 only when every step passed. To add a step, add one entry to STEPS.
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -15,14 +15,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 
 /**
- * { id, label, cmd, args, env? }. Steps run in order and the gate stops at the first failure.
- * Planned: { id: "build", label: "Web build", cmd: npm, args: ["run", "build", "--workspace", "apps/web"] }.
+ * { id, label, cmd, args, env? }. Steps run in order and the gate stops at the first failure. Steps that share an id run
+ * together under --only. apps/landing (the site and dashboard) has its own tsconfig and eslint config, outside the root ones.
  */
 const STEPS = [
   { id: "typecheck", label: "TypeScript", cmd: npm, args: ["run", "typecheck"] },
+  { id: "typecheck", label: "TypeScript (apps/landing)", cmd: npm, args: ["run", "typecheck", "--workspace", "@norinote/landing"] },
   { id: "tests", label: "Unit tests (PGlite with pgvector)", cmd: npm, args: ["test"] },
   { id: "lint", label: "Lint", cmd: npm, args: ["run", "lint"] },
-  { id: "build", label: "Web build", cmd: npm, args: ["run", "build", "--workspace", "@norinote/web"], env: { NEXT_PUBLIC_USE_MOCK: "1" } },
+  { id: "lint", label: "Lint (apps/landing)", cmd: npm, args: ["run", "lint", "--workspace", "@norinote/landing"] },
+  { id: "build", label: "Build (apps/landing)", cmd: npm, args: ["run", "build", "--workspace", "@norinote/landing"] },
 ];
 
 const onlyArg = process.argv.indexOf("--only");

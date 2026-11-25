@@ -8,7 +8,7 @@ Read ARCHITECTURE.md first. This file records the exact foundation APIs so packa
 - A package owns its folder. Do not edit another package; if you need something from it, say so in your report.
 - `packages/shared` and `packages/db` are the shared contracts. Changes to them go through the coordinator.
 - No secrets, no network calls in tests, no paid APIs in tests. The AI fake provider is used automatically in tests.
-- `npm run gate` must pass: typecheck, unit tests, lint.
+- `npm run gate` must pass: typecheck, unit tests, lint (the root and apps/landing), and the apps/landing build.
 
 ## @norinote/shared
 

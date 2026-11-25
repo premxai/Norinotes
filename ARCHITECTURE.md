@@ -204,5 +204,5 @@ Hosting decisions (Vercel, Neon, Fly region) are made tomorrow; nothing here ass
 
 ## Quality gate
 
-`npm run gate`: typecheck, unit tests (PGlite with pgvector), lint, web build. Every package has tests next to its
-code. No secrets in the repo; `.env.example` lists every variable.
+`npm run gate`: typecheck, unit tests (PGlite with pgvector), lint (each with apps/landing), and the apps/landing build.
+Every package has tests next to its code. No secrets in the repo; `.env.example` lists every variable.
