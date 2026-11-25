@@ -46,6 +46,7 @@ describe.skipIf(!run)("saved real forms, replayed locally", () => {
       },
       resumePdfPath: resumePath, answers, dryRun: true,
       onEvent: (step, message, data) => { events.push({ step, message, data }); },
+      recordSubmitClick: async () => {},
       ...over,
     };
     return { ctx, events };
@@ -111,5 +112,22 @@ describe.skipIf(!run)("saved real forms, replayed locally", () => {
     expect(out.submit).toMatchObject({ status: "submitted", submitClicked: true });
     expect(out.submit.confirmationText).toMatch(/Thank you for applying/);
     expect(server.submits).toBe(1);
+  }, TIMEOUT);
+
+  it("does not click submit when the click cannot be recorded (local stub only)", async () => {
+    process.env.ALLOW_REAL_SUBMIT = "true";
+    const before = server.submits;
+    const { ctx, events } = ctxFor("lever-leverdemo-ad208490", { "field:org": "Acme Analytics", "field:resume": "@resume" }, {
+      dryRun: false, recordSubmitClick: async () => { throw new Error("database unavailable"); },
+    });
+    const out = (await pool.run("lever-submit-unrecorded", async (page) => {
+      const fill = await leverDriver.fill(page, ctx);
+      const submit = await leverDriver.submit(page, ctx);
+      return { fill, submit };
+    })).value;
+    expect(out.fill.status).toBe("filled");
+    expect(out.submit).toMatchObject({ status: "failed", submitClicked: false, error: "database unavailable" });
+    expect(events.some((e) => e.step === "submit")).toBe(false);
+    expect(server.submits).toBe(before);
   }, TIMEOUT);
 });

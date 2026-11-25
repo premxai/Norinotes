@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from "@norinote/shared";
-import { and, applications, asc, eq, inArray, lt } from "@norinote/db";
+import { and, applications, asc, eq, inArray, lt, sql } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import type { Payload } from "@norinote/queue";
 import { defaultUnknownFormHandler, detectDriver, DRIVERS } from "./drivers/index.js";
@@ -185,12 +185,6 @@ async function prepareStep(db: Db, row: ApplicationRow, deps: ApplyDeps): Promis
 
 type BrowserOutcome = { fill: FillResult; submit?: SubmitResult; screenshotPath?: string; driverName: string };
 
-async function mergeReceipt(db: Db, applicationId: string, patch: Record<string, unknown>): Promise<void> {
-  const row = await loadApplication(db, applicationId);
-  if (!row) return;
-  await db.update(applications).set({ receipt: { ...(row.receipt ?? {}), ...patch }, updatedAt: new Date() }).where(eq(applications.id, applicationId));
-}
-
 /** The receipt as it is now with `patch` on top, for a move that sets the receipt: what was prepared stays. */
 async function receiptWith(db: Db, applicationId: string, patch: Record<string, unknown>): Promise<Record<string, unknown>> {
   const row = await loadApplication(db, applicationId);
@@ -250,10 +244,18 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   const onEvent: DriverContext["onEvent"] = (step, message, data, level?: EventLevel) => {
     events = events.then(async () => {
       await logEvent(db, id, step, message, { level: level ?? "info", data: data ?? null });
-      // The click is the one step that cannot be undone: remember it before anything else can fail.
-      // A code that went missing on an earlier run says nothing about this click, so its mark goes.
-      if (step === "submit") await mergeReceipt(db, id, { submitClicked: true, awaitingCode: false, codeMissing: false });
     }).catch(() => {});
+  };
+
+  // The click is the one step that cannot be undone: it is stored, and the write confirmed, before the driver clicks.
+  // A code that went missing on an earlier run says nothing about this click, so its mark goes.
+  const recordSubmitClick = async () => {
+    await flush();
+    const [marked] = await db.update(applications)
+      .set({ receipt: sql`coalesce(${applications.receipt}, '{}'::jsonb) || '{"submitClicked":true,"awaitingCode":false,"codeMissing":false}'::jsonb`, updatedAt: new Date() })
+      .where(and(eq(applications.id, id), eq(applications.status, "applying")))
+      .returning({ id: applications.id });
+    if (!marked) throw new Error("Could not record the submit click, so submit was not clicked");
   };
 
   const ctx: DriverContext = {
@@ -266,6 +268,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     answers: inputs.answers,
     dryRun,
     onEvent,
+    recordSubmitClick,
     ...(inputs.strategyHints ? { strategyHints: inputs.strategyHints } : {}),
     ...(deps.codes || deps.verification ? {
       waitForCode: async (hint: string) => {
@@ -359,9 +362,12 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     await recordStrategies(db, inputs.fingerprint, fill.strategies, fill.healed === true).catch(() => {});
   }
   const latest = (await loadApplication(db, id)) ?? row;
+  // The stored mark wins over what the driver reported: a click that threw half way may still have gone through.
+  const clickRecorded = submitMayHaveHappened(latest);
   const prepared = latest.receipt?.prepared;
   const receiptFor = (extra: Partial<Parameters<typeof buildReceipt>[0]> = {}): Record<string, unknown> => ({
     ...(buildReceipt({ driver: driverName, dryRun, fill, submit, screenshotPath: outcome.screenshotPath, ...artifactPaths(artifacts), now: now(), ...extra }) as unknown as Record<string, unknown>),
+    ...(clickRecorded ? { submitClicked: true } : {}),
     ...(prepared ? { prepared } : {}),
     ...(fill.timings ? { timings: { ...fill.timings, ...(submit ? { submitMs: submit.durationMs } : {}) } } : {}),
   });
@@ -401,6 +407,10 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   }
   // Submit failed. Before the click it is safe to try again; after, it is not.
   const error = submit.error ?? "Submit failed";
+  if (!submit.submitClicked && clickRecorded) {
+    const after = `The run stopped at the submit click (${error}). The employer may have the application: check before trying again.`;
+    return done("failed", await transitionApplication(db, id, "failed", { from: "applying", error: after, receipt: receiptFor(), message: after }));
+  }
   if (!submit.submitClicked && latest.attempts < MAX_ATTEMPTS) {
     await logEvent(db, id, "apply_retry", `Submit failed before the click, will retry: ${error}`, { level: "warn" });
     await countRetry(db, latest);

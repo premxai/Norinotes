@@ -459,6 +459,7 @@ describe("applying", () => {
     const pool = fakePool();
     const { driver } = fakeDriver({
       submit: async (ctx) => {
+        await ctx.recordSubmitClick();
         ctx.onEvent("submit", "Clicking Submit");
         throw new PoolRunError("browser crashed", { screenshotPath: "/tmp/artifacts/crash.png" }, false, new Error("x"));
       },
@@ -469,6 +470,65 @@ describe("applying", () => {
     const row = await getApp(app.id);
     expect(row.error).toMatch(/after submit was clicked/);
     expect(row.receipt).toMatchObject({ submitClicked: true });
+  });
+
+  it("stores the submit click, behind the queued run events, before recordSubmitClick resolves", async () => {
+    let atClick: unknown = "unset";
+    let appId = "";
+    const { driver } = fakeDriver({
+      fill: async (ctx) => {
+        for (let i = 0; i < 30; i++) ctx.onEvent("field_filled", `field ${i}`);
+        await ctx.recordSubmitClick();
+        atClick = (await getApp(appId)).receipt?.submitClicked;
+        return { status: "failed", formUrl: null, fields: [], files: [], pending: [], durationMs: 0, error: "stopped by the test" };
+      },
+    });
+    const { app, d } = await prepared(deps({ driver }));
+    appId = app.id;
+    await approveAndSubmit(t.db, app.id);
+    await runApplication(t.db, app.id, d);
+    expect(atClick).toBe(true);
+    const steps = await eventSteps(app.id);
+    expect(steps.filter((s) => s === "field_filled")).toHaveLength(30);
+    // A lost run is never sent again on its own once the click is stored.
+    expect(submitMayHaveHappened(await getApp(app.id))).toBe(true);
+  });
+
+  it("recordSubmitClick rejects when the write cannot be confirmed, so the driver does not click", async () => {
+    let appId = "";
+    let outcome = "";
+    const { driver } = fakeDriver({
+      fill: async (ctx) => {
+        await t.db.update(applications).set({ status: "needs_user" }).where(eq(applications.id, appId));
+        outcome = await ctx.recordSubmitClick().then(() => "recorded", (err: Error) => err.message);
+        await t.db.update(applications).set({ status: "applying" }).where(eq(applications.id, appId));
+        return { status: "failed", formUrl: null, fields: [], files: [], pending: [], durationMs: 0, error: "stopped by the test" };
+      },
+    });
+    const { app, d } = await prepared(deps({ driver }));
+    appId = app.id;
+    await approveAndSubmit(t.db, app.id);
+    await runApplication(t.db, app.id, d);
+    expect(outcome).toMatch(/Could not record the submit click/);
+    expect((await getApp(app.id)).receipt?.submitClicked).not.toBe(true);
+  });
+
+  it("a stored click wins when the driver reports no click: failed, never retried", async () => {
+    process.env.ALLOW_REAL_SUBMIT = "true";
+    const { driver, calls } = fakeDriver({
+      submit: async (ctx) => {
+        await ctx.recordSubmitClick();
+        return { status: "failed", submitClicked: false, durationMs: 1, error: "Target closed" };
+      },
+    });
+    const { app, d } = await prepared(deps({ driver }));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "failed" });
+    const row = await getApp(app.id);
+    expect(row.error).toMatch(/stopped at the submit click/);
+    expect(row.receipt).toMatchObject({ submitClicked: true });
+    expect((await retryApplication(t.db, app.id)).ok).toBe(false);
+    expect(calls.submit).toHaveLength(1);
   });
 
   it("a restart in applying with a recorded click does not click again", async () => {
@@ -585,6 +645,7 @@ describe("attempts, retries and lost runs", () => {
     let midRun: boolean | null = null;
     const { driver } = fakeDriver({
       submit: async (ctx) => {
+        await ctx.recordSubmitClick();
         ctx.onEvent("submit", "Clicking Submit");
         await vi.waitFor(async () => expect((await getApp(ctx.applicationId)).receipt?.awaitingCode).toBe(false));
         // A crash here leaves the row in applying with this receipt: the next run must see that submit may have happened.

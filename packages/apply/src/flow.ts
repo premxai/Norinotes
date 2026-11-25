@@ -289,6 +289,7 @@ async function clickSubmit(page: Page, ctx: DriverContext): Promise<string> {
   if (!submitAllowed(ctx)) throw new Error("Refusing to submit: dryRun is set or ALLOW_REAL_SUBMIT is not \"true\"");
   const btn = await findSubmitButton(page);
   if (!btn) throw new Error("Submit button not found");
+  await ctx.recordSubmitClick();
   ctx.onEvent("submit", `Clicking "${btn.label}"`, { label: btn.label });
   await btn.locator.click();
   return btn.label;

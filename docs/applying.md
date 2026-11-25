@@ -101,7 +101,9 @@ read without a key is read before the click.
   user; `canonicalJobUrl` folds boards, embeds and tracking links into one URL).
 - One application per company at a time, plus a cooldown between two (`CompanyGate`, `APPLY_COMPANY_COOLDOWN_MS`,
   default 30 s).
-- Submit is never clicked twice: the click is recorded before anything else can fail (`receipt.submitClicked`).
+- Submit is never clicked twice: right before each click the driver awaits `DriverContext.recordSubmitClick`, which
+  writes `receipt.submitClicked` and confirms the row was updated. If that write fails, the click does not happen. A
+  stored mark outranks the driver's own report, so a run that breaks at the click is failed and never sent again.
 - Receipts: grouped fields, files, screenshot, trace path, confirmation text, `prepared` summary and per-step timings.
 - Run events: `prepare_form`, `discovered`, `field_filled` (strategy, source, ms), `validation`, `timing`
   (openMs, discoverMs, filesMs, textMs, choicesMs, validateMs, readyMs), `captcha`, `verification`, `submit`.

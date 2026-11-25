@@ -84,6 +84,7 @@ async function main() {
         const ctx: DriverContext = {
           applicationId: appId, applyUrl: t.url, profile: APPLICANT_PROFILE, resumePdfPath: resumePath, answers: row!.answers, dryRun: true,
           onEvent: (step, message, data) => { events.push({ step, message, data }); },
+          recordSubmitClick: async () => { throw new Error("live dry runs never submit"); },
         };
         if (submitAllowed(ctx)) throw new Error("refusing: submit would be allowed");
         const tf = Date.now();
