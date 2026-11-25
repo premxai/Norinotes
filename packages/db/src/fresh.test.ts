@@ -16,10 +16,10 @@ async function company(firstReadAt: Date | null): Promise<string> {
   const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: `fresh-${seq++}`, name: "Fresh Co", firstReadAt }).returning();
   return c!.id;
 }
-async function job(companyId: string, postedAt: Date | null, firstSeenAt: Date): Promise<string> {
+async function job(companyId: string, postedAt: Date | null, firstSeenAt: Date, us = true): Promise<string> {
   const id = `fresh-job-${seq++}`;
   const [j] = await t.db.insert(jobs).values({
-    companyId, atsType: "greenhouse", externalId: id, title: "Engineer", applyUrl: `https://example.test/${id}`, dedupeKey: id, postedAt, firstSeenAt,
+    companyId, atsType: "greenhouse", externalId: id, title: "Engineer", applyUrl: `https://example.test/${id}`, dedupeKey: id, postedAt, firstSeenAt, us,
   }).returning();
   return j!.id;
 }
@@ -73,21 +73,32 @@ describe("freshJobSql", () => {
   });
 });
 
+describe("US only", () => {
+  it("never keeps a job outside the US, however recent", async () => {
+    const co = await company(hoursAgo(24 * 30));
+    const here = await job(co, hoursAgo(2), hoursAgo(2));
+    const abroad = await job(co, hoursAgo(2), hoursAgo(2), false);
+    expect(await fresh([here, abroad])).toEqual([here]);
+    expect(isFreshJob({ postedAt: hoursAgo(2), firstSeenAt: hoursAgo(2), firstReadAt: hoursAgo(24 * 30), us: false }, NOW)).toBe(false);
+  });
+});
+
 describe("isFreshJob", () => {
   it("agrees with freshJobSql on dated, undated, first-read and never-read jobs", async () => {
     const firstRead = hoursAgo(24 * 10);
-    const cases: { postedAt: Date | null; firstSeenAt: Date; firstReadAt: Date | null }[] = [
-      { postedAt: hoursAgo(71), firstSeenAt: hoursAgo(71), firstReadAt: firstRead },
-      { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(1), firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: hoursAgo(71), firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: hoursAgo(73), firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: firstRead, firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: hoursAgo(5), firstReadAt: null },
+    const cases: { postedAt: Date | null; firstSeenAt: Date; firstReadAt: Date | null; us: boolean }[] = [
+      { postedAt: hoursAgo(71), firstSeenAt: hoursAgo(71), firstReadAt: firstRead, us: true },
+      { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(1), firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: hoursAgo(71), firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: hoursAgo(73), firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: firstRead, firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: hoursAgo(5), firstReadAt: null, us: true },
+      { postedAt: hoursAgo(1), firstSeenAt: hoursAgo(1), firstReadAt: firstRead, us: false },
     ];
     const ids: string[] = [];
-    for (const c of cases) ids.push(await job(await company(c.firstReadAt), c.postedAt, c.firstSeenAt));
+    for (const c of cases) ids.push(await job(await company(c.firstReadAt), c.postedAt, c.firstSeenAt, c.us));
     const kept = new Set(await fresh(ids));
     expect(cases.map((c) => isFreshJob(c, NOW))).toEqual(ids.map((id) => kept.has(id)));
-    expect(cases.map((c) => isFreshJob(c, NOW))).toEqual([true, false, true, false, false, false]);
+    expect(cases.map((c) => isFreshJob(c, NOW))).toEqual([true, false, true, false, false, false, false]);
   });
 });

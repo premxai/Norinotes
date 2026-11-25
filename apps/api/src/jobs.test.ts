@@ -141,15 +141,15 @@ describe("jobs list", () => {
   });
 
   it("groups one posting open in several places into one row", async () => {
-    const co = await seedJob(api.db, { title: "Platform Engineer", company: "Many Places", location: "Berlin, Germany", remote: false });
-    for (const location of ["London, UK", "Paris, France", "Berlin, Germany"]) {
+    const co = await seedJob(api.db, { title: "Platform Engineer", company: "Many Places", location: "Denver, CO", remote: false });
+    for (const location of ["Seattle, WA", "Austin, TX", "Denver, CO"]) {
       const { job } = await seedJob(api.db, { title: "Platform Engineer", company: `x-${location}`, location, remote: false });
       await api.db.update(jobs).set({ companyId: co.company.id }).where(eq(jobs.id, job.id));
     }
     const grouped = await api.call("GET", "/api/jobs?lanes=false&view=new&q=platform", { cookie });
     expect(grouped.json).toHaveLength(1);
     expect(grouped.json[0].locations).toBe(4);
-    expect(grouped.json[0].locationNames.sort()).toEqual(["Berlin, Germany", "London, UK", "Paris, France"]);
+    expect(grouped.json[0].locationNames.sort()).toEqual(["Austin, TX", "Denver, CO", "Seattle, WA"]);
     const flat = await api.call("GET", "/api/jobs?lanes=false&view=new&q=platform&group=false", { cookie });
     expect(flat.json).toHaveLength(4);
     expect(flat.json[0].locations).toBeUndefined();

@@ -1,4 +1,5 @@
 export * from "./job.js";
+export * from "./location.js";
 export * from "./graph.js";
 export * from "./shortlist.js";
 export * from "./application.js";

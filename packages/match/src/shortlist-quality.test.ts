@@ -48,9 +48,11 @@ describe("location: the Europe-remote contractor", () => {
 
     const stats = await buildShortlist(t.db, userId, { profileEmbedding: fakeEmbedding(text), now: NOW, widen: false });
     const ids = stats.items.map((i) => i.jobId);
+    // Outside the US: never candidates at all (US jobs only), so they cannot rank first.
+    expect(stats.candidateIds).not.toContain(contractor);
+    expect(stats.candidateIds).not.toContain(philippines);
     expect(ids).not.toContain(contractor);
     expect(ids).not.toContain(philippines);
-    expect(stats.gated.map((g) => g.jobId)).toEqual(expect.arrayContaining([contractor, philippines]));
     expect(new Set(ids)).toEqual(new Set([us, nyc]));
     expect(stats.laneMatches).toBe(2);
   });

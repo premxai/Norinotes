@@ -80,7 +80,7 @@ describe("jobs Best match for a user with no lanes", () => {
     const remote = await seedJob(api.db, { title: "Staff Backend Engineer", location: "Remote - US", remote: true });
     const wrongPlace = await seedJob(api.db, { title: "Backend Engineer", location: "Berlin, Germany", remote: false });
     const wrongRole = await seedJob(api.db, { title: "Marketing Manager", location: "Austin, TX", remote: false });
-    const widened = await seedJob(api.db, { title: "Site Reliability Engineer", location: "Berlin, Germany", remote: false });
+    const widened = await seedJob(api.db, { title: "Site Reliability Engineer", location: "Chicago, IL", remote: false });
     await seedShortlist(api.db, u.user.id, widened.job.id, 0.4, { reasons: ["widened:role_pool"] });
 
     expect(await api.db.select().from(lanes).where(eq(lanes.userId, u.user.id))).toEqual([]);

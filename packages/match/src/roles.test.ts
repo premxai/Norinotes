@@ -135,6 +135,18 @@ describe("rolePool", () => {
     expect(await rolePool(t.db, { family: "other", now: NOW })).toEqual([]);
   });
 
+  it("never holds a job outside the US, even in a pool with no place (a blank profile)", async () => {
+    const co = await seedCompany(t.db, { name: "AbroadCo" });
+    const london = await seedJob(t.db, { companyId: co, title: "Data Scientist, London", location: "London, UK", postedAt: hoursAgo(3) });
+    const manila = await seedJob(t.db, { companyId: co, title: "Data Scientist, Remote", location: "Remote - Philippines", remote: true, postedAt: hoursAgo(3) });
+    const chicago = await seedJob(t.db, { companyId: co, title: "Data Scientist, Chicago", location: "Chicago, IL", postedAt: hoursAgo(3) });
+    const anywhere = (await rolePool(t.db, { family: "data_analysis", limit: 50, now: NOW })).map((p) => p.jobId);
+    expect(anywhere).toContain(chicago);
+    expect(anywhere).not.toContain(london);
+    expect(anywhere).not.toContain(manila);
+    expect((await rolePool(t.db, { family: "data_analysis", remote: true, limit: 50, now: NOW })).map((p) => p.jobId)).not.toContain(manila);
+  });
+
   it("caches a pool per family, metro and remote for an hour", async () => {
     const co = await seedCompany(t.db, { name: "CacheCo" });
     const first = await seedJob(t.db, { companyId: co, title: "Product Manager, Cache A", location: "Austin, TX", postedAt: daysAgo(1) });

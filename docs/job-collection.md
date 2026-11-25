@@ -94,6 +94,17 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
 - Seeds are imported by a script into `companies` as `candidate`; nothing is trusted until validated.
 - Later: Common Crawl columnar index (Athena) discovery and a career-page scan for custom domains.
 
+## US jobs only
+
+Norinote shows US jobs only for now. Each job records whether it is in the US (`jobs.us`), decided when it is written
+(`upsertJobs`) by `isUsPlace` (packages/shared/src/location.ts, the same location parser the matcher's gates use): a place
+that names the US is in, one that names only other countries or regions ("London, UK", "Remote - Philippines", "EMEA")
+is out, and one that names no place ("Remote", "2 Locations", no text) is in. `freshJobSql` requires `jobs.us`, so a job
+outside the US reaches nobody: not the shortlist, the role pools, the jobs list and search, the location list, the
+summary or the Telegram digest. It is stored without its description like any job that is not fresh, and it is never
+understood (no model call). Rows written before the column existed count as US until their board is read again. The one
+exception is the same as for age: a job the user added by pasting its link.
+
 ## Only the last 72 hours
 
 Users are shown and matched only jobs posted in the last 72 hours (`MAX_JOB_AGE_HOURS` and `freshJobSql` in

@@ -12,7 +12,7 @@ const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is st
 
 // ---- jobs -------------------------------------------------------------------------------------------------------------
 
-export type JobRow = Omit<typeof jobs.$inferSelect, "descriptionText" | "missingReads"> & { descriptionText: string };
+export type JobRow = Omit<typeof jobs.$inferSelect, "descriptionText" | "missingReads" | "us"> & { descriptionText: string };
 
 /** The domain a company's logo is looked up by, for selects: found in its postings, else the one a seed knows. */
 export const companyLogoDomain = sql<string | null>`coalesce(${companies.logoDomain}, ${companies.domain})`;

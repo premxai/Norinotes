@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { and, companies, eq, jobs } from "@norinote/db";
+import { and, companies, eq, freshJobSql, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import ghBoard from "./__fixtures__/greenhouse-board.json";
 import { json, noSleep, routeFetch } from "./__fixtures__/helpers.js";
@@ -455,6 +455,18 @@ describe("pollBoard", () => {
     const job = feedJob("R-1", { atsType: "workday", companyToken: wd.token, title: "Engineer" });
     await withConnector("workday", serving(() => ({ jobs: [job], complete: true })), () => pollBoard(t.db, wd, { now: t1 }));
     expect((await t.db.select().from(jobs))[0]?.dedupeKey).toBe(dedupeKey({ companyName: "Initech Systems", title: "Engineer", location: null }));
+  });
+});
+
+describe("pollBoard: US jobs only", () => {
+  it("stores a job outside the US as not US, without its text, and never as fresh", async () => {
+    const jobAt = (id: number, location: string) => ({ id, title: "Machine Learning Engineer", absolute_url: `https://job-boards.greenhouse.io/acme/jobs/${id}`, first_published: RECENT, location: { name: location }, content: "Train models." });
+    const r = await pollBoard(t.db, board, { now: t1, fetch: ghFetch({ jobs: [jobAt(1, "Austin, TX"), jobAt(2, "London, United Kingdom"), jobAt(3, "Remote - Philippines")] }) });
+    expect(r).toMatchObject({ added: 3, trimmed: 2 });
+    const rows = await allJobs();
+    expect(rows.map((j) => [j.externalId, j.us, j.descriptionText])).toEqual([["1", true, "Train models."], ["2", false, ""], ["3", false, ""]]);
+    const visible = await t.db.select({ id: jobs.externalId }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(freshJobSql(t1));
+    expect(visible.map((v) => v.id)).toEqual(["1"]);
   });
 });
 
