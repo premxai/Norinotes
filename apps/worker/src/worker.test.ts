@@ -4,6 +4,7 @@ import { createFakeProvider, setProvider } from "@norinote/ai";
 import { applications, applyBatches, careerPoints, companies, eq, inboxMessages, jobSpecs, jobs, lanes, profiles, resumes, runEvents, shortlist, users, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { BrowserPool, Driver, FillResult, Preparer } from "@norinote/apply";
+import { saveAnswer } from "@norinote/answers";
 import { embedCareerPoints } from "@norinote/graph";
 import { assignInboxAddress, receiveInbound } from "@norinote/inbox";
 import type { JobSpecModelOutput } from "@norinote/match";
@@ -368,6 +369,68 @@ describe("worker: prepare and apply", () => {
     await queue.drain();
     expect(calls).toHaveLength(1);
     expect(await statusOf(t.db, appId)).toMatchObject({ status: "needs_user" });
+  });
+
+  /** A form that asks `ask` until it has an answer, then fills. */
+  const asking = (ask: { id: string; text: string; type: "text" | "textarea"; options: string[]; required: boolean }) =>
+    stubDriver((answers) => (answers[ask.id]
+      ? filled()
+      : { status: "needs_user", formUrl: null, fields: [], files: [], pending: [ask], needsUser: { kind: "questions", reason: "One question needs an answer" }, durationMs: 5 }));
+
+  it("never drafts an answer to a question raised at the click: no model call, no answer, no resubmit", async () => {
+    const userId = await seedUser(t.db);
+    await t.db.insert(careerPoints).values({ userId, kind: "role", title: "Backend Engineer", org: "Initech", startDate: "2021-01", text: "Built payment APIs in Python." });
+    const appId = await seedApplication(t.db, userId, "Payments Engineer");
+    // A model that would happily write an answer if anyone asked it.
+    const provider = createFakeProvider({ chat: () => ({ answerable: true, answer: "I built payment APIs in Python at Initech, which is why this team appeals to me." }) });
+    const ask = { id: "why-do-you-want-to-work-here", text: "Why do you want to work here?", type: "textarea" as const, options: [], required: true };
+    const { driver, calls } = asking(ask);
+    await boot(driver, stubPreparer(t.db));
+
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: appId });
+    await queue.drain();
+    setProvider(provider);
+    await queue.enqueue(JOBS.applyRun, { applicationId: appId, trigger: "click" });
+    await queue.drain();
+
+    expect(queue.failures()).toEqual([]);
+    expect(provider.calls).toHaveLength(0);
+    expect(calls).toHaveLength(1);
+    const after = await statusOf(t.db, appId);
+    expect(after.status).toBe("needs_user");
+    expect(after.answers[ask.id]).toBeUndefined();
+    expect(after.pendingQuestions).toEqual([ask]);
+  });
+
+  it("does not reuse a model draft from the answer bank at the click, but does reuse what the person typed", async () => {
+    const userId = await seedUser(t.db);
+    const drafted = { id: "what-are-you-most-proud-of", text: "What are you most proud of?", type: "text" as const, options: [], required: true };
+    const typed = { id: "typical-working-hours", text: "Typical working hours", type: "text" as const, options: [], required: true };
+    await saveAnswer(t.db, userId, drafted.text, "Shipping the payments API.", "model");
+    await saveAnswer(t.db, userId, typed.text, "9am to 5pm Central", "user");
+
+    const draftedApp = await seedApplication(t.db, userId, "Drafted Engineer");
+    const first = asking(drafted);
+    await boot(first.driver, stubPreparer(t.db));
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: draftedApp });
+    await queue.drain();
+    await queue.enqueue(JOBS.applyRun, { applicationId: draftedApp, trigger: "click" });
+    await queue.drain();
+    expect(first.calls).toHaveLength(1);
+    expect(await statusOf(t.db, draftedApp)).toMatchObject({ status: "needs_user" });
+    await worker.stop();
+
+    const typedApp = await seedApplication(t.db, userId, "Typed Engineer");
+    const second = asking(typed);
+    await boot(second.driver, stubPreparer(t.db));
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: typedApp });
+    await queue.drain();
+    await queue.enqueue(JOBS.applyRun, { applicationId: typedApp, trigger: "click" });
+    await queue.drain();
+    expect(queue.failures()).toEqual([]);
+    expect(second.calls).toHaveLength(2);
+    expect(second.calls[1]![typed.id]).toBe("9am to 5pm Central");
+    expect(await statusOf(t.db, typedApp)).toMatchObject({ status: "prepared" });
   });
 });
 
