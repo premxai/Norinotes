@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AiUnavailableError, complete, embed, embeddingModel } from "@norinote/ai";
-import { companies, eq, and, gte, jobEmbeddings, jobSpecs, jobs, type Db } from "@norinote/db";
+import { companies, desc, eq, and, gte, jobEmbeddings, jobSpecs, jobs, type Db } from "@norinote/db";
 import { JobSpec, REMOTE_RULES, SENIORITIES, SKILL_LEVELS, SPONSORSHIP } from "@norinote/shared";
 import { detectRestrictions } from "./clearance.js";
 import { heuristicSpec } from "./heuristic-spec.js";
@@ -174,7 +174,7 @@ async function loadJob(db: Db, jobId: string): Promise<JobRow> {
 export async function loadCurrentSpec(db: Db, jobId: string): Promise<StoredJobSpec | null> {
   const [row] = await db.select({ spec: jobSpecs.spec }).from(jobSpecs)
     .where(and(eq(jobSpecs.jobId, jobId), gte(jobSpecs.version, SPEC_VERSION)))
-    .orderBy(jobSpecs.version).limit(1);
+    .orderBy(desc(jobSpecs.version)).limit(1);
   return row ? (row.spec as StoredJobSpec) : null;
 }
 
@@ -221,14 +221,17 @@ export async function understandJob(db: Db, jobId: string, opts: { skills?: Skil
     }
   }
 
+  // A spec the model just wrote replaces any embedding made earlier (from a heuristic spec, while the model was down).
+  const freshSpec = !existing && !heuristic;
   const [hasEmbedding] = await db.select({ jobId: jobEmbeddings.jobId }).from(jobEmbeddings).where(eq(jobEmbeddings.jobId, jobId));
   let embedded = false;
   let embeddingPending = false;
-  if (!hasEmbedding) {
+  if (!hasEmbedding || freshSpec) {
     try {
       const [vector] = await embed([jobEmbeddingText(job, spec)]);
       if (!vector) throw new Error(`No embedding returned for job ${jobId}`);
-      await db.insert(jobEmbeddings).values({ jobId, embedding: vector, model: embeddingModel() }).onConflictDoNothing();
+      await db.insert(jobEmbeddings).values({ jobId, embedding: vector, model: embeddingModel() })
+        .onConflictDoUpdate({ target: jobEmbeddings.jobId, set: { embedding: vector, model: embeddingModel(), createdAt: new Date() } });
       embedded = true;
     } catch (e) {
       if (!(e instanceof AiUnavailableError)) throw e;
@@ -238,10 +241,14 @@ export async function understandJob(db: Db, jobId: string, opts: { skills?: Skil
   return { jobId, skipped: existing !== null, spec, embedded, heuristic, embeddingPending };
 }
 
-/** The job's stored heuristic spec, or a new one written now. */
+/**
+ * The job's stored heuristic spec, or a new one written now. A stored one gets its `createdAt` moved to now: for a
+ * heuristic spec it means "last tried", so the worker's upgrade pass waits before queueing the job again.
+ */
 async function heuristicSpecFor(db: Db, jobId: string, job: JobRow, skills: SkillMap): Promise<StoredJobSpec> {
-  const [stored] = await db.select({ spec: jobSpecs.spec }).from(jobSpecs)
-    .where(and(eq(jobSpecs.jobId, jobId), eq(jobSpecs.version, HEURISTIC_SPEC_VERSION)));
+  const [stored] = await db.update(jobSpecs).set({ createdAt: new Date() })
+    .where(and(eq(jobSpecs.jobId, jobId), eq(jobSpecs.version, HEURISTIC_SPEC_VERSION)))
+    .returning({ spec: jobSpecs.spec });
   if (stored) return stored.spec as StoredJobSpec;
   const spec = heuristicSpec(job, skills);
   const parsed = JobSpec.safeParse(spec);

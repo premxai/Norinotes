@@ -145,6 +145,41 @@ describe("understandJob without the AI service", () => {
     expect(await understandJob(t.db, jobId)).toMatchObject({ skipped: true, embedded: true, embeddingPending: false });
   });
 
+  it("rebuilds an embedding made from the heuristic spec once the model reads the job", async () => {
+    rejectedKey();
+    const jobId = await seedJob(t.db, { companyId, title: "Data Engineer", description: "Build pipelines in Python and Spark." });
+    await understandJob(t.db, jobId);
+    // An embedding written while only the heuristic spec existed (the chat model was down, embeddings were not).
+    const stale = fakeEmbedding("heuristic text only");
+    await t.db.insert(jobEmbeddings).values({ jobId, embedding: stale, model: "test" });
+
+    setProvider(createFakeProvider());
+    const r = await understandJob(t.db, jobId);
+    expect(r).toMatchObject({ skipped: false, heuristic: false, embedded: true });
+    const [row] = await t.db.select().from(jobEmbeddings).where(eq(jobEmbeddings.jobId, jobId));
+    expect(row!.embedding).not.toEqual(stale);
+  });
+
+  it("marks a heuristic spec as tried again when the service is still down", async () => {
+    rejectedKey();
+    const jobId = await seedJob(t.db, { companyId, title: "Site Reliability Engineer", description: "Run Kubernetes." });
+    await understandJob(t.db, jobId);
+    const old = new Date("2026-10-01T00:00:00Z");
+    await t.db.update(jobSpecs).set({ createdAt: old }).where(eq(jobSpecs.jobId, jobId));
+    await understandJob(t.db, jobId);
+    const [row] = await t.db.select().from(jobSpecs).where(eq(jobSpecs.jobId, jobId));
+    expect(row!.createdAt.getTime()).toBeGreaterThan(old.getTime());
+  });
+
+  it("loadCurrentSpec returns the newest current version", async () => {
+    const jobId = await seedJob(t.db, { companyId });
+    await t.db.insert(jobSpecs).values([
+      { jobId, version: SPEC_VERSION, spec: baseSpec({ seniority: "mid" }), model: "test" },
+      { jobId, version: SPEC_VERSION + 1, spec: baseSpec({ seniority: "senior" }), model: "test" },
+    ]);
+    expect(await loadCurrentSpec(t.db, jobId)).toMatchObject({ seniority: "senior" });
+  });
+
   it("still throws for errors that are not the service being unavailable", async () => {
     setProvider({ name: "bad", chat: () => Promise.reject(Object.assign(new Error("bad request"), { status: 400 })), embed: () => Promise.reject(new Error("x")) });
     const jobId = await seedJob(t.db, { companyId });

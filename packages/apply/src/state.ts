@@ -98,7 +98,8 @@ export function checkTransition(app: AppSnapshot, to: ApplicationStatus, opts: T
         const open = unansweredQuestions(app);
         if (open.length) return no(`${open.length} required question(s) still unanswered`);
       }
-      if (from !== "awaiting_code" && app.attempts >= MAX_ATTEMPTS) return no(`attempt limit of ${MAX_ATTEMPTS} reached`);
+      // The person's own answers (or Retry) start a fresh set of attempts; only the worker's own resumes are bounded.
+      if (from !== "awaiting_code" && !(from === "needs_user" && opts.by === "user") && app.attempts >= MAX_ATTEMPTS) return no(`attempt limit of ${MAX_ATTEMPTS} reached`);
       if (submitMayHaveHappened(app)) return no("submit was already clicked; sending it again could create a duplicate");
       return { ok: true };
     case "queued":
@@ -119,7 +120,7 @@ export function checkTransition(app: AppSnapshot, to: ApplicationStatus, opts: T
 /** Columns a legal move changes. Pure; the caller applies it. */
 export function transitionPatch(app: AppSnapshot, to: ApplicationStatus, opts: TransitionOptions = {}): Partial<{
   status: ApplicationStatus; error: string | null; receipt: Record<string, unknown> | null; pendingQuestions: unknown[];
-  resumeId: string | null; attempts: number; preparedAt: Date | null; submittedAt: Date | null; updatedAt: Date;
+  resumeId: string | null; attempts: number; preparedAt: Date | null; approvedAt: Date | null; submittedAt: Date | null; updatedAt: Date;
 }> {
   const now = opts.now ?? new Date();
   const patch: ReturnType<typeof transitionPatch> = { status: to, updatedAt: now };
@@ -131,6 +132,8 @@ export function transitionPatch(app: AppSnapshot, to: ApplicationStatus, opts: T
       patch.error = null;
       patch.attempts = 0;
       patch.pendingQuestions = [];
+      // A retried application waits for the person's OK again (or its batch's turn): the old approval is not reused.
+      patch.approvedAt = null;
       break;
     case "preparing":
       patch.error = null;
@@ -144,7 +147,8 @@ export function transitionPatch(app: AppSnapshot, to: ApplicationStatus, opts: T
       break;
     case "applying":
       patch.error = null;
-      if (app.status !== "awaiting_code") patch.attempts = app.attempts + 1;
+      if (app.status === "needs_user" && opts.by === "user") patch.attempts = 1;
+      else if (app.status !== "awaiting_code") patch.attempts = app.attempts + 1;
       if (app.status === "needs_user") patch.pendingQuestions = [];
       break;
     case "awaiting_code":

@@ -249,4 +249,14 @@ describe("pg-boss adapter wiring (stand-in for PgBoss, no database)", () => {
     await q.stop();
     expect(f.calls.some((c) => c.fn === "stop")).toBe(true);
   });
+
+  it("lets beforeClose enqueue after running jobs finished and before the pool closes", async () => {
+    const f = fakeBoss();
+    const q = new PgBossQueue("postgres://x", () => f.boss);
+    await q.start();
+    await q.stop({ beforeClose: async () => { await q.enqueue(JOBS.matchNewJobs, { jobIds: ["j"] }); } });
+    const order = f.calls.filter((c) => c.fn === "stop" || c.fn === "send").map((c) => (c.fn === "stop" ? `stop:${(c.args[0] as { close?: boolean }).close}` : "send"));
+    expect(order).toEqual(["stop:false", "send", "stop:true"]);
+    await expect(q.enqueue(JOBS.matchUser, { userId: "u" })).rejects.toThrow(/not started/);
+  });
 });

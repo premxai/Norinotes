@@ -4,7 +4,7 @@ import { applications, companies, eq, jobs, resumes, runEvents, users } from "@n
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import {
   approveAndSubmit, createApplication, driveApplication, retryApplication, runApplication, saveAnswers, normalizeTitle,
-  PoolRunError, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
+  MAX_ATTEMPTS, PoolRunError, STALE_RUN_MS, staleRuns, submitMayHaveHappened, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
 } from "./index.js";
 import type { ApplyInputs } from "./inputs.js";
 import { CompanyGate } from "./gate.js";
@@ -510,6 +510,110 @@ describe("retryApplication", () => {
     expect(r).toMatchObject({ ok: true });
     expect((await getApp(a.app.id)).status).toBe("queued");
     expect(await retryApplication(t.db, a.app.id)).toMatchObject({ ok: false }); // queued: nothing to retry
+  });
+});
+
+describe("attempts, retries and lost runs", () => {
+  it("counts every browser retry against the attempt limit, so a run that keeps breaking ends failed after three tries", async () => {
+    const pool = fakePool({ fail: () => new Error("net::ERR_CONNECTION_RESET") });
+    const { app, d } = await prepared(deps({ pool: pool.pool }));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "applying", retry: true });
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "applying", retry: true });
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "failed", waiting: "done" });
+    expect(pool.state.runs).toBe(3);
+  });
+
+  it("counts a submit that failed before the click the same way", async () => {
+    process.env.ALLOW_REAL_SUBMIT = "true";
+    const { driver, calls } = fakeDriver({ submit: () => ({ status: "failed", submitClicked: false, durationMs: 1, error: "Submit button not found" }) });
+    const { app, d } = await prepared(deps({ driver }));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "applying", retry: true });
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "applying", retry: true });
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "failed" });
+    expect(calls.submit).toHaveLength(3);
+  });
+
+  it("finds the applications a lost run left in preparing, applying or awaiting_code", async () => {
+    const now = new Date();
+    const old = new Date(now.getTime() - (STALE_RUN_MS + 60_000));
+    const ids: Record<string, string> = {};
+    for (const [name, status, updatedAt] of [
+      ["applying", "applying", old], ["preparing", "preparing", old], ["code", "awaiting_code", old],
+      ["fresh", "applying", now], ["parked", "needs_user", old], ["sent", "submitted", old],
+    ] as const) {
+      const { app } = await seedApp();
+      await t.db.update(applications).set({ status, updatedAt }).where(eq(applications.id, app.id));
+      ids[name] = app.id;
+    }
+    const found = (await staleRuns(t.db, { now })).filter((r) => Object.values(ids).includes(r.applicationId));
+    expect(found.map((r) => r.applicationId).sort()).toEqual([ids.applying, ids.preparing, ids.code].sort());
+    expect(found.find((r) => r.applicationId === ids.preparing)?.status).toBe("preparing");
+  });
+
+  it("a person's answers start a fresh set of attempts; the worker's own answers do not", async () => {
+    const { app } = await prepared();
+    await approveAndSubmit(t.db, app.id);
+    const question = { id: "q-why", text: "Why us?", type: "text", options: [], required: true };
+    await t.db.update(applications).set({ status: "needs_user", attempts: MAX_ATTEMPTS, pendingQuestions: [question] }).where(eq(applications.id, app.id));
+    await saveAnswers(t.db, app.id, { "q-why": "Robots" });
+    expect(await approveAndSubmit(t.db, app.id)).toMatchObject({ ok: false });
+    expect(await approveAndSubmit(t.db, app.id, { by: "user" })).toEqual({ ok: true, status: "applying", started: true });
+    expect((await getApp(app.id)).attempts).toBe(1);
+  });
+
+  it("retrying a failed application takes back its approval, so it waits for the person again", async () => {
+    const { app } = await prepared();
+    await approveAndSubmit(t.db, app.id);
+    await t.db.update(applications).set({ status: "failed", error: "Browser step failed" }).where(eq(applications.id, app.id));
+    expect(await retryApplication(t.db, app.id)).toMatchObject({ ok: true });
+    expect(await getApp(app.id)).toMatchObject({ status: "queued", approvedAt: null, attempts: 0 });
+  });
+
+  it("approving a parked application with nothing to answer is refused, and does not count against the daily limit", async () => {
+    const { app } = await prepared();
+    await t.db.update(applications).set({ status: "needs_user", error: "A captcha is on the form.", pendingQuestions: [] }).where(eq(applications.id, app.id));
+    const res = await approveAndSubmit(t.db, app.id);
+    expect(res).toMatchObject({ ok: false, status: "needs_user" });
+    expect(res.ok ? "" : res.reason).toMatch(/captcha/);
+    expect(await getApp(app.id)).toMatchObject({ status: "needs_user", approvedAt: null, attempts: 0 });
+  });
+
+  it("a new submit click clears the code-missing mark of the run before, so a crash after it is never sent again", async () => {
+    process.env.ALLOW_REAL_SUBMIT = "true";
+    let midRun: boolean | null = null;
+    const { driver } = fakeDriver({
+      submit: async (ctx) => {
+        ctx.onEvent("submit", "Clicking Submit");
+        await vi.waitFor(async () => expect((await getApp(ctx.applicationId)).receipt?.awaitingCode).toBe(false));
+        // A crash here leaves the row in applying with this receipt: the next run must see that submit may have happened.
+        midRun = submitMayHaveHappened(await getApp(ctx.applicationId));
+        return submitted();
+      },
+    });
+    const { app, d } = await prepared(deps({ driver }));
+    await approveAndSubmit(t.db, app.id);
+    await t.db.update(applications).set({ status: "needs_user", receipt: { submitClicked: true, codeMissing: true }, error: "No code arrived" }).where(eq(applications.id, app.id));
+    expect(await retryApplication(t.db, app.id)).toMatchObject({ ok: true });
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "submitted" });
+    expect(midRun).toBe(true);
+  });
+
+  it("waiting for a code keeps the rest of the receipt (what was prepared)", async () => {
+    process.env.ALLOW_REAL_SUBMIT = "true";
+    const { driver } = fakeDriver({
+      submit: async (ctx) => {
+        ctx.onEvent("submit", "Clicking Submit");
+        await ctx.waitForCode!("greenhouse");
+        return submitted();
+      },
+    });
+    const { app, d } = await prepared(deps({ driver, codes: { waitForCode: async () => "123456" } }));
+    await t.db.update(applications).set({ receipt: { prepared: { resume: "tailored.pdf", answers: 4 } } }).where(eq(applications.id, app.id));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "submitted" });
+    expect((await getApp(app.id)).receipt).toMatchObject({ prepared: { resume: "tailored.pdf", answers: 4 }, submitted: true });
   });
 });
 

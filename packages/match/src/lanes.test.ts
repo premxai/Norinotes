@@ -41,6 +41,11 @@ describe("location matching", () => {
   it("matches the first part of a lane location as whole words", () => {
     expect(locationMatches("San Francisco, CA", "San Francisco Bay Area")).toBe(true);
     expect(locationMatches("San Francisco, CA", "South San Francisco, CA")).toBe(true);
+    // A city lane covers its metro area: the Bay Area for San Francisco, the Eastside for Seattle.
+    expect(locationMatches("San Francisco, CA", "Palo Alto, CA")).toBe(true);
+    expect(locationMatches("San Francisco, CA", "Mountain View, California, United States")).toBe(true);
+    expect(locationMatches("Seattle, WA", "Bellevue, WA")).toBe(true);
+    expect(locationMatches("San Francisco, CA", "San Diego, CA")).toBe(false);
     expect(locationMatches("New York, NY", "New York City")).toBe(true);
     expect(locationMatches("Austin, TX", "Austin, Texas")).toBe(true);
     expect(locationMatches("CA", "Canada")).toBe(false);

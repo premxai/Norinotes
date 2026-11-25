@@ -222,6 +222,12 @@ async function embedQuietly(db: Db, userId: string, ids: string[]): Promise<{ em
 }
 
 /**
+ * `profiles.preferences` key, true while the resume's points come from the basic parser because the AI service was
+ * unavailable. The worker's AI catch-up reads such a resume again once the service is back, then removes the key.
+ */
+export const RESUME_READ_BASIC = "resumeReadBasic";
+
+/**
  * Turns resume text into career points: one small-model call, then the user's previous resume-sourced points are replaced
  * in one transaction (facts the user added stay) and the new points are embedded. If the model's output is invalid or
  * empty, or the AI service is unavailable (`AiUnavailableError`), the deterministic parser is used instead and the points

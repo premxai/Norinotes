@@ -1,4 +1,5 @@
-import { and, applications, eq, inArray, inboxAddresses, inboxMessages, outcomes, type Db } from "@norinote/db";
+import { aiAvailability } from "@norinote/ai";
+import { and, applications, desc, eq, gte, inArray, inboxAddresses, inboxMessages, outcomes, sql, type Db } from "@norinote/db";
 import { INBOX_OUTCOME_KINDS, type InboxKind } from "@norinote/shared";
 import { classifyMessage, type Classification } from "./classify.js";
 import { atsOfSender, linkApplication, loadCandidates, senderSpeaksFor, type AppCandidate } from "./link.js";
@@ -200,6 +201,8 @@ export async function receiveInbound(db: Db, payload: InboundPayload, opts: { no
 export type ReprocessOptions = {
   /** Settles an ambiguous rule result (the small model in the worker). Without it the rules stand. */
   model?: InboxModel;
+  /** Ask the model again for a message the fallback sorted while the AI service was down (see `reclassifyFallbackMessages`). */
+  retryFallback?: boolean;
 };
 
 /**
@@ -216,7 +219,7 @@ export async function reprocessMessage(db: Db, messageId: string, opts: Reproces
   const rules = classifyMessage(mail);
   let settled: Classification | undefined;
   let classifiedBy: InboxMeta["classifiedBy"] = "rules";
-  if (prior.classifiedBy === "model" || prior.classifiedBy === "fallback") {
+  if (prior.classifiedBy === "model" || (prior.classifiedBy === "fallback" && !opts.retryFallback)) {
     // Already decided once: keep that decision instead of paying for it again.
     settled = { ...rules, kind: row.kind, code: row.code, ambiguous: false, verification: prior.verification ?? null };
     classifiedBy = prior.classifiedBy;
@@ -242,6 +245,37 @@ export async function reprocessMessage(db: Db, messageId: string, opts: Reproces
     verificationLink: meta.verificationLink ?? null, ambiguous: false, spam: !!prior.spam, outcome,
     wake: wakeFor({ applicationId, kind: a.kind, code: finalCode, link: meta.verificationLink ?? null, trusted }, outcome),
   };
+}
+
+/** How far back, and how many at most per run, `reclassifyFallbackMessages` looks. */
+export const RECLASSIFY_DAYS = 14;
+export const RECLASSIFY_LIMIT = 50;
+
+/**
+ * Mail the fallback sorted as `other` while the AI service was down (`classifiedBy: "fallback"`) is read again with the
+ * model: the same steps as on receipt (relink, record the outcome), so an interview or a rejection is not lost. Recent,
+ * non-spam messages only, newest first, at most `limit`. Stops early when the service becomes unavailable again.
+ */
+export async function reclassifyFallbackMessages(
+  db: Db, opts: { model: InboxModel; now?: Date; days?: number; limit?: number },
+): Promise<{ reread: number; outcomes: number }> {
+  const now = opts.now ?? new Date();
+  const since = new Date(now.getTime() - (opts.days ?? RECLASSIFY_DAYS) * 86_400_000);
+  const rows = await db.select({ id: inboxMessages.id }).from(inboxMessages)
+    .where(and(
+      gte(inboxMessages.receivedAt, since),
+      sql`${inboxMessages.meta} ->> 'classifiedBy' = 'fallback'`,
+      sql`coalesce((${inboxMessages.meta} ->> 'spam')::boolean, false) = false`,
+    ))
+    .orderBy(desc(inboxMessages.receivedAt)).limit(opts.limit ?? RECLASSIFY_LIMIT);
+  const out = { reread: 0, outcomes: 0 };
+  for (const r of rows) {
+    if (!aiAvailability().available) break;
+    const res = await reprocessMessage(db, r.id, { model: opts.model, retryFallback: true });
+    out.reread++;
+    if (res.stored && res.outcome) out.outcomes++;
+  }
+  return out;
 }
 
 /** Applications of this user that are waiting on mail (applying or awaiting a code). */

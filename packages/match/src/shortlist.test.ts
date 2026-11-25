@@ -224,6 +224,34 @@ describe("buildShortlist: detailed fit, gates and saving", () => {
     expect(byJob.get(c)!.status).toBe("new");
   });
 
+  it("a rebuild removes new rows that no longer pass the current lanes, gates or minimum fit, and keeps the rest", async () => {
+    const { userId, laneId, job } = await setup({ US: { authorized: true, needsSponsorship: false, citizen: true } });
+    const spec = baseSpec({ mustHaves: ["TypeScript"] });
+    const best = await job("Lambda Engineer", spec);
+    const second = await job("Lambda Engineer, Tools", spec);
+    const citizens = await job("Lambda Engineer, Federal", baseSpec({ mustHaves: ["TypeScript"], citizenshipRequired: true }));
+    const austin = await job("Lambda Engineer, Austin", spec, { location: "Austin, TX" });
+    const opts = { profileEmbedding: profileVec("typescript postgresql backend services"), now: NOW };
+    expect((await buildShortlist(t.db, userId, opts)).saved).toBe(4);
+
+    // Rows the person dealt with are never touched; a row whose stored fit is under the lane minimum is stale.
+    await t.db.update(shortlist).set({ status: "dismissed" }).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, austin)));
+    // Skills the person lacks: it can never tie with the best job for this run's single row.
+    const lowFit = await job("Lambda Engineer, Tools Two", baseSpec({ mustHaves: ["Haskell", "Erlang"] }));
+    await saveShortlistRows(t.db, userId, [{ jobId: lowFit, fit: 0.3, fitMap: [], reasons: [] }]);
+    await t.db.execute(sql`UPDATE profiles SET work_auth = ${JSON.stringify({ US: { authorized: true, needsSponsorship: false, citizen: false } })}::jsonb WHERE user_id = ${userId}`);
+    await t.db.execute(sql`UPDATE lanes SET locations = ARRAY['San Francisco, CA']::text[] WHERE id = ${laneId}`);
+    const austin2 = await job("Lambda Engineer, Austin Two", spec, { location: "Austin, TX" });
+    await saveShortlistRows(t.db, userId, [{ jobId: austin2, fit: 0.9, fitMap: [], reasons: [] }]);
+
+    // Only one row fits on the page now: the others are re-checked, not dropped for falling off it.
+    await buildShortlist(t.db, userId, { ...opts, limit: 1 });
+    const left = new Map((await rowsOf(userId)).map((r) => [r.jobId, r.status]));
+    expect([...left.keys()].sort()).toEqual([best, second, austin].sort());
+    expect(left.get(austin)).toBe("dismissed");
+    expect(citizens && lowFit).toBeTruthy();
+  });
+
   it("saveShortlistRows itself leaves dismissed and applied rows alone even when asked to overwrite them", async () => {
     const userId = await seedUser(t.db);
     const mk = () => seedJob(t.db, { companyId, title: "Rho Engineer" });

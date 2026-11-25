@@ -45,6 +45,8 @@ export type WorkerConfig = {
   logoDomainsEveryMs: number;
   /** Companies searched per run. Default 500. */
   logoDomainsBatch: number;
+  /** How often the AI catch-up runs (see catch-up.ts), in ms. 0 = off. Default 10 minutes. */
+  catchUpEveryMs: number;
   /** Where screenshots and resumes go. Unset = the packages' own defaults. */
   artifactsDir: string | undefined;
 };
@@ -79,6 +81,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     jobSweepBatch: int(env.JOB_SWEEP_BATCH, 500, 1),
     logoDomainsEveryMs: int(env.LOGO_DOMAINS_EVERY_MINUTES, 15) * 60_000,
     logoDomainsBatch: int(env.LOGO_DOMAINS_BATCH, 500, 1),
+    catchUpEveryMs: int(env.AI_CATCH_UP_EVERY_MINUTES, 10) * 60_000,
     artifactsDir: env.ARTIFACTS_DIR?.trim() || undefined,
   };
 }

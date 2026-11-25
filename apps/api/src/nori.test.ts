@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, eq } from "@norinote/db";
-import { makeApi, seedApplication, seedJob, type Api } from "./testkit.js";
+import { applications, applyBatches, eq } from "@norinote/db";
+import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
 
 describe("the Nori page API", () => {
   let api: Api;
@@ -43,6 +43,33 @@ describe("the Nori page API", () => {
     const stop = await api.call("POST", `/api/nori/batches/${batchId}/stop`, { cookie });
     expect(stop.json).toEqual({ ok: true, cancelled: 2 });
     expect((await api.call("GET", `/api/nori/batches/${batchId}`, { cookie })).json.batch).toMatchObject({ status: "stopped", counts: { cancelled: 2 } });
+  });
+
+  it("a second Apply now within a minute returns the batch it just started instead of starting another", async () => {
+    const u = await api.signup("nori-double@example.com");
+    for (const company of ["Double A", "Double B", "Double C", "Double D"]) await seedShortlist(api.db, u.user.id, (await seedJob(api.db, { company })).job.id, 0.9);
+    const first = await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { recommended: true, limit: 2 } });
+    expect(first.status).toBe(201);
+    expect(first.json).toMatchObject({ added: 2, batch: { counts: { total: 2 } } });
+    expect(first.json.reused).toBeUndefined();
+    const second = await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { recommended: true, limit: 2 } });
+    expect(second.status).toBe(200);
+    expect(second.json).toMatchObject({ reused: true, added: 2, skipped: [], batch: { id: first.json.batch.id } });
+    expect(await api.db.select().from(applyBatches).where(eq(applyBatches.userId, u.user.id))).toHaveLength(1);
+  });
+
+  it("Apply now never queues more than today's limit has room for", async () => {
+    const u = await api.signup("nori-limit@example.com");
+    await api.call("PUT", "/api/nori/settings", { cookie: u.cookie, body: { dailyLimit: 3 } });
+    for (const company of ["Sent One", "Sent Two"]) await seedApplication(api.db, u.user.id, (await seedJob(api.db, { company })).job.id, { status: "submitted", approvedAt: new Date(), resumeId: null });
+    for (const company of ["Room A", "Room B", "Room C"]) await seedShortlist(api.db, u.user.id, (await seedJob(api.db, { company })).job.id, 0.9);
+    const res = await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { recommended: true, limit: 10 } });
+    expect(res.status).toBe(201);
+    expect(res.json).toMatchObject({ added: 1, batch: { counts: { total: 1 } } });
+    // Used up: nothing is started.
+    await seedApplication(api.db, u.user.id, (await seedJob(api.db, { company: "Sent Three" })).job.id, { status: "submitted", approvedAt: new Date(), resumeId: null });
+    await api.db.update(applyBatches).set({ createdAt: new Date(Date.now() - 5 * 60_000) }).where(eq(applyBatches.userId, u.user.id));
+    expect((await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { recommended: true } })).status).toBe(429);
   });
 
   it("refuses a batch nothing can go into, and bad input", async () => {

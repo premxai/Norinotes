@@ -4,8 +4,8 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, applications, applyBatches, companies, desc, eq, jobs } from "@norinote/db";
-import { MAX_BATCH, WEEKDAYS, batchView, getNoriSettings, getSchedule, nextRunOn, recentBatches, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
+import { and, applications, applyBatches, companies, desc, eq, gte, jobs } from "@norinote/db";
+import { MAX_BATCH, WEEKDAYS, batchView, dailyCapUse, getNoriSettings, getSchedule, nextRunOn, recentBatches, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { HttpError, notFound, parseBody, uuidParam } from "../http.js";
@@ -13,6 +13,8 @@ import { chatHistory, chatTurn, undoChatAction } from "../nori-chat.js";
 import { enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
 
 const UUID = z.string().uuid();
+/** A second "Apply now" within this long of the first is the same click (a double click), not a new batch. */
+const REUSE_BATCH_MS = 60_000;
 /** Either the jobs the person picked, or `recommended: true` (the server picks Recommended jobs, up to `limit`). */
 const Start = z.union([
   z.object({ jobIds: z.array(UUID).min(1).max(MAX_BATCH) }).strict(),
@@ -52,11 +54,27 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
     return c.json({ settings });
   });
 
-  /** "Apply for me": the jobs the person picked, approved at once. Applications are prepared now and sent by the worker. */
+  /**
+   * "Apply for me": the jobs the person picked, approved at once. Applications are prepared now and sent by the worker.
+   * "Apply now" (`recommended`) pressed twice within a minute returns the batch the first press started (`reused: true`)
+   * instead of a second batch of the next jobs, and never takes more jobs than today's limit has room for.
+   */
   r.post("/batches", auth, async (c) => {
     const user = c.get("user");
     const body = await parseBody(c, Start);
-    const jobIds = "jobIds" in body ? body.jobIds : await recommendedJobIds(db, user.id, { now: ctx.now(), limit: body.limit ?? 10, atsTypes: ctx.config.batchAts });
+    const now = ctx.now();
+    let jobIds: string[];
+    if ("jobIds" in body) jobIds = body.jobIds;
+    else {
+      const [recent] = await db.select().from(applyBatches)
+        .where(and(eq(applyBatches.userId, user.id), eq(applyBatches.status, "running"), gte(applyBatches.createdAt, new Date(now.getTime() - REUSE_BATCH_MS))))
+        .orderBy(desc(applyBatches.createdAt)).limit(1);
+      if (recent) return c.json({ batch: await batchView(db, recent, now), added: recent.total, skipped: [], reused: true });
+      const [settings, use] = await Promise.all([getNoriSettings(db, user.id), dailyCapUse(db, user.id, now)]);
+      const room = settings.dailyLimit - use.used;
+      if (room <= 0) throw new HttpError(429, `Today's limit of ${settings.dailyLimit} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
+      jobIds = await recommendedJobIds(db, user.id, { now, limit: Math.min(body.limit ?? 10, room), atsTypes: ctx.config.batchAts });
+    }
     if (jobIds.length === 0) throw new HttpError(409, "No Recommended jobs to send right now", "Nori sends new matches at or above your threshold that you haven't applied to.");
     const res = await startBatch(db, user.id, jobIds, { now: ctx.now(), atsTypes: ctx.config.batchAts });
     for (const a of res.added) if (a.created) await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: a.applicationId });

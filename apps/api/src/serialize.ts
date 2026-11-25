@@ -119,7 +119,19 @@ export function publicArtifactPath(p: string, artifactsDir: string): string {
   return `artifacts/${rel.split(path.sep).join("/")}`;
 }
 
-export function toApplication(a: AppRow, artifactsDir: string) {
+/**
+ * Whether the worker sends this application without another OK from the person: it has not started yet, and either it
+ * is in a running batch (the batch sends it when its turn comes) or the person already approved it (Apply with send). A
+ * dry run that came back to prepared waits for another click, so it is not one.
+ */
+export function sendsOnItsOwn(a: Pick<AppRow, "status" | "approvedAt" | "receipt">, batchRunning: boolean): boolean {
+  if (!["queued", "preparing", "prepared"].includes(a.status)) return false;
+  if (a.status === "prepared" && a.receipt?.dryRun === true) return false;
+  return batchRunning || a.approvedAt !== null;
+}
+
+/** `batchRunning`: the application's batch (if any) is still running. */
+export function toApplication(a: AppRow, artifactsDir: string, opts: { batchRunning?: boolean } = {}) {
   let receipt: Rec | null = a.receipt;
   if (receipt) {
     receipt = { ...receipt };
@@ -138,6 +150,8 @@ export function toApplication(a: AppRow, artifactsDir: string) {
     receipt,
     error: a.error,
     attempts: a.attempts,
+    batchId: a.batchId,
+    sendsOnItsOwn: sendsOnItsOwn(a, opts.batchRunning === true && a.batchId !== null),
     preparedAt: iso(a.preparedAt),
     approvedAt: iso(a.approvedAt),
     submittedAt: iso(a.submittedAt),

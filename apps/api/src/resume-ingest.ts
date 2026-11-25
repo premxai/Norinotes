@@ -1,6 +1,6 @@
 import { AiUnavailableError, BudgetExceededError } from "@norinote/ai";
 import { and, careerPoints, eq, profiles, sql } from "@norinote/db";
-import { buildCareerPoints, getGraph, type Contact } from "@norinote/graph";
+import { RESUME_READ_BASIC, buildCareerPoints, getGraph, type Contact } from "@norinote/graph";
 import { JOBS } from "@norinote/queue";
 import { ensureProfile } from "./auth/session.js";
 import { buildGraphView } from "./graph-view.js";
@@ -53,9 +53,13 @@ export async function ingestResume(ctx: Ctx, userId: string, text: string, conta
   const profile = await ensureProfile(db, userId);
   const stored = profile.contact as Record<string, string>;
   const fill = missingContact(stored, contact);
+  // Read with the basic parser because the AI service was down: the worker reads it again once the service is back.
+  const { [RESUME_READ_BASIC]: _basic, ...preferences } = profile.preferences;
+  const basic = built.source === "heuristic" && built.aiUnavailable;
   await db.update(profiles).set({
     resumeText: text.slice(0, 200_000),
     contact: { ...stored, ...fill },
+    preferences: basic ? { ...preferences, [RESUME_READ_BASIC]: true } : preferences,
     ...(!profile.location && contact.location ? { location: contact.location } : {}),
     updatedAt: ctx.now(),
   }).where(eq(profiles.userId, userId));

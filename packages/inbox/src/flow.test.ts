@@ -1,11 +1,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { AiUnavailableError, createFakeProvider, setProvider } from "@norinote/ai";
-import { applications, companies, eq, inboxMessages, jobs, profiles, users, type Db } from "@norinote/db";
+import { applications, companies, eq, inboxMessages, jobs, outcomes, profiles, users, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { ApplicationStatus, AtsType } from "@norinote/shared";
 import {
   assignInboxAddress, awaitVerification, classifyMessage, createStubForwarder, forwardMessage, getInboxSettings, handleInboxReceive,
-  linkApplication, purgeExpiredInbox, receiveInbound, settleAmbiguous, signWebhook, smallModel, updateInboxSettings, verifyProviderRequest,
+  linkApplication, purgeExpiredInbox, receiveInbound, reclassifyFallbackMessages, settleAmbiguous, signWebhook, smallModel, updateInboxSettings, verifyProviderRequest,
   verifyWebhookSignature, type AppCandidate, type InboxModel,
 } from "./index.js";
 import { ASHBY_CONFIRMATION, CALENDLY_INTERVIEW, GREENHOUSE_CODE_HTML, NEWSLETTER, ORDER_RECEIPT, WORKDAY_ACCOUNT, genericPayload, withTo } from "./fixtures.js";
@@ -194,6 +194,24 @@ describe("settling ambiguous mail", () => {
     // Repeating the job does not pay again.
     await handleInboxReceive(t.db, stored.messageId, { model: smallModel });
     expect(fake.calls).toHaveLength(1);
+  });
+
+  it("reads mail the fallback sorted again once the AI service is back, and records the outcome", async () => {
+    const { userId, address } = await seedUser(t.db);
+    const app = await seedApp(t.db, userId, "Zenith Labs", { status: "submitted", domain: "zenith.example" });
+    const stored = await receiveInbound(t.db, genericPayload(address, { ...mail, from: "Zenith Labs <talent@zenith.example>", messageId: "fallback-1" }), { now: new Date() });
+    if (!stored.stored) throw new Error("not stored");
+    const down: InboxModel = async () => { throw new AiUnavailableError("network"); };
+    await handleInboxReceive(t.db, stored.messageId, { model: down });
+    const [before] = await t.db.select().from(inboxMessages).where(eq(inboxMessages.id, stored.messageId));
+    expect(before).toMatchObject({ kind: "other", meta: expect.objectContaining({ classifiedBy: "fallback" }) });
+
+    const interview: InboxModel = async () => ({ kind: "interview", code: null });
+    const r = await reclassifyFallbackMessages(t.db, { model: interview, now: new Date() });
+    expect(r.reread).toBeGreaterThanOrEqual(1);
+    const [after] = await t.db.select().from(inboxMessages).where(eq(inboxMessages.id, stored.messageId));
+    expect(after).toMatchObject({ kind: "interview", applicationId: app, meta: expect.objectContaining({ classifiedBy: "model" }) });
+    expect((await t.db.select().from(outcomes).where(eq(outcomes.applicationId, app))).map((o) => o.kind)).toEqual(["interview"]);
   });
 });
 

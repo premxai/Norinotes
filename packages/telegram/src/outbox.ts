@@ -1,4 +1,4 @@
-import { and, channelMessages, eq, isNull, lte, lt, ne, or, sql, type ChannelMessageKind, type Db } from "@norinote/db";
+import { and, channelMessages, eq, inArray, isNull, lte, lt, ne, or, sql, type ChannelMessageKind, type Db } from "@norinote/db";
 import { TelegramApiError, type BotClient, type InlineKeyboard } from "./client.js";
 import { channelForUser, unlinkChat } from "./link.js";
 import type { SendQueue } from "./sender.js";
@@ -59,14 +59,21 @@ export async function hasMessage(db: Db, userId: string, dedupeKey: string): Pro
 }
 
 const MAX_ATTEMPTS = 5;
+/** How long a claimed row is held for the flush that claimed it. */
+const CLAIM_MS = 10 * 60_000;
 
 /** Sends due outbox rows (oldest first) through the per-chat queue. Returns how many were sent. */
 export async function flushOutbox(deps: TelegramDeps, opts: { limit?: number } = {}): Promise<{ sent: number; failed: number; deferred: number }> {
   const { db } = deps;
   const now = (deps.now ?? (() => new Date()))();
-  const due = await db.select().from(channelMessages)
-    .where(and(eq(channelMessages.status, "pending"), ne(channelMessages.kind, "apply_intent"), or(isNull(channelMessages.notBefore), lte(channelMessages.notBefore, now))))
-    .orderBy(channelMessages.createdAt).limit(opts.limit ?? 500);
+  // Claimed in one statement: `not_before` moves past the claim window, so a second flush (another process, or a tick
+  // that overlaps this one) does not pick the same rows. A send that dies half-way is tried again after the window.
+  const isDue = and(eq(channelMessages.status, "pending"), ne(channelMessages.kind, "apply_intent"), or(isNull(channelMessages.notBefore), lte(channelMessages.notBefore, now)));
+  const claimable = db.select({ id: channelMessages.id }).from(channelMessages).where(isDue)
+    .orderBy(channelMessages.createdAt).limit(opts.limit ?? 500).for("update", { skipLocked: true });
+  const due = (await db.update(channelMessages).set({ notBefore: new Date(now.getTime() + CLAIM_MS) })
+    .where(and(inArray(channelMessages.id, claimable), isDue)).returning())
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
   const stats = { sent: 0, failed: 0, deferred: 0 };
   // Users in parallel (the queue keeps each chat at its own pace), each user's messages in order.
@@ -82,14 +89,12 @@ export async function flushOutbox(deps: TelegramDeps, opts: { limit?: number } =
       return;
     }
     const p = row.payload as MessagePayload;
+    let msg;
     try {
-      const msg = await deps.queue.run(channel.chatId, () => deps.client.sendMessage({
+      msg = await deps.queue.run(channel.chatId, () => deps.client.sendMessage({
         chat_id: channel.chatId, text: p.text, parse_mode: "HTML", link_preview_options: { is_disabled: true },
         ...(p.keyboard && p.keyboard.inline_keyboard.length ? { reply_markup: p.keyboard } : {}),
       }));
-      await db.update(channelMessages).set({ status: "sent", chatId: channel.chatId, telegramMessageId: msg.message_id, sentAt: new Date(), attempts: row.attempts + 1, error: null })
-        .where(eq(channelMessages.id, row.id));
-      stats.sent++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (err instanceof TelegramApiError && err.chatGone) {
@@ -106,6 +111,16 @@ export async function flushOutbox(deps: TelegramDeps, opts: { limit?: number } =
       await db.update(channelMessages).set({ status: failed ? "failed" : "pending", attempts, error: message, notBefore: failed ? row.notBefore : retryAt }).where(eq(channelMessages.id, row.id));
       deps.log?.("telegram.send_failed", { userId: row.userId, kind: row.kind, attempts, error: message });
       if (failed) stats.failed++; else stats.deferred++;
+      return;
+    }
+    // Telegram has the message: a failure to record that is not a failed send, and must not send it again. The claim
+    // keeps the row from being picked up until the claim window ends.
+    stats.sent++;
+    try {
+      await db.update(channelMessages).set({ status: "sent", chatId: channel.chatId, telegramMessageId: msg.message_id, sentAt: new Date(), attempts: row.attempts + 1, error: null })
+        .where(eq(channelMessages.id, row.id));
+    } catch (err) {
+      deps.log?.("telegram.record_failed", { userId: row.userId, kind: row.kind, error: err instanceof Error ? err.message : String(err) });
     }
   }
 }

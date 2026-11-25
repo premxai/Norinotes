@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq, jobs } from "@norinote/db";
+import { eq, jobSpecs, jobs } from "@norinote/db";
 import { JobNotFoundError, UnsupportedJobUrlError } from "@norinote/ingest";
 import { makeApi, seedJob, seedShortlist, seedApplication, type Api } from "./testkit.js";
 
@@ -14,7 +14,8 @@ beforeAll(async () => {
       if (url.includes("closed")) throw new JobNotFoundError(url);
       if (url.includes("unknown")) throw new UnsupportedJobUrlError("That link is not a job posting we can read.");
       const { job } = await seedJob(db, { title: "Backend Engineer", company: "Linked Co" });
-      return { job, created: !url.includes("again") };
+      if (url.includes("specced")) await db.insert(jobSpecs).values({ jobId: job.id, version: 1, spec: {} as never, model: "test" });
+      return { job, created: !url.includes("again") && !url.includes("specced") };
     },
   });
   const s = await api.signup("jobs@example.com");
@@ -190,7 +191,7 @@ describe("summary, detail and add by link", () => {
     expect((await api.call("GET", "/api/jobs/not-a-uuid", { cookie })).status).toBe(404);
   });
 
-  it("adds a job from a link and queues understand.job only when it is new", async () => {
+  it("adds a job from a link and queues understand.job when nobody has read it", async () => {
     const before = api.queuedOf("understand.job").length;
     const res = await api.call("POST", "/api/jobs/url", { cookie, body: { url: "https://boards.greenhouse.io/x/jobs/1" } });
     expect(res.status).toBe(201);
@@ -198,8 +199,12 @@ describe("summary, detail and add by link", () => {
     expect(api.queuedOf("understand.job").at(-1)?.payload.jobId).toBe(res.json.job.id);
     expect(api.queuedOf("understand.job").length).toBe(before + 1);
 
+    // Collected before but never read (or trimmed by the sweep): understood now.
     expect((await api.call("POST", "/api/jobs/url", { cookie, body: { url: "https://boards.greenhouse.io/x/jobs/again" } })).status).toBe(200);
-    expect(api.queuedOf("understand.job").length).toBe(before + 1);
+    expect(api.queuedOf("understand.job").length).toBe(before + 2);
+    // Collected and read already: nothing to do.
+    expect((await api.call("POST", "/api/jobs/url", { cookie, body: { url: "https://boards.greenhouse.io/x/jobs/specced" } })).status).toBe(200);
+    expect(api.queuedOf("understand.job").length).toBe(before + 2);
     expect((await api.call("POST", "/api/jobs/url", { cookie, body: { url: "https://x.example/closed" } })).status).toBe(404);
     const unsupported = await api.call("POST", "/api/jobs/url", { cookie, body: { url: "https://x.example/unknown" } });
     expect(unsupported.status).toBe(422);

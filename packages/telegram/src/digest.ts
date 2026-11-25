@@ -1,4 +1,5 @@
-import { and, applications, channelMessages, companies, desc, eq, freshJobSql, gte, isNull, jobs, shortlist, sql, type Db } from "@norinote/db";
+import { and, applications, channelMessages, companies, desc, eq, freshJobSql, gte, isNull, jobs, profiles, shortlist, sql, type Db } from "@norinote/db";
+import { companyKey, isSkippedCompany, readSkipCompanies } from "@norinote/shared";
 import type { InlineButton, InlineKeyboard } from "./client.js";
 import { clip, esc, fitBand, MAX_TEXT } from "./format.js";
 import { packId, signCallback } from "./signing.js";
@@ -43,9 +44,14 @@ export async function selectDigest(db: Db, userId: string, count: number, now: D
     .orderBy(sql`(EXISTS (SELECT 1 FROM unnest(${shortlist.reasons}) AS r WHERE r LIKE 'widened:%')) asc`, desc(shortlist.fit), desc(shortlist.createdAt))
     .limit(Math.max(40, count * 8));
 
+  // The companies the person skips are left out, as on the web list.
+  const [profile] = await db.select({ preferences: profiles.preferences }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  const skip = new Set(readSkipCompanies(profile?.preferences).map(companyKey));
+
   const seen = new Set<string>();
   const out: DigestItem[] = [];
   for (const r of rows) {
+    if (isSkippedCompany(skip, r.company)) continue;
     const key = roleKey(r.company, r.title);
     if (seen.has(key)) continue;
     seen.add(key);

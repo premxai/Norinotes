@@ -62,7 +62,14 @@ export function locationNeedle(laneLocation: string): string {
 }
 
 /** Short forms job feeds use for a lane's city ("NYC - 1211 Ave of the Americas"). Mirrored in `locationFitsSql`. */
-export const NEEDLE_ALIASES: Record<string, string> = { "new york": "nyc", "new york city": "nyc" };
+export const NEEDLE_ALIASES: Record<string, string> = {
+  "new york": "nyc|brooklyn|jersey city", "new york city": "nyc|brooklyn|jersey city",
+  // A city lane covers its metro area: people in these hubs commute across it, and most postings name the suburb.
+  "san francisco": "bay area|oakland|berkeley|emeryville|san mateo|burlingame|foster city|redwood city|menlo park|palo alto|mountain view|sunnyvale|santa clara|san jose|cupertino|los gatos|milpitas|fremont",
+  "seattle": "bellevue|redmond|kirkland",
+  "boston": "cambridge|somerville|waltham",
+  "los angeles": "santa monica|culver city|playa vista|venice|pasadena|burbank|el segundo",
+};
 
 export function locationMatches(laneLocation: string, jobLocation: string | null): boolean {
   if (!jobLocation) return false;

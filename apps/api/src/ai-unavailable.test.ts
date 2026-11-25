@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createFakeProvider, setAiLogger, setProvider } from "@norinote/ai";
-import { careerPointEmbeddings, careerPoints, eq } from "@norinote/db";
+import { careerPointEmbeddings, careerPoints, eq, profiles } from "@norinote/db";
+import { RESUME_READ_BASIC } from "@norinote/graph";
 import { makeApi, RESUME, type Api } from "./testkit.js";
 
 let api: Api;
@@ -39,6 +40,18 @@ describe("resume routes when the AI service rejects our key (401)", () => {
     // The profile still got the contact details from the resume.
     const me = await api.call("GET", "/api/me", { cookie });
     expect(me.json.profile.email).toBe("ada@example.com");
+  });
+
+  it("records that the resume was read with basic parsing, so the worker reads it again, and a reading with the service up clears it", async () => {
+    rejectedKey();
+    const { cookie, user } = await api.signup("basic-flag@example.com");
+    await api.call("POST", "/api/profile/resume", { cookie, body: { text: RESUME } });
+    const prefs = async () => (await api.db.select({ p: profiles.preferences }).from(profiles).where(eq(profiles.userId, user.id)))[0]!.p;
+    expect(await prefs()).toMatchObject({ [RESUME_READ_BASIC]: true });
+
+    setProvider(createFakeProvider());
+    await api.call("POST", "/api/profile/resume", { cookie, body: { text: RESUME } });
+    expect(await prefs()).not.toHaveProperty(RESUME_READ_BASIC);
   });
 
   it("POST /api/profile/resume and /resume-file answer 200 with the same note", async () => {

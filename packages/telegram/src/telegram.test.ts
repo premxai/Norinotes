@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, authTokens, channelMessages, channels, companies, eq, jobs, shortlist, users, type Db } from "@norinote/db";
+import { applications, authTokens, channelMessages, channels, companies, eq, jobs, profiles, shortlist, users, type Db } from "@norinote/db";
+import { selectDigest } from "./digest.js";
+import { flushOutbox, queueMessage } from "./outbox.js";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { createBotClient, TelegramApiError } from "./client.js";
 import { consumeLinkToken, createLinkToken, channelForChat } from "./link.js";
 import { runTelegramTick, recordApplyIntent, type NotifierDeps } from "./notifier.js";
 import { SendQueue } from "./sender.js";
-import { saveTelegramSettings } from "./settings.js";
+import { DEFAULT_SETTINGS, saveTelegramSettings } from "./settings.js";
 import { packId, signCallback, unpackId, verifyCallback, webhookSecret } from "./signing.js";
 import { fakeBotApi, type FakeBotApi } from "./testing.js";
 import { localClock, quietUntil } from "./time.js";
@@ -189,6 +191,55 @@ describe("daily shortlist", () => {
     expect(fake.sent().filter((m) => String(m.chat_id) === "7002")).toHaveLength(0);
     const rows = await db.select().from(channelMessages).where(eq(channelMessages.userId, empty.id));
     expect(rows.find((r) => r.dedupeKey === "digest:2026-11-03")?.status).toBe("skipped");
+  });
+});
+
+describe("daily shortlist: skipped companies", () => {
+  it("leaves out the companies the person skips, as the web list does", async () => {
+    const u = await user();
+    await db.insert(profiles).values({ userId: u.id, preferences: { excludeCompanies: ["Skipme, Inc."] } });
+    const skipped = await job({ company: "Skipme Inc" });
+    const kept = await job({ company: "Keepme" });
+    await db.insert(shortlist).values([
+      { userId: u.id, jobId: skipped.id, fit: 0.9, status: "new" },
+      { userId: u.id, jobId: kept.id, fit: 0.8, status: "new" },
+    ]);
+    expect((await selectDigest(db, u.id, 5, new Date())).map((i) => i.jobId)).toEqual([kept.id]);
+  });
+});
+
+describe("outbox", () => {
+  async function pending(userId: string, key: string) {
+    await queueMessage(db, { userId, kind: "notice", dedupeKey: key, payload: { text: "hello" }, urgent: true, settings: DEFAULT_SETTINGS, now: new Date() });
+  }
+
+  it("two flushes at once send a pending message once", async () => {
+    const fake = fakeBotApi();
+    const u = await user();
+    await link(u.id, "7001");
+    await pending(u.id, "once-1");
+    const d = deps(fake, () => new Date());
+    await Promise.all([flushOutbox(d), flushOutbox(d)]);
+    expect(fake.sent().filter((m) => String(m.chat_id) === "7001")).toHaveLength(1);
+  });
+
+  it("does not send again when only recording the send failed", async () => {
+    const fake = fakeBotApi();
+    const u = await user();
+    await link(u.id, "7002");
+    await pending(u.id, "once-2");
+    // The database refuses the first write after Telegram took the message.
+    let armed = false;
+    const client = createBotClient({ token: "123:abc", fetch: async (...args: Parameters<typeof fetch>) => { const r = await fake.fetch(...args); armed = true; return r; } });
+    const flaky = new Proxy(db, { get(target, prop, recv) {
+      if (prop === "update" && armed) { armed = false; return () => { throw new Error("connection reset"); }; }
+      return Reflect.get(target, prop, recv);
+    } }) as Db;
+    const now = new Date();
+    const r = await flushOutbox({ ...deps(fake, () => now), db: flaky, client });
+    expect(r).toMatchObject({ sent: 1, failed: 0, deferred: 0 });
+    await flushOutbox(deps(fake, () => new Date(now.getTime() + 2 * 60_000)));
+    expect(fake.sent().filter((m) => String(m.chat_id) === "7002")).toHaveLength(1);
   });
 });
 

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { cronMatches, parseCron, type ParsedCron } from "./cron.js";
 import { QUEUE_CONFIG, isJobName, payloadSchemas, type JobName } from "./jobs.js";
-import type { EnqueueOptions, Handler, JobContext, QueueAdapter, WorkOptions } from "./types.js";
+import type { EnqueueOptions, Handler, JobContext, QueueAdapter, StopOptions, WorkOptions } from "./types.js";
 
 type MemJob = {
   id: string;
@@ -48,7 +48,7 @@ export class MemoryQueue implements QueueAdapter {
     for (const name of this.workers.keys()) this.pump(name);
   }
 
-  async stop(): Promise<void> {
+  async stop(opts: StopOptions = {}): Promise<void> {
     this.started = false;
     if (this.scheduleTimer) clearInterval(this.scheduleTimer);
     this.scheduleTimer = null;
@@ -56,6 +56,7 @@ export class MemoryQueue implements QueueAdapter {
     this.wakeups.clear();
     // Let running handlers finish, as pg-boss does on a graceful stop.
     await this.waitFor(() => !this.jobs.some((j) => j.state === "active"));
+    await opts.beforeClose?.();
   }
 
   async enqueue<N extends JobName>(name: N, payload: unknown, opts: EnqueueOptions = {}): Promise<string | null> {

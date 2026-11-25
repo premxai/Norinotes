@@ -67,3 +67,53 @@ export async function unspeccedJobsForUser(db: Db, userId: string, opts: { now: 
     .limit(opts.limit ?? UNSPECCED_BACKLOG_LIMIT);
   return rows.map((r) => r.id);
 }
+
+/** The most jobs one upgrade pass queues. */
+export const HEURISTIC_UPGRADE_LIMIT = 200;
+/** A heuristic spec tried (written or re-read without the model) within this long is left for a later pass. */
+export const HEURISTIC_RETRY_AFTER_MS = 60 * 60_000;
+
+/**
+ * Open, fresh jobs (of the engine scope, when set) whose only spec is the heuristic one written while the AI service was
+ * down, newest first. The worker queues `understand.job` for them once the service is back, so the model reads them and
+ * their embedding is rebuilt. A heuristic spec tried within the last hour is skipped, so a service that is still failing
+ * does not get the same jobs over and over.
+ */
+export async function heuristicOnlyJobs(db: Db, opts: { now: Date; limit?: number; engineAts?: readonly string[] | null }): Promise<string[]> {
+  const triedBefore = new Date(opts.now.getTime() - HEURISTIC_RETRY_AFTER_MS);
+  const rows = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(
+      openAndFreshSql(opts.now),
+      engineJobSql(opts.engineAts),
+      sql`EXISTS (SELECT 1 FROM ${jobSpecs} WHERE ${jobSpecs.jobId} = ${jobs.id} AND ${jobSpecs.version} < ${SPEC_VERSION} AND ${jobSpecs.createdAt} < ${triedBefore.toISOString()})`,
+      sql`NOT EXISTS (SELECT 1 FROM ${jobSpecs} WHERE ${jobSpecs.jobId} = ${jobs.id} AND ${jobSpecs.version} >= ${SPEC_VERSION})`,
+    ))
+    .orderBy(desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`))
+    .limit(opts.limit ?? HEURISTIC_UPGRADE_LIMIT);
+  return rows.map((r) => r.id);
+}
+
+/** The most jobs of one board a retried poll queues again. */
+export const BOARD_BACKLOG_LIMIT = 500;
+
+/**
+ * One board's open, fresh jobs that have no spec at all, newest first. A retried poll reads these: its first try may
+ * have stored new jobs and then failed before queueing them, and the retry no longer sees them as new.
+ */
+export async function unspeccedJobsForBoard(db: Db, companyId: string, opts: { now: Date; limit?: number }): Promise<string[]> {
+  const rows = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(
+      eq(jobs.companyId, companyId),
+      openAndFreshSql(opts.now),
+      sql`NOT EXISTS (SELECT 1 FROM ${jobSpecs} WHERE ${jobSpecs.jobId} = ${jobs.id})`,
+    ))
+    .orderBy(desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`))
+    .limit(opts.limit ?? BOARD_BACKLOG_LIMIT);
+  return rows.map((r) => r.id);
+}

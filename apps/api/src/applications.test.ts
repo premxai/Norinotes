@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { answerBank, applications, careerPoints, eq, inboxMessages, jobs, resumes, runEvents, shortlist } from "@norinote/db";
+import { answerBank, applications, applyBatches, careerPoints, eq, inboxMessages, jobs, resumes, runEvents, shortlist } from "@norinote/db";
 import { findVerification } from "@norinote/inbox";
 import { liveFrameKey } from "@norinote/apply";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -331,6 +331,66 @@ describe("applications", () => {
     const [row] = await api.db.select().from(applications).where(eq(applications.id, app.id));
     expect(row?.status).toBe("preparing");
     expect(row?.approvedAt).toBeNull();
+  });
+
+  it("the person's answers resume a parked application even after three tries, and never claim a resume that did not happen", async () => {
+    const { job } = await seedJob(api.db, { company: "Third Try Co" });
+    const app = await seedApplication(api.db, userId, job.id, {
+      status: "needs_user", approvedAt: new Date(), preparedAt: new Date(), resumeId: null, attempts: 3,
+      pendingQuestions: [QUESTION("q-salary", "Expected salary?")],
+    });
+    const res = await api.call("POST", `/api/applications/${app.id}/answer`, { cookie, body: { answers: { "q-salary": "Open" } } });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({ ok: true, status: "applying", resumed: true });
+    const [row] = await api.db.select().from(applications).where(eq(applications.id, app.id));
+    expect(row).toMatchObject({ status: "applying", attempts: 1 });
+    expect(api.queuedOf("apply.run").filter((q) => q.payload.applicationId === app.id)).toHaveLength(1);
+
+    // Every question answered, but it cannot go on (submit was already clicked once): not ok, and why.
+    const { job: j2 } = await seedJob(api.db, { company: "Clicked Co" });
+    const clicked = await seedApplication(api.db, userId, j2.id, {
+      status: "needs_user", approvedAt: new Date(), preparedAt: new Date(), resumeId: null, attempts: 1, receipt: { submitClicked: true },
+      pendingQuestions: [QUESTION("q-start", "Start date?")],
+    });
+    const refused = await api.call("POST", `/api/applications/${clicked.id}/answer`, { cookie, body: { answers: { "q-start": "Now" } } });
+    expect(refused.status).toBe(409);
+    expect(JSON.stringify(refused.json)).toMatch(/submit was already clicked/);
+    const [kept] = await api.db.select().from(applications).where(eq(applications.id, clicked.id));
+    expect(kept?.answers).toMatchObject({ "q-start": "Now" });
+  });
+
+  it("refuses to approve a parked application that has nothing to answer, without using the daily limit", async () => {
+    const { job } = await seedJob(api.db, { company: "Captcha Approve Co" });
+    const app = await seedApplication(api.db, userId, job.id, {
+      status: "needs_user", approvedAt: null, preparedAt: new Date(), resumeId: null, error: "A captcha is on the form.",
+    });
+    const res = await api.call("POST", `/api/applications/${app.id}/approve`, { cookie, body: {} });
+    expect(res.status).toBe(409);
+    expect(JSON.stringify(res.json)).toMatch(/captcha/);
+    const [row] = await api.db.select().from(applications).where(eq(applications.id, app.id));
+    expect(row).toMatchObject({ status: "needs_user", approvedAt: null });
+    expect(api.queuedOf("apply.run").some((q) => q.payload.applicationId === app.id)).toBe(false);
+  });
+
+  it("says whether an application is in a batch and whether Nori sends it on its own", async () => {
+    const u = await api.signup("sends-own@example.com");
+    const [batch] = await api.db.insert(applyBatches).values({ userId: u.user.id, status: "running", total: 1 }).returning();
+    const [stopped] = await api.db.insert(applyBatches).values({ userId: u.user.id, status: "stopped", total: 1 }).returning();
+    const seed = async (company: string, extra: Partial<typeof applications.$inferInsert>) =>
+      seedApplication(api.db, u.user.id, (await seedJob(api.db, { company })).job.id, { resumeId: null, ...extra });
+    const inBatch = await seed("In Batch Co", { status: "prepared", batchId: batch!.id });
+    const waiting = await seed("Waiting Co", { status: "prepared" });
+    const sendPressed = await seed("Send Pressed Co", { status: "preparing", approvedAt: new Date() });
+    const stoppedBatch = await seed("Stopped Batch Co", { status: "prepared", batchId: stopped!.id });
+
+    const list = (await api.call("GET", "/api/applications", { cookie: u.cookie })).json as { application: { id: string; batchId: string | null; sendsOnItsOwn: boolean } }[];
+    const byId = Object.fromEntries(list.map((x) => [x.application.id, x.application]));
+    expect(byId[inBatch.id]).toMatchObject({ batchId: batch!.id, sendsOnItsOwn: true });
+    expect(byId[waiting.id]).toMatchObject({ batchId: null, sendsOnItsOwn: false });
+    expect(byId[sendPressed.id]).toMatchObject({ batchId: null, sendsOnItsOwn: true });
+    expect(byId[stoppedBatch.id]).toMatchObject({ batchId: stopped!.id, sendsOnItsOwn: false });
+    const detail = await api.call("GET", `/api/applications/${inBatch.id}`, { cookie: u.cookie });
+    expect(detail.json.application).toMatchObject({ batchId: batch!.id, sendsOnItsOwn: true });
   });
 
   it("retries a failed application back into the queue", async () => {

@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from "@norinote/shared";
-import { and, applications, companies, eq, gte, jobs, ne, or, profiles, runEvents, sql } from "@norinote/db";
+import { and, applications, companies, eq, gte, jobs, ne, or, profiles, runEvents, shortlist, sql } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import { checkTransition, transitionPatch, type AppSnapshot, type TransitionOptions } from "./state.js";
 import { canonicalJobUrl } from "./schema.js";
@@ -136,6 +136,8 @@ export async function createApplication(db: Db, userId: string, jobId: string, o
   try {
     const [row] = await db.insert(applications).values({ userId, jobId, canonicalUrl, status: "queued", createdAt: now, updatedAt: now }).returning();
     await logEvent(db, row!.id, "created", `Queued ${job.title} at ${job.companyName}`);
+    // Whoever started it (Apply, a batch, Telegram), the job leaves the person's recommended list.
+    await db.update(shortlist).set({ status: "applied" }).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId), eq(shortlist.status, "new")));
     return { created: true, application: row! };
   } catch (err) {
     // Two clicks at once: the unique (user, job) and (user, canonical URL) indexes let one through.
@@ -177,19 +179,25 @@ export async function dailyCapReached(db: Db, userId: string, now: Date, except?
  * the second call finds it already underway and changes nothing. The caller enqueues `apply.run` when `started` is true.
  * A first approval counts against the daily limit; when the limit is used up nothing changes and `cap` says so. One
  * approved earlier (Telegram before it was prepared, or before its questions were answered) has already counted.
+ * `by: "user"` when the person answered or clicked: a parked application then starts a fresh set of attempts.
  */
-export async function approveAndSubmit(db: Db, applicationId: string, opts: { now?: Date } = {}): Promise<ApproveResult> {
+export async function approveAndSubmit(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user" } = {}): Promise<ApproveResult> {
   const row = await loadApplication(db, applicationId);
   if (!row) return { ok: false, status: null, reason: "application not found" };
   if (row.status === "applying" || row.status === "awaiting_code" || row.status === "submitted") return { ok: true, status: row.status, started: false };
   if (row.status !== "prepared" && row.status !== "needs_user") return { ok: false, status: row.status, reason: `not ready to submit (${row.status})` };
+  // Parked with no question to answer (a captcha, an unsupported form, a code that never came): approving again would
+  // only run into the same thing. Retry is the way back once the person has sorted it out.
+  if (row.status === "needs_user" && row.pendingQuestions.length === 0) {
+    return { ok: false, status: row.status, reason: `nothing to answer here${row.error ? ` (${row.error})` : ""}; use Retry once it is sorted out` };
+  }
   if (!row.approvedAt) {
     const cap = await dailyCapReached(db, row.userId, opts.now ?? new Date(), row.id);
     if (cap) return { ok: false, status: row.status, reason: `today's limit of ${cap.cap} applications is used up`, cap };
   }
 
   const res = await transitionApplication(db, applicationId, "applying", {
-    now: opts.now, approve: true, from: row.status,
+    now: opts.now, approve: true, from: row.status, by: opts.by,
     message: row.status === "prepared" ? "Approved by the user; applying" : "Approved; applying with the new answers",
     data: { approvedBy: "user" },
   });

@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
 import { createFakeProvider, setProvider } from "@norinote/ai";
-import { applications, careerPoints, companies, eq, inboxMessages, jobSpecs, jobs, lanes, profiles, resumes, runEvents, shortlist, users, type Db } from "@norinote/db";
+import { applications, applyBatches, careerPoints, companies, eq, inboxMessages, jobSpecs, jobs, lanes, profiles, resumes, runEvents, shortlist, users, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { BrowserPool, Driver, FillResult, Preparer } from "@norinote/apply";
 import { embedCareerPoints } from "@norinote/graph";
@@ -253,6 +253,20 @@ describe("worker: prepare and apply", () => {
     expect(await statusOf(t.db, appId)).toMatchObject({ status: "prepared" });
   });
 
+  it("reads the job with the model before preparing it when its only spec is the heuristic one", async () => {
+    const userId = await seedUser(t.db);
+    const appId = await seedApplication(t.db, userId, "Backend Engineer", "lean-heuristic");
+    const [app] = await t.db.select().from(applications).where(eq(applications.id, appId));
+    await t.db.insert(jobSpecs).values({ jobId: app!.jobId, version: 0, spec: { ...specFor(), mustHaves: [], niceToHaves: [], skills: [], requirementWeights: {} } as never, model: "heuristic" });
+    await boot(stubDriver(() => filled()).driver, stubPreparer(t.db));
+
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: appId });
+    await queue.drain();
+    expect(queue.failures()).toEqual([]);
+    const specs = await t.db.select().from(jobSpecs).where(eq(jobSpecs.jobId, app!.jobId));
+    expect(specs.map((s) => s.version).sort()).toEqual([0, 1]);
+  });
+
   it("prepares a queued application with the Preparer, then a click runs a dry-run apply on the pool", async () => {
     const userId = await seedUser(t.db);
     const appId = await seedApplication(t.db, userId);
@@ -300,6 +314,46 @@ describe("worker: prepare and apply", () => {
     expect(calls).toHaveLength(2);
     expect(calls[1]![ask.id]).toBeTruthy();
     expect(await statusOf(t.db, appId)).toMatchObject({ status: "prepared" });
+  });
+
+  it("sends a batch application the person already approved as soon as it is prepared", async () => {
+    const userId = await seedUser(t.db);
+    const appId = await seedApplication(t.db, userId, "Batch Engineer");
+    const [batch] = await t.db.insert(applyBatches).values({ userId, status: "running", total: 1 }).returning();
+    await t.db.update(applications).set({ batchId: batch!.id, approvedAt: NOW }).where(eq(applications.id, appId));
+    const { driver, calls } = stubDriver(() => filled());
+    await boot(driver, stubPreparer(t.db));
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: appId });
+    await queue.drain();
+    expect(queue.failures()).toEqual([]);
+    // The form was filled (a dry run here), so it went on to the employer's page.
+    expect(calls).toHaveLength(1);
+    expect((await statusOf(t.db, appId)).receipt).toMatchObject({ dryRun: true });
+  });
+
+  it("picks up an application a lost run left in applying, and never clicks submit twice", async () => {
+    const userId = await seedUser(t.db);
+    const appId = await seedApplication(t.db, userId, "Recovered Engineer");
+    const clicked = await seedApplication(t.db, userId, "Clicked Engineer");
+    const { driver, calls } = stubDriver(() => filled());
+    await boot(driver, stubPreparer(t.db));
+    for (const id of [appId, clicked]) {
+      await queue.enqueue(JOBS.prepareApplication, { applicationId: id });
+      await queue.drain();
+    }
+    // A deploy killed both runs on the employer's page; one had already clicked submit.
+    const lost = new Date(NOW.getTime() - 30 * 60_000);
+    await t.db.update(applications).set({ status: "applying", approvedAt: lost, attempts: 1, updatedAt: lost }).where(eq(applications.id, appId));
+    await t.db.update(applications).set({ status: "applying", approvedAt: lost, attempts: 1, updatedAt: lost, receipt: { submitClicked: true } }).where(eq(applications.id, clicked));
+
+    expect(await worker.consumers.recoverStaleRuns()).toBeGreaterThanOrEqual(2);
+    await queue.drain();
+    expect(queue.failures()).toEqual([]);
+    expect(calls).toHaveLength(1);
+    expect(await statusOf(t.db, appId)).toMatchObject({ status: "prepared" });
+    const after = await statusOf(t.db, clicked);
+    expect(after.status).toBe("needs_user");
+    expect(after.error).toMatch(/will not send it again/);
   });
 
   it("leaves a question it cannot answer for the user", async () => {

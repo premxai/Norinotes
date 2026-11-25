@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SQL } from "drizzle-orm";
 import { AiUnavailableError, complete, embed } from "@norinote/ai";
 import {
   and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
@@ -488,6 +489,7 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
 
   stats.saved = await saveShortlistRows(db, userId, all);
   await removeStaleWidened(db, userId, all.map((i) => i.jobId));
+  await removeStaleRows(db, profile, laneFilter, engine, all.map((i) => i.jobId), opts.now);
   stats.widened = widenedItems.map((w) => ({ jobId: w.jobId, by: w.widenedBy }));
   stats.poolUsed = widenedItems.some((w) => w.widenedBy === "role_pool");
   stats.items = all.map((i) => ({
@@ -603,6 +605,41 @@ async function removeStaleWidened(db: Db, userId: string, keepJobIds: readonly s
     sql`EXISTS (SELECT 1 FROM unnest(${shortlist.reasons}) AS r WHERE r LIKE 'widened:%')`,
     keepJobIds.length > 0 ? notInArray(shortlist.jobId, [...keepJobIds]) : undefined,
   ));
+}
+
+/**
+ * New rows from earlier runs that this run did not save are checked again against the person's lanes, gates and lane
+ * minimum as they are now: an early run (the resume step of onboarding) may have used a temporary lane before lanes or
+ * work authorisation existed, and later runs only add rows. A row that fails is removed; a row that still passes stays,
+ * even when it fell outside this run's top rows. Rows the person acted on, and jobs no longer fresh, are left alone.
+ */
+async function removeStaleRows(db: Db, profile: MatchProfile, laneFilter: SQL, engine: SQL | undefined, keepJobIds: readonly string[], now: Date): Promise<void> {
+  const rows = await db
+    .select({
+      jobId: shortlist.jobId, fit: shortlist.fit, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name,
+      fitsLanes: sql<boolean>`${laneFilter}`,
+    })
+    .from(shortlist)
+    .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
+    .innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(
+      eq(shortlist.userId, profile.userId), eq(shortlist.status, "new"), openAndFreshSql(now), engine,
+      keepJobIds.length > 0 ? notInArray(shortlist.jobId, [...keepJobIds]) : undefined,
+    ));
+  if (rows.length === 0) return;
+  const specs = await loadSpecs(db, rows.map((r) => r.jobId));
+  const stale: string[] = [];
+  for (const r of rows) {
+    const job = { title: r.title, location: r.location, remote: r.remote };
+    const spec = specs.get(r.jobId)?.spec;
+    // The same lane minimum the scoring used: of the lanes whose title fits the job, else of all lanes.
+    const fitLanes = matchingLanes(profile.lanes, job);
+    const minFit = Math.min(...(fitLanes.length > 0 ? fitLanes : profile.lanes).map((l) => l.minFit), 1);
+    const skipped = profile.skipCompanies ? isSkippedCompany(profile.skipCompanies, r.companyName) : false;
+    if (!r.fitsLanes || skipped || r.fit < minFit || (spec && !checkGates(spec, profile, job, { now }).ok)) stale.push(r.jobId);
+  }
+  if (stale.length === 0) return;
+  await db.delete(shortlist).where(and(eq(shortlist.userId, profile.userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, stale)));
 }
 
 /** How many of the newest spec-without-embedding jobs are scored for lexical ranking. */

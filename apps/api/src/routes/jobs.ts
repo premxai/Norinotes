@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { and, companies, desc, eq, jobBookmarks, jobSpecs, jobs, savedJobs, shortlist } from "@norinote/db";
 import { BlockedSourceError, JobNotFoundError, UnsafeUrlError, UnsupportedJobUrlError, addJobByUrl } from "@norinote/ingest";
+import { loadCurrentSpec } from "@norinote/match";
 import { JOBS } from "@norinote/queue";
 import { JobSpec } from "@norinote/shared";
 import { requireUser } from "../auth/session.js";
@@ -108,7 +109,10 @@ export function jobRoutes(ctx: Ctx): Hono<AppEnv> {
     }
     // The user picked this job: it shows for them whatever its age (see savedJobs).
     await db.insert(savedJobs).values({ userId: user.id, jobId: added.job.id }).onConflictDoNothing();
-    if (added.created) await enqueueSoft(ctx, JOBS.understandJob, { jobId: added.job.id }, { dedupeKey: added.job.id, dedupeSeconds: 3600 });
+    // A job collected earlier may never have been read (it fit nobody's lane) or lost its spec to the storage sweep.
+    if (added.created || !(await loadCurrentSpec(db, added.job.id))) {
+      await enqueueSoft(ctx, JOBS.understandJob, { jobId: added.job.id }, { dedupeKey: added.job.id, dedupeSeconds: 3600 });
+    }
     const [company] = await db.select({ name: companies.name, logoDomain: companyLogoDomain }).from(companies).where(eq(companies.id, added.job.companyId)).limit(1);
     return c.json({ job: toJob(added.job, { name: company?.name ?? null, logoUrl: logo(company?.logoDomain) }) }, added.created ? 201 : 200);
   });

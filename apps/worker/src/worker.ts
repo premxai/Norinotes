@@ -118,8 +118,17 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     logoTimer.unref();
   }
 
+  // AI catch-up: once the AI service works again, redo what was done without it (heuristic job specs, basic resume
+  // readings, inbox mail sorted by the fallback, failed site reads), every AI_CATCH_UP_EVERY_MINUTES (10).
+  let catchUpTimer: ReturnType<typeof setInterval> | null = null;
+  if (opts.scheduler !== false && config.catchUpEveryMs > 0) {
+    catchUpTimer = setInterval(() => { void consumers.catchUp(); }, config.catchUpEveryMs);
+    catchUpTimer.unref();
+  }
+
   // "Apply for me" batches: start the next application of each running batch when its spacing and the daily limit allow,
-  // every BATCH_DRAIN_SECONDS (30). The batch is the person's approval; apply.run does the rest.
+  // every BATCH_DRAIN_SECONDS (30). The batch is the person's approval; apply.run does the rest. The same pass queues
+  // again any application a lost run left half done.
   let drainTimer: ReturnType<typeof setInterval> | null = null;
   if (opts.scheduler !== false && config.batchDrainMs > 0) {
     let draining = false;
@@ -136,6 +145,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
           await queue.enqueue(JOBS.applyRun, { applicationId: step.applicationId, trigger: "autopilot" });
           log.info("batch.started", { batchId: step.batchId, applicationId: step.applicationId });
         }
+        // Runs a deploy or crash cut short (or whose queue job ran out of retries) are picked up again.
+        await consumers.recoverStaleRuns();
       } catch (err) {
         log.warn("batch.drain_failed", { error: err instanceof Error ? err.message : String(err) });
       } finally {
@@ -162,8 +173,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     await consumers.stopSweep();
     stopRetention();
     stopTelegram();
-    await consumers.flushMatchBatch().catch(() => {});
-    await queue.stop();
+    if (catchUpTimer) clearInterval(catchUpTimer);
+    // The match batch is handed on once running jobs have finished: an understand job ending during the wait adds to it.
+    await queue.stop({ beforeClose: () => consumers.flushMatchBatch().catch(() => {}) });
     if (ownsPool) await pool.close().catch(() => {});
     await closeSharedBrowser().catch(() => {});
     if (handle) await handle.close();

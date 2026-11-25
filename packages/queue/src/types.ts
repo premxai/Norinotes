@@ -18,6 +18,8 @@ export type WorkOptions = {
   concurrency?: number;
 };
 
+export type StopOptions = { beforeClose?: () => Promise<void> };
+
 /** Passed to a handler next to the payload. */
 export type JobContext = {
   id: string;
@@ -34,7 +36,11 @@ export type QueueKind = "memory" | "pgboss";
 export interface QueueAdapter {
   readonly kind: QueueKind;
   start(): Promise<void>;
-  stop(): Promise<void>;
+  /**
+   * Stops taking jobs and lets running ones finish. `beforeClose` runs after they finished, while the queue still
+   * accepts new jobs (the worker hands on what its last handlers left behind).
+   */
+  stop(opts?: StopOptions): Promise<void>;
   /** Returns the job id, or null when dropped by dedupe. */
   enqueue<N extends JobName>(name: N, payload: PayloadInput<N>, opts?: EnqueueOptions): Promise<string | null>;
   work<N extends JobName>(name: N, handler: Handler<N>, opts?: WorkOptions): Promise<void>;

@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { companies, eq, jobSpecs, type Db } from "@norinote/db";
+import { companies, eq, type Db } from "@norinote/db";
 import { PendingQuestion } from "@norinote/shared";
 import { answerQuestions } from "@norinote/answers";
 import {
-  approveAndSubmit, createApplyHandler, createPrepareHandler, loadApplication, saveAnswers, type ApplyDeps,
+  approveAndSubmit, createApplyHandler, createPrepareHandler, loadApplication, saveAnswers, staleRuns, STALE_RUN_MS, type ApplyDeps,
 } from "@norinote/apply";
 import { AiUnavailableError } from "@norinote/ai";
 import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
@@ -11,9 +11,10 @@ import {
   feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, resolveLogoDomains, sweepStaleJobs, type DueBoard,
 } from "@norinote/ingest";
 import { createResendForwarder, createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
-import { buildShortlist, jobsFittingLanes, matchNewJobs, understandJob, unspeccedJobsForUser } from "@norinote/match";
-import { JOBS, type Handler, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
+import { buildShortlist, jobsFittingLanes, loadCurrentSpec, matchNewJobs, understandJob, unspeccedJobsForBoard, unspeccedJobsForUser } from "@norinote/match";
+import { JOBS, type Handler, type JobContext, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
 import { boostCompaniesForUser } from "./boost.js";
+import { catchUp } from "./catch-up.js";
 import { readGraphSource } from "./graph-sources.js";
 import type { WorkerConfig } from "./config.js";
 import { createDemandCounter } from "./demand.js";
@@ -41,8 +42,12 @@ export type Consumers = {
   sweepJobs(): Promise<number>;
   /** Ends a running sweep after its current batch and waits for it. */
   stopSweep(): Promise<void>;
+  /** Once the AI service works again: redo what was done without it (see catch-up.ts). Logs and returns what it queued. */
+  catchUp(): Promise<LogFields>;
   /** One run of `resolveLogoDomains`; logs and returns how many domains it found. A run already going is not doubled. */
   findLogoDomains(): Promise<number>;
+  /** Queues again the applications a lost run left in preparing, applying or awaiting_code (see `staleRuns`). Returns how many. */
+  recoverStaleRuns(): Promise<number>;
 };
 
 /** Ids in a payload, for the one log line per job. Never the payload itself. */
@@ -54,12 +59,12 @@ function payloadFields(p: Record<string, unknown>): LogFields {
 }
 
 /** Runs `fn`, writes one log line for the job (ok or error, with duration), and rethrows errors so the queue retries. */
-function instrument<N extends JobName>(log: Logger, queue: N, fn: (payload: Payload<N>) => Promise<LogFields | void>): Handler<N> {
+function instrument<N extends JobName>(log: Logger, queue: N, fn: (payload: Payload<N>, ctx: JobContext) => Promise<LogFields | void>): Handler<N> {
   return async (payload, ctx) => {
     const started = Date.now();
     const base = { queue, jobId: ctx.id, attempt: ctx.attempt, ...payloadFields(payload as Record<string, unknown>) };
     try {
-      const extra = await fn(payload);
+      const extra = await fn(payload, ctx);
       log.info("job", { ...base, ok: true, ms: Date.now() - started, ...(extra ?? {}) });
     } catch (err) {
       log.error("job", { ...base, ok: false, ms: Date.now() - started, error: err instanceof Error ? err.message : String(err) });
@@ -202,8 +207,8 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     if (!app) return {};
     let described = "n/a";
     try { described = await fillJobDescription(db, app.jobId, { fetch: deps.fetch }); } catch (err) { described = "failed"; log.warn("prepare.describe_failed", { jobId: app.jobId, error: err instanceof Error ? err.message : String(err) }); }
-    const [spec] = await db.select({ id: jobSpecs.id }).from(jobSpecs).where(eq(jobSpecs.jobId, app.jobId)).limit(1);
-    if (spec) return described === "has_text" ? {} : { described };
+    // Only a spec the model wrote counts: a heuristic one (written while the AI service was down) is read again now.
+    if (await loadCurrentSpec(db, app.jobId)) return described === "has_text" ? {} : { described };
     try { await understandJob(db, app.jobId); } catch (err) { log.warn("prepare.understand_failed", { jobId: app.jobId, error: err instanceof Error ? err.message : String(err) }); return { described, understood: false }; }
     return { described, understood: true };
   }
@@ -246,9 +251,11 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
 
   // ingest.poll-board: one board's feed into `jobs`. A new job is understood (one model call) only when it could be shown
   // to somebody: it fits an enabled lane of some user. The rest wait until a lane that fits them exists (match.user below).
-  await queue.work(JOBS.ingestPollBoard, instrument(log, JOBS.ingestPollBoard, async ({ companyId }) => {
+  await queue.work(JOBS.ingestPollBoard, instrument(log, JOBS.ingestPollBoard, async ({ companyId }, ctx) => {
     const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
     if (!company || company.blocked) return { skipped: company ? "blocked" : "missing" };
+    // Outside the engine scope (a poll queued before the scope was set, or its back-off retry): drop it, do not read it.
+    if (config.engineAts.length && !config.engineAts.includes(company.atsType)) return { skipped: "outside_engine" };
     const demand = await demandFor(company.id);
     let result;
     try {
@@ -256,17 +263,20 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
         pollBoard(db, { atsType: company.atsType, token: company.atsToken }, { now: now(), fetch: deps.fetch, backoff, demand }));
     } catch (err) {
       if (err instanceof HostBackedOffError) {
-        // The host is refusing us: try this board again later without using up a retry.
-        await queue.enqueue(JOBS.ingestPollBoard, { companyId }, { delaySeconds: BACKED_OFF_RETRY_SECONDS });
+        // The host is refusing us: try this board again later without using up a retry. One retry per board per window:
+        // without the key, every waiting poll of a busy host queued its own retry, and they multiplied forever.
+        await queue.enqueue(JOBS.ingestPollBoard, { companyId }, { delaySeconds: BACKED_OFF_RETRY_SECONDS, dedupeKey: `backoff:${companyId}`, dedupeSeconds: BACKED_OFF_RETRY_SECONDS });
         return { backedOff: err.host };
       }
       throw err;
     }
-    const wanted = await jobsFittingLanes(db, result.newJobIds, { now: now(), engineAts: config.engineAts });
+    // A retry no longer sees the jobs its failed try stored as new: it also takes the board's fresh jobs nobody has read.
+    const fresh = ctx.attempt > 1 ? [...new Set([...result.newJobIds, ...await unspeccedJobsForBoard(db, company.id, { now: now() })])] : result.newJobIds;
+    const wanted = await jobsFittingLanes(db, fresh, { now: now(), engineAts: config.engineAts });
     const understand = await enqueueUnderstand(wanted);
     return {
       board: `${company.atsType}/${company.atsToken}`, added: result.added, updated: result.updated, closed: result.closed, total: result.total, trimmed: result.trimmed,
-      understand, notWanted: result.newJobIds.length - wanted.length, skipped: result.skipped,
+      understand, notWanted: fresh.length - wanted.length, skipped: result.skipped,
       status: result.status, demand,
       ...(result.previousStatus === "candidate" ? { validated: result.status } : {}),
       ...(result.notModified ? { notModified: true } : {}),
@@ -325,10 +335,11 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
   await queue.work(JOBS.prepareApplication, instrument(log, JOBS.prepareApplication, async (payload) => {
     const restored = await restoreJob(payload.applicationId);
     await createPrepareHandler(db, apply)(payload);
-    // Apply with send (the person approved before it was prepared): on to the employer's form now. Only a first
-    // preparation: a retried one waits for the person again.
+    // Apply with send (the person approved before it was prepared): on to the employer's form now, in a batch or not
+    // (the batch only sends the ones still waiting for an OK). Only a first preparation: a retried one waits for the
+    // person again.
     const after = await loadApplication(db, payload.applicationId);
-    if (after?.status === "prepared" && after.approvedAt && after.attempts === 0 && !after.batchId) {
+    if (after?.status === "prepared" && after.approvedAt && after.attempts === 0) {
       const res = await approveAndSubmit(db, after.id);
       if (res.ok && res.started) await queue.enqueue(JOBS.applyRun, { applicationId: after.id, trigger: "click" });
     }
@@ -360,7 +371,40 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return res ? { status: res.status, factsAdded: res.factsAdded, ...(res.error ? { error: res.error } : {}) } : { status: "missing" };
   }));
 
-  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs, findLogoDomains,
+  /** Lost runs (a deploy or crash mid-run, a queue job out of retries) are queued again; each at most once per window. */
+  async function recoverStaleRuns(): Promise<number> {
+    let queued = 0;
+    for (const run of await staleRuns(db, { now: now() })) {
+      const opts = { dedupeKey: `recover:${run.applicationId}`, dedupeSeconds: STALE_RUN_MS / 1000 };
+      const id = run.status === "preparing"
+        ? await queue.enqueue(JOBS.prepareApplication, { applicationId: run.applicationId }, opts)
+        : await queue.enqueue(JOBS.applyRun, { applicationId: run.applicationId, trigger: "autopilot" }, opts);
+      if (!id) continue;
+      queued++;
+      log.warn("apply.recovered", { applicationId: run.applicationId, status: run.status });
+    }
+    return queued;
+  }
+
+  let catchingUp: Promise<LogFields> | null = null;
+  /** One run of `catchUp`; logs what it queued. A run already going is not doubled. */
+  function runCatchUp(): Promise<LogFields> {
+    return (catchingUp ??= (async () => {
+      const started = Date.now();
+      try {
+        const r = await catchUp({ db, queue, now, engineAts: config.engineAts, enqueueUnderstand });
+        log.info("ai.catch-up", { ok: true, ms: Date.now() - started, ...r });
+        return r;
+      } catch (err) {
+        log.error("ai.catch-up", { ok: false, ms: Date.now() - started, error: err instanceof Error ? err.message : String(err) });
+        return {};
+      } finally {
+        catchingUp = null;
+      }
+    })());
+  }
+
+  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs, findLogoDomains, recoverStaleRuns, catchUp: runCatchUp,
     stopSweep: async () => { sweepAbort.abort(); await sweeping; },
   };
 }

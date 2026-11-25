@@ -56,6 +56,22 @@ describe("location: the Europe-remote contractor", () => {
   });
 });
 
+describe("location: the metro area of a city lane", () => {
+  it("a San Francisco lane takes Bay Area jobs, not San Diego ones", async () => {
+    const userId = await seedUser(t.db, { location: "San Francisco, CA", workAuth: US_AUTH });
+    await seedLane(t.db, userId, { titles: ["Machine Learning Engineer"], locations: ["San Francisco, CA"], remote: false, minFit: 0 });
+    await seedPoint(t.db, userId, { title: "Machine Learning Engineer", start: "2021-01", skills: ["Python", "PyTorch"], text: "python pytorch models" });
+    const spec = baseSpec({ mustHaves: ["Python", "PyTorch"] });
+    const text = "machine learning engineer python pytorch";
+    const paloAlto = await seedJob(t.db, { companyId: co, title: "Machine Learning Engineer", location: "Palo Alto, CA", spec, embedText: text });
+    const sanDiego = await seedJob(t.db, { companyId: co, title: "Machine Learning Engineer", location: "San Diego, CA", spec, embedText: text });
+    const stats = await buildShortlist(t.db, userId, { profileEmbedding: fakeEmbedding(text), now: NOW, widen: false });
+    const ids = stats.items.map((i) => i.jobId);
+    expect(ids).toContain(paloAlto);
+    expect(ids).not.toContain(sanDiego);
+  });
+});
+
 describe("ordering by fit, confidence and recency", () => {
   it("ranks well-specified jobs first, keeps the empty Workday graphic designer out and the bare listing last", async () => {
     const userId = await seedUser(t.db, { location: "New York, NY", workAuth: US_AUTH });

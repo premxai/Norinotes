@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, applications, asc, companies, desc, eq, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { approveAndSubmit, createApplication, dailyCapReached, liveFrameKey, logEvent, retryApplication, saveAnswers, transitionApplication, type ApplicationRow, type ApproveResult } from "@norinote/apply";
+import { and, applications, applyBatches, asc, companies, desc, eq, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
+import { approveAndSubmit, createApplication, dailyCapReached, liveFrameKey, logEvent, retryApplication, saveAnswers, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -31,6 +31,13 @@ export async function ownedApplication(db: Db, userId: string, id: string): Prom
   const [row] = await db.select().from(applications).where(and(eq(applications.id, id), eq(applications.userId, userId))).limit(1);
   if (!row) throw notFound("Application not found");
   return row;
+}
+
+/** Whether the application's batch is still running (false when it is in none). */
+async function batchRunning(db: Db, batchId: string | null): Promise<boolean> {
+  if (!batchId) return false;
+  const [batch] = await db.select({ status: applyBatches.status }).from(applyBatches).where(eq(applyBatches.id, batchId)).limit(1);
+  return batch?.status === "running";
 }
 
 /**
@@ -78,7 +85,7 @@ export async function sendApplication(ctx: Ctx, userId: string, app: Application
 /** The user's approval of a prepared (or parked) application: save any answers, move it to applying, queue the browser step. */
 export async function approveApplication(ctx: Ctx, app: ApplicationRow, answers?: Record<string, string>): Promise<ApproveResult> {
   if (answers && Object.keys(answers).length > 0) await saveAnswers(ctx.db, app.id, answers);
-  const res = await approveAndSubmit(ctx.db, app.id, { now: ctx.now() });
+  const res = await approveAndSubmit(ctx.db, app.id, { now: ctx.now(), by: "user" });
   if (res.ok && res.started) await enqueueRequired(ctx, JOBS.applyRun, { applicationId: app.id, trigger: "click" });
   return res;
 }
@@ -115,22 +122,28 @@ export async function answerApplication(ctx: Ctx, userId: string, app: Applicati
   }
 
   // A parked application carries on once every required question has an answer. Answering is not approval: one parked
-  // before the user's click goes back through prepare and then waits for the click.
+  // before the user's click goes back through prepare and then waits for the click. The person's answers start a fresh
+  // set of attempts. When every question is answered and it still cannot go on, the answers are kept and the reply says why.
   let resumed = false;
   let status = app.status;
+  let refused: string | null = null;
   if (app.status === "needs_user" && !app.approvedAt) {
     const res = await transitionApplication(db, app.id, "preparing");
     if (res.ok) {
       status = "preparing";
       await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: app.id }, { dedupeKey: `prepare:${app.id}`, dedupeSeconds: 60 });
       resumed = true;
-    }
+    } else refused = res.reason;
   } else if (app.status === "needs_user") {
-    const res = await approveAndSubmit(db, app.id, { now: ctx.now() });
+    const res = await approveAndSubmit(db, app.id, { now: ctx.now(), by: "user" });
     if (res.ok) {
       status = res.status;
       if (res.started) { await enqueueRequired(ctx, JOBS.applyRun, { applicationId: app.id, trigger: "click" }); resumed = true; }
-    }
+    } else refused = res.reason;
+  }
+  if (refused) {
+    const row = await ownedApplication(db, userId, app.id);
+    if (row.status === "needs_user" && unansweredQuestions(row).length === 0) throw new HttpError(409, "Your answers are saved, but this application cannot go on", refused);
   }
   return { ok: true, status, resumed };
 }
@@ -148,7 +161,7 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     const [resume] = app.resumeId ? await db.select().from(resumes).where(and(eq(resumes.id, app.resumeId), eq(resumes.applicationId, app.id))).limit(1) : [];
     const events = await db.select().from(runEvents).where(eq(runEvents.applicationId, app.id)).orderBy(asc(runEvents.ts), asc(runEvents.id)).limit(500);
     return {
-      application: toApplication(app, artifacts),
+      application: toApplication(app, artifacts, { batchRunning: await batchRunning(db, app.batchId) }),
       job: toJob(row.job, { name: row.companyName, logoUrl: logo(row.logoDomain) }),
       resume: resume ? toResume(resume) : null,
       events: events.map(toRunEvent),
@@ -177,13 +190,14 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
   });
 
   r.get("/", auth, async (c) => {
-    const rows = await db.select({ app: applications, job: jobs, companyName: companies.name, logoDomain: companyLogoDomain, resume: resumes }).from(applications)
+    const rows = await db.select({ app: applications, job: jobs, companyName: companies.name, logoDomain: companyLogoDomain, resume: resumes, batchStatus: applyBatches.status }).from(applications)
       .innerJoin(jobs, eq(jobs.id, applications.jobId))
       .innerJoin(companies, eq(companies.id, jobs.companyId))
       .leftJoin(resumes, and(eq(resumes.id, applications.resumeId), eq(resumes.applicationId, applications.id)))
+      .leftJoin(applyBatches, eq(applyBatches.id, applications.batchId))
       .where(eq(applications.userId, c.get("user").id)).orderBy(desc(applications.createdAt)).limit(200);
     return c.json(rows.map((x) => ({
-      application: toApplication(x.app, artifacts),
+      application: toApplication(x.app, artifacts, { batchRunning: x.batchStatus === "running" }),
       job: toJob({ ...x.job, descriptionText: x.job.descriptionText.slice(0, LIST_DESCRIPTION_CHARS) }, { name: x.companyName, logoUrl: logo(x.logoDomain) }),
       resume: x.resume ? toResume(x.resume) : null,
     })));
@@ -198,7 +212,7 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     }
     const res = await startApplication(ctx, userId, jobId);
     const app = send ? await sendApplication(ctx, userId, res.application) : res.application;
-    return c.json(toApplication(app, artifacts), res.created ? 201 : 200);
+    return c.json(toApplication(app, artifacts, { batchRunning: await batchRunning(db, app.batchId) }), res.created ? 201 : 200);
   });
 
   r.get("/:id", auth, async (c) => c.json(await detail(await ownedApplication(db, c.get("user").id, uuidParam(c)))));

@@ -1,6 +1,9 @@
 export { HEURISTIC_SPEC_VERSION, SPEC_VERSION, UNDERSTAND_SYSTEM, JobSpecModelOutput, finalizeSpec, jobEmbeddingText, loadCurrentSpec, understandJob } from "./understand.js";
 export type { StoredJobSpec, UnderstandResult } from "./understand.js";
-export { UNSPECCED_BACKLOG_LIMIT, jobsFittingLanes, unspeccedJobsForUser } from "./demand.js";
+export {
+  BOARD_BACKLOG_LIMIT, HEURISTIC_RETRY_AFTER_MS, HEURISTIC_UPGRADE_LIMIT, UNSPECCED_BACKLOG_LIMIT, heuristicOnlyJobs, jobsFittingLanes, unspeccedJobsForBoard,
+  unspeccedJobsForUser,
+} from "./demand.js";
 export { heuristicSpec, roleFamilyFromTitle, seniorityFromTitle, yearsFromText } from "./heuristic-spec.js";
 export type { HeuristicJob } from "./heuristic-spec.js";
 export { HARD_YEARS_GAP, SENIOR_MIN_YEARS, checkGates, jobPlace, requiredYears } from "./gates.js";

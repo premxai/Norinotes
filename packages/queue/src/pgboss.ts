@@ -1,6 +1,6 @@
 import { PgBoss, type SendOptions } from "pg-boss";
 import { QUEUE_CONFIG, JOBS, isJobName, payloadSchemas, type JobName } from "./jobs.js";
-import type { EnqueueOptions, Handler, QueueAdapter, WorkOptions } from "./types.js";
+import type { EnqueueOptions, Handler, QueueAdapter, StopOptions, WorkOptions } from "./types.js";
 
 /** The slice of PgBoss this adapter uses; lets tests inject a stand-in. */
 export type BossLike = Pick<PgBoss, "start" | "stop" | "createQueue" | "send" | "work" | "schedule" | "on">;
@@ -44,10 +44,17 @@ export class PgBossQueue implements QueueAdapter {
     this.boss = boss;
   }
 
-  async stop(): Promise<void> {
+  async stop(opts: StopOptions = {}): Promise<void> {
     const boss = this.boss;
-    this.boss = null;
-    if (boss) await boss.stop({ graceful: true, timeout: 30_000 });
+    if (!boss) return;
+    // Running jobs finish first (up to 30 s) with the pool still open, so `beforeClose` and those jobs can still enqueue.
+    try {
+      await boss.stop({ graceful: true, timeout: 30_000, close: false });
+      await opts.beforeClose?.();
+    } finally {
+      this.boss = null;
+      await boss.stop({ close: true });
+    }
   }
 
   async enqueue<N extends JobName>(name: N, payload: unknown, opts: EnqueueOptions = {}): Promise<string | null> {

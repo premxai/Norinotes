@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, eq, lanes, profiles } from "@norinote/db";
+import { applications, applyBatches, eq, lanes, profiles } from "@norinote/db";
 import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
 
 let api: Api;
@@ -119,7 +119,8 @@ describe("Apply now from Recommended, the company, a used code", () => {
     expect(res.json.added).toBe(1);
     const detail = (await api.call("GET", `/api/nori/batches/${res.json.batch.id}`, { cookie })).json;
     expect(detail.applications.map((a: { company: string }) => a.company)).toEqual(["Strong Co"]);
-    // Nothing left to send.
+    // Nothing left to send (once the first press is past the double-click minute).
+    await api.db.update(applyBatches).set({ createdAt: new Date(Date.now() - 5 * 60_000) }).where(eq(applyBatches.id, res.json.batch.id));
     expect((await api.call("POST", "/api/nori/batches", { cookie, body: { recommended: true } })).status).toBe(409);
     expect((await api.call("POST", "/api/nori/batches", { cookie, body: { recommended: true, jobIds: [strong.job.id] } })).status).toBe(400);
   });

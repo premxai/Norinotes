@@ -131,4 +131,42 @@ describe("scheduler", () => {
     expect(peak.get("workday")).toBeGreaterThan(2);
     expect(peak.get("workday")).toBeLessThanOrEqual(8);
   });
+
+  it("does not poll a board outside the engine scope, even one queued before the scope was set", async () => {
+    await reset();
+    const [oracle] = await t.db.insert(companies).values({ atsType: "oracle", atsToken: "acme|US", name: "Acme" }).returning();
+    let calls = 0;
+    const counting: typeof fetch = (async () => { calls++; return new Response("{}", { status: 200 }); }) as typeof fetch;
+    const lines: Array<Record<string, unknown>> = [];
+    const queue = new MemoryQueue();
+    await start(queue, { engineAts: ["greenhouse"] }, counting, { log: createLogger((l) => lines.push(JSON.parse(l)), () => NOW) });
+    await queue.enqueue(JOBS.ingestPollBoard, { companyId: oracle!.id });
+    await queue.drain();
+    expect(calls).toBe(0);
+    expect(lines.find((l) => l.queue === JOBS.ingestPollBoard)).toMatchObject({ skipped: "outside_engine" });
+  });
+
+  it("keeps at most one back-off retry per board, however many polls of it were waiting", async () => {
+    await reset();
+    const boards = await t.db.insert(companies).values(["a", "b", "c"].map((token) => ({ atsType: "greenhouse" as const, atsToken: token, name: token }))).returning();
+    const limited: typeof fetch = (async () => new Response("slow down", { status: 429 })) as typeof fetch;
+    // Retries are recorded and parked an hour out, so they do not run here.
+    const retries: Array<string | null> = [];
+    class RecordingQueue extends MemoryQueue {
+      override async enqueue(...args: Parameters<MemoryQueue["enqueue"]>) {
+        if (args[0] === JOBS.ingestPollBoard && args[2]?.delaySeconds) { const id = await super.enqueue(args[0], args[1], { ...args[2], delaySeconds: 3600 }); retries.push(id); return id; }
+        return super.enqueue(...args);
+      }
+    }
+    const lines: Array<Record<string, unknown>> = [];
+    const queue = new RecordingQueue();
+    await start(queue, { pollConcurrency: 1 }, limited, { log: createLogger((l) => lines.push(JSON.parse(l)), () => NOW) });
+    const [a, b, c] = boards;
+    // Two rate-limited boards back the host off; then three waiting polls of the same board hit the backed-off host.
+    for (const id of [a!.id, b!.id, c!.id, c!.id, c!.id]) await queue.enqueue(JOBS.ingestPollBoard, { companyId: id });
+    const done = () => lines.filter((l) => l.queue === JOBS.ingestPollBoard && "ok" in l).length;
+    for (let i = 0; i < 200 && done() < 5; i++) await new Promise((r) => setTimeout(r, 100));
+    expect(retries.length).toBeGreaterThanOrEqual(3);
+    expect(retries.filter(Boolean)).toHaveLength(1);
+  });
 });

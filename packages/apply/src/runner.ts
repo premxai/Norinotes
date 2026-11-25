@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from "@norinote/shared";
-import { applications, eq } from "@norinote/db";
+import { and, applications, asc, eq, inArray, lt } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import type { Payload } from "@norinote/queue";
 import { defaultUnknownFormHandler, detectDriver, DRIVERS } from "./drivers/index.js";
@@ -132,6 +132,25 @@ export async function driveApplication(db: Db, applicationId: string, deps: Appl
   return last;
 }
 
+/** How long a run may leave an application untouched before it counts as lost: apply.run's 20-minute lease, plus a margin. */
+export const STALE_RUN_MS = 25 * 60_000;
+
+export type StaleRun = { applicationId: string; status: "preparing" | "applying" | "awaiting_code" };
+
+/**
+ * Applications a lost run left behind: a deploy or crash in the middle of one, or a queue job that ran out of retries.
+ * Nothing touched them for STALE_RUN_MS and no run of this process has them. The caller queues them again
+ * (`prepare.application` for preparing, `apply.run` for the rest), and `runApplication` carries on from where they are;
+ * it never clicks submit again when an earlier run may have (see applyStepInner).
+ */
+export async function staleRuns(db: Db, opts: { now?: Date; olderThanMs?: number; limit?: number } = {}): Promise<StaleRun[]> {
+  const cutoff = new Date((opts.now ?? new Date()).getTime() - (opts.olderThanMs ?? STALE_RUN_MS));
+  const rows = await db.select({ applicationId: applications.id, status: applications.status }).from(applications)
+    .where(and(inArray(applications.status, ["preparing", "applying", "awaiting_code"]), lt(applications.updatedAt, cutoff)))
+    .orderBy(asc(applications.updatedAt)).limit(opts.limit ?? 50);
+  return rows.filter((r) => !inflight.has(r.applicationId)) as StaleRun[];
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // preparing
 // ---------------------------------------------------------------------------------------------------------------------
@@ -170,6 +189,21 @@ async function mergeReceipt(db: Db, applicationId: string, patch: Record<string,
   const row = await loadApplication(db, applicationId);
   if (!row) return;
   await db.update(applications).set({ receipt: { ...(row.receipt ?? {}), ...patch }, updatedAt: new Date() }).where(eq(applications.id, applicationId));
+}
+
+/** The receipt as it is now with `patch` on top, for a move that sets the receipt: what was prepared stays. */
+async function receiptWith(db: Db, applicationId: string, patch: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const row = await loadApplication(db, applicationId);
+  return { ...(row?.receipt ?? {}), ...patch };
+}
+
+/**
+ * The browser try that just broke will be tried again, so it counts as an attempt now. Only a move into applying used to
+ * count, and the queue's own retries never make one, so the limit was never reached.
+ */
+async function countRetry(db: Db, row: ApplicationRow): Promise<void> {
+  await db.update(applications).set({ attempts: row.attempts + 1, updatedAt: new Date() })
+    .where(and(eq(applications.id, row.id), eq(applications.status, "applying")));
 }
 
 async function applyStep(db: Db, row: ApplicationRow, deps: ApplyDeps): Promise<StepResult> {
@@ -217,7 +251,8 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     events = events.then(async () => {
       await logEvent(db, id, step, message, { level: level ?? "info", data: data ?? null });
       // The click is the one step that cannot be undone: remember it before anything else can fail.
-      if (step === "submit") await mergeReceipt(db, id, { submitClicked: true, awaitingCode: false });
+      // A code that went missing on an earlier run says nothing about this click, so its mark goes.
+      if (step === "submit") await mergeReceipt(db, id, { submitClicked: true, awaitingCode: false, codeMissing: false });
     }).catch(() => {});
   };
 
@@ -236,7 +271,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
       waitForCode: async (hint: string) => {
         await flush();
         const since = now();
-        await transitionApplication(db, id, "awaiting_code", { from: "applying", receipt: { submitClicked: true, awaitingCode: true }, message: "Waiting for the emailed verification code" });
+        await transitionApplication(db, id, "awaiting_code", { from: "applying", receipt: await receiptWith(db, id, { submitClicked: true, awaitingCode: true }), message: "Waiting for the emailed verification code" });
         const timeoutMs = deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS;
         let code: string | null = null;
         let found = "Code received";
@@ -248,7 +283,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
           code = await deps.codes.waitForCode(id, { hint, timeoutMs });
         }
         // The message says where the code came from, never the code itself.
-        await transitionApplication(db, id, "applying", { from: "awaiting_code", receipt: { submitClicked: true, awaitingCode: false }, message: code ? found : "No code arrived" });
+        await transitionApplication(db, id, "applying", { from: "awaiting_code", receipt: await receiptWith(db, id, { submitClicked: true, awaitingCode: false }), message: code ? found : "No code arrived" });
         return code;
       },
     } : {}),
@@ -311,6 +346,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     }
     if (latest.attempts < MAX_ATTEMPTS && !(err instanceof PoolRunError && err.timedOut && latest.attempts >= 2)) {
       await logEvent(db, id, "apply_retry", `Browser step failed, will retry (attempt ${latest.attempts} of ${MAX_ATTEMPTS}): ${message}`, { level: "warn", data: { ...artifacts } });
+      await countRetry(db, latest);
       return result(id, "applying", { retry: true, message });
     }
     return done("failed", await transitionApplication(db, id, "failed", { from: "applying", error: message, receipt, message: `Failed after ${latest.attempts} attempts: ${message}` }));
@@ -367,6 +403,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   const error = submit.error ?? "Submit failed";
   if (!submit.submitClicked && latest.attempts < MAX_ATTEMPTS) {
     await logEvent(db, id, "apply_retry", `Submit failed before the click, will retry: ${error}`, { level: "warn" });
+    await countRetry(db, latest);
     return result(id, "applying", { retry: true, message: error });
   }
   return done("failed", await transitionApplication(db, id, "failed", { from: "applying", error, receipt: receiptFor(), message: error }));

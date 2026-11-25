@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, applyBatches, companies, eq, jobs, users } from "@norinote/db";
+import { and, applications, applyBatches, companies, eq, jobs, shortlist, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { countBatch, drainBatches, readNoriSettings, saveNoriSettings, startBatch, stopBatch, batchView } from "./batch.js";
+import { retryApplication } from "./store.js";
 
 let t: TestDb;
 beforeAll(async () => { t = await createTestDb(); });
@@ -154,6 +155,23 @@ describe("sending a batch", () => {
     expect(await batchRow()).toMatchObject({ status: "running", finishedAt: null, notifiedAt: null });
   });
 
+  it("sends a retried application again through the batch, inside its spacing and daily limit", async () => {
+    const u = await user();
+    const res = await startBatch(t.db, u, [await job("Retry Batch Co")]);
+    const id = res.added[0]!.applicationId;
+    const drain = async (now: Date) => (await drainBatches(t.db, { now })).filter((s) => s.batchId === res.batchId);
+    await setStatus(id, "prepared");
+    expect((await drain(new Date())).map((s) => s.applicationId)).toEqual([id]);
+    // The run failed, the batch finished; the person asks to try again.
+    await t.db.update(applications).set({ status: "failed", error: "Browser step failed" }).where(eq(applications.id, id));
+    await drain(new Date());
+    expect(await retryApplication(t.db, id)).toMatchObject({ ok: true });
+    await setStatus(id, "prepared");
+    const later = new Date(Date.now() + 60 * 60_000);
+    expect((await drain(later)).map((s) => s.applicationId)).toEqual([id]);
+    expect(await statusOf(id)).toMatchObject({ status: "applying", batchId: res.batchId });
+  });
+
   it("leaves parked ones for the person, and Stop cancels what has not started", async () => {
     const u = await user();
     const res = await startBatch(t.db, u, [await job("P1"), await job("P2"), await job("P3")]);
@@ -171,4 +189,14 @@ describe("sending a batch", () => {
     expect(countBatch(apps)).toMatchObject({ total: 3, sent: 1, cancelled: 2 });
     expect(await stopBatch(t.db, await user(), res.batchId!)).toEqual({ ok: false, cancelled: 0 });
   });
+
+  it("marks the batch's jobs applied in the person's shortlist, so they leave the recommended list", async () => {
+    const userId = await user();
+    const jobId = await job("Shortlisted Co");
+    await t.db.insert(shortlist).values({ userId, jobId, fit: 0.8 });
+    await startBatch(t.db, userId, [jobId], { now: new Date() });
+    const [row] = await t.db.select({ status: shortlist.status }).from(shortlist).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId)));
+    expect(row!.status).toBe("applied");
+  });
 });
+
