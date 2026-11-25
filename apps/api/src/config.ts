@@ -50,7 +50,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   return {
     port: Number.isInteger(port) && port > 0 ? port : 4000,
     production,
-    webUrl: (clean(env.WEB_URL) ?? "http://localhost:3000").replace(/\/+$/, ""),
+    webUrl: (clean(env.WEB_URL) ?? "http://localhost:3400").replace(/\/+$/, ""),
     landingUrl: clean(env.LANDING_URL)?.replace(/\/+$/, "") ?? null,
     apiUrl: clean(env.API_URL)?.replace(/\/+$/, "") ?? null,
     cookieName: clean(env.SESSION_COOKIE_NAME) ?? "norinote_session",
