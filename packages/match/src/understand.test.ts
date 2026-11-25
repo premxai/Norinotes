@@ -139,6 +139,15 @@ describe("understandJob", () => {
     expect(b.spec.sponsorship).toBe("yes");
   });
 
+  it("keeps the model's sponsorship answer over the detector's yes, and fills in an unknown", () => {
+    const job = (descriptionText: string) => ({ title: "Software Engineer", descriptionText, remote: false });
+    const sponsorWords = "We sponsor visas for the right candidates.";
+    expect(finalizeSpec(modelOutput({ sponsorship: "no" }), job(sponsorWords)).sponsorship).toBe("no");
+    expect(finalizeSpec(modelOutput({ sponsorship: "unknown" }), job(sponsorWords)).sponsorship).toBe("yes");
+    expect(finalizeSpec(modelOutput({ sponsorship: "no" }), job("We are not able to sponsor visas.")).sponsorship).toBe("no");
+    expect(finalizeSpec(modelOutput({ sponsorship: "yes" }), job("We're not able to offer visa sponsorship at this time.")).sponsorship).toBe("no");
+  });
+
   it("finds a restriction that only shows in the title or a must-have", async () => {
     useModel(modelOutput({ mustHaves: [{ text: "Active Secret clearance", weight: 1 }] }));
     const a = await seedJob(t.db, { companyId, description: "Build things." });
