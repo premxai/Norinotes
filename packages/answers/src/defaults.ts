@@ -187,7 +187,7 @@ const EEO = /\b(gender|sex|race|racial|ethnicity|ethnic|hispanic|latino|latina|l
  * Answer from facts only, or null. Every choice is one of `q.options` exactly; when no option means the answer, null.
  * `targetCountry` is the country the job (or the question) is about, for work authorisation.
  */
-export function defaultAnswer(q: PendingQuestion, facts: Facts, ctx: { jobCountry: string | null; defaultHeardAbout?: string }): string | null {
+export function defaultAnswer(q: PendingQuestion, facts: Facts, ctx: { jobCountry: string | null }): string | null {
   if (q.type === "file") return null;
   const label = q.text.toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, " ").trim();
   if (!label) return null;
@@ -196,12 +196,10 @@ export function defaultAnswer(q: PendingQuestion, facts: Facts, ctx: { jobCountr
   if (EEO.test(label) && !/sponsor|authori[sz]|work/.test(label)) return eeoAnswer(q, label, facts);
 
   if (HEAR.test(label)) {
-    // Where Norinote found the posting: a job board. Never a recruiter, a referral or an employee name.
+    // Only what the person said. Nothing said, or no option that means it: the person answers.
     const stated = str(facts.preferences.heardAbout);
-    if (q.options.length === 0) return stated || ctx.defaultHeardAbout || "Job board";
-    if (stated) { const m = matchOption(stated, q.options); if (m) return m; }
-    const bad = /recruit|referr|employee|friend|colleague|agency|event|campus|university|social|twitter|facebook|instagram|tiktok|youtube|podcast|newsletter|ad\b|advert/i;
-    return pick(q.options, [/job[- ]?board/i, /job (site|posting|listing|search)/i, /linkedin|indeed|glassdoor|ziprecruiter|wellfound|handshake/i, /careers? (page|site)|company (web)?site|\bwebsite\b|online|internet|web search|search engine/i, /\bother\b/i], bad);
+    if (!stated) return null;
+    return q.options.length === 0 ? stated : matchOption(stated, q.options);
   }
 
   if (SALARY.test(label)) return salaryAnswer(q, label, facts);

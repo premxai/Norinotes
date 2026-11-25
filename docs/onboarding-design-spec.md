@@ -123,7 +123,7 @@ from the resume's `profilePatch`, then from the account email. **Continue** send
 | Step | `PUT /api/onboarding` data | Required | Notes |
 |---|---|---|---|
 | Contact | `fullName, email, phone, city, state, country, linkedin, github, website, pronouns` | Full name, email | Fields filled from the resume get the "From your resume" tag until edited. Country defaults to "United States" |
-| Work | `workAuth { authorizedUS, needsSponsorship, status, visaType }, willingToRelocate, remotePreference` | Authorized, sponsorship | Visa type shows only for "On a visa". Work setup: Remote, Hybrid, On-site, Any (`remotePreference`) |
+| Work | `workAuth { authorizedUS, needsSponsorship, status, visaType }, willingToRelocate, remotePreference` | Authorized, sponsorship, status (starts empty) | Visa type shows only for "On a visa". Work setup: Remote, Hybrid, On-site, Any (`remotePreference`) |
 | Questions | `salaryExpectation { amount, currency: "USD", period }, earliestStartDate, noticePeriodWeeks, securityClearance, over18, heardAbout, eeo { gender, race, veteran, disability }` | Over 18 | Salary: a number and a period (a year, a month, an hour). `eeo` is sent only if the fold was opened and a value changed |
 | Preferences | `preferences { titles, locations, remote, salaryMin, excludeCompanies }` | At least one title | Remote: Only remote, Remote is fine, No remote (`only`, `ok`, `no`). **Finish** saves and goes to done |
 
