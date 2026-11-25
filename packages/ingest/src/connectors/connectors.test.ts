@@ -9,7 +9,7 @@ import srDetail from "../__fixtures__/smartrecruiters-detail.json";
 import srList from "../__fixtures__/smartrecruiters-list.json";
 import { RateLimitedError } from "../http.js";
 import type { ListResult } from "../types.js";
-import { ashby, CONNECTORS, getConnector, greenhouse, greenhouseFormUrl, isSupportedAts, lever, matchJobUrl, oracle, smartrecruiters, workday } from "./index.js";
+import { ashby, CONNECTORS, getConnector, greenhouse, greenhouseFormUrl, isSupportedAts, lever, matchJobUrl, SUPPORTED_ATS_TYPES, oracle, smartrecruiters, workday } from "./index.js";
 
 describe("greenhouse", () => {
   it("normalises the board", async () => {
@@ -151,15 +151,23 @@ describe("smartrecruiters", () => {
 });
 
 describe("connector registry", () => {
-  it("covers every job system, and Workday and Oracle are real connectors now", () => {
+  it("covers every job system, and Workday is a real connector", () => {
     expect(Object.keys(CONNECTORS).sort()).toEqual([...ATS_TYPES].sort());
     expect(getConnector("lever")).toBe(lever);
     expect(isSupportedAts("greenhouse")).toBe(true);
     expect(isSupportedAts("workday")).toBe(true);
-    expect(isSupportedAts("oracle")).toBe(true);
     expect(workday.ready).not.toBe(false);
-    expect(oracle.ready).not.toBe(false);
     expect(typeof workday.fetchJob).toBe("function");
+  });
+
+  it("pins the live job systems; the rest are parked and their links are not accepted", () => {
+    expect([...SUPPORTED_ATS_TYPES].sort()).toEqual(["ashby", "greenhouse", "lever", "rippling", "workable", "workday"]);
+    const parked = ["smartrecruiters", "icims", "oracle", "recruitee", "teamtailor", "personio", "bamboohr", "breezy", "pinpoint"] as const;
+    for (const s of parked) expect(getConnector(s).ready, s).toBe(false);
+    expect(oracle.ready).toBe(false);
+    expect(matchJobUrl("https://jobs.smartrecruiters.com/Hooli/743999-sre")).toBeNull();
+    expect(matchJobUrl("https://acme.recruitee.com/o/backend-engineer")).toBeNull();
+    expect(matchJobUrl("https://acme.breezy.hr/p/abc-engineer")).toBeNull();
   });
 
   it("matches a URL to the right connector", () => {

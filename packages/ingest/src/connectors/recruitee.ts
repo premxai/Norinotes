@@ -75,7 +75,8 @@ async function readOffers(token: string, http?: HttpOptions): Promise<ListResult
 /** Recruitee public offers API. `fetchJob` accepts the numeric id or the offer slug (what a posting URL carries). */
 export const recruitee: Connector = {
   atsType: "recruitee",
-  ready: true,
+  // Parked: not collected for now (docs/job-collection.md). The code stays; set ready to true to bring it back.
+  ready: false,
   capabilities: { maxConcurrencyPerHost: 4 },
   listJobs: (token, http) => readOffers(token, http),
   async fetchJob(token, externalId, http) {

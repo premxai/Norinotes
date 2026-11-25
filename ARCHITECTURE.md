@@ -25,7 +25,7 @@ packages/
   queue/      pg-boss wrapper: typed job names, enqueue, work, schedule. In-memory adapter for unit tests.
   ai/         Model routing (small model by default, large only where named), prompt caching, structured output,
               embeddings, per-user daily token budget, usage accounting.
-  ingest/     Job-system connectors (Greenhouse, Lever, Ashby, SmartRecruiters; Workday and Oracle next), polite HTTP,
+  ingest/     Job-system connectors (live: Greenhouse, Lever, Ashby, Workday, Workable, Rippling; nine more parked), polite HTTP,
               board registry, blocklist, normalisation, dedupe, closing jobs that leave a feed.
   graph/      Resume to career graph: parse, structure career points (skills, depth, recency, scope, impact), embed.
   match/      Job spec extraction (once per job), shortlist: SQL lane filter -> vector rank -> detailed fit on about 200

@@ -51,6 +51,8 @@ function fetchDetail(token: string, id: string, http?: HttpOptions): Promise<SrD
  */
 export const smartrecruiters: Connector = {
   atsType: "smartrecruiters",
+  // Parked: robots.txt disallows every path for our User-Agent, so it is never collected (docs/job-collection.md).
+  ready: false,
   capabilities: { maxConcurrencyPerHost: 4 },
   async listJobs(token, http): Promise<ListResult> {
     const items: SrListItem[] = [];

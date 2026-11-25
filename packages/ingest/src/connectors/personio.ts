@@ -67,7 +67,8 @@ async function readXml(token: string, http?: HttpOptions, etag?: string | null):
 /** Personio XML feed. One request reads the whole board, descriptions included. */
 export const personio: Connector = {
   atsType: "personio",
-  ready: true,
+  // Parked: not collected for now (docs/job-collection.md). The code stays; set ready to true to bring it back.
+  ready: false,
   capabilities: { conditional: true, maxConcurrencyPerHost: 4 },
   listJobs: (token, http, opts) => readXml(token, http, opts?.etag),
   async fetchJob(token, externalId, http) {

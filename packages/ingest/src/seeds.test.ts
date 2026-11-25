@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { and, companies, eq, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import {
-  importSeeds, parseCsv, parseOpenAtsFeed, parseOracleUrl, parseSeedCsv, parseSeedRow, parseWorkdayUrl, type SeedCompany,
+  importSeeds, parseCsv, parseOpenAtsFeed, parseOracleUrl, parseSeedCsv, parseSeedRow, parseWorkdayUrl, SEED_CSV_SYSTEMS, type SeedCompany,
 } from "./seeds.js";
 
 describe("parseCsv", () => {
@@ -66,6 +66,10 @@ describe("parseSeedRow per system", () => {
     expect(row("smartrecruiters", "IOTA GROUP", "iotagroup", "https://careers.smartrecruiters.com/IOTAGROUP/iota")?.token).toBe("IOTAGROUP");
     expect(row("smartrecruiters", "1871", "1871", "https://careers.smartrecruiters.com/1871")?.token).toBe("1871");
     expect(row("smartrecruiters", "Hooli", "hooli", "https://jobs.smartrecruiters.com/Hooli")?.token).toBe("Hooli");
+  });
+
+  it("downloads seed CSVs only for live job systems", () => {
+    expect([...SEED_CSV_SYSTEMS].sort()).toEqual(["ashby", "greenhouse", "lever", "rippling", "workable", "workday"]);
   });
 
   it("subdomain systems read the tenant from the host", () => {
@@ -190,6 +194,11 @@ describe("importSeeds", () => {
     const again = await importSeeds(t.db, rows, all);
     expect(again.inserted).toEqual({});
     expect(again.duplicates).toBe(2);
+  });
+
+  it("drops rows of parked job systems by default", async () => {
+    const res = await importSeeds(t.db, [seed("smartrecruiters", "Hooli"), seed("icims", "peraton"), seed("oracle", "ehtf|us2|CX_1"), seed("lever", "ok2")]);
+    expect(res).toMatchObject({ inserted: { lever: 1 }, unsupported: 3 });
   });
 
   it("skips unsupported systems and blocklisted names", async () => {

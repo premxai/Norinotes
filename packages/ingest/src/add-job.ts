@@ -42,8 +42,8 @@ export type AddJobResult = {
 
 /**
  * Add one job from a pasted posting link. The link must be public (SSRF guard: no loopback, private or internal
- * addresses, no non-http schemes) and belong to a supported job system (Greenhouse, including its embedded form link,
- * Lever, Ashby, SmartRecruiters). The posting is read from that system's own API and upserted like a polled job. The
+ * addresses, no non-http schemes) and belong to a supported job system (`SUPPORTED_ATS_TYPES`; a Greenhouse embedded-form
+ * link counts). The posting is read from that system's own API and upserted like a polled job. The
  * company's board is added to `companies` if it was unknown, so it gets polled from then on.
  *
  * Throws `UnsafeUrlError` (internal address), `UnsupportedJobUrlError` (unknown host, or a board link with no job),

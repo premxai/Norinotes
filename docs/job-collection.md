@@ -13,6 +13,15 @@ there is no per-user web search.
   where supported. No residential proxies, no captcha or Cloudflare challenge solving, no logged-in endpoints, no
   LinkedIn/Indeed/Glassdoor scraping.
 
+## Live and parked job systems
+
+- Live (`SUPPORTED_ATS_TYPES`): Greenhouse, Lever, Ashby, Workday, Workable, Rippling. A connector test pins this set.
+- Parked (`ready: false`, code kept): SmartRecruiters, iCIMS, Oracle Cloud, Recruitee, Teamtailor, Personio, BambooHR,
+  Breezy, Pinpoint. A parked system's boards are never polled (`nextBoards`), seeded (`importSeeds`, and its seed CSV is
+  not downloaded), or added from a pasted link (`addJobByUrl`). To bring one back, set its connector's `ready` to true.
+- SmartRecruiters stays parked whatever we decide about the others: its robots.txt disallows every path for our
+  User-Agent, so it has no registry entries either.
+
 ## Connector contract (`packages/ingest/src/types.ts`)
 
 - `Connector { atsType, ready?, capabilities?, listJobs(token, http?, { etag? }), fetchJob?, parseUrl }`.

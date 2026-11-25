@@ -39,8 +39,8 @@ export type SeedCompany = {
   discoveredVia: SeedSource;
 };
 
-/** The job systems that have a `{system}.csv` in kalil0321/ats-scrapers (the file name is the system name). */
-export const SEED_CSV_SYSTEMS: readonly AtsType[] = ATS_TYPES;
+/** The job systems read from kalil0321/ats-scrapers' `{system}.csv` (the file name is the system name): the live ones, never a parked one. */
+export const SEED_CSV_SYSTEMS: readonly AtsType[] = ATS_TYPES.filter(isSupportedAts);
 
 // ---------------------------------------------------------------------------------------------------------------------
 // CSV

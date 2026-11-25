@@ -134,7 +134,8 @@ function detailText(d: Row): string {
  */
 export const oracle: Connector = {
   atsType: "oracle",
-  ready: true,
+  // Parked: not collected for now (docs/job-collection.md). The code stays; set ready to true to bring it back.
+  ready: false,
   capabilities: { maxConcurrencyPerHost: 4 },
   async listJobs(token: string, http?: HttpOptions): Promise<ListResult> {
     const t = target(token);

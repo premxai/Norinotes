@@ -266,7 +266,7 @@ describe("bamboohr", () => {
     expect(bamboohr.parseUrl("https://321theagency.bamboohr.com/careers")).toEqual({ token: "321theagency", externalId: null });
     expect(bamboohr.parseUrl("https://321theagency.bamboohr.com/jobs/view.php?id=146")).toEqual({ token: "321theagency", externalId: "146" });
     expect(bamboohr.parseUrl("https://www.bamboohr.com/careers")).toBeNull();
-    expect(bamboohr.ready).toBe(true);
+    expect(bamboohr.ready).toBe(false); // parked
   });
 });
 
@@ -527,6 +527,6 @@ describe("icims", () => {
     expect(icims.parseUrl("https://www.icims.com/jobs/1")).toBeNull();
     expect(icims.parseUrl("https://external-92y.icims.com/")).toBeNull();
     expect(icims.capabilities?.maxConcurrencyPerHost).toBe(2);
-    expect(icims.ready).toBe(true);
+    expect(icims.ready).toBe(false); // parked
   });
 });
