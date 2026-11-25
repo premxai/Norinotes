@@ -133,13 +133,25 @@ export type ShortlistEntry = {
 export type AppStatus = "queued" | "preparing" | "prepared" | "applying" | "awaiting_code" | "submitted" | "needs_user" | "ready_to_finish" | "failed";
 export type Question = { id: string; text: string; type: string; options: string[]; required: boolean };
 
+/** The person's turn in a Finish session: the live view takes their clicks and keys (POST /applications/:id/live/input). */
+export type Handoff = { kind: "captcha" | "account"; since: string };
+export type LiveKey = "Enter" | "Tab" | "Backspace" | "Delete" | "Escape" | "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "Home" | "End" | "Space";
+/** One input for the employer's page; click x and y are fractions (0 to 1) of the frame. */
+export type LiveInput =
+  | { kind: "click"; x: number; y: number }
+  | { kind: "type"; text: string }
+  | { kind: "key"; key: LiveKey; shift?: boolean }
+  | { kind: "scroll"; dy: number }
+  | { kind: "done" }
+  | { kind: "cancel" };
 /** An application (`toApplication`). */
 export type Application = {
   id: string;
   jobId: string;
   status: AppStatus;
   pendingQuestions: Question[];
-  receipt: Record<string, unknown> | null;
+  /** `handoff`: Nori is waiting on the person in the live view (Finish), at a captcha or a sign-in. */
+  receipt: (Record<string, unknown> & { handoff?: Handoff | null }) | null;
   error: string | null;
   preparedAt: string | null;
   approvedAt: string | null;
@@ -344,6 +356,10 @@ export const api = {
   cancel: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/cancel`, { json: {} }),
   /** The code an employer emailed the person, typed while the run waits for it (status awaiting_code). 409: not waiting any more. */
   code: (id: string, code: string) => call<{ ok: true }>(`/applications/${encodeURIComponent(id)}/code`, { json: { code } }),
+  /** Starts one Finish session for these (or the oldest 5 with one step left); the ids come back in the order Nori takes them. 409: none to finish. */
+  finish: (ids?: string[]) => call<{ ok: true; applicationIds: string[] }>("/applications/finish", { json: ids ? { ids } : {} }),
+  /** One click, key, typed text or scroll for the employer's page while Nori waits on the person. 409: it isn't waiting. */
+  liveInput: (id: string, input: LiveInput) => call<{ ok: true }>(`/applications/${encodeURIComponent(id)}/live/input`, { json: input }),
   agentStatus: () => call<AgentStatus>("/agent/status"),
   // Part 4b.
   outcomes: (id: string) => call<Outcomes>(`/applications/${encodeURIComponent(id)}/outcomes`),
