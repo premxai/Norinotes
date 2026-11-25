@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createFakeProvider, setProvider } from "@norinote/ai";
 import { eq, lanes } from "@norinote/db";
 import { makeApi, seedJob, seedShortlist, type Api } from "./testkit.js";
@@ -67,6 +67,16 @@ describe("the Nori chat", () => {
     const res = await api.call("POST", "/api/nori/chat", { cookie, body: { message: "hello" } });
     expect(res.status).toBe(200);
     expect(res.json.reply.text).toMatch(/can't think right now/);
+    setProvider(null);
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VITEST", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    try {
+      const off = await api.call("POST", "/api/nori/chat", { cookie, body: { message: "hello" } });
+      expect(off.json.reply.text).toBe("AI is off on this server, so I can't chat right now. Everything else keeps working.");
+    } finally {
+      vi.unstubAllEnvs();
+    }
     expect((await api.call("POST", "/api/nori/chat", { cookie, body: { message: "" } })).status).toBe(400);
   });
 });

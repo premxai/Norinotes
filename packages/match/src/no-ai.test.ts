@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiUnavailableError, createFakeProvider, fakeEmbedding, setAiLogger, setProvider } from "@norinote/ai";
 import { eq, jobEmbeddings, jobSpecs, shortlist } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
@@ -88,6 +88,25 @@ describe("heuristicSpec", () => {
   it("is deterministic and takes remote from the job", () => {
     expect(heuristicSpec({ title: "Senior Backend Engineer", descriptionText: POSTING, location: "Austin, TX", remote: false })).toEqual(spec);
     expect(heuristicSpec({ title: "Engineer", descriptionText: "", location: "Remote - US", remote: true }).location).toEqual({ remote: "remote", countries: ["United States"], cities: [] });
+  });
+});
+
+describe("understandJob without OPENAI_API_KEY outside tests", () => {
+  it("writes the heuristic spec and no embedding, never the fake model's placeholders", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VITEST", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    try {
+      const jobId = await seedJob(t.db, { companyId, title: "Senior Backend Engineer", description: POSTING });
+      const r = await understandJob(t.db, jobId);
+      expect(r).toMatchObject({ heuristic: true, embedded: false, embeddingPending: true });
+      expect(r.spec.roleFamily).toBe("backend engineering");
+      const rows = await t.db.select().from(jobSpecs).where(eq(jobSpecs.jobId, jobId));
+      expect(rows).toEqual([expect.objectContaining({ model: "heuristic", version: HEURISTIC_SPEC_VERSION })]);
+      expect(await t.db.select().from(jobEmbeddings).where(eq(jobEmbeddings.jobId, jobId))).toHaveLength(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

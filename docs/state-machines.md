@@ -23,7 +23,7 @@ Change a machine here first, then in code.
 ## Jobs
 
 - **Freshness:** `open` (`closed_at` null) → `closed` after two complete reads without it, or when the board is gone.
-- **Reading:** none → version 0 (`heuristic`, the rule-based fallback while the AI is down) → version ≥ 1 (AI). The worker's catch-up pass (every 10 min, only while the AI answers) re-reads version-0 jobs and rebuilds their embedding. `GET /api/health/ai` returns 503 when nearly all jobs read in the last hour are version 0.
+- **Reading:** none → version 0 (`heuristic`, the rule-based fallback while the AI is down) → version ≥ 1 (AI). The worker's catch-up pass (every 10 min, only while the AI answers) re-reads version-0 jobs and rebuilds their embedding. `GET /api/health/ai` returns 503 when nearly all jobs read in the last hour are version 0, or at once when no `OPENAI_API_KEY` is set. A missing key counts as the AI being down. The catch-up's first run in each worker process also repairs rows that the old no-key fake model wrote (specs with role family "fake", mostly-zero embeddings): those jobs go back to version 0, and the resumes are marked for re-reading (`apps/worker/src/repair-ai-stub.ts`).
 - **Storage:** the sweep blanks the description and drops specs and embeddings of jobs that aged out.
 
 ## Boards (`companies.status`)

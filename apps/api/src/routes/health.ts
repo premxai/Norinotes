@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { aiConfigured } from "@norinote/ai";
 import { sql } from "@norinote/db";
 import type { AppEnv, Ctx } from "../types.js";
 
@@ -17,15 +18,17 @@ export function healthRoutes(ctx: Ctx): Hono<AppEnv> {
       return c.json({ ok: false }, 503);
     }
   });
-  // For an uptime monitor: is the worker reading jobs with the AI, or only with the rule-based fallback (an expired key,
-  // no credit)? Read from what the worker wrote in the last hour, so it is true across processes. 503 when down.
+  // For an uptime monitor: is the worker reading jobs with the AI, or only with the rule-based fallback (no key, an expired
+  // key, no credit)? Down at once when this process has no OPENAI_API_KEY; otherwise read from what the worker wrote in the
+  // last hour, so it is true across processes. 503 when down.
   r.get("/ai", async (c) => {
+    if (!aiConfigured()) return c.json({ ok: false, configured: false, time: ctx.now().toISOString() }, 503);
     const since = new Date(ctx.now().getTime() - 3_600_000).toISOString();
     const res = (await ctx.db.execute(sql`SELECT count(*)::int AS total, count(*) FILTER (WHERE version = 0)::int AS rule_based
       FROM job_specs WHERE created_at >= ${since}::timestamptz`)) as unknown as { rows?: Array<{ total: number; rule_based: number }> } & Array<{ total: number; rule_based: number }>;
     const row = (res.rows ?? res)[0] ?? { total: 0, rule_based: 0 };
     const down = row.total >= MIN_RECENT_SPECS && row.rule_based / row.total >= RULE_BASED_SHARE_DOWN;
-    return c.json({ ok: !down, recentSpecs: row.total, ruleBased: row.rule_based, time: ctx.now().toISOString() }, down ? 503 : 200);
+    return c.json({ ok: !down, configured: true, recentSpecs: row.total, ruleBased: row.rule_based, time: ctx.now().toISOString() }, down ? 503 : 200);
   });
   return r;
 }
