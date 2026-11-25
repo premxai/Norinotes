@@ -1,0 +1,18 @@
+{
+  "$schema": "https://api.capy.ai/schemas/setup.v1.json",
+  "format_version": 1,
+  "scripts": {
+    "initialize": "npm ci && npx playwright install --with-deps chromium",
+    "refresh": "npm ci"
+  },
+  "timeouts": { "initialize": 1200, "refresh": 600 },
+  "startup": [
+    { "name": "api", "command": "npm run dev", "port": 4000 },
+    { "name": "web", "command": "NEXT_PUBLIC_API_URL=http://localhost:4000 npm run dev --workspace apps/landing", "port": 3400 }
+  ],
+  "commands": [
+    { "name": "gate", "command": "node scripts/gate.mjs --only typecheck,tests,lint", "icon": "task" },
+    { "name": "test", "command": "npm test", "icon": "task" },
+    { "name": "typecheck", "command": "npm run typecheck", "icon": "task" }
+  ]
+}

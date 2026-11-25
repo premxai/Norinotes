@@ -94,8 +94,16 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   (default 182); an unknown `tz` falls back to UTC.
 - GET `/api/applications/:id` returning `{ application, job, resume, events }`; `application` carries `createdAt`
   and `updatedAt`.
+- Every `application` (list, detail, POST) carries `batchId` (string or null) and `sendsOnItsOwn` (boolean): true when it
+  has not started yet (queued, preparing or prepared) and Nori will send it without another click, because it is in a
+  running batch (sent when its spacing slot comes) or the person already approved it (Apply with send). False for one
+  waiting for the person's OK, and for a dry run that came back to prepared. Show Approve only when it is false.
 - POST `/api/applications/:id/approve` (optional `{ answers }`), `/api/applications/:id/answer` (`{ answers }` keyed
-  by pending question id), `/api/applications/:id/retry`.
+  by pending question id), `/api/applications/:id/retry`. Answering every question of a parked application resumes it
+  (`resumed: true`) and starts a fresh set of tries; when it still cannot go on the answers are kept and the reply is 409
+  with the reason (never `ok` without a resume). Approve on a parked application with no question to answer (captcha,
+  unsupported form, a code that never came) is 409 with the reason and changes nothing; Retry is the way back. Retrying a
+  failed application clears its approval: it waits for the person's OK (or its batch's turn) again.
 - GET `/api/applications/flow` (optional `?days=`): the tracker's Sankey. `{ since, total, nodes: [{ id, label, count,
   stage }], links: [{ source, target, value }] }`. Stage 0 `started`; 1 `sent`, `needs_you`, `in_progress`, `cancelled`,
   `failed`; 2 (from sent) `interview`, `replied`, `rejected`, `waiting`, `silent` (no reply after 30 days); 3 (from
@@ -130,7 +138,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
     ("Acme, Inc." and "acme" are the same company).
 - POST `/api/nori/batches` with `{ recommended: true, limit? }` (Apply now): the server picks the Recommended jobs itself
   (new matches at or above the threshold, open, last 72 hours, not applied, not skipped, one per company, best fit
-  first, allowed job systems; `limit` 1-50, default 10). 409 when there are none. Same response as below.
+  first, allowed job systems; `limit` 1-50, default 10). 409 when there are none. Same response as below. It never
+  takes more jobs than today's limit has room for (`dailyLimit` minus applications approved today, UTC); 429 when there
+  is no room. Pressed again within 60 seconds while the batch it started is running (a double click), it starts nothing
+  and returns that batch: 200 `{ batch, added: <its total>, skipped: [], reused: true }`.
 - POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once. At most one job per company,
   never a skipped company; an unsent application of theirs is taken over, a sent one is skipped. 201 `{ batch, added,
   skipped: [{ jobId, reason }] }` (reasons: not_found, not_supported, embedded_form, applied_recently (another job at a company applied to in the last 60
