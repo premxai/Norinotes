@@ -624,9 +624,11 @@ async function flows(browser) {
     const { context, page, calls } = await open(browser, "/applications/a8");
     const text = await page.locator("#dtab-panel").innerText();
     check(W, "didn't go through: the reason and Nothing was sent", text.includes("The page stopped responding while Nori was uploading your resume.") && text.includes("Nothing was sent."), text.slice(0, 300));
-    await page.locator("#dtab-panel").getByRole("button", { name: "Try again" }).click();
+    // Double-clicked: one retry, not a second that would come back 409.
+    await page.locator("#dtab-panel").getByRole("button", { name: "Try again" }).dblclick();
     await wait(400);
-    check(W, "didn't go through: Try again asks for a retry", calls.some((c) => c.key === "POST /applications/a8/retry"), null);
+    const retries = calls.filter((c) => c.key === "POST /applications/a8/retry").length;
+    check(W, "didn't go through: Try again asks for one retry, even double-clicked", retries === 1, retries);
     await context.close();
   }
   // Phones: the list, then the application on its own screen, and back.
@@ -753,7 +755,7 @@ async function flows(browser) {
     const q = new URLSearchParams(asked?.search ?? "");
     check(W, "nori: the threshold and how many are Recommended (GET /jobs at minScore)", c.includes("70 or above") && c.includes("3 Recommended now") && q.get("view") === "best" && q.get("minScore") === "0.7", { search: asked?.search });
     check(W, "nori: the schedule, as the API has it", c.includes("Weekdays at 9:00 am") && c.includes("Next: Thu 5 Nov"), c);
-    check(W, "nori: a running batch shows on the card with Stop", c.includes("Applying now: 4 of 10 sent") && (await card.getByRole("button", { name: "Stop" }).count()) === 1, null);
+    check(W, "nori: a running batch shows on the card with Stop, and what it waits for (its next slot)", c.includes("4 of 10 sent") && /Next one at \d/.test(c) && (await card.getByRole("button", { name: "Stop" }).count()) === 1, c);
     const chips = await page.getByRole("list", { name: "Quick asks" }).locator("button").allInnerTexts();
     check(W, "nori: quick asks under the chat", chips.join(",") === "Apply now,Set a daily cap,Add a role,Pause the schedule", chips);
     const text = await main();
@@ -795,7 +797,7 @@ async function flows(browser) {
     const stopChat = log.getByRole("button", { name: "Stop: Started Apply for me with 3 Recommended jobs" });
     const listed = await stopChat.waitFor({ timeout: 5000 }).then(() => true, () => false);
     await wait(500);
-    check(W, "nori: Apply now from the chat, its Stop, and the card shows the batch", listed && (await card.innerText()).includes("Applying now: 0 of 3 sent"), await card.innerText());
+    check(W, "nori: Apply now from the chat, its Stop, and the card shows the batch", listed && (await card.innerText()).includes("Preparing the next one · 0 of 3 sent"), await card.innerText());
     await stopChat.click();
     await log.getByText("Stopped that batch (3 not sent)").waitFor({ timeout: 5000 }).catch(() => {});
     await wait(500);
@@ -804,10 +806,22 @@ async function flows(browser) {
     await card.getByRole("button", { name: "Apply now" }).click();
     const ask = await card.getByRole("group", { name: /Nori sends up to 3 Recommended jobs in your name/ }).isVisible();
     check(W, "nori: the card's Apply now asks once first", ask && !calls.some((x) => x.key === "POST /nori/batches"), null);
-    await card.getByRole("button", { name: "Yes, apply now" }).click();
+    // A double-click must start one batch, not two (the server would pick the NEXT jobs for the second).
+    await card.getByRole("button", { name: "Yes, apply now" }).dblclick();
     await wait(600);
+    const starts = calls.filter((x) => x.key === "POST /nori/batches").length;
+    check(W, "nori: a double-clicked Yes, apply now starts one batch", starts === 1, starts);
     const body = JSON.parse(calls.find((x) => x.key === "POST /nori/batches")?.body ?? "{}");
     check(W, "nori: Apply now is POST /nori/batches { recommended: true }", body.recommended === true && body.limit === 3 && (await card.innerText()).includes("Started: 3 applications"), body);
+    await context.close();
+  }
+  // A paused batch says why instead of "Applying now" while nothing moves.
+  for (const [waitingFor, want] of [["daily_limit", "Paused until tomorrow: today’s limit is used up · 4 of 10 sent"], ["you", "Waiting on you: an application needs your answers in Applications · 4 of 10 sent"]]) {
+    const { context, page } = await open(browser, "/nori", { batches: [{ ...BATCH(), waitingFor, nextAt: null }] });
+    const card = page.locator("aside", { has: page.locator("#setup-title") });
+    await card.getByText("4 of 10 sent").first().waitFor({ timeout: 8000 }).catch(() => {});
+    const c = await card.innerText();
+    check(W, `nori: a batch waiting for ${waitingFor} says so`, c.includes(want) && !c.includes("Applying now"), c.slice(0, 300));
     await context.close();
   }
   {

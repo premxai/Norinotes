@@ -24,8 +24,12 @@ export const STATUS_LABEL: Record<AppStatus, string> = {
   submitted: "Sent",
   failed: "Didn't go through",
 };
+/** Ready, but part of a batch the worker sends by itself: it isn't waiting for the person. */
+export const sendsByItself = (a: Application) => a.status === "prepared" && a.sendsOnItsOwn === true;
+/** Waiting on the person: questions to answer, or an application that needs their OK to go out. */
+export const waitsOnYou = (a: Application) => a.status === "needs_user" || (a.status === "prepared" && !sendsByItself(a));
 /** The status chip's words; a cancelled application isn't a failure. */
-export const statusLabel = (a: Application) => (isCancelled(a) ? "Cancelled" : STATUS_LABEL[a.status]);
+export const statusLabel = (a: Application) => (isCancelled(a) ? "Cancelled" : sendsByItself(a) ? "Sending soon" : STATUS_LABEL[a.status]);
 const MOVING: AppStatus[] = ["queued", "preparing", "applying", "awaiting_code"];
 /** Nori's event for each status (section 10); needs_user without questions is a wall. */
 const NORI: Record<AppStatus, string> = {
@@ -261,10 +265,17 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
     return () => clearInterval(t);
   }, [status]);
 
+  // A second click while one is in flight is ignored (a ref, so it holds before React re-renders): a double-clicked Try
+  // again or Send it used to send twice and show the second one's 409.
+  const acting = useRef(false);
   async function act(fn: () => Promise<{ ok: boolean; status: number; error?: string; detail?: string }>) {
+    if (acting.current) return;
+    acting.current = true;
     setBusy(true);
     setFailure(null);
-    const r = await fn();
+    const r = await fn().finally(() => {
+      acting.current = false;
+    });
     setBusy(false);
     if (!r.ok) {
       // Over the daily limit the application stays ready; the API's detail says what the limit is (4c spec section 7).
@@ -314,7 +325,14 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         )}
       </WatchNori>
 
-      {a.status === "prepared" && (
+      {sendsByItself(a) && (
+        <div className={`${box} bg-surface-2`}>
+          <p className="mb-1.5 font-semibold text-ink">Sending soon</p>
+          <p className="text-ink-2">It&rsquo;s part of your Apply now batch: Nori sends it by itself when its turn comes, spaced out from the others. Stop the batch on the Nori page to keep it from going out.</p>
+        </div>
+      )}
+
+      {a.status === "prepared" && !sendsByItself(a) && (
         <>
           <div className={`${box} bg-surface-2`}>
             <p className="mb-1.5 font-semibold text-ink">Ready to send</p>
@@ -335,7 +353,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
               ))}
             </div>
           )}
-          <button type="button" onClick={() => void act(() => api.approve(a.id))} aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11 self-start")}>
+          <button type="button" onClick={() => void act(() => api.approve(a.id))} disabled={busy} aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11 self-start")}>
             {busy ? "Sending…" : "Send it"}
           </button>
         </>
@@ -380,7 +398,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
           <p className="mb-2">
             {a.error ?? "Something went wrong."} {a.submittedAt ? "" : "Nothing was sent."}
           </p>
-          <button type="button" onClick={() => void act(() => api.retry(a.id))} aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11")}>
+          <button type="button" onClick={() => void act(() => api.retry(a.id))} disabled={busy} aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11")}>
             {busy ? "Trying…" : "Try again"}
           </button>
         </div>

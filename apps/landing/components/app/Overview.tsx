@@ -8,7 +8,7 @@ import { FormError } from "@/components/auth/fields";
 import { api, type Application, type AppStatus, type JobListItem } from "@/lib/api";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
-import { statusLabel } from "./LivePanel";
+import { statusLabel, waitsOnYou } from "./LivePanel";
 import { JobCard } from "./v2/JobCard";
 import { StatusChip, type ChipTone } from "./v2/StatusChip";
 import { Scene } from "@/components/Scene";
@@ -67,7 +67,7 @@ function Recommended() {
 
   const byJob = new Map<string, Application>();
   for (const r of apps.data ?? []) if (!byJob.has(r.application.jobId)) byJob.set(r.application.jobId, r.application);
-  const anyWaiting = (apps.data ?? []).some((r) => WAITING.includes(r.application.status));
+  const anyWaiting = (apps.data ?? []).some((r) => WAITING.includes(r.application.status) && waitsOnYou(r.application));
   useEffect(() => setNeedsYou(anyWaiting), [anyWaiting, setNeedsYou]);
 
   // Best first as the API sends them; anything already sent steps aside.

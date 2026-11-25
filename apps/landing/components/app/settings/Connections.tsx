@@ -33,6 +33,19 @@ function Gmail({ initial }: { initial: GmailState | string }) {
   const [asking, setAsking] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
 
+  // Coming back from Google (Back, or the page restored from the back-forward cache) finds this page as it was left,
+  // busy on "Opening Google…": free the button and read the connection again.
+  useEffect(() => {
+    const back = () => {
+      setBusy(false);
+      void api.gmail().then((r) => {
+        if (r.ok) setG(r.data);
+      });
+    };
+    addEventListener("pageshow", back);
+    return () => removeEventListener("pageshow", back);
+  }, []);
+
   async function connect() {
     if (busy) return;
     setBusy(true);

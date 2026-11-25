@@ -43,7 +43,8 @@ export function stageOf(a: Application): Stage {
     case "preparing":
       return { label: "Optimizing resume", tone: "working", busy: true, tab: "in_progress" };
     case "prepared":
-      return a.approvedAt ? { label: "Queued", tone: "waiting", tab: "in_progress" } : { label: "Ready for your OK", tone: "needs", tab: "in_progress" };
+      // A batch application the worker sends by itself isn't waiting for anyone's OK.
+      return a.approvedAt ? { label: "Queued", tone: "waiting", tab: "in_progress" } : a.sendsOnItsOwn ? { label: "Sending soon", tone: "waiting", tab: "in_progress" } : { label: "Ready for your OK", tone: "needs", tab: "in_progress" };
     case "applying":
     case "awaiting_code": // An emailed code is part of applying (the live view asks for it), not Needs help.
       return { label: "Applying", tone: "working", busy: true, tab: "in_progress" };

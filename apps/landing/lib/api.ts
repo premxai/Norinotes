@@ -138,6 +138,10 @@ export type Application = {
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** The Apply now batch it belongs to, if any (backend audit fix; absent until that backend is deployed). */
+  batchId?: string | null;
+  /** True when the worker sends it by itself once its spacing slot comes up: it doesn't wait for the person's OK. */
+  sendsOnItsOwn?: boolean;
 };
 
 export type RunEvent = { id: string; ts: string; level: string; step: string; message: string };

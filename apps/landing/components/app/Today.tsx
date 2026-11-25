@@ -10,7 +10,7 @@ import { noriReact, takeParam } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
 import { CompanyLogo } from "./CompanyLogo";
-import { statusLabel } from "./LivePanel";
+import { statusLabel, waitsOnYou } from "./LivePanel";
 
 /* /today (4a spec section 8): the greeting, the day line, what needs you, and today's job cards. */
 
@@ -145,7 +145,7 @@ export function Today() {
   const entries = (list.data ?? []).filter((e) => !hidden.includes(e.jobId));
   const byJob = new Map<string, Application>();
   for (const row of apps.data ?? []) if (!byJob.has(row.application.jobId)) byJob.set(row.application.jobId, row.application);
-  const waiting = (apps.data ?? []).filter((r) => WAITING.includes(r.application.status)).map((r) => r.application.id);
+  const waiting = (apps.data ?? []).filter((r) => WAITING.includes(r.application.status) && waitsOnYou(r.application)).map((r) => r.application.id);
   // Highest fit first; anything already sent sinks to the bottom with its chip.
   const cards = [...entries].sort((a, b) => Number(byJob.get(a.jobId)?.status === "submitted") - Number(byJob.get(b.jobId)?.status === "submitted") || b.fit - a.fit);
   const fresh = cards.filter((e) => !byJob.has(e.jobId));
@@ -212,10 +212,17 @@ export function Today() {
       jobId,
       window.setTimeout(() => {
         dismissTimers.current.delete(jobId);
-        void api.dismiss(jobId);
+        void send(jobId);
         setUndo((u) => (u === jobId ? null : u));
       }, UNDO_MS),
     );
+  }
+  // A dismissal the API refused brings the card back and says so.
+  async function send(jobId: string) {
+    const r = await api.dismiss(jobId);
+    if (r.ok) return;
+    setHidden((h) => h.filter((x) => x !== jobId));
+    setFailure(r.error);
   }
   function undoDismiss() {
     if (!undo) return;
@@ -224,14 +231,28 @@ export function Today() {
     setHidden((h) => h.filter((x) => x !== undo));
     setUndo(null);
   }
-  // Leaving the page doesn't lose a dismissal: whatever is still waiting is sent.
+  // Leaving the page doesn't lose a dismissal: whatever is still waiting is sent, on going to another page, or when the
+  // tab is hidden or closed (an unmount never comes then).
   useEffect(() => {
     const timers = dismissTimers.current;
-    return () => {
+    const flush = () => {
       for (const [jobId, t] of timers) {
         clearTimeout(t);
+        timers.delete(jobId);
         void api.dismiss(jobId);
       }
+    };
+    const hidden = () => {
+      if (document.visibilityState !== "hidden" || !timers.size) return;
+      flush();
+      setUndo(null);
+    };
+    addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", hidden);
+      flush();
     };
   }, []);
 

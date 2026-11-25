@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/Button";
 import { Field } from "@/components/auth/fields";
 import { ChoiceGroup, Label, SelectField } from "@/components/onboarding/controls";
@@ -452,13 +452,26 @@ export function Telegram({ initial }: { initial: TelegramState | string }) {
     return () => clearInterval(t);
   }, [link]);
 
+  // Once per click (a double-click made two link codes), and the tab is opened by the click itself: Safari blocks a
+  // window.open that comes after an await. The blank tab is pointed at the bot once the link is back.
+  const linking = useRef(false);
   async function connect() {
+    if (linking.current) return;
+    linking.current = true;
     setMsg(null);
     setExpired(false);
-    const r = await api.linkTelegram(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    if (!r.ok) return setMsg({ text: r.error, tone: "error" });
+    const tab = window.open("", "_blank");
+    if (tab) tab.opener = null;
+    const r = await api.linkTelegram(Intl.DateTimeFormat().resolvedOptions().timeZone).finally(() => {
+      linking.current = false;
+    });
+    if (!r.ok) {
+      tab?.close();
+      return setMsg({ text: r.error, tone: "error" });
+    }
     setLink({ url: r.data.link, until: Date.now() + WAIT_MS });
-    window.open(r.data.link, "_blank", "noopener");
+    if (tab) tab.location.href = r.data.link;
+    // Popups blocked: the page shows the link to open by hand (the waiting state).
   }
   async function save() {
     if (!v || busy) return;

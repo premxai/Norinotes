@@ -90,6 +90,8 @@ const runDate = (d: string) =>
 
 type Setup = {
   roles: string[] | null;
+  /** /lanes failed and nothing has loaded yet: the card says so, with Try again, instead of "Loading…". */
+  rolesFailed: (() => void) | null;
   cap: number | null;
   sentToday: number | null;
   threshold: number | null;
@@ -147,11 +149,18 @@ function ApplyNow({
       ? Math.max(1, Math.min(setup.recommended.count, setup.cap, MAX_BATCH))
       : undefined;
 
+  // A real guard (a ref, set before React re-renders): a double-clicked "Yes, apply now" used to start a second batch,
+  // and the server picks the NEXT jobs for it, so twice as many applications went out.
+  const acting = useRef(false);
   async function start() {
+    if (acting.current) return;
+    acting.current = true;
     setBusy(true);
     setFailure(null);
     setSaid(null);
-    const r = await api.applyRecommended(upTo);
+    const r = await api.applyRecommended(upTo).finally(() => {
+      acting.current = false;
+    });
     setBusy(false);
     setAsking(false);
     if (r.ok)
@@ -168,9 +177,13 @@ function ApplyNow({
     onChanged();
   }
   async function stop(id: string) {
+    if (acting.current) return;
+    acting.current = true;
     setBusy(true);
     setFailure(null);
-    const r = await api.stopBatch(id);
+    const r = await api.stopBatch(id).finally(() => {
+      acting.current = false;
+    });
     setBusy(false);
     if (!r.ok) return setFailure(r.error);
     setSaid(
@@ -184,7 +197,7 @@ function ApplyNow({
       {run ? (
         <>
           <p role="status" className="text-body font-semibold text-ink">
-            Applying now: {run.counts.sent} of {run.counts.total} sent
+            {runLine(run)}
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <Link href="/applications" className={`${link} text-small`}>
@@ -193,6 +206,7 @@ function ApplyNow({
             <button
               type="button"
               onClick={() => void stop(run.id)}
+              disabled={busy}
               aria-disabled={busy || undefined}
               className={quiet}
             >
@@ -215,6 +229,7 @@ function ApplyNow({
             <button
               type="button"
               onClick={() => void start()}
+              disabled={busy}
               aria-disabled={busy || undefined}
               className={buttonClass("primary", "min-h-11")}
             >
@@ -326,7 +341,14 @@ function SetupCard({
             </>
           }
         >
-          {roles === null ? (
+          {roles === null && setup.rolesFailed ? (
+            <p className="text-small text-ink-2">
+              Couldn&rsquo;t load your roles.{" "}
+              <button type="button" onClick={setup.rolesFailed} className={`${link} text-small`}>
+                Try again
+              </button>
+            </p>
+          ) : roles === null ? (
             <p className="text-small text-ink-2">Loading…</p>
           ) : roles.length === 0 ? (
             <p className="text-small text-ink-2">
@@ -522,12 +544,32 @@ function Bubble({
   );
 }
 
+/** What a running batch is doing, from its `waitingFor`: a batch can be paused (the daily limit, or a question for the
+ * person) while nothing moves, so "Applying now" alone would mislead. */
+function runLine(run: Batch) {
+  const sent = `${run.counts.sent} of ${run.counts.total} sent`;
+  const at = run.nextAt ? new Date(run.nextAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
+  switch (run.waitingFor) {
+    case "daily_limit":
+      return `Paused until tomorrow: today’s limit is used up · ${sent}`;
+    case "you":
+      return `Waiting on you: ${run.counts.needsYou === 1 ? "an application needs" : `${run.counts.needsYou || "some applications"} need`} your answers in Applications · ${sent}`;
+    case "spacing":
+      return `${at ? `Next one at ${at}` : "Next one shortly"} · ${sent}`;
+    case "preparing":
+      return `Preparing the next one · ${sent}`;
+    default:
+      return `Applying now: ${sent}`;
+  }
+}
+
 const usedUp = (m: NoriMessage) =>
   m.role === "nori" && /AI budget/i.test(m.text);
 
 export function NoriV2() {
   const settings = usePolling("nori-settings", api.noriSettings, 600_000);
-  const lanes = usePolling("nori-lanes", api.lanes, 600_000);
+  // Every 10 minutes once loaded; until then every 15 s, so one failed request doesn't leave the roles blank for 10 minutes.
+  const lanes = usePolling("nori-lanes", api.lanes, (d) => (d ? 600_000 : 15_000));
   const schedule = usePolling("nori-schedule", api.noriSchedule, 600_000);
   const status = usePolling("nori-status", api.agentStatus, 60_000);
   const batches = usePolling("nori-batches", api.batches, (d) =>
@@ -655,6 +697,7 @@ export function NoriV2() {
     roles: lanes.data
       ? lanes.data.filter((l) => l.enabled).map((l) => l.name)
       : null,
+    rolesFailed: !lanes.data && lanes.error && lanes.status !== 401 ? () => void lanes.refresh() : null,
     cap: settings.data?.settings.dailyLimit ?? null,
     sentToday: status.data?.usedToday ?? null,
     threshold: minFit === undefined ? null : Math.round(minFit * 100),

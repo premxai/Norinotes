@@ -292,7 +292,14 @@ async function open(browser, path, o = {}, ctx = {}) {
     window.__opened = [];
     window.__log = [];
     for (const ev of ["norinote:react", "norinote:seats", "norinote:seated"]) addEventListener(ev, (e) => window.__log.push(`${ev.slice(9)} ${e.detail ? JSON.stringify({ event: e.detail.event, row: e.detail.row }) : ""}`));
-    window.open = (u) => (window.__opened.push(String(u)), null);
+    // A fake tab: Telegram's connect opens it blank on the click (Safari blocks a later window.open), then points it at
+    // the bot, so record the address it's opened with (when there is one) and every address it's sent to.
+    window.open = (u) => {
+      if (u) window.__opened.push(String(u));
+      const tab = { opener: null, closed: false, close: () => (tab.closed = true), location: {} };
+      Object.defineProperty(tab.location, "href", { set: (v) => window.__opened.push(String(v)), get: () => "" });
+      return tab;
+    };
     setInterval(() => {
       const sprite = [...document.querySelectorAll(".nori *")].find((el) => el.style?.backgroundImage.includes("rows/"));
       const row = sprite?.style.backgroundImage.match(/rows\/([\w-]+)\.webp/)?.[1];
