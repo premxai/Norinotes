@@ -42,7 +42,8 @@ const flow: FlowOptions = {
   firstField: "#first_name, form#application-form input, #application_form input, iframe#grnhse_iframe",
 };
 
-export const greenhouseDriver: Driver = {
+/** Greenhouse's own hosted form. The exported greenhouseDriver (drivers/index.ts) adds company careers sites on top. */
+export const greenhouseHostedDriver: Driver = {
   name: "greenhouse",
   detect(url) {
     const u = parseHttpUrl(url);

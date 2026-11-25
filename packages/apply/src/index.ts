@@ -25,6 +25,7 @@ export type { DiscoveredField } from "./form.js";
 export { CAPTCHA_REASON, EMAIL_CODE_REASON, ACCOUNT_REASON, BLOCKED_REASON } from "./flow.js";
 export { prepareForm, loadFormSchema, readFormFromPage } from "./prepare.js";
 export type { PrepareFormDeps, PrepareFormResult } from "./prepare.js";
+export { followToForm, classifyPage, greenhouseIframe, isGreenhouseEmbed, type CareerSite, type CareerSiteKind } from "./careers.js";
 export { parseJobUrl, canonicalJobUrl, greenhouseSchemaFromJson, fetchGreenhouseSchema, greenhouseFormIsOffsite, OFFSITE_FORM_REASON, schemaFieldsFromDom, formFingerprint } from "./schema.js";
 export type { AtsName, FormSchema, SchemaField, ParsedJobUrl, GreenhouseJobJson } from "./schema.js";
 export { loadRecipe, saveRecipe, touchRecipe, recordStrategies, labelKey } from "./recipes.js";

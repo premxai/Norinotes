@@ -26,7 +26,7 @@ export {
   RateLimitedError, HostBackoff, feedHost, parseRetryAfter, backoffMs, fetchWithRetry, getJson, getJsonConditional,
 } from "./http.js";
 
-export { MAX_CRAWL_DELAY_MS, parseRobots, robotsAllows, RobotsDisallowedError, RobotsUnavailableError } from "./robots.js";
+export { MAX_CRAWL_DELAY_MS, NO_ROBOTS, parseRobots, robotsAllows, RobotsDisallowedError, RobotsUnavailableError } from "./robots.js";
 export type { Robots } from "./robots.js";
 
 export { htmlToText, decodeEntities, unescapeHtml } from "./html.js";

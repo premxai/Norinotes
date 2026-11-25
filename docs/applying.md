@@ -73,6 +73,15 @@ read without a key is read before the click.
 - **Open**: straight to the form URL (`job-boards.greenhouse.io/{token}/jobs/{id}` for both Greenhouse hosts, never
   `/embed/`; Lever `/apply`; Ashby `/application`), wait for the first field (never network idle), then for React
   hydration on server-rendered boards (Greenhouse), decline a cookie banner, open the form if it hides behind "Apply".
+- **Company careers sites** (careers.ts, drivers/career-site.ts): a Greenhouse posting whose link is the company's own
+  page (`?gh_jid=`) or whose hosted page redirects there is followed from the posting through redirects and the page's
+  Apply link or button (up to 3 hops, robots.txt checked for every page opened). What it reaches decides the driver:
+  Lever, Ashby or a Greenhouse page are filled by their drivers (submit goes to the same driver); Workday and the other
+  stubs park as usual; a bot check (Cloudflare "Performing security verification") is a captcha for the person; Access
+  Denied or a 403 is blocked; a gone posting fails. A Greenhouse form embedded in an iframe on the company page is
+  filled and sent in place, inside that page (Prem, 2026-11-26; `APPLY_EMBEDDED_GREENHOUSE=false` turns it off). The
+  submit click is stored first, as everywhere. `/embed/` addresses are never opened. Other job systems, forms of the company's own and
+  pages without a form are left to the person (the future AI filler plugs in at `AiBrowserFallback`).
 - **Fill** (fill.ts), in this order: files first (Lever and Ashby re-parse the resume and autofill over typed text),
   every text field in one round trip (native setter + input/change/blur), then choices one at a time:
   - react-select comboboxes: click, type a filter, wait for the visible `role=listbox`, click the option by its text,

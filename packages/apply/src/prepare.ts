@@ -13,7 +13,7 @@ import { discoverFields, PREFERRED_FORM_SELECTORS } from "./form.js";
 import type { BrowserPool } from "./pool.js";
 import type { DraftedAnswer } from "./receipt.js";
 import { labelKey, loadRecipe, saveRecipe, touchRecipe, type RecipeField } from "./recipes.js";
-import { OFFSITE_FORM_REASON, fetchGreenhouseSchema, formFingerprint, greenhouseFormIsOffsite, parseJobUrl, schemaFieldsFromDom, type FormSchema } from "./schema.js";
+import { fetchGreenhouseSchema, formFingerprint, greenhouseFormIsOffsite, parseJobUrl, schemaFieldsFromDom, type FormSchema } from "./schema.js";
 import { loadApplication, logEvent, saveAnswers } from "./store.js";
 
 export type PrepareFormDeps = {
@@ -79,12 +79,12 @@ export async function prepareForm(db: Db, applicationId: string, deps: PrepareFo
   }
   if (!driver) return { outcome: "needs_user", reason: "This form type is not supported yet: open the posting and apply yourself.", pending: [], timings };
 
-  // A Greenhouse job whose hosted page sends people to the company's own site: the form there is an embed. Park it now
-  // instead of failing at the click.
+  // A Greenhouse job whose hosted page sends people to the company's own site: which form is there (Lever, Ashby, an
+  // embedded Greenhouse form, a bot check) is only known once the browser follows the posting, so it is read at the click.
   const gh = parseJobUrl(job.applyUrl);
   if (gh?.ats === "greenhouse" && gh.token && gh.jobId && (await greenhouseFormIsOffsite(gh.token, gh.jobId, deps.fetch ? { fetch: deps.fetch } : {})) === true) {
-    await logEvent(db, applicationId, "prepare_form", "The form is on the company's own site (embedded); Nori leaves this one to you", { level: "warn" });
-    return { outcome: "needs_user", reason: OFFSITE_FORM_REASON, pending: [], timings };
+    await logEvent(db, applicationId, "prepare_form", "The form is on the company's own careers site; Nori follows the posting there at the click", { level: "warn" });
+    return { outcome: "prepared", pending: [], timings };
   }
 
   let schema: FormSchema | null = null;
