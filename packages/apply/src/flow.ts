@@ -30,8 +30,14 @@ const NAV_TIMEOUT = 30_000;
 const FIRST_FIELD_TIMEOUT = 15_000;
 const PAGE_CAP = 5;
 const CONFIRM_RE = /thank you|thanks for applying|application (has been |was )?(submitted|received)|we('ve| have) received your application/i;
-/** A page that turns automation away. Norinote hands these to the person and never tries to get around them. */
-const BLOCKED_RE = /access is temporarily restricted|unusual activity from your (device|network)|automated \(bot\) activity|verify you are (a )?human|are you a robot|checking if the site connection is secure/i;
+/**
+ * A bot check that waits for a human (Cloudflare Turnstile's "Performing security verification", "Just a moment..."). The
+ * person can pass it in Nori's live view; Norinote never solves or gets around it.
+ */
+export const BOT_CHECK_RE = /performing security verification|verify(ing)? you are (a )?human|checking (if the site connection is secure|your browser)|just a moment\.\.\.|are you a robot|press (&|and) hold|complete the security check/i;
+/** A page that turns automation away outright (Akamai's Access Denied, a WAF block). Norinote hands these to the person. */
+export const BLOCKED_RE = /access denied|you don't have permission to access|access to this page has been denied|request (was )?blocked|sorry, you have been blocked|access is temporarily restricted|unusual activity from your (device|network)|automated \(bot\) activity/i;
+const BOT_CHECK_WAIT_MS = 8000;
 const FAIL_TEXT_RE = /(there (was|were) (an )?(error|problem)s?|please (correct|fix|complete) the (errors?|required|highlighted)|something went wrong|could not (be )?submit)/i;
 
 export const CAPTCHA_REASON = "The site showed a captcha. Norinote never solves or bypasses captchas: open the posting and finish the application yourself.";
@@ -53,12 +59,36 @@ async function bodyText(page: Page): Promise<string> {
 
 const FIELD_SEL = "input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select";
 
-async function goto(page: Page, ctx: DriverContext, url: string, firstField: string): Promise<void> {
+async function goto(page: Page, ctx: DriverContext, url: string, firstField: string): Promise<number | undefined> {
   ctx.onEvent("navigate", `Opening ${url}`, { url });
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT });
+  const res = await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT });
   // The first field is what matters, not every analytics request settling.
   await page.locator(firstField).first().waitFor({ state: "attached", timeout: FIRST_FIELD_TIMEOUT }).catch(() => {});
   await waitForHydration(page);
+  return res?.status();
+}
+
+/**
+ * A bot check or a refusal in place of the page. A check that clears on its own (Cloudflare often passes a browser after
+ * a few seconds) gets that long, untouched; one still showing is a captcha for the person. A refusal (403, Access Denied)
+ * is blocked: no one can pass it in the live view.
+ */
+async function botWall(page: Page, status: number | undefined): Promise<"captcha" | "blocked" | null> {
+  const showing = async () => {
+    const text = await bodyText(page);
+    const title = await page.title().catch(() => "");
+    return BOT_CHECK_RE.test(title) || (text.length < 1500 && BOT_CHECK_RE.test(text));
+  };
+  if (await showing()) {
+    const until = Date.now() + BOT_CHECK_WAIT_MS;
+    while (Date.now() < until && (await showing())) await page.waitForTimeout(1000);
+    if (await showing()) return "captcha";
+    return null;
+  }
+  const text = await bodyText(page);
+  const title = await page.title().catch(() => "");
+  if (status === 401 || status === 403 || status === 429 || BLOCKED_RE.test(title) || (text.length < 2000 && BLOCKED_RE.test(text))) return "blocked";
+  return null;
 }
 
 /**
@@ -137,7 +167,16 @@ export async function fillFlow(page: Page, ctx: DriverContext, opts: FlowOptions
   let fields: DiscoveredField[] = [];
   for (const [i, target] of targets.entries()) {
     const t = Date.now();
-    await goto(page, ctx, target, firstField);
+    const status = await goto(page, ctx, target, firstField);
+    const wall = await botWall(page, status);
+    if (wall === "captcha") {
+      ctx.onEvent("captcha", "A bot check is showing instead of the page; leaving it for the user", { status }, "warn");
+      return needsUser("captcha", CAPTCHA_REASON);
+    }
+    if (wall === "blocked") {
+      ctx.onEvent("needs_user", "The site turned automated access away; Norinote does not try to get around that", { status }, "warn");
+      return needsUser("blocked", BLOCKED_REASON);
+    }
     if (opts.beforeDiscover) await opts.beforeDiscover(page, ctx);
     await declineCookies(page);
     await revealForm(page, ctx, preferred);

@@ -8,10 +8,12 @@ Change a machine here first, then in code.
 `queued → preparing → prepared → applying → (awaiting_code →) submitted`, with `needs_user`, `ready_to_finish` and `failed` as exits.
 
 - **One step left (`ready_to_finish`):** `applying → ready_to_finish` when the form is filled (every question answered) and
-  a visible captcha or a sign-in page is all that is left, or when the submit click met a captcha challenge (receipt
+  a visible captcha or a sign-in page is all that is left (a bot-check page shown instead of the form, such as Cloudflare's
+  "Performing security verification", counts as a captcha), or when the submit click met a captcha challenge (receipt
   `captchaHeld`: the challenge held the form, so it was not sent). `ready_to_finish → applying` only for the person
   (`by: "user"`, approved), with a fresh set of attempts: Finish in the live view, or Retry. `ready_to_finish → failed` on
-  Cancel. The worker never moves it on its own; Telegram groups these into "N applications need one tap".
+  Cancel. The worker never moves it on its own; Telegram groups these into "N applications need one tap". A site that
+  refuses the browser outright (Access Denied, 403) is `needs_user` with kind `blocked`, not `failed` and not one step left.
 
 - **One table of allowed moves:** `TRANSITIONS` in `packages/apply/src/state.ts`. Every write goes through `transitionApplication` (`packages/apply/src/store.ts`), guarded on the status it read.
 - **Hidden state that changes behaviour:**

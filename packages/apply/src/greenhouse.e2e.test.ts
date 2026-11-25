@@ -24,6 +24,11 @@ const CAPTCHA_PAGE = `<html><body><form id="application_form">
   <label for="email">Email</label><input id="email" type="email" required>
   <iframe src="/recaptcha/api2/anchor?size=normal" width="304" height="78"></iframe>
   <button type="button">Submit Application</button></form></body></html>`;
+/** Cloudflare's interstitial in place of the careers page, and Akamai's refusal. */
+const BOT_CHECK_PAGE = `<html><head><title>Just a moment...</title></head><body><h1>www.example.com</h1>
+  <p>Performing security verification</p><p>This website uses a security service to protect against malicious bots.</p></body></html>`;
+const ACCESS_DENIED_PAGE = `<html><head><title>Access Denied</title></head><body><h1>Access Denied</h1>
+  <p>You don't have permission to access "http://www.example.com/careers" on this server.</p><p>Reference #18.1234</p></body></html>`;
 
 describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
   let tmp: string;
@@ -39,6 +44,8 @@ describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
     server = await startFixtureServer({
       "/captcha": CAPTCHA_PAGE,
       "/recaptcha/api2/anchor": "<html><body>I am not a robot</body></html>",
+      "/bot-check": BOT_CHECK_PAGE,
+      "/denied": ACCESS_DENIED_PAGE,
     });
     pool = createBrowserPool({ size: 2, artifactsDir: path.join(tmp, "artifacts"), timeoutMs: 80_000 });
     t = await createTestDb();
@@ -187,6 +194,17 @@ describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
     expect(fill.needsUser?.kind).toBe("captcha");
     expect(fill.needsUser?.reason).toMatch(/never solves or bypasses captchas/);
     expect(events.some((e) => e.step === "captcha")).toBe(true);
+  }, TIMEOUT);
+
+  it("leaves a bot-check interstitial to the person as a captcha, and a refusal as blocked", async () => {
+    const check = ctxFor({ applyUrl: `${server.origin}/bot-check`, answers: {} });
+    const checked = await withPage((page) => greenhouseDriver.fill(page, check.ctx));
+    expect(checked).toMatchObject({ status: "needs_user", needsUser: { kind: "captcha" } });
+    expect(check.events.some((e) => e.step === "captcha")).toBe(true);
+
+    const denied = ctxFor({ applyUrl: `${server.origin}/denied`, answers: {} });
+    const refused = await withPage((page) => greenhouseDriver.fill(page, denied.ctx));
+    expect(refused).toMatchObject({ status: "needs_user", needsUser: { kind: "blocked" } });
   }, TIMEOUT);
 
   it("submits only with dryRun false AND ALLOW_REAL_SUBMIT=true (against the local fixture)", async () => {
