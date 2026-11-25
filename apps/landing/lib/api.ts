@@ -245,6 +245,12 @@ export type FlowNode = { id: string; label: string; count: number; stage: 0 | 1 
 export type Flow = { since: string | null; total: number; nodes: FlowNode[]; links: { source: string; target: string; value: number }[] };
 
 /** "Apply for me" (api-contract.md, Nori page): settings, batches the person approves at once, and what needs them. */
+/** POST /api/companies: the board Nori found (or already had). `reading` is false while its job system is switched off. */
+export type AddedCompany = {
+  status: "added" | "exists";
+  company: { id: string; name: string; system: string; systemName: string; reading: boolean };
+  openJobs?: number | null;
+};
 export type NoriSettings = { spacingMinutes: number; minFit: number; skipCompanies: string[]; dailyLimit: number };
 export type BatchCounts = { total: number; sent: number; working: number; preparing: number; ready: number; needsYou: number; cancelled: number; failed: number };
 export type Batch = { id: string; status: "running" | "stopped" | "done"; createdAt: string; finishedAt: string | null; lastStartedAt: string | null; counts: BatchCounts; waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | null; nextAt: string | null };
@@ -388,6 +394,8 @@ export const api = {
   removeAnswer: (id: string) => call<{ ok: true }>(`/profile/answers/${encodeURIComponent(id)}`, { method: "DELETE" }),
   telegram: () => call<TelegramState>("/channels/telegram"),
   noriSettings: () => call<{ settings: NoriSettings }>("/nori/settings"),
+  /** Ask Nori to find a company's public job board (by name or careers link) and add it for everyone. 404: none found. */
+  addCompany: (query: string) => call<AddedCompany>("/companies", { json: { query } }),
   saveNoriSettings: (patch: Partial<NoriSettings>) => call<{ settings: NoriSettings }>("/nori/settings", { method: "PUT", json: patch }),
   batches: () => call<{ batches: Batch[] }>("/nori/batches"),
   batch: (id: string) => call<{ batch: Batch; applications: BatchApplication[] }>(`/nori/batches/${encodeURIComponent(id)}`),

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { buttonClass } from "@/components/Button";
 import { Field } from "@/components/auth/fields";
 import { ChipsInput } from "@/components/onboarding/controls";
@@ -50,6 +50,50 @@ function unionPlaces(lanes: Lane[], fallback: string[]) {
 }
 
 type Loaded = { lanes: Lane[]; prefs: Profile["preferences"] };
+
+/** "Add a company": Nori looks for the company's public job board and adds it to the list every search reads. */
+function AddCompany() {
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    if (busy || query.trim().length < 2) return;
+    setBusy(true);
+    setMsg(null);
+    const r = await api.addCompany(query.trim());
+    setBusy(false);
+    if (!r.ok) return setMsg({ text: r.error, tone: "error" });
+    const { name, systemName, reading } = r.data.company;
+    const when = reading ? "Everyone's search reads its jobs now." : `Nori starts reading its jobs once ${systemName} is switched on.`;
+    setQuery("");
+    setMsg({
+      tone: "ok",
+      text: r.data.status === "added" ? `Added ${name} (${systemName}). ${when}` : `${name} is already on Nori's list (${systemName}).${reading ? "" : ` ${when}`}`,
+    });
+  }
+
+  return (
+    <section aria-labelledby="add-company-h" className={CARD}>
+      <div>
+        <h2 id="add-company-h" className={H2}>
+          Add a company
+        </h2>
+        <p className={`${HINT} mt-1`}>A company you want jobs from. Nori finds its public job board and adds it for everyone.</p>
+      </div>
+      <form onSubmit={(e) => void add(e)} className="flex flex-col gap-3 tablet:flex-row tablet:items-end">
+        <div className="flex-1">
+          <Field id="add-company" label="Company name or careers page" placeholder="Acme, or acme.com/careers" value={query} maxLength={2000} onChange={(e) => (setQuery(e.target.value), setMsg(null))} />
+        </div>
+        <button type="submit" aria-disabled={busy || undefined} className={buttonClass("outline", "min-h-11")}>
+          {busy ? "Looking…" : "Add"}
+        </button>
+      </form>
+      {msg && <Status tone={msg.tone}>{msg.text}</Status>}
+    </section>
+  );
+}
 
 export function JobSearch() {
   const [data, setData] = useState<Loaded | null>(null);
@@ -166,6 +210,8 @@ export function JobSearch() {
         {dirty && !msg && <span className={HINT}>Unsaved changes</span>}
         {msg && <Status tone={msg.tone}>{msg.text}</Status>}
       </div>
+
+      <AddCompany />
     </>
   );
 }

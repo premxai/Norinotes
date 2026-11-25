@@ -649,6 +649,9 @@ it searches for, what it puts on forms, how it reaches you, and the account.
   (50 to 90%), and an on/off switch. **Add a lane** (up to 20), **Remove**. **Save** sends the whole list: "Saved. Nori
   looks again with these."
 - **Everywhere:** the lowest salary to consider, and companies to skip, as chips.
+- **Add a company** (on Settings → Job search, below Save): a company name or careers page and **Add**. Nori finds the
+  company's public job board and adds it for everyone (`POST /api/companies`): "Added Acme (Greenhouse). Everyone's
+  search reads its jobs now.", "Acme is already on Nori's list (Greenhouse).", or the API's words when it finds none.
 
 #### Nori (`/you/nori`)
 

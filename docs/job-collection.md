@@ -88,6 +88,29 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
 - Workday list rows carry no text; `understand.job` fetches the posting (`fillJobDescription`) when the job fits a lane.
 - Seeds: `npx tsx scripts/import-seeds.mts [--dry-run] [--only workday,oracle] [--include-empty] [--dir folder]`.
 
+## Companies people ask for (`discoverCompany`, POST `/api/companies`)
+
+A person names a company, by name or by link, and Nori adds its public job board to `companies` for everyone
+(`packages/ingest/src/discover.ts`).
+
+- Systems: Greenhouse, Ashby, Lever, Workable, Rippling and Workday (`DISCOVERY_SYSTEMS`, minus any parked connector).
+- A board link is used as it is. Any other link is read as the company's careers page: one GET per hop (SSRF guard,
+  robots.txt obeyed, 1 MB at most) and the board links in it (hrefs, iframes, scripts, URLs in inline JSON) are the
+  candidates. A page that redirects to a board names it, and the board page itself is not requested.
+- A name is first matched against the registry (case, punctuation and a legal suffix ignored). Otherwise the tokens the
+  name is likely to use (`tokensForName`: "Acme Robotics" gives acmerobotics, acme-robotics) are tried on each
+  system's public feed in order. Workday needs a link (its tenant, cluster and site can't be guessed). Nothing searches
+  the web, and no person is ever looked up.
+- Dedupe: every candidate is matched against `companies` (system and token, case-insensitive) before any feed request.
+- Verification: the candidate's feed is read through its connector, the same read the poller makes, cut short after
+  `MAX_VERIFY_REQUESTS` (12) requests. The board must answer; a board guessed from a name must also list open jobs, so an
+  unrelated empty board with the same token isn't added. robots.txt applies to every request (http.ts).
+- LinkedIn, Indeed and Glassdoor are refused before any request, and never fetched even when a careers page links to
+  them. Blocked aggregators (`blocklist.ts`) are refused.
+- A new row is `active`, `discovered_via = 'user'`, default priority, and is polled on the next scheduler tick if its
+  system is in `ENGINE_ATS`. Who asked is not stored.
+- The API allows 10 requests per person per hour.
+
 ## Seeds (discovery without crawling, for now)
 
 - `kalil0321/ats-scrapers` `ats-companies/*.csv` (MIT code; data licence to confirm before redistributing): Workday,

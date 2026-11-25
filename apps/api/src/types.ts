@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import type { ComposioGmail } from "@norinote/inbox";
 import type { Db } from "@norinote/db";
 import type { LiveInputBus } from "@norinote/apply";
-import type { addJobByUrl } from "@norinote/ingest";
+import type { addJobByUrl, discoverCompany } from "@norinote/ingest";
 import type { FileStore } from "@norinote/shared/files";
 import type { EnqueueOptions, JobName, PayloadInput } from "@norinote/queue";
 import type { ApiConfig } from "./config.js";
@@ -21,6 +21,8 @@ export type ApiDeps = {
   now?: () => Date;
   /** Replaces ingest.addJobByUrl (tests: no network). */
   addJob?: typeof addJobByUrl;
+  /** Replaces ingest.discoverCompany (tests: no network). */
+  discoverCompany?: typeof discoverCompany;
   log?: (line: string) => void;
   limiter?: RateLimiter;
   /** Object storage for generated files, read when the file is not on this machine. Default: from S3_* (none if unset). */

@@ -80,6 +80,21 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `/api/jobs/locations` returns `{ locations: [{ name, count }] }`, the 30 most common open-job locations.
   `job.requirements.responsibilities` is the full list of what the job involves ("What you'll do").
 
+## Companies people ask for
+- POST `/api/companies` with `{ query }` (a company name, or a link: its board or its own careers page; 2 to 2000
+  characters). Nori finds the company's public job board on Greenhouse, Ashby, Lever, Workable, Rippling or Workday,
+  checks it against the live public feed and adds it to the shared registry, so every person's search reads it.
+  - 201 `{ status: "added", company, openJobs }`: a new board. `openJobs` is null when the board is too big to count in
+    one short read.
+  - 200 `{ status: "exists", company }`: the board (or a company of that name) was already in the registry. Nothing is
+    fetched.
+  - `company` is `{ id, name, system, systemName, reading }`. `reading` is false while the worker doesn't read that
+    system yet (`ENGINE_ATS`), so the dashboard says when its jobs will appear.
+  - 404 `{ error }`: no public board was found; `error` says so in plain words.
+  - 422 `{ error }`: empty or unusable input, an internal address, a blocked aggregator, or LinkedIn, Indeed or
+    Glassdoor (refused without any request). 429 with Retry-After: 10 requests per person per hour. 503: a board or
+    site could not be read right now.
+
 ## Shortlist
 - GET `/api/shortlist` returning
   `[{ id, jobId, fit, reasons, status, createdAt, job: { id, companyName, companyLogoUrl, title, location, remote, applyUrl, postedAt } }]`
