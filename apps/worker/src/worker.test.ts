@@ -299,7 +299,7 @@ describe("worker: prepare and apply", () => {
   it("answers the questions a form asked from the profile and resumes by itself", async () => {
     const userId = await seedUser(t.db);
     const appId = await seedApplication(t.db, userId, "Platform Engineer");
-    const ask = { id: "how-did-you-hear-about-us", text: "How did you hear about us?", type: "text" as const, options: [], required: true };
+    const ask = { id: "authorized-to-work", text: "Are you legally authorized to work in the United States?", type: "text" as const, options: [], required: true };
     const { driver, calls } = stubDriver((answers) => (answers[ask.id]
       ? filled()
       : { status: "needs_user", formUrl: null, fields: [], files: [], pending: [ask], needsUser: { kind: "questions", reason: "One question needs an answer" }, durationMs: 5 }));

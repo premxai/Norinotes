@@ -5,7 +5,7 @@ import { parseContact } from "@norinote/graph";
 import { assignInboxAddress } from "@norinote/inbox";
 import { JOBS } from "@norinote/queue";
 import { ensureProfile, requireUser } from "../auth/session.js";
-import { parseBody, parseWith } from "../http.js";
+import { HttpError, parseBody, parseWith } from "../http.js";
 import {
   advance, buildUpdate, ONBOARDING_STEPS, ProfilePatch, readOnboarding, STEP_KEYS, toProfile, withOnboarding, type OnboardingStepId,
 } from "../profile-model.js";
@@ -47,6 +47,8 @@ export function onboardingRoutes(ctx: Ctx): Hono<AppEnv> {
     const patch = parseWith(ProfilePatch, data);
     const allowed = new Set<string>(STEP_KEYS[step as OnboardingStepId]);
     const scoped = Object.fromEntries(Object.entries(patch).filter(([k]) => allowed.has(k))) as typeof patch;
+    // Forms ask for it as a legal fact, so the person states it; it is never filled in for them.
+    if (step === "authorization" && !scoped.workAuth?.status) throw new HttpError(400, "Choose your work status");
 
     const fresh = await ensureProfile(db, user.id);
     const update = buildUpdate(fresh, scoped);

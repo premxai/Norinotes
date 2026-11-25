@@ -156,18 +156,18 @@ function WorkForm({ profile }: { profile: Profile }) {
   const [v, update] = useDraft<Work>("work", () => ({
     authorized: yesNo(profile.workAuth.authorizedUS),
     sponsorship: yesNo(profile.workAuth.needsSponsorship),
-    status: profile.workAuth.status ?? "citizen",
+    status: profile.workAuth.status ?? "",
     visaType: profile.workAuth.visaType ?? "",
     relocate: yesNo(profile.willingToRelocate),
     setup: profile.remotePreference,
   }));
-  const [errors, setErrors] = useState<{ authorized?: string | null; sponsorship?: string | null }>({});
+  const [errors, setErrors] = useState<{ authorized?: string | null; sponsorship?: string | null; status?: string | null }>({});
   const { busy, failure, save } = useSave();
 
   function next() {
-    const e = { authorized: v.authorized ? null : "Choose Yes or No", sponsorship: v.sponsorship ? null : "Choose Yes or No" };
+    const e = { authorized: v.authorized ? null : "Choose Yes or No", sponsorship: v.sponsorship ? null : "Choose Yes or No", status: v.status ? null : "Choose your status" };
     setErrors(e);
-    if (e.authorized || e.sponsorship) return focusFirst([!!e.authorized && "work-authorized-yes", !!e.sponsorship && "work-sponsorship-yes"]);
+    if (e.authorized || e.sponsorship || e.status) return focusFirst([!!e.authorized && "work-authorized-yes", !!e.sponsorship && "work-sponsorship-yes", !!e.status && "work-status"]);
     void save(
       "authorization",
       {
@@ -190,7 +190,9 @@ function WorkForm({ profile }: { profile: Profile }) {
             id="work-status"
             label="Status"
             value={v.status}
-            onChange={(status) => update({ status })}
+            onChange={(status) => (update({ status }), setErrors((e) => ({ ...e, status: null })))}
+            placeholder="Choose one"
+            error={errors.status}
             options={[
               { value: "citizen", label: "US citizen" },
               { value: "permanent_resident", label: "Permanent resident" },

@@ -66,6 +66,11 @@ describe("onboarding steps", () => {
     expect(contact.json.step).toBe("authorization");
     expect(contact.json.profile).toMatchObject({ fullName: "Ada King", phone: "+1 415 555 0101", city: "Oakland", github: "github.com/ada", pronouns: "she/her", location: "Oakland, CA" });
 
+    const noStatus = await api.call("PUT", "/api/onboarding", { cookie, body: { step: "authorization", data: { workAuth: { authorizedUS: true, needsSponsorship: false } } } });
+    expect(noStatus.status).toBe(400);
+    expect(noStatus.json.error).toBe("Choose your work status");
+    expect((await api.call("GET", "/api/onboarding", { cookie })).json.step).toBe("authorization");
+
     const auth = await api.call("PUT", "/api/onboarding", { cookie, body: { step: "authorization", data: { workAuth: { authorizedUS: true, status: "visa", visaType: "H-1B", needsSponsorship: true, bogus: 1 }, willingToRelocate: true, remotePreference: "hybrid" } } });
     expect(auth.json.step).toBe("screening");
     expect(auth.json.profile.workAuth).toEqual({ authorizedUS: true, needsSponsorship: true, status: "visa", visaType: "H-1B" });

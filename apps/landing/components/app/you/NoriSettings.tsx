@@ -102,7 +102,7 @@ function FormGroups({ profile, onSaved }: { profile: Profile; onSaved: (p: Profi
   });
   const [cErr, setCErr] = useState<{ fullName?: string | null; email?: string | null }>({});
   const [w, setW] = useState({
-    authorized: yesNo(profile.workAuth.authorizedUS), sponsorship: yesNo(profile.workAuth.needsSponsorship), status: profile.workAuth.status ?? "citizen",
+    authorized: yesNo(profile.workAuth.authorizedUS), sponsorship: yesNo(profile.workAuth.needsSponsorship), status: profile.workAuth.status ?? "",
     visaType: profile.workAuth.visaType ?? "", relocate: yesNo(profile.willingToRelocate),
   });
   const [s, setS] = useState({
@@ -185,7 +185,7 @@ function FormGroups({ profile, onSaved }: { profile: Profile; onSaved: (p: Profi
         said={said.work ?? null}
         onSave={() =>
           void save("work", {
-            workAuth: { authorizedUS: w.authorized ? w.authorized === "yes" : null, needsSponsorship: w.sponsorship ? w.sponsorship === "yes" : null, status: w.status, visaType: w.status === "visa" ? clean(w.visaType) : null },
+            workAuth: { authorizedUS: w.authorized ? w.authorized === "yes" : null, needsSponsorship: w.sponsorship ? w.sponsorship === "yes" : null, status: w.status || null, visaType: w.status === "visa" ? clean(w.visaType) : null },
             willingToRelocate: w.relocate ? w.relocate === "yes" : null,
           })
         }
@@ -198,6 +198,7 @@ function FormGroups({ profile, onSaved }: { profile: Profile; onSaved: (p: Profi
             label="Status"
             value={w.status}
             onChange={(status) => (setW((x) => ({ ...x, status })), edited("work"))}
+            placeholder="Choose one"
             options={[
               { value: "citizen", label: "US citizen" },
               { value: "permanent_resident", label: "Permanent resident" },

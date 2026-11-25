@@ -130,20 +130,31 @@ export function ChoiceGroup<T extends string>({
   );
 }
 
-/** A labelled native select, styled like the text fields. */
-export function SelectField({ id, label, value, onChange, options }: { id: string; label: ReactNode; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+/** A labelled native select, styled like the text fields. With `placeholder`, an empty value shows it and nothing is chosen. */
+export function SelectField({ id, label, value, onChange, options, placeholder, error }: { id: string; label: ReactNode; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; placeholder?: string; error?: string | null }) {
+  const note = useId();
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <label htmlFor={id} className="text-ui leading-[1.3] font-semibold text-ink">
         {label}
       </label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="h-12 w-full rounded-input border-[1.5px] border-line-strong bg-surface px-3 text-body text-ink">
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? note : undefined} className={`h-12 w-full rounded-input border-[1.5px] bg-surface px-3 text-body text-ink ${error ? "border-danger" : "border-line-strong"}`}>
+        {placeholder !== undefined && (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        )}
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
       </select>
+      {error && (
+        <p id={note} className="text-small text-danger">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

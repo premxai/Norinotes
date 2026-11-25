@@ -79,14 +79,14 @@ describe("profile defaults", () => {
     expect(defaultAnswer(q("1", "Veteran status", "select", ["Yes", "No", "Decline"]), f, ctx)).toBe("Decline");
   });
 
-  it("answers how-did-you-hear with a job board and never a recruiter, referral or person", () => {
-    expect(ans("How did you hear about us?")).toBe("Job board");
-    expect(ans("How did you hear about this job?", "select", ["LinkedIn", "Employee referral", "Recruiter", "Job board", "Other"])).toBe("Job board");
-    expect(ans("How did you hear about us?", "select", ["Recruiter Jane Doe", "Employee referral", "LinkedIn", "Other"])).toBe("LinkedIn");
-    expect(ans("Where did you first hear about this role?", "select", ["Recruiter", "Employee referral", "Company website"])).toBe("Company website");
-    expect(ans("How did you hear about us?", "select", ["Recruiter", "Employee referral"])).toBeNull();
-    const withPref = factsFrom({ ...profile, preferences: { heardAbout: "Wellfound" } });
-    expect(defaultAnswer(q("1", "How did you hear about us?"), withPref, ctx)).toBe("Wellfound");
+  it("answers how-did-you-hear only with what the person said, and leaves it to them otherwise", () => {
+    expect(ans("How did you hear about us?")).toBeNull();
+    expect(ans("How did you hear about this job?", "select", ["LinkedIn", "Employee referral", "Recruiter", "Job board", "Other"])).toBeNull();
+    expect(ans("Where did you first hear about this role?", "select", ["Recruiter", "Employee referral", "Company website"])).toBeNull();
+    const withPref = factsFrom({ ...profile, preferences: { heardAbout: "Job board" } });
+    expect(defaultAnswer(q("1", "How did you hear about us?"), withPref, ctx)).toBe("Job board");
+    expect(defaultAnswer(q("1", "How did you hear about this job?", "select", ["LinkedIn", "Employee referral", "Job Board", "Other"]), withPref, ctx)).toBe("Job Board");
+    expect(defaultAnswer(q("1", "How did you hear about us?", "select", ["Recruiter", "Employee referral"]), withPref, ctx)).toBeNull();
   });
 
   it("never copies address line 1 into line 2", () => {

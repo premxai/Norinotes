@@ -16,7 +16,7 @@ const bankFor = async (userId: string) => (await loadBank(t.db, userId)).sort((a
 
 describe("answerQuestions: defaults first, never the model for facts", () => {
   it("answers profile facts without touching the bank or the model", async () => {
-    const { userId } = await seedUser(t.db, "defaults");
+    const { userId } = await seedUser(t.db, "defaults", { preferences: { willingToRelocate: true, heardAbout: "Job board" } });
     const { jobId } = await seedJob(t.db, "defaults");
     const provider = createFakeProvider();
     setProvider(provider);

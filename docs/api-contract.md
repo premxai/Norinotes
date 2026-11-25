@@ -14,7 +14,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 
 ## Onboarding and profile
 - GET `/api/onboarding`; PUT `/api/onboarding` with body `{ step, data }`, steps: resume, contact, authorization,
-  screening, preferences. Finishing creates a first lane from the preferences.
+  screening, preferences. Finishing creates a first lane from the preferences. The authorization step needs
+  `workAuth.status`; without it the PUT returns 400 "Choose your work status".
 - GET `/api/me`, PUT `/api/profile`. `autoApplyDailyCap` (0 to 100) is the daily limit: applications approved per UTC
   day, by any channel; 0 = no limit.
 - POST `/api/profile/resume` (pasted text), POST `/api/profile/resume-file` (upload)
