@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Page } from "playwright";
-import { applications, companies, eq, jobs, resumes, runEvents, users } from "@norinote/db";
+import { applications, companies, eq, jobs, profiles, resumes, runEvents, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import {
-  approveAndSubmit, createApplication, driveApplication, retryApplication, runApplication, saveAnswers, normalizeTitle,
+  approveAndSubmit, approveBeforePrepared, createApplication, driveApplication, retryApplication, runApplication, saveAnswers, normalizeTitle,
   MAX_ATTEMPTS, PoolRunError, STALE_RUN_MS, staleRuns, submitMayHaveHappened, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
 } from "./index.js";
 import type { ApplyInputs } from "./inputs.js";
@@ -285,6 +285,51 @@ describe("approveAndSubmit", () => {
     const { app } = await seedApp();
     expect(await approveAndSubmit(t.db, app.id)).toMatchObject({ ok: false, status: "queued" });
     expect(await approveAndSubmit(t.db, "00000000-0000-4000-8000-000000000000")).toMatchObject({ ok: false, status: null });
+  });
+
+  /** One user with a daily limit and `n` applications at different companies, prepared unless `queued`. */
+  async function userWithApps(cap: number, n: number, opts: { queued?: number } = {}) {
+    const user = await seedUser();
+    if (cap > 0) await t.db.insert(profiles).values({ userId: user.id, dailyCap: cap });
+    const ids: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const res = await createApplication(t.db, user.id, (await seedJob((await seedCompany()).id)).id);
+      if (!res.created) throw new Error("seed failed");
+      if (i >= (opts.queued ?? 0)) await driveApplication(t.db, res.application.id, deps());
+      ids.push(res.application.id);
+    }
+    return { user, ids };
+  }
+  const approvedToday = async (userId: string) => (await t.db.select().from(applications).where(eq(applications.userId, userId))).filter((a) => a.approvedAt).length;
+
+  it("approvals at the same moment cannot go over the daily limit", async () => {
+    const { user, ids } = await userWithApps(2, 5);
+    const results = await Promise.all(ids.map((id) => approveAndSubmit(t.db, id, { by: "user" })));
+    expect(results.filter((r) => r.ok && r.started)).toHaveLength(2);
+    expect(results.filter((r) => !r.ok && r.cap)).toHaveLength(3);
+    expect(await approvedToday(user.id)).toBe(2);
+  });
+
+  it("an approval before preparation and a click at the same moment share the limit", async () => {
+    const { user, ids } = await userWithApps(1, 2, { queued: 1 });
+    const [later, click] = await Promise.all([
+      approveBeforePrepared(t.db, ids[0]!, { message: "Apply pressed" }),
+      approveAndSubmit(t.db, ids[1]!, { by: "user" }),
+    ]);
+    const approved = [later.ok && later.approved, click.ok && click.started].filter(Boolean);
+    expect(approved).toHaveLength(1);
+    expect(await approvedToday(user.id)).toBe(1);
+    // Asking again changes nothing for the one already approved, and is refused for the other.
+    const again = await approveBeforePrepared(t.db, ids[0]!, { message: "Apply pressed" });
+    expect(again.ok ? again.approved : "cap").toBe(later.ok && later.approved ? false : "cap");
+  });
+
+  it("a batch's own limit applies when the person set none", async () => {
+    const { user, ids } = await userWithApps(0, 3);
+    const results = await Promise.all(ids.map((id) => approveAndSubmit(t.db, id, { limit: 1 })));
+    expect(results.filter((r) => r.ok && r.started)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toMatchObject({ cap: { cap: 1, used: 1 } });
+    expect(await approvedToday(user.id)).toBe(1);
   });
 });
 

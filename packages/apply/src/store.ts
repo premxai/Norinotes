@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from "@norinote/shared";
-import { and, applications, companies, eq, gte, jobs, ne, or, profiles, runEvents, shortlist, sql } from "@norinote/db";
+import { and, applications, companies, eq, gte, isNull, jobs, ne, or, profiles, runEvents, shortlist, sql, users } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import { checkTransition, transitionPatch, type AppSnapshot, type TransitionOptions } from "./state.js";
 import { canonicalJobUrl } from "./schema.js";
@@ -168,10 +168,49 @@ export async function dailyCapUse(db: Db, userId: string, now: Date, except?: st
   return { cap: profile?.cap ?? 0, used: used?.n ?? 0 };
 }
 
-/** The limit and today's use when one more approval would go over it; null when there is room (or no limit). */
-export async function dailyCapReached(db: Db, userId: string, now: Date, except?: string): Promise<DailyCap | null> {
+/**
+ * The limit and today's use when one more approval would go over it; null when there is room (or no limit). `limit`
+ * replaces the profile's limit (a batch's default when the person set none).
+ */
+export async function dailyCapReached(db: Db, userId: string, now: Date, except?: string, limit?: number): Promise<DailyCap | null> {
   const use = await dailyCapUse(db, userId, now, except);
-  return use.cap > 0 && use.used >= use.cap ? use : null;
+  const cap = { cap: limit ?? use.cap, used: use.used };
+  return cap.cap > 0 && cap.used >= cap.cap ? cap : null;
+}
+
+/**
+ * Runs `fn` in a transaction that holds the user's row lock, so approvals of one user (a click, Telegram, a batch) take
+ * turns: each counts today's approvals and stamps its own before the next one counts. `fn` must use the `tx` it gets.
+ */
+function asUser<T>(db: Db, userId: string, fn: (tx: Db) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
+    return fn(tx);
+  });
+}
+
+export type ApproveLaterResult = { ok: true; approved: boolean } | { ok: false; cap: DailyCap };
+
+/**
+ * Approval of an application that is not prepared yet (Apply with send, a Telegram tap): stamps `approved_at` so the
+ * worker sends it once it is prepared. Counts against the daily limit under the user's lock. `approved` is false when
+ * nothing changed (already approved, or no longer queued or preparing).
+ */
+export async function approveBeforePrepared(db: Db, applicationId: string, opts: { now?: Date; message: string; data?: Record<string, unknown> }): Promise<ApproveLaterResult> {
+  const head = await loadApplication(db, applicationId);
+  if (!head) return { ok: true, approved: false };
+  const now = opts.now ?? new Date();
+  return asUser(db, head.userId, async (tx) => {
+    const row = await loadApplication(tx, applicationId);
+    if (!row || row.approvedAt || (row.status !== "queued" && row.status !== "preparing")) return { ok: true, approved: false };
+    const cap = await dailyCapReached(tx, row.userId, now, row.id);
+    if (cap) return { ok: false, cap };
+    const marked = await tx.update(applications).set({ approvedAt: now, updatedAt: now })
+      .where(and(eq(applications.id, applicationId), isNull(applications.approvedAt))).returning({ id: applications.id });
+    if (!marked.length) return { ok: true, approved: false };
+    await logEvent(tx, applicationId, "approved", opts.message, { data: opts.data ?? null });
+    return { ok: true, approved: true };
+  });
 }
 
 /**
@@ -180,8 +219,16 @@ export async function dailyCapReached(db: Db, userId: string, now: Date, except?
  * A first approval counts against the daily limit; when the limit is used up nothing changes and `cap` says so. One
  * approved earlier (Telegram before it was prepared, or before its questions were answered) has already counted.
  * `by: "user"` when the person answered or clicked: a parked application then starts a fresh set of attempts.
+ * `limit` replaces the profile's daily limit (a batch passes its own). The count and the approval happen under the
+ * user's lock, so two approvals at once cannot both take the last place.
  */
-export async function approveAndSubmit(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user" } = {}): Promise<ApproveResult> {
+export async function approveAndSubmit(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user"; limit?: number } = {}): Promise<ApproveResult> {
+  const head = await loadApplication(db, applicationId);
+  if (!head) return { ok: false, status: null, reason: "application not found" };
+  return asUser(db, head.userId, (tx) => approveLocked(tx, applicationId, opts));
+}
+
+async function approveLocked(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user"; limit?: number }): Promise<ApproveResult> {
   const row = await loadApplication(db, applicationId);
   if (!row) return { ok: false, status: null, reason: "application not found" };
   if (row.status === "applying" || row.status === "awaiting_code" || row.status === "submitted") return { ok: true, status: row.status, started: false };
@@ -192,7 +239,7 @@ export async function approveAndSubmit(db: Db, applicationId: string, opts: { no
     return { ok: false, status: row.status, reason: `nothing to answer here${row.error ? ` (${row.error})` : ""}; use Retry once it is sorted out` };
   }
   if (!row.approvedAt) {
-    const cap = await dailyCapReached(db, row.userId, opts.now ?? new Date(), row.id);
+    const cap = await dailyCapReached(db, row.userId, opts.now ?? new Date(), row.id, opts.limit);
     if (cap) return { ok: false, status: row.status, reason: `today's limit of ${cap.cap} applications is used up`, cap };
   }
 
