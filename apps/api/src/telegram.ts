@@ -1,5 +1,5 @@
-import { and, applications, companies, eq, isNull, jobs } from "@norinote/db";
-import { dailyCapReached, logEvent } from "@norinote/apply";
+import { companies, eq, jobs } from "@norinote/db";
+import { approveBeforePrepared, dailyCapReached } from "@norinote/apply";
 import {
   createBotClient, createUpdateHandler, recordApplyIntent, SendQueue, webhookSecret,
   type BotClient, type TelegramActions, type TgUpdate,
@@ -41,9 +41,8 @@ export function telegramActions(ctx: Ctx): TelegramActions {
           case "preparing": {
             // The tap is the approval: it counts against today's cap now, and the worker sends it once it is prepared.
             const now = ctx.now();
-            const marked = await ctx.db.update(applications).set({ approvedAt: now, updatedAt: now })
-              .where(and(eq(applications.id, app.id), isNull(applications.approvedAt))).returning({ id: applications.id });
-            if (marked.length) await logEvent(ctx.db, app.id, "approved", "Approved from Telegram; it will be sent once prepared", { data: { approvedBy: "user", via: "telegram" } });
+            const res = await approveBeforePrepared(ctx.db, app.id, { now, message: "Approved from Telegram; it will be sent once prepared", data: { approvedBy: "user", via: "telegram" } });
+            if (!res.ok) return { ok: false, message: `Today's limit of ${res.cap.cap} applications is used up. Raise it in Settings, or apply in the app.` };
             await recordApplyIntent(ctx.db, userId, app.id, now);
             return { ok: true, message: `Preparing ${label}. It will be sent when ready.` };
           }

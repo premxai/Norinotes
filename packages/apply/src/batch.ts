@@ -187,9 +187,7 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
     if (batch.lastStartedAt && now.getTime() - batch.lastStartedAt.getTime() < settings.spacingMinutes * 60_000) continue;
     const next = waiting.find((a) => a.status === "prepared");
     if (!next) continue;
-    const use = await dailyCapUse(db, batch.userId, now);
-    if (use.used >= settings.dailyLimit) continue;
-    const res = await approveAndSubmit(db, next.id, { now });
+    const res = await approveAndSubmit(db, next.id, { now, limit: settings.dailyLimit });
     if (res.ok && res.started) {
       await db.update(applyBatches).set({ lastStartedAt: now }).where(eq(applyBatches.id, batch.id));
       out.push({ batchId: batch.id, applicationId: next.id });

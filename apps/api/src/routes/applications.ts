@@ -3,7 +3,7 @@ import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, applications, applyBatches, asc, companies, desc, eq, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { approveAndSubmit, createApplication, dailyCapReached, liveFrameKey, logEvent, retryApplication, saveAnswers, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
+import { approveAndSubmit, approveBeforePrepared, createApplication, dailyCapReached, liveFrameKey, retryApplication, saveAnswers, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -73,10 +73,8 @@ export async function sendApplication(ctx: Ctx, userId: string, app: Application
     const res = await approveApplication(ctx, app);
     if (!res.ok && res.cap) throw new HttpError(429, `Today's limit of ${res.cap.cap} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
   } else {
-    const cap = await dailyCapReached(ctx.db, userId, ctx.now(), app.id);
-    if (cap) throw new HttpError(429, `Today's limit of ${cap.cap} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
-    await ctx.db.update(applications).set({ approvedAt: ctx.now() }).where(eq(applications.id, app.id));
-    await logEvent(ctx.db, app.id, "approved", "Apply pressed: Nori sends it as soon as it is prepared", { data: { approvedBy: "user", send: true } });
+    const res = await approveBeforePrepared(ctx.db, app.id, { now: ctx.now(), message: "Apply pressed: Nori sends it as soon as it is prepared", data: { approvedBy: "user", send: true } });
+    if (!res.ok) throw new HttpError(429, `Today's limit of ${res.cap.cap} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
   }
   const [row] = await ctx.db.select().from(applications).where(eq(applications.id, app.id)).limit(1);
   return row ?? app;

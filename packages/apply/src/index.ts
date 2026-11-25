@@ -2,10 +2,10 @@ export * from "./types.js";
 export { TRANSITIONS, MAX_ATTEMPTS, canTransition, checkTransition, transitionPatch, isTerminal, unansweredQuestions, submitMayHaveHappened } from "./state.js";
 export type { AppSnapshot, TransitionOptions, TransitionCheck } from "./state.js";
 export {
-  createApplication, approveAndSubmit, retryApplication, saveAnswers, transitionApplication, loadApplication, logEvent,
+  createApplication, approveAndSubmit, approveBeforePrepared, retryApplication, saveAnswers, transitionApplication, loadApplication, logEvent,
   normalizeTitle, normalizeCompany, DUPLICATE_WINDOW_DAYS, capDayStart, dailyCapUse, dailyCapReached,
 } from "./store.js";
-export type { ApplicationRow, CreateApplicationResult, ApproveResult, DailyCap, TransitionResult } from "./store.js";
+export type { ApplicationRow, CreateApplicationResult, ApproveResult, ApproveLaterResult, DailyCap, TransitionResult } from "./store.js";
 export { runApplication, driveApplication, createApplyHandler, createPrepareHandler, staleRuns, STALE_RUN_MS } from "./runner.js";
 export type { ApplyDeps, StaleRun, StepResult, WaitingFor } from "./runner.js";
 export { createBrowserPool, PoolRunError } from "./pool.js";
