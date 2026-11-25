@@ -4,7 +4,7 @@
  * dead and disabled statuses, ETag), under polite HTTP:
  *
  *   - our User-Agent, per-host-group concurrency from the connectors' capabilities (`maxPollsPerHost`), a global cap;
- *   - robots.txt is read once per origin and obeyed for every request (Disallow rules, Crawl-delay); a board whose feed is
+ *   - robots.txt is read once per origin and obeyed for every request by @norinote/ingest (Disallow, Crawl-delay); a board whose feed is
  *     disallowed is disabled with the reason, never fetched; SmartRecruiters is skipped outright;
  *   - 429/503 (RateLimitedError) and a run of refusals (401/403, BlockedByHostError) back the whole host group off with a
  *     growing pause; a group that keeps refusing is left for the next run instead of being hammered;
@@ -25,8 +25,8 @@ import type { Db } from "@norinote/db";
 import type { AtsType } from "@norinote/shared";
 import { DEFAULT_RESOLVERS, judgeDnsFailure } from "./lib/dns-guard.js";
 import {
-  BlockedByHostError, HostBackedOffError, HostBackoff, RateLimitedError, SUPPORTED_ATS_TYPES, USER_AGENT, feedHost, isSupportedAts,
-  maxPollsPerHost, pollBoard, RECHECK_MS,
+  BlockedByHostError, HostBackedOffError, HostBackoff, RateLimitedError, SUPPORTED_ATS_TYPES, feedHost, isSupportedAts,
+  maxPollsPerHost, pollBoard, RECHECK_MS, RobotsDisallowedError, RobotsUnavailableError,
 } from "@norinote/ingest";
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -67,135 +67,6 @@ if (process.env.DATABASE_URL?.trim()) log("DATABASE_URL is set and ignored: this
 
 process.on("unhandledRejection", (e) => log(`unhandled rejection: ${(e as Error)?.stack ?? e}`));
 process.on("uncaughtException", (e) => log(`uncaught exception: ${e.stack ?? e}`));
-
-// ---------------------------------------------------------------------------------------------------------------------
-// robots.txt
-// ---------------------------------------------------------------------------------------------------------------------
-
-type Rule = { allow: boolean; len: number; re: RegExp };
-type Robots = { rules: Rule[]; delayMs: number };
-const NO_ROBOTS: Robots = { rules: [], delayMs: 0 };
-const UA_TOKEN = (USER_AGENT.split("/")[0] ?? "NorinoteJobAgent").toLowerCase();
-
-class RobotsDisallowedError extends Error {
-  constructor(readonly url: string, why = "disallowed by robots.txt") { super(`${url}: ${why}`); this.name = "RobotsDisallowedError"; }
-}
-class RobotsUnavailableError extends Error {
-  constructor(readonly origin: string, why: string) { super(`robots.txt of ${origin} unavailable: ${why}`); this.name = "RobotsUnavailableError"; }
-}
-
-function ruleRegex(pattern: string): RegExp {
-  const anchored = pattern.endsWith("$");
-  const body = (anchored ? pattern.slice(0, -1) : pattern).replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
-  return new RegExp(`^${body}${anchored ? "$" : ""}`);
-}
-
-/** Parse robots.txt for our User-Agent (RFC 9309: the most specific matching group, else `*`). */
-export function parseRobots(text: string): Robots {
-  type Group = { agents: string[]; rules: Rule[]; delay: number | null };
-  const groups: Group[] = [];
-  let cur: Group | null = null;
-  let collecting = false;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.replace(/#.*$/, "").trim();
-    const m = line.match(/^([A-Za-z-]+)\s*:\s*(.*)$/);
-    if (!m) continue;
-    const key = m[1]!.toLowerCase();
-    const val = m[2]!.trim();
-    if (key === "user-agent") {
-      if (!cur || !collecting) { cur = { agents: [], rules: [], delay: null }; groups.push(cur); }
-      cur.agents.push(val.toLowerCase());
-      collecting = true;
-      continue;
-    }
-    collecting = false;
-    if (!cur) continue;
-    if (key === "allow" || key === "disallow") {
-      if (val === "") continue; // an empty Disallow allows everything; an empty Allow changes nothing
-      cur.rules.push({ allow: key === "allow", len: val.length, re: ruleRegex(val) });
-    } else if (key === "crawl-delay") {
-      const n = Number(val);
-      if (Number.isFinite(n) && n > 0) cur.delay = n * 1000;
-    }
-  }
-  const specific = groups.filter((g) => g.agents.some((a) => a !== "*" && a && UA_TOKEN.includes(a)));
-  const chosen = specific.length ? specific : groups.filter((g) => g.agents.includes("*"));
-  return { rules: chosen.flatMap((g) => g.rules), delayMs: Math.max(0, ...chosen.map((g) => g.delay ?? 0)) };
-}
-
-/** Longest matching rule wins; Allow wins a tie; no matching rule means allowed. */
-export function robotsAllows(r: Robots, pathAndQuery: string): boolean {
-  let best: Rule | null = null;
-  for (const rule of r.rules) {
-    if (!rule.re.test(pathAndQuery)) continue;
-    if (!best || rule.len > best.len || (rule.len === best.len && rule.allow)) best = rule;
-  }
-  return best ? best.allow : true;
-}
-
-const MAX_CRAWL_DELAY_MS = 60_000;
-const ROBOTS_TTL_MS = 6 * 3_600_000;
-const ROBOTS_ERROR_TTL_MS = 60_000;
-const robotsCache = new Map<string, { at: number; value?: Robots; error?: Error }>();
-const robotsInFlight = new Map<string, Promise<Robots>>();
-const nextSlot = new Map<string, number>();
-
-async function loadRobots(origin: string): Promise<Robots> {
-  const url = `${origin}/robots.txt`;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 15_000);
-  try {
-    const res = await fetch(url, { headers: { "user-agent": USER_AGENT, accept: "text/plain" }, signal: ctrl.signal });
-    if (res.status === 429 || res.status === 503) { void res.body?.cancel().catch(() => {}); throw new RateLimitedError(url, res.status, 1); }
-    if (res.status >= 500) { void res.body?.cancel().catch(() => {}); throw new RobotsUnavailableError(origin, `HTTP ${res.status}`); }
-    // 4xx (not found, unauthorised, ...): no usable robots.txt, so nothing is disallowed (RFC 9309 section 2.3.1.3).
-    if (!res.ok) { void res.body?.cancel().catch(() => {}); return NO_ROBOTS; }
-    if (/html/i.test(res.headers.get("content-type") ?? "")) { void res.body?.cancel().catch(() => {}); return NO_ROBOTS; }
-    return parseRobots((await res.text()).slice(0, 512 * 1024));
-  } catch (err) {
-    if ((err as Error).name === "AbortError") throw new RobotsUnavailableError(origin, "timed out");
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function robotsFor(origin: string): Promise<Robots> {
-  const hit = robotsCache.get(origin);
-  if (hit && Date.now() - hit.at < (hit.error ? ROBOTS_ERROR_TTL_MS : ROBOTS_TTL_MS)) {
-    if (hit.error) throw hit.error;
-    return hit.value!;
-  }
-  let pending = robotsInFlight.get(origin);
-  if (!pending) {
-    pending = loadRobots(origin).then((value) => {
-      robotsCache.set(origin, { at: Date.now(), value });
-      if (value.delayMs > 0) nextSlot.set(origin, Date.now() + Math.min(value.delayMs, MAX_CRAWL_DELAY_MS));
-      return value;
-    }, (error: Error) => {
-      robotsCache.set(origin, { at: Date.now(), error });
-      throw error;
-    }).finally(() => robotsInFlight.delete(origin));
-    robotsInFlight.set(origin, pending);
-  }
-  return pending;
-}
-
-/** fetch() that reads and obeys robots.txt (Disallow and Crawl-delay) for every request. Passed to the connectors. */
-const politeFetch: typeof fetch = async (input, init) => {
-  const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-  const u = new URL(href);
-  const robots = await robotsFor(u.origin);
-  if (!robotsAllows(robots, u.pathname + u.search)) throw new RobotsDisallowedError(href);
-  if (robots.delayMs > MAX_CRAWL_DELAY_MS) throw new RobotsDisallowedError(href, `Crawl-delay of ${robots.delayMs / 1000}s is too long to honour`);
-  if (robots.delayMs > 0) {
-    const now = Date.now();
-    const at = Math.max(now, nextSlot.get(u.origin) ?? 0);
-    nextSlot.set(u.origin, at + robots.delayMs);
-    if (at > now) await sleep(at - now);
-  }
-  return fetch(input, init);
-};
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Network health
@@ -404,7 +275,7 @@ async function runTask(g: Group, t: Task): Promise<void> {
   let watchdog: NodeJS.Timeout | undefined;
   try {
     const res = await Promise.race([
-      pollBoard(db, { atsType: t.atsType, token: t.token }, { backoff, fetch: politeFetch }),
+      pollBoard(db, { atsType: t.atsType, token: t.token }, { backoff }),
       new Promise<never>((_, reject) => { watchdog = setTimeout(() => reject(new StuckError(t.token)), STUCK_MS); }),
     ]);
     lastOkAt = Date.now();
@@ -493,7 +364,7 @@ async function handleError(g: Group, t: Task, err: unknown): Promise<void> {
   if (err instanceof RobotsDisallowedError) {
     countError(t.atsType, kind);
     await db.update(companies).set({
-      status: "disabled", statusReason: err.message.includes("Crawl-delay") ? "robots.txt crawl-delay too long" : "disallowed by robots.txt",
+      status: "disabled", statusReason: err.reason,
       lastPolledAt: new Date(), nextPollAt: new Date(Date.now() + RECHECK_MS), errorStreak: 0,
     }).where(eq(companies.id, t.id));
     st.blocked++; st.done++; finalized++; noteOutcome(g, "other");

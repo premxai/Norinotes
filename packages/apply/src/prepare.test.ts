@@ -109,6 +109,7 @@ describe("recipes and prepareForm (database)", () => {
   it("prepares a Greenhouse form from its public schema: answers by field key, pending questions, recipe, timings", async () => {
     const s = await seed("prep", "https://job-boards.greenhouse.io/discord/jobs/8840756002");
     const fetchStub = (async (url: string) => {
+      if (String(url).endsWith("/robots.txt")) return new Response("", { status: 404 });
       expect(String(url)).toBe("https://boards-api.greenhouse.io/v1/boards/discord/jobs/8840756002?questions=true");
       return new Response(JSON.stringify(ghJson), { status: 200, headers: { "content-type": "application/json" } });
     }) as typeof fetch;

@@ -105,7 +105,8 @@ describe("worker: poll, understand, match", () => {
     expect(await worker.consumers.enqueueDueBoards()).toBe(1);
     expect(await worker.consumers.enqueueDueBoards()).toBe(0);
     await queue.drain();
-    expect(fetched).toEqual([BOARD_URL]);
+    // robots.txt first (a 404 here: nothing disallowed), then the feed.
+    expect(fetched).toEqual(["https://boards-api.greenhouse.io/robots.txt", BOARD_URL]);
 
     const rows = await t.db.select().from(jobs).where(eq(jobs.companyId, company!.id));
     expect(rows.map((j) => j.title).sort()).toEqual(["Backend Engineer", "Marketing Manager"]);

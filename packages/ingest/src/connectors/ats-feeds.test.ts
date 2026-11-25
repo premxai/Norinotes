@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { noSleep, routeFetch } from "../__fixtures__/helpers.js";
+import { noSleep, routeFetch, withRobots } from "../__fixtures__/helpers.js";
 import { RateLimitedError } from "../http.js";
 import type { ListResult } from "../types.js";
 import { bamboohr, breezy, icims, personio, pinpoint, recruitee, rippling, teamtailor, workable } from "./index.js";
@@ -135,7 +135,7 @@ describe("teamtailor", () => {
 
   it("sends If-None-Match and reports notModified on 304", async () => {
     const f = routeFetch({ [url]: () => new Response(null, { status: 304, headers: { etag: 'W/"abc"' } }) });
-    const r = asList(await teamtailor.listJobs("1komma5", { fetch: f }, { etag: 'W/"abc"' }));
+    const r = asList(await teamtailor.listJobs("1komma5", { fetch: withRobots(f) }, { etag: 'W/"abc"' }));
     expect(r).toMatchObject({ notModified: true, complete: true, jobs: [], etag: 'W/"abc"' });
     expect(headerOf(f, 0, "if-none-match")).toBe('W/"abc"');
     expect(teamtailor.capabilities?.conditional).toBe(true);
@@ -184,13 +184,13 @@ describe("personio", () => {
 
   it("falls back from .de to .com, answers notFound when neither has the tenant, and honours 304", async () => {
     const f = routeFetch({ "https://1nce.jobs.personio.com/xml": () => reply(fx("personio-xml-nodesc.xml")) });
-    const r = asList(await personio.listJobs("1nce", { fetch: f }));
+    const r = asList(await personio.listJobs("1nce", { fetch: withRobots(f) }));
     expect(r.jobs).toHaveLength(2);
     expect(r.jobs[0]?.applyUrl).toBe("https://1nce.jobs.personio.com/job/2536632");
     expect(f).toHaveBeenCalledTimes(2);
     expect(await personio.listJobs("nobody", { fetch: routeFetch({}) })).toMatchObject({ notFound: true, complete: true });
     const g = routeFetch({ "https://1nce.jobs.personio.de/xml": () => new Response(null, { status: 304 }) });
-    expect(asList(await personio.listJobs("1nce", { fetch: g }, { etag: '"e1"' }))).toMatchObject({ notModified: true, etag: '"e1"' });
+    expect(asList(await personio.listJobs("1nce", { fetch: withRobots(g) }, { etag: '"e1"' }))).toMatchObject({ notModified: true, etag: '"e1"' });
     expect(headerOf(g, 0, "if-none-match")).toBe('"e1"');
     await expect(personio.listJobs("1nce", { fetch: routeFetch({ "https://1nce.jobs.personio.de/xml": () => reply("<html/>") }) })).rejects.toThrow(/not a Personio feed/);
   });
@@ -310,7 +310,7 @@ describe("breezy", () => {
 
   it("sends If-None-Match and reports notModified on 304; an empty board is complete", async () => {
     const f = routeFetch({ [`${host}/json`]: () => new Response(null, { status: 304 }) });
-    expect(asList(await breezy.listJobs("1001", { fetch: f }, { etag: 'W/"2-x"' }))).toMatchObject({ notModified: true, etag: 'W/"2-x"' });
+    expect(asList(await breezy.listJobs("1001", { fetch: withRobots(f) }, { etag: 'W/"2-x"' }))).toMatchObject({ notModified: true, etag: 'W/"2-x"' });
     expect(headerOf(f, 0, "if-none-match")).toBe('W/"2-x"');
     expect(asList(await breezy.listJobs("1001", { fetch: routeFetch({ [`${host}/json`]: () => reply("[]") }) }))).toMatchObject({ jobs: [], complete: true });
     expect(breezy.capabilities?.conditional).toBe(true);
@@ -403,7 +403,7 @@ describe("pinpoint", () => {
     const redirect = routeFetch({ "https://zz.pinpointhq.com/postings.json": () => new Response(null, { status: 302, headers: { location: "https://www.pinpointhq.com" } }) });
     expect(await pinpoint.listJobs("zz", { fetch: redirect })).toMatchObject({ notFound: true });
     const f = routeFetch({ [url]: () => new Response(null, { status: 304 }) });
-    expect(asList(await pinpoint.listJobs("workwithus", { fetch: f }, { etag: 'W/"p1"' }))).toMatchObject({ notModified: true, etag: 'W/"p1"' });
+    expect(asList(await pinpoint.listJobs("workwithus", { fetch: withRobots(f) }, { etag: 'W/"p1"' }))).toMatchObject({ notModified: true, etag: 'W/"p1"' });
     expect(headerOf(f, 0, "if-none-match")).toBe('W/"p1"');
     await expect(pinpoint.listJobs("workwithus", { fetch: routeFetch({ [url]: () => reply('{"data":null}') }) })).rejects.toThrow(/postings list/);
   });
@@ -476,7 +476,7 @@ describe("icims", () => {
 
   it("throws a typed error on 403 for the first page, and stops asking for details once blocked", async () => {
     const blocked = routeFetch({ [`${host}/jobs/search`]: () => reply("<html>Access denied</html>", 403) });
-    const err = await icims.listJobs("peraton", { fetch: blocked }).catch((e: unknown) => e);
+    const err = await icims.listJobs("peraton", { fetch: withRobots(blocked) }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(IcimsBlockedError);
     expect(blocked).toHaveBeenCalledTimes(1);
 
@@ -484,7 +484,7 @@ describe("icims", () => {
       [`${host}/jobs/search?ss=1&pr=0`]: () => reply(searchPage(0, 1)),
       [`${host}/jobs/`]: () => reply("denied", 403),
     });
-    const r = asList(await icims.listJobs("peraton", { fetch: detailBlocked }));
+    const r = asList(await icims.listJobs("peraton", { fetch: withRobots(detailBlocked) }));
     expect(r.jobs).toHaveLength(3);
     expect(r.jobs[0]?.descriptionText).toMatch(/^Peraton is seeking a Senior Watch Officer/);
     // the first detail request hit the block; the remaining ones were not sent (2 workers may already be in flight)

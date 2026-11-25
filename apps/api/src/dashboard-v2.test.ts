@@ -142,7 +142,7 @@ describe("Review: what Nori would send", () => {
     const { readFileSync } = await import("node:fs");
     const gh = readFileSync(new URL("../../../packages/apply/src/fixtures/forms/greenhouse-discord-88407560.gh.json", import.meta.url), "utf8");
     const calls: string[] = [];
-    const preview = await makeApi({ previewFetch: (async (url: string | URL | Request) => { calls.push(String(url)); return new Response(gh, { status: 200, headers: { "content-type": "application/json" } }); }) as typeof fetch });
+    const preview = await makeApi({ previewFetch: (async (url: string | URL | Request) => { if (String(url).endsWith("/robots.txt")) return new Response("", { status: 404 }); calls.push(String(url)); return new Response(gh, { status: 200, headers: { "content-type": "application/json" } }); }) as typeof fetch });
     try {
       const { cookie } = await preview.signup("preview@example.com");
       const { job } = await seedJob(preview.db, { company: "Discord" });

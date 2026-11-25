@@ -9,7 +9,7 @@ import srDetail from "../__fixtures__/smartrecruiters-detail.json";
 import srList from "../__fixtures__/smartrecruiters-list.json";
 import { RateLimitedError } from "../http.js";
 import type { ListResult } from "../types.js";
-import { ashby, CONNECTORS, getConnector, greenhouse, greenhouseFormUrl, isSupportedAts, lever, matchJobUrl, SUPPORTED_ATS_TYPES, oracle, smartrecruiters, workday } from "./index.js";
+import { ashby, CONNECTORS, getConnector, greenhouse, isSupportedAts, lever, matchJobUrl, SUPPORTED_ATS_TYPES, oracle, smartrecruiters, workday } from "./index.js";
 
 describe("greenhouse", () => {
   it("normalises the board", async () => {
@@ -55,22 +55,6 @@ describe("greenhouse", () => {
     expect(greenhouse.parseUrl("https://job-boards.greenhouse.io/embed/job_app?for=acme&token=4001")).toEqual({ token: "acme", externalId: "4001" });
     expect(greenhouse.parseUrl("https://job-boards.greenhouse.io/embed/job_app")).toBeNull();
     expect(greenhouse.parseUrl("https://jobs.lever.co/acme/1")).toBeNull();
-  });
-});
-
-describe("greenhouseFormUrl", () => {
-  const job = (applyUrl: string, atsType = "greenhouse", externalId = "7746572") => ({ atsType, applyUrl, externalId });
-
-  it("sends a company-hosted Greenhouse posting to the embedded form", () => {
-    expect(greenhouseFormUrl(job("https://www.coinbase.com/careers/positions/7746572?gh_jid=7746572"), "coinbase"))
-      .toBe("https://job-boards.greenhouse.io/embed/job_app?for=coinbase&token=7746572");
-  });
-
-  it("leaves Greenhouse's own addresses alone and needs a token, numeric id and Greenhouse job", () => {
-    expect(greenhouseFormUrl(job("https://job-boards.greenhouse.io/vercel/jobs/123"), "vercel")).toBeNull();
-    expect(greenhouseFormUrl(job("https://www.coinbase.com/careers/positions/7746572"), null)).toBeNull();
-    expect(greenhouseFormUrl(job("https://www.coinbase.com/x", "greenhouse", "abc"), "coinbase")).toBeNull();
-    expect(greenhouseFormUrl(job("https://jobs.lever.co/acme/1", "lever"), "acme")).toBeNull();
   });
 });
 

@@ -6,6 +6,7 @@ import { isBlockedBoard, isBlockedCompany } from "./blocklist.js";
 import { getConnector } from "./connectors/index.js";
 import { BlockedByHostError } from "./connectors/workday.js";
 import { feedHost, RateLimitedError } from "./http.js";
+import { RobotsDisallowedError } from "./robots.js";
 import type { HostBackoff } from "./http.js";
 import { toListResult } from "./list-result.js";
 import {
@@ -93,10 +94,10 @@ async function recordFailure(db: Db, row: CompanyRow, now: Date): Promise<void> 
   }).where(eq(companies.id, row.id));
 }
 
-/** The host answers 401/403 to servers: disable the board at once (no retries) and look again in a week. */
-async function recordBlockedByHost(db: Db, row: CompanyRow, now: Date, err: BlockedByHostError): Promise<void> {
+/** The host refuses us (401/403) or robots.txt disallows the feed: disable the board at once and look again in a week. */
+async function recordBlocked(db: Db, row: CompanyRow, now: Date, statusReason: string): Promise<void> {
   await db.update(companies).set({
-    status: "disabled", statusReason: `blocked by host (${err.status})`, lastPolledAt: now, nextPollAt: after(now, RECHECK_MS), etag: null,
+    status: "disabled", statusReason, lastPolledAt: now, nextPollAt: after(now, RECHECK_MS), etag: null,
   }).where(eq(companies.id, row.id));
 }
 
@@ -115,6 +116,8 @@ async function recordBlockedByHost(db: Db, row: CompanyRow, now: Date, err: Bloc
  *   rechecked weekly and come back as `active` when they answer with jobs.
  * - `next_poll_at = now + clamp(24h / (1 + new_jobs_7d / 7), 1h, 48h)`, shortened by `opts.demand`, never shorter than
  *   the job system allows.
+ *
+ * - robots.txt is obeyed on every request (see http.ts): a feed it disallows disables the board like a 401/403 does.
  *
  * Throws on a feed failure (the failure is recorded on the company). Throws `RateLimitedError` when the host refused every
  * retry (not held against the board) and `HostBackedOffError` when `opts.backoff` has already backed the host off.
@@ -137,8 +140,8 @@ export async function pollBoard(db: Db, board: { atsType: AtsType; token: string
     listed = toListResult(await getConnector(atsType).listJobs(token, { ...opts.http, fetch: opts.fetch }, { etag }));
   } catch (err) {
     if (err instanceof RateLimitedError) opts.backoff?.rateLimited(host);
-    else if (err instanceof BlockedByHostError) {
-      if (row) await recordBlockedByHost(db, row, now, err);
+    else if (err instanceof BlockedByHostError || err instanceof RobotsDisallowedError) {
+      if (row) await recordBlocked(db, row, now, err instanceof BlockedByHostError ? `blocked by host (${err.status})` : err.reason);
       // The host answered (with a refusal): this is the board's problem, not a reason to back the whole host off.
       opts.backoff?.ok(host);
     } else if (row) await recordFailure(db, row, now);
