@@ -18,6 +18,15 @@ export function routeFetch(handlers: Record<string, Handler>) {
   }) as ReturnType<typeof vi.fn> & typeof fetch;
 }
 
+/**
+ * Answers robots.txt itself (404 = nothing disallowed, or the given text) and passes every other request to `f`, so a
+ * test that inspects `f`'s calls sees only the feed requests.
+ */
+export const withRobots = (f: typeof fetch, robots?: string): typeof fetch => (async (input: string | URL | Request, init?: RequestInit) =>
+  String(input).endsWith("/robots.txt")
+    ? new Response(robots ?? "not found", { status: robots == null ? 404 : 200, headers: { "content-type": "text/plain" } })
+    : f(input, init)) as typeof fetch;
+
 /** Instant retries: no sleeping in tests. */
 export const noSleep = { sleep: async () => {}, random: () => 0 };
 

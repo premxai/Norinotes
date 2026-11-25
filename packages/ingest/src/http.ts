@@ -1,5 +1,9 @@
 import type { AtsType } from "@norinote/shared";
 import { hostKey } from "./hosts.js";
+import {
+  MAX_CRAWL_DELAY_MS, NO_ROBOTS, parseRobots, robotsAllows, ROBOTS_ERROR_TTL_MS, ROBOTS_TTL_MS, RobotsDisallowedError,
+  RobotsUnavailableError, type Robots,
+} from "./robots.js";
 import type { HttpOptions } from "./types.js";
 
 /** Per-attempt timeout for one request. */
@@ -47,8 +51,75 @@ export function backoffMs(failedAttempts: number, random: () => number = Math.ra
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** What one fetch function has learnt about each origin's robots.txt, and when the origin may be asked next (Crawl-delay). */
+type RobotsState = {
+  entries: Map<string, { at: number; value?: Robots; error?: Error }>;
+  inFlight: Map<string, Promise<Robots>>;
+  nextSlot: Map<string, number>;
+};
+/** Kept per fetch function, so a test's mocked fetch never sees what the real one learnt (or another test's). */
+const robotsStates = new WeakMap<typeof fetch, RobotsState>();
+const AGENT_TOKEN = (USER_AGENT.split("/")[0] ?? "").toLowerCase();
+
+async function loadRobots(origin: string, doFetch: typeof fetch, timeoutMs: number): Promise<Robots> {
+  const url = `${origin}/robots.txt`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await doFetch(url, { headers: { "user-agent": USER_AGENT, accept: "text/plain" }, signal: ctrl.signal });
+    const drop = () => void res.body?.cancel().catch(() => {});
+    if (res.status === 429 || res.status === 503) { drop(); throw new RateLimitedError(url, res.status, 1); }
+    if (res.status >= 500) { drop(); throw new RobotsUnavailableError(origin, `HTTP ${res.status}`); }
+    if (!res.ok || /html/i.test(res.headers.get("content-type") ?? "")) { drop(); return NO_ROBOTS; }
+    return parseRobots((await res.text()).slice(0, 512 * 1024), AGENT_TOKEN);
+  } catch (err) {
+    if ((err as Error).name === "AbortError") throw new RobotsUnavailableError(origin, "timed out");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
- * fetch() with our User-Agent, a per-attempt timeout, and polite retries: a 429 or 503 is retried (honouring
+ * Read (once per origin, cached 6 h) and obey robots.txt before a request: a disallowed path throws
+ * RobotsDisallowedError, an unreadable robots.txt RobotsUnavailableError, and a Crawl-delay spaces requests to the origin.
+ */
+async function obeyRobots(url: string, doFetch: typeof fetch, opts: HttpOptions): Promise<void> {
+  const u = new URL(url);
+  const clock = opts.now ?? Date.now;
+  let state = robotsStates.get(doFetch);
+  if (!state) { state = { entries: new Map(), inFlight: new Map(), nextSlot: new Map() }; robotsStates.set(doFetch, state); }
+  const { entries, inFlight, nextSlot } = state;
+
+  let robots: Robots;
+  const hit = entries.get(u.origin);
+  if (hit && clock() - hit.at < (hit.error ? ROBOTS_ERROR_TTL_MS : ROBOTS_TTL_MS)) {
+    if (hit.error) throw hit.error;
+    robots = hit.value!;
+  } else {
+    let pending = inFlight.get(u.origin);
+    if (!pending) {
+      pending = loadRobots(u.origin, doFetch, opts.timeoutMs ?? FETCH_TIMEOUT_MS).then(
+        (value) => { entries.set(u.origin, { at: clock(), value }); return value; },
+        (error: Error) => { entries.set(u.origin, { at: clock(), error }); throw error; },
+      ).finally(() => inFlight.delete(u.origin));
+      inFlight.set(u.origin, pending);
+    }
+    robots = await pending;
+  }
+
+  if (!robotsAllows(robots, u.pathname + u.search)) throw new RobotsDisallowedError(url);
+  if (robots.delayMs > MAX_CRAWL_DELAY_MS) throw new RobotsDisallowedError(url, "robots.txt crawl-delay too long");
+  if (robots.delayMs > 0) {
+    const now = clock();
+    const at = Math.max(now, nextSlot.get(u.origin) ?? 0);
+    nextSlot.set(u.origin, at + robots.delayMs);
+    if (at > now) await (opts.sleep ?? defaultSleep)(at - now);
+  }
+}
+
+/**
+ * fetch() that obeys robots.txt (see obeyRobots) with our User-Agent, a per-attempt timeout, and polite retries: a 429 or 503 is retried (honouring
  * Retry-After, else backing off 1 s, 2 s, 4 s with jitter) up to MAX_ATTEMPTS tries in all, then RateLimitedError.
  * Any other status, including every other 4xx, goes to `handle` at once. `handle` runs while the timeout is still
  * armed, so a body that stalls is cut off too.
@@ -58,6 +129,7 @@ async function requestWithRetry<T>(url: string, init: RequestInit, opts: HttpOpt
   const sleep = opts.sleep ?? defaultSleep;
   const doFetch = opts.fetch ?? fetch;
   for (let attempt = 1; ; attempt++) {
+    await obeyRobots(url, doFetch, opts);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     let refused: { status: number; retryAfter: number | null };

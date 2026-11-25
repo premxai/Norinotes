@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import capped from "../__fixtures__/workday-capped.json";
 import detail from "../__fixtures__/workday-detail.json";
 import list from "../__fixtures__/workday-list.json";
-import { json, noSleep } from "../__fixtures__/helpers.js";
+import { json, noSleep, withRobots } from "../__fixtures__/helpers.js";
 import { RateLimitedError, USER_AGENT } from "../http.js";
 import type { ListResult } from "../types.js";
 import { BlockedByHostError, MAX_SPLIT_DEPTH, PAGE_SIZE, parsePostedOn, TOTAL_CAP, workday } from "./workday.js";
@@ -106,7 +106,7 @@ describe("workday listJobs", () => {
 
   it("sends our headers and a 20-posting JSON body", async () => {
     const f = workdayFetch(() => list);
-    await workday.listJobs(TOKEN, { fetch: f });
+    await workday.listJobs(TOKEN, { fetch: withRobots(f) });
     const [url, init] = f.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(LIST_URL);
     expect(init.method).toBe("POST");
@@ -275,7 +275,7 @@ describe("workday descriptions", () => {
 
   it("reads no descriptions unless asked", async () => {
     const f = detailFetch();
-    await workday.listJobs(TOKEN, { fetch: f });
+    await workday.listJobs(TOKEN, { fetch: withRobots(f) });
     expect(f.mock.calls.every((c) => (c[1] as RequestInit | undefined)?.method === "POST")).toBe(true);
   });
 

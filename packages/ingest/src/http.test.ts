@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { json, routeFetch } from "./__fixtures__/helpers.js";
+import { json, routeFetch, withRobots } from "./__fixtures__/helpers.js";
 import {
   backoffMs, feedHost, fetchWithRetry, getJson, HostBackoff, MAX_ATTEMPTS, MAX_RETRY_AFTER_MS, parseRetryAfter, RateLimitedError, USER_AGENT,
 } from "./http.js";
+import { RobotsDisallowedError, RobotsUnavailableError } from "./robots.js";
 
 const refuse = (status: number, headers: Record<string, string> = {}) => new Response("slow down", { status, headers });
 
@@ -41,7 +42,7 @@ describe("polite requests", () => {
     const sleeps: number[] = [];
     let n = 0;
     const f = routeFetch({ "https://x.test/": () => (++n === 1 ? refuse(429, { "retry-after": "3" }) : json({ ok: 1 })) });
-    expect(await getJson("https://x.test/a", { fetch: f, sleep: async (ms) => { sleeps.push(ms); } })).toEqual({ ok: 1 });
+    expect(await getJson("https://x.test/a", { fetch: withRobots(f), sleep: async (ms) => { sleeps.push(ms); } })).toEqual({ ok: 1 });
     expect(sleeps).toEqual([3000]);
     expect(f).toHaveBeenCalledTimes(2);
   });
@@ -50,14 +51,14 @@ describe("polite requests", () => {
     const sleeps: number[] = [];
     let n = 0;
     const f = routeFetch({ "https://x.test/": () => (++n === 1 ? refuse(503, { "retry-after": "86400" }) : json({})) });
-    await getJson("https://x.test/a", { fetch: f, sleep: async (ms) => { sleeps.push(ms); } });
+    await getJson("https://x.test/a", { fetch: withRobots(f), sleep: async (ms) => { sleeps.push(ms); } });
     expect(sleeps).toEqual([60_000]);
   });
 
   it("backs off with jitter when there is no Retry-After, and gives up after 3 attempts", async () => {
     const sleeps: number[] = [];
     const f = routeFetch({ "https://x.test/": () => refuse(503) });
-    const err = await getJson("https://x.test/a", { fetch: f, random: () => 0.5, sleep: async (ms) => { sleeps.push(ms); } }).catch((e: unknown) => e);
+    const err = await getJson("https://x.test/a", { fetch: withRobots(f), random: () => 0.5, sleep: async (ms) => { sleeps.push(ms); } }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(RateLimitedError);
     expect((err as RateLimitedError).attempts).toBe(MAX_ATTEMPTS);
     expect((err as RateLimitedError).host).toBe("x.test");
@@ -67,10 +68,10 @@ describe("polite requests", () => {
 
   it("does not retry other errors; 404 is null", async () => {
     const f500 = routeFetch({ "https://x.test/": () => new Response("boom", { status: 500 }) });
-    await expect(getJson("https://x.test/a", { fetch: f500 })).rejects.toThrow(/500/);
+    await expect(getJson("https://x.test/a", { fetch: withRobots(f500) })).rejects.toThrow(/500/);
     expect(f500).toHaveBeenCalledTimes(1);
     const f404 = routeFetch({});
-    expect(await getJson("https://x.test/a", { fetch: f404 })).toBeNull();
+    expect(await getJson("https://x.test/a", { fetch: withRobots(f404) })).toBeNull();
     expect(f404).toHaveBeenCalledTimes(1);
   });
 
@@ -78,7 +79,50 @@ describe("polite requests", () => {
     const hang = vi.fn((_u: string | URL | Request, init?: RequestInit) => new Promise<Response>((_res, rej) => {
       init?.signal?.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" })));
     })) as unknown as typeof fetch;
-    await expect(fetchWithRetry("https://x.test/slow", {}, { fetch: hang, timeoutMs: 20 })).rejects.toThrow(/timed out after 20ms/);
+    await expect(fetchWithRetry("https://x.test/slow", {}, { fetch: withRobots(hang), timeoutMs: 20 })).rejects.toThrow(/timed out after 20ms/);
+  });
+});
+
+describe("robots.txt", () => {
+  it("is read once per origin, before the first request, and a disallowed path is never fetched", async () => {
+    const f = routeFetch({
+      "https://x.test/robots.txt": () => new Response("User-agent: *\nDisallow: /private/\n", { headers: { "content-type": "text/plain" } }),
+      "https://x.test/": () => json({ ok: true }),
+    });
+    expect(await getJson("https://x.test/a", { fetch: f })).toEqual({ ok: true });
+    expect(await getJson("https://x.test/b", { fetch: f })).toEqual({ ok: true });
+    const err = await getJson("https://x.test/private/c", { fetch: f }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RobotsDisallowedError);
+    expect((err as RobotsDisallowedError).reason).toBe("disallowed by robots.txt");
+    expect(f.mock.calls.map((c) => String(c[0]))).toEqual(["https://x.test/robots.txt", "https://x.test/a", "https://x.test/b"]);
+  });
+
+  it("refuses a whole origin whose robots.txt is Disallow: /", async () => {
+    const f = routeFetch({ "https://api.sr.test/robots.txt": () => new Response("User-agent: *\nDisallow: /\n") });
+    await expect(getJson("https://api.sr.test/v1/companies/x/postings", { fetch: f })).rejects.toBeInstanceOf(RobotsDisallowedError);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("spaces requests by Crawl-delay, and refuses a Crawl-delay too long to honour", async () => {
+    let clock = 0;
+    const sleeps: number[] = [];
+    const opts = { now: () => clock, sleep: async (ms: number) => { sleeps.push(ms); clock += ms; } };
+    const f = routeFetch({ "https://slow.test/robots.txt": () => new Response("User-agent: *\nCrawl-delay: 1\n"), "https://slow.test/": () => json({}) });
+    await getJson("https://slow.test/a", { ...opts, fetch: f });
+    await getJson("https://slow.test/b", { ...opts, fetch: f });
+    await getJson("https://slow.test/c", { ...opts, fetch: f });
+    expect(sleeps).toEqual([1000, 1000]);
+    const g = routeFetch({ "https://lazy.test/robots.txt": () => new Response("User-agent: *\nCrawl-delay: 120\n") });
+    const err = await getJson("https://lazy.test/a", { fetch: g }).catch((e: unknown) => e);
+    expect(err).toMatchObject({ name: "RobotsDisallowedError", reason: "robots.txt crawl-delay too long" });
+  });
+
+  it("treats a missing or HTML robots.txt as allowing everything, and an unreadable one (5xx) as a retryable error", async () => {
+    const html = routeFetch({ "https://h.test/robots.txt": () => new Response("<html>hi</html>", { headers: { "content-type": "text/html" } }), "https://h.test/": () => json({ ok: 1 }) });
+    expect(await getJson("https://h.test/a", { fetch: html })).toEqual({ ok: 1 });
+    const down = routeFetch({ "https://d.test/robots.txt": () => new Response("", { status: 500 }), "https://d.test/": () => json({}) });
+    await expect(getJson("https://d.test/a", { fetch: down })).rejects.toBeInstanceOf(RobotsUnavailableError);
+    expect(down).toHaveBeenCalledTimes(1);
   });
 });
 

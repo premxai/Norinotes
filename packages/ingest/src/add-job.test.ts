@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { companies, eq, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import ghJob from "./__fixtures__/greenhouse-job.json";
-import { json, publicLookup, routeFetch } from "./__fixtures__/helpers.js";
+import { json, publicLookup, routeFetch, withRobots } from "./__fixtures__/helpers.js";
 import leverBoard from "./__fixtures__/lever-board.json";
 import { addJobByUrl, JobNotFoundError, UnsupportedJobUrlError } from "./add-job.js";
 import { BlockedSourceError } from "./blocklist.js";
@@ -23,7 +23,7 @@ const GH_ONE = "https://boards-api.greenhouse.io/v1/boards/acme/jobs/4001";
 describe("addJobByUrl", () => {
   it("detects Greenhouse, stores the job and creates the company row", async () => {
     const f = routeFetch({ [GH_ONE]: () => json(ghJob) });
-    const res = await addJobByUrl(t.db, "https://boards.greenhouse.io/acme/jobs/4001?gh_src=abc", opts(f));
+    const res = await addJobByUrl(t.db, "https://boards.greenhouse.io/acme/jobs/4001?gh_src=abc", opts(withRobots(f)));
     expect(res.created).toBe(true);
     expect(res.job).toMatchObject({
       atsType: "greenhouse", externalId: "4001", title: "Senior Frontend Engineer", remote: true, closedAt: null,

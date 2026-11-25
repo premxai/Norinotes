@@ -9,8 +9,8 @@ there is no per-user web search.
 - Every company is verified against its live public feed before it is polled regularly.
 - A job is closed only after it is missing from two consecutive complete reads. A board that answers "not found" goes
   on probation; its jobs close only after 3 days of not-found answers.
-- Polite by default: our User-Agent, per-host concurrency limits, Retry-After respected, conditional requests (ETag)
-  where supported. No residential proxies, no captcha or Cloudflare challenge solving, no logged-in endpoints, no
+- Polite by default: our User-Agent, robots.txt obeyed on every request, per-host concurrency limits, Retry-After
+  respected, conditional requests (ETag) where supported. No residential proxies, no captcha or Cloudflare challenge solving, no logged-in endpoints, no
   LinkedIn/Indeed/Glassdoor scraping.
 
 ## Live and parked job systems
@@ -79,6 +79,11 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
   (never polled first), at most `HOST_BOARDS_PER_RUN` per host group; the worker queues candidates (validation) on their own budget
   (`VALIDATE_PER_RUN`) and runs at most 2 (Workable), the connector's `maxConcurrencyPerHost` or `POLLS_PER_HOST` (4) polls per host group.
 - A 401/403 from the host (`BlockedByHostError`) disables the board with a reason and no retries; it is rechecked weekly.
+- robots.txt (packages/ingest/src/robots.ts, enforced in http.ts for every feed request): read once per origin and kept 6 h,
+  for our User-Agent's group, else `*`. A disallowed path is never fetched: `RobotsDisallowedError` disables the board
+  ("disallowed by robots.txt", rechecked weekly). Crawl-delay spaces requests to the origin; one over 60 s counts as
+  disallowed. A robots.txt that answers 4xx or HTML allows everything; 5xx or a timeout is a retryable failure and
+  nothing is fetched from that origin meanwhile.
   Failed polls back off 30 min, 1 h, 2 h, 4 h, 6 h and count once per window.
 - Workday list rows carry no text; `understand.job` fetches the posting (`fillJobDescription`) when the job fits a lane.
 - Seeds: `npx tsx scripts/import-seeds.mts [--dry-run] [--only workday,oracle] [--include-empty] [--dir folder]`.

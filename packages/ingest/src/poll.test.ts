@@ -9,6 +9,7 @@ import { BlockedByHostError } from "./connectors/workday.js";
 import { dedupeKey } from "./dedupe.js";
 import { HostBackoff, RateLimitedError } from "./http.js";
 import { HostBackedOffError, pollBoard } from "./poll.js";
+import { RobotsDisallowedError } from "./robots.js";
 import type { Connector, ListResult, NormalizedJob } from "./types.js";
 
 let t: TestDb;
@@ -447,6 +448,17 @@ describe("pollBoard", () => {
     const c = await company();
     expect(c).toMatchObject({ status: "disabled", statusReason: "blocked by host (403)", errorStreak: 0 });
     expect(c.nextPollAt?.getTime()).toBe(t1.getTime() + 168 * HOUR);
+  });
+
+  it("disables a board whose feed robots.txt disallows, without reading the feed, and rechecks it in a week", async () => {
+    await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: "acme", name: "Acme", status: "active" });
+    const f = routeFetch({ "https://boards-api.greenhouse.io/robots.txt": () => new Response("User-agent: *\nDisallow: /v1/\n"), [GH]: () => json(ghBoard) });
+    await expect(pollBoard(t.db, board, { now: t1, fetch: f })).rejects.toBeInstanceOf(RobotsDisallowedError);
+    expect(f).toHaveBeenCalledTimes(1);
+    const c = await company();
+    expect(c).toMatchObject({ status: "disabled", statusReason: "disallowed by robots.txt", errorStreak: 0 });
+    expect(c.nextPollAt?.getTime()).toBe(t1.getTime() + 168 * HOUR);
+    expect(await allJobs()).toHaveLength(0);
   });
 
   it("uses the registry name for systems whose feed has no company name", async () => {

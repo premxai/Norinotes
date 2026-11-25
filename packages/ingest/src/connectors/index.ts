@@ -17,7 +17,6 @@ import { workable } from "./workable.js";
 import { workday } from "./workday.js";
 
 export { ashby, bamboohr, breezy, greenhouse, icims, lever, oracle, personio, pinpoint, recruitee, rippling, smartrecruiters, teamtailor, workable, workday };
-export { greenhouseFormUrl } from "./greenhouse.js";
 
 /** Every job system, including parked ones and placeholders (`ready: false`). */
 export const CONNECTORS: Record<AtsType, Connector> = {

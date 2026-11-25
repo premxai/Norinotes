@@ -17,7 +17,7 @@ export { toListResult } from "./list-result.js";
 
 export {
   CONNECTORS, SUPPORTED_ATS_TYPES, getConnector, isSupportedAts, matchJobUrl,
-  greenhouse, lever, ashby, smartrecruiters, workday, oracle, greenhouseFormUrl,
+  greenhouse, lever, ashby, smartrecruiters, workday, oracle,
 } from "./connectors/index.js";
 export { BlockedByHostError } from "./connectors/workday.js";
 
@@ -25,6 +25,9 @@ export {
   FETCH_TIMEOUT_MS, USER_AGENT, MAX_ATTEMPTS, MAX_RETRY_AFTER_MS,
   RateLimitedError, HostBackoff, feedHost, parseRetryAfter, backoffMs, fetchWithRetry, getJson, getJsonConditional,
 } from "./http.js";
+
+export { MAX_CRAWL_DELAY_MS, parseRobots, robotsAllows, RobotsDisallowedError, RobotsUnavailableError } from "./robots.js";
+export type { Robots } from "./robots.js";
 
 export { htmlToText, decodeEntities, unescapeHtml } from "./html.js";
 export { prettifyToken, REMOTE_RE } from "./util.js";

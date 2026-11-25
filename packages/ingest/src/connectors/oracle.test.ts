@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import detail from "../__fixtures__/oracle-detail.json";
 import list from "../__fixtures__/oracle-list.json";
-import { json, noSleep } from "../__fixtures__/helpers.js";
+import { json, noSleep, withRobots } from "../__fixtures__/helpers.js";
 import { RateLimitedError, USER_AGENT } from "../http.js";
 import type { ListResult } from "../types.js";
 import { oracle, ORACLE_PAGE_SIZE } from "./oracle.js";
@@ -56,7 +56,7 @@ describe("oracle parseUrl", () => {
 describe("oracle listJobs", () => {
   it("normalises requisitions and asks with the expand and finder the API needs", async () => {
     const f = oracleFetch(() => list);
-    const out = await oracle.listJobs(TOKEN, { fetch: f }) as ListResult;
+    const out = await oracle.listJobs(TOKEN, { fetch: withRobots(f) }) as ListResult;
     expect(out.complete).toBe(true);
     expect(out.jobs).toHaveLength(2);
     expect(out.jobs[0]).toMatchObject({
@@ -79,7 +79,7 @@ describe("oracle listJobs", () => {
 
   it("pages 200 at a time until TotalJobsCount", async () => {
     const f = pagedServer(450);
-    const out = await oracle.listJobs(TOKEN, { fetch: f }) as ListResult;
+    const out = await oracle.listJobs(TOKEN, { fetch: withRobots(f) }) as ListResult;
     expect(out.jobs).toHaveLength(450);
     expect(out.complete).toBe(true);
     expect(ORACLE_PAGE_SIZE).toBe(200);
@@ -88,7 +88,7 @@ describe("oracle listJobs", () => {
 
   it("steps by what a tenant actually returns when it gives fewer than 200", async () => {
     const f = oracleFetch((offset) => envelope(Array.from({ length: Math.min(50, 120 - offset) }, (_, i) => row(offset + i + 1)), 120));
-    const out = await oracle.listJobs(TOKEN, { fetch: f }) as ListResult;
+    const out = await oracle.listJobs(TOKEN, { fetch: withRobots(f) }) as ListResult;
     expect(out.jobs).toHaveLength(120);
     expect(out.complete).toBe(true);
     expect(f.mock.calls).toHaveLength(3);
@@ -122,7 +122,7 @@ describe("oracle listJobs", () => {
 
   it("stops on a page of ids already seen (wrapping offsets) as incomplete", async () => {
     const f = oracleFetch((_offset, limit) => envelope(Array.from({ length: Math.min(limit, 200) }, (_, i) => row(i + 1)), 1000));
-    const out = await oracle.listJobs(TOKEN, { fetch: f }) as ListResult;
+    const out = await oracle.listJobs(TOKEN, { fetch: withRobots(f) }) as ListResult;
     expect(out.jobs).toHaveLength(200);
     expect(out.complete).toBe(false);
     expect(f.mock.calls).toHaveLength(2);
@@ -163,7 +163,7 @@ describe("oracle fetchJob", () => {
   }) as ReturnType<typeof vi.fn> & typeof fetch;
 
   it("reads the full description from the details resource", async () => {
-    const job = await oracle.fetchJob?.(TOKEN, "333299", { fetch: detailFetch(() => json(detail)) });
+    const job = await oracle.fetchJob?.(TOKEN, "333299", { fetch: withRobots(detailFetch(() => json(detail))) });
     expect(job).toMatchObject({
       atsType: "oracle", externalId: "333299", title: "Principal, End-to-End Data Center Power Delivery Manager", location: "NM, United States",
       applyUrl: `${ORIGIN}/hcmUI/CandidateExperience/en/sites/CX_45001/job/333299`,
@@ -174,8 +174,8 @@ describe("oracle fetchJob", () => {
   });
 
   it("returns null for an empty answer or a 404, and throws BlockedByHostError on 403", async () => {
-    expect(await oracle.fetchJob?.(TOKEN, "333299", { fetch: detailFetch(() => json({ items: [] })) })).toBeNull();
-    expect(await oracle.fetchJob?.(TOKEN, "333299", { fetch: detailFetch(() => new Response("", { status: 404 })) })).toBeNull();
-    await expect(oracle.fetchJob?.(TOKEN, "333299", { fetch: detailFetch(() => new Response("", { status: 403 })) })).rejects.toBeInstanceOf(BlockedByHostError);
+    expect(await oracle.fetchJob?.(TOKEN, "333299", { fetch: withRobots(detailFetch(() => json({ items: [] }))) })).toBeNull();
+    expect(await oracle.fetchJob?.(TOKEN, "333299", { fetch: withRobots(detailFetch(() => new Response("", { status: 404 }))) })).toBeNull();
+    await expect(oracle.fetchJob?.(TOKEN, "333299", { fetch: withRobots(detailFetch(() => new Response("", { status: 403 }))) })).rejects.toBeInstanceOf(BlockedByHostError);
   });
 });

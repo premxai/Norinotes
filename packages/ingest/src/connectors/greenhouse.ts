@@ -58,19 +58,3 @@ export const greenhouse: Connector = {
     return { token: parts[0], externalId };
   },
 };
-
-/**
- * Where the application form really is. Many companies set their Greenhouse board to redirect to their own careers
- * site (the feed's absolute_url points there too), and that site renders the form late, inside an iframe, or not at
- * all for a headless browser. Greenhouse always serves the bare form at the embed address, so for a Greenhouse job
- * whose link is not on greenhouse.io, open that instead. Returns null when the link is already Greenhouse's own or
- * the board token or job id is unknown.
- */
-export function greenhouseFormUrl(job: { atsType: string; applyUrl: string; externalId: string }, boardToken: string | null | undefined): string | null {
-  if (job.atsType !== "greenhouse" || !boardToken || !/^\d+$/.test(job.externalId)) return null;
-  try {
-    const host = new URL(job.applyUrl).hostname;
-    if (/(^|\.)greenhouse\.io$/i.test(host)) return null;
-  } catch { /* an unparseable link: the embed address is still the best bet */ }
-  return `https://job-boards.greenhouse.io/embed/job_app?for=${encodeURIComponent(boardToken)}&token=${job.externalId}`;
-}
