@@ -34,11 +34,14 @@ read without a key is read before the click.
    - the **answer bank**: normalised text, then embedding similarity (one embedding call per form);
    - at most **one batched small-model call** (gpt-4.1-mini, strict JSON) for the remaining short questions: classify the
      label to a slot, choose options by meaning from the offered list, write short answers grounded in the profile. It
-     may say "unsure", which becomes a pending question. Short answers are checked against the facts (numbers, names,
-     tools must appear there);
+     may say "unsure", which becomes a pending question. Short answers are checked against the person's own facts only
+     (career points, name, location; the job's title and company may be named): numbers, names, and every skill or tool
+     the alias table knows, in any case or alias, must appear there;
    - **required long free text**: at most **one large-model call** (gpt-4.1) for the form. Every sentence must name a
-     verbatim supporting quote from the career points or the posting; the quote must exist, the sentence's numbers,
-     names and tools must be in it, and most of its content words must come from it. Anything else is pending.
+     verbatim supporting quote. A sentence about the candidate (first person, or a year count) must quote the career
+     points; only a sentence about the company or the role may quote the posting. The quote must exist, the sentence's
+     numbers, names and tools must be in it (a claim cannot borrow terms from the question), and most of its content
+     words must come from it. Anything else is pending.
      Optional long free text is left blank.
    - **Legal questions** (work authorisation, sponsorship, criminal history, salary, relocation, start date, age,
      consent) come only from the profile, even when the model classified them; otherwise pending. The model never

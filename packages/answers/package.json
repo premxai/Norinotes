@@ -10,6 +10,7 @@
     "@norinote/db": "*",
     "@norinote/shared": "*",
     "@norinote/ai": "*",
+    "@norinote/tailor": "*",
     "drizzle-orm": "^0.45.4",
     "zod": "^4.6.7"
   }
