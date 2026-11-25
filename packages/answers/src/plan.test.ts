@@ -2,13 +2,22 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createFakeProvider, setProvider, type ChatRequest } from "@norinote/ai";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { inboxAddresses } from "@norinote/db";
-import { classifySlot, planForm, saveAnswer, slotValue, careerFacts, factsFrom, ungroundedTokens, unsupportedSentences, type PlanField, type SlotField } from "./index.js";
+import { classifySlot, draftProblem, loadBank, planForm, questionKind, saveAnswer, slotValue, careerFacts, factsFrom, ungroundedTokens, unsupportedSentences, type PlanField, type SlotField } from "./index.js";
 import { seedJob, seedUser } from "./test-fixtures.js";
 
 let t: TestDb;
 beforeAll(async () => { t = await createTestDb(); });
 afterAll(() => t.close());
 afterEach(() => setProvider(null));
+
+/** A three-part draft that passes every check against the seeded user and job (test-fixtures). */
+const draft = (key: string, over: Record<string, unknown> = {}) => ({
+  key, answerable: true,
+  need: { text: "The role builds and runs APIs with a small platform team.", support: "You will build and run APIs with a small platform team" },
+  examples: [{ text: "I built payment APIs in TypeScript serving 2 million requests per day.", support: "Built payment APIs in TypeScript serving 2 million requests per day" }],
+  tie: { text: "Initech builds payment infrastructure for small businesses, where that work applies directly.", support: "Initech builds payment infrastructure for small businesses" },
+  ...over,
+});
 
 const f = (key: string, label: string, type: SlotField["type"] = "text", options: string[] = [], required = true, extra: Partial<SlotField> = {}): PlanField =>
   ({ key, label, type, options, required, ...extra });
@@ -164,11 +173,7 @@ describe("planForm", () => {
             { key: "q8", slot: "custom", decision: "answer", options: [], text: "i use typescript and kafka daily", evidence: "Built payment APIs in TypeScript" },
           ] };
         }
-        return { answers: [
-          { key: "q5", answerable: true, sentences: [{ text: "I built payment APIs in TypeScript serving 2 million requests per day.", support: "Built payment APIs in TypeScript serving 2 million requests per day" }] },
-          { key: "q6", answerable: true, sentences: [{ text: "I led a team of 40 at Google.", support: "Built payment APIs in TypeScript" }] },
-          { key: "q7", answerable: true, sentences: [{ text: "I build and run APIs with a small platform team.", support: "You will build and run APIs with a small platform team" }] },
-        ] };
+        return { answers: [draft("q5")] };
       },
     }));
     const plan = await planForm(t.db, { userId, jobId, fields: [
@@ -189,11 +194,73 @@ describe("planForm", () => {
     expect(by.q3).toMatchObject({ status: "pending" }); // Kubernetes and Initech are not in the facts
     expect(by.q4).toMatchObject({ status: "ready", slot: "salary", source: "profile", value: "150,000 USD per year" }); // never the model's number
     expect(by.q5).toMatchObject({ status: "ready", source: "large" });
-    expect(by.q6).toMatchObject({ status: "pending" });
-    expect(by.q7).toMatchObject({ status: "pending" }); // a claim about the candidate quoting the posting
+    expect(by.q5!.value).toBe("The role builds and runs APIs with a small platform team. I built payment APIs in TypeScript serving 2 million requests per day. Initech builds payment infrastructure for small businesses, where that work applies directly.");
+    expect(by.q6).toMatchObject({ status: "pending" }); // neither story nor factual: left to the person
+    expect(by.q7).toMatchObject({ status: "pending" }); // factual (experience with): never drafted
+    const asked = JSON.parse(requests.find((r) => r.jsonSchema?.name === "long_answers")!.messages.at(-1)!.content) as { questions: { key: string }[] };
+    expect(asked.questions.map((x) => x.key)).toEqual(["q5"]);
     expect(by.q8).toMatchObject({ status: "pending" }); // kafka, lower case, is not in the facts
     expect(plan.learned["pay you would accept"]).toBe("salary");
     expect(plan.pending.map((p) => p.id).sort()).toEqual(["field:q2", "field:q3", "field:q6", "field:q7", "field:q8"]);
+  });
+});
+
+describe("story and motivation drafts", () => {
+  it("drafts only story and motivation questions; factual ones never", () => {
+    for (const l of ["Why do you want to work at Initech?", "What excites you about this role?", "Describe a project you are proud of.", "Is there anything else you would like us to know?", "Write a short cover note.", "Tell us about yourself."]) expect([l, questionKind(l)]).toEqual([l, "story"]);
+    for (const l of ["How many years of TypeScript experience do you have?", "Have you used Kubernetes in production?", "Describe your experience with Kafka.", "Why do you need visa sponsorship?", "Please explain your salary expectations.", "When can you start, and why?", "Have you worked here before? Explain."]) expect([l, questionKind(l)]).toEqual([l, "factual"]);
+    expect(questionKind("Please describe your ideal manager.")).toBe("other");
+  });
+
+  const facts = "Backend Engineer at Acme 2021-03. Built payment APIs in TypeScript serving 2 million requests per day and cut p95 latency by 60%";
+  const posting = "Initech builds payment infrastructure for small businesses. You will build and run APIs with a small platform team.";
+  const q = "Why do you want to work here?";
+
+  it("accepts a three-part draft whose need and tie quote the posting and whose examples quote the career points", () => {
+    expect(draftProblem(draft("q"), facts, posting, q)).toBeNull();
+  });
+
+  it("rejects a draft that claims something about the person in the need or the tie, or quotes the posting for an example", () => {
+    expect(draftProblem(draft("q", { need: { text: "I have built and run APIs with a small platform team.", support: "You will build and run APIs with a small platform team" } }), facts, posting, q)).toMatch(/posting does not/);
+    expect(draftProblem(draft("q", { tie: { text: "Initech is the market leader in payments.", support: "a line that is not in the posting at all" } }), facts, posting, q)).toMatch(/posting does not/);
+    expect(draftProblem(draft("q", { examples: [{ text: "I build and run APIs with a small platform team.", support: "You will build and run APIs with a small platform team" }] }), facts, posting, q)).toMatch(/profile does not/);
+    expect(draftProblem(draft("q", { examples: [{ text: "I built payment APIs in Kotlin serving 5 million requests per day.", support: "Built payment APIs in TypeScript serving 2 million requests per day" }] }), facts, posting, q)).toMatch(/profile does not/);
+  });
+
+  it("sends the question to the person when nothing fits, the model says so, or the parts are missing", () => {
+    const unrelated = "Night nurse at County Hospital 2019. Triaged patients in a busy emergency department";
+    const nurse = draft("q", { examples: [{ text: "I triaged patients in a busy emergency department.", support: "Triaged patients in a busy emergency department" }] });
+    expect(draftProblem(nurse, unrelated, posting, q)).toMatch(/fits this role well enough/);
+    expect(draftProblem(draft("q", { answerable: false }), facts, posting, q)).toMatch(/does not support/);
+    expect(draftProblem(draft("q", { examples: [] }), facts, posting, q)).toMatch(/does not support/);
+  });
+
+  it("makes one large call for at most four drafts, never sends factual questions to it, and keeps drafts out of the answer bank", async () => {
+    const { userId } = await seedUser(t.db, "plan-drafts");
+    const { jobId } = await seedJob(t.db, "plan-drafts");
+    const requests: ChatRequest[] = [];
+    setProvider(createFakeProvider({
+      chat: (req) => {
+        requests.push(req);
+        const input = JSON.parse(req.messages.at(-1)!.content) as { questions: { key: string }[] };
+        return { answers: input.questions.map((x) => draft(x.key)) };
+      },
+    }));
+    const stories = ["Why do you want to work at Initech?", "What excites you about this role?", "Describe a project you are proud of.", "Write a short cover note.", "Tell us about yourself."];
+    const plan = await planForm(t.db, { userId, jobId, fields: [
+      ...stories.map((l, i) => f(`s${i}`, l, "textarea")),
+      f("fact", "How many years of TypeScript experience do you have? Explain.", "textarea"),
+      f("optional", "Is there anything else you would like us to know?", "textarea", [], false),
+    ] });
+    expect(requests).toHaveLength(1);
+    const asked = JSON.parse(requests[0]!.messages.at(-1)!.content) as { questions: { key: string }[] };
+    expect(asked.questions.map((x) => x.key)).toEqual(["s0", "s1", "s2", "s3"]);
+    const by = Object.fromEntries(plan.entries.map((e) => [e.key, e]));
+    for (const k of ["s0", "s1", "s2", "s3"]) expect(by[k]).toMatchObject({ status: "ready", source: "large" });
+    expect(by.s4).toMatchObject({ status: "pending" });
+    expect(by.fact).toMatchObject({ status: "pending", reason: "Only you can answer this" });
+    expect(by.optional).toMatchObject({ status: "skip" });
+    expect(await loadBank(t.db, userId)).toEqual([]);
   });
 });
 

@@ -6,8 +6,9 @@
  *   3. the answer bank: the same question by normalised text, then by meaning (one embedding call for the form);
  *   4. at most ONE batched small-model call for the rest: classify the label to a slot, choose options by meaning from
  *      the offered list, write short answers grounded in the profile. It may say "unsure": that is a pending question;
- *   5. required long free text: at most ONE large-model call for the form, every answer checked against the profile and
- *      career points (employers, numbers, names must appear there), else a pending question.
+ *   5. required story and motivation questions: at most ONE large-model call for the form, each answer in three parts
+ *      (what the role needs, from the posting; one or two real examples, quoting the career points; why this team, from
+ *      the posting), else a pending question. Factual questions are never drafted.
  *
  * Legal slots (work authorisation, sponsorship, criminal history, salary, relocation, start date, age, consent) only ever
  * come from the profile. EEO: the profile's choice, else the form's "decline to self-identify" option.
@@ -155,27 +156,81 @@ Years-of-experience questions: use the computed years per role in the facts (tod
 
 type SmallItem = { key: string; label: string; type: string; required: boolean; options: string[] };
 
-// ---- the large-model call for required long free text -----------------------------------------------------------------
+// ---- the large-model call: story and motivation drafts ---------------------------------------------------------------
 
+/**
+ * Story and motivation questions (why this company or role, a project you are proud of, anything else, a cover note):
+ * the only free text Nori drafts. Factual questions (years with a skill, have you used X, legal, money, dates, EEO) are
+ * never drafted, whatever box they come in. A question that is neither is left to the person.
+ */
+const FACTUAL_QUESTION = /\b(years?|how (many|much|long)|have you (ever )?(used|worked|held|been|had)|do you (have|hold|know|use)|experience (with|in|using)|proficien|familiar|fluent|certif|licen[cs]|degree|gpa|visa|sponsor|citizen|authori[sz]|salary|compensation|pay|rate|start|notice|availab|relocat|commut|location|located|based|criminal|convict|background check|gender|race|ethnic|veteran|disabilit|orientation|pronoun|referr|refer|relative|worked (here|at|for) .{0,20}before|interviewed|non-?compete|agreement|clearance)\b/;
+const STORY_QUESTION = /\b(why|what (excites|interests|motivates|draws|attracts|appeals)|interested in|excited about|passionate about|proud|accomplish|achievement|a (project|time|challenge|problem)|tell us about (yourself|you|a)|about yourself|walk us through|anything else|additional information|else (we|you)|cover (note|letter)|introduce yourself)\b/;
+
+export type QuestionKind = "story" | "factual" | "other";
+
+/** Story or motivation (may be drafted), factual (never drafted), or other (left to the person). */
+export function questionKind(label: string): QuestionKind {
+  const l = label.toLowerCase().replace(/[’`]/g, "'");
+  if (FACTUAL_QUESTION.test(l) || findTerms(label).length > 0) return "factual";
+  return STORY_QUESTION.test(l) ? "story" : "other";
+}
+
+/** At most this many drafts per form, so one large call stays within the budget for a form Nori has not seen. */
+export const MAX_DRAFTS_PER_FORM = 4;
+
+const Sentence = z.object({ text: z.string(), support: z.string() });
 const LargeReply = z.object({
   answers: z.array(z.object({
     key: z.string(),
     answerable: z.boolean(),
-    /** One entry per sentence, each with the verbatim fact (or posting line) it restates. */
-    sentences: z.array(z.object({ text: z.string(), support: z.string() })),
+    /** What the role needs, in the posting's words. Support: a posting line. */
+    need: Sentence,
+    /** One or two real examples from the career points. Support: a career point line. */
+    examples: z.array(Sentence),
+    /** Why this team or product, from the posting. Support: a posting line. */
+    tie: Sentence,
   })),
 });
 
-const LARGE_SYSTEM = `You write the candidate's answers to the long free-text questions of one job application, in the first person.
+const LARGE_SYSTEM = `You draft the candidate's answers to the story and motivation questions of one job application ("why this company", "a project you are proud of", "anything else", a short cover note).
+
+Every answer has exactly three parts:
+1. need: one sentence on what the role needs, in the posting's own words. Do not use "I", "me" or "my" here.
+2. examples: one or two sentences, each a real example from the candidate's facts, in the first person, with their actual titles, employers, tools and numbers. Pick the facts that best match what the role needs.
+3. tie: one sentence tying that experience to this team or product, using only what the posting says about them. Do not use "I", "me" or "my" here.
 
 Rules:
-- Every sentence restates something the facts or the posting actually say. Never invent an employer, title, skill, tool, number, date, school, step, finding or outcome, and never stretch a fact (no bigger scope, no new metric, no made-up story details).
-- A question about a specific situation ("a time when a metric surprised you", "a time you played PM") is answerable only if a fact describes that situation. Otherwise answerable false.
-- "Why this company or role" is answerable only from what the posting text says about the company and the work. A posting with no such text: answerable false.
-- If the facts do not support an honest answer, return answerable false and no sentences.
-- 2 to 4 sentences, at most 100 words in all. Plain and specific. No filler ("passionate", "leverage", "excited to"), no flattery, no mention of AI.
-- For each sentence give "support": a verbatim quote (at least 4 words) copied from the facts or the posting that the sentence restates.
-Reply as JSON: {"answers": [{"key", "answerable", "sentences": [{"text", "support"}]}]} with one entry per question.`;
+- Never invent or stretch anything: no employer, title, skill, tool, number, date, school, outcome or story detail that the facts do not state; no claim about the company that the posting does not state.
+- For each sentence give "support": a verbatim quote (at least 4 words) copied from the facts (examples) or from the posting (need and tie).
+- A question about a specific situation ("a time when a metric surprised you") is answerable only if a fact describes that situation.
+- If nothing in the candidate's facts fits the role well, or the posting says nothing about the team or product, return answerable false.
+- Plain and specific, at most 100 words per answer. No filler ("passionate", "leverage", "excited to"), no flattery, no mention of AI.
+Reply as JSON: {"answers": [{"key", "answerable", "need": {"text", "support"}, "examples": [{"text", "support"}], "tie": {"text", "support"}}]} with one entry per question.`;
+
+/**
+ * Why a three-part draft cannot be used, or null when it can. The need and the tie are about the role and the team: they
+ * quote the posting and say nothing about the candidate. Each example is about the candidate: it quotes their facts and
+ * every number, name and tool in it is in that quote. At least one example must share a term or two content words with
+ * the posting, or nothing in the person's career fits well enough.
+ */
+export function draftProblem(d: z.infer<typeof LargeReply>["answers"][number], facts: string, posting: string, question: string): string | null {
+  const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const examples = d.examples.filter((x) => x.text.trim());
+  if (!d.answerable || !d.need.text.trim() || !d.tie.text.trim() || examples.length === 0 || examples.length > 2) return "Your profile does not support an honest answer to this question";
+  for (const part of [d.need, d.tie]) {
+    if (isCandidateClaim(part.text) || !norm(posting).includes(norm(part.support)) || unsupportedSentences([part], "", question, posting).length) {
+      return `A drafted answer said things the posting does not (${part.text.slice(0, 80)})`;
+    }
+  }
+  const bad = unsupportedSentences(examples, facts, "");
+  if (bad.length) return `A drafted answer said things your profile does not (${bad[0]!.slice(0, 80)})`;
+  const postingTerms = new Set(findTerms(posting).map((t) => t.key));
+  const postingWords = new Set(contentTokens(posting).filter((w) => w.length > 3));
+  const fits = examples.some((x) => findTerms(x.support).some((t) => postingTerms.has(t.key))
+    || contentTokens(x.support).filter((w) => w.length > 3 && postingWords.has(w)).length >= 2);
+  if (!fits) return "Nothing in your career points fits this role well enough to answer for you";
+  return null;
+}
 
 const addUsage = (u: PlanUsage, x: Usage) => { u.costMicros += x.costMicros; };
 
@@ -324,39 +379,41 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
   }
   timings.smallMs = Date.now() - t2;
 
-  // 5: one large-model call for required long free text.
+  // 5: one large-model call drafts the required story and motivation questions in the three-part format. Factual
+  // questions in a text box are never drafted; neither is a question that is neither kind.
   const t3 = Date.now();
-  if (longRequired.length) {
-    if (noModel || points.length === 0) {
-      for (const f of longRequired) unresolved(f, "custom", "This question needs a written answer from you");
-    } else {
-      let reply: z.infer<typeof LargeReply> | null = null;
-      try {
-        const res = await complete({
-          tier: "large", system: LARGE_SYSTEM, prefix: candidatePrefix(points), schema: LargeReply, schemaName: "long_answers", strict: true, temperature: 0.2,
-          input: JSON.stringify({
-            job: { title: ctx.job.title, company: ctx.job.company, mustHaves: ctx.job.spec?.mustHaves.slice(0, 8) ?? [], posting: ctx.job.description.slice(0, 2500) },
-            questions: longRequired.map((f) => ({ key: f.key, question: f.label.slice(0, 800) })),
-          }),
-          userId: input.userId, db, maxOutputTokens: 450 * longRequired.length + 200,
-        });
-        usage.largeCalls++;
-        addUsage(usage, res.usage);
-        reply = res.output;
-      } catch {
-        reply = null;
-      }
-      const byKey = new Map((reply?.answers ?? []).map((r) => [r.key, r]));
-      for (const f of longRequired) {
-        const r = byKey.get(f.key);
-        const sentences = r?.answerable ? r.sentences.filter((x) => x.text.trim()) : [];
-        const text = sentences.map((x) => x.text.trim()).join(" ");
-        if (!text) { unresolved(f, "custom", "Your profile does not support an honest answer to this question"); continue; }
-        const bad = unsupportedSentences(sentences, facts, f.label, posting);
-        if (bad.length || text.split(/\s+/).length > 130) { unresolved(f, "custom", bad.length ? `A drafted answer said things your profile does not (${bad[0]!.slice(0, 80)})` : "The draft was too long"); continue; }
-        set(f, "custom", { status: "ready", value: text, source: "large" });
-        remember(f, text);
-      }
+  const drafts: PlanField[] = [];
+  for (const f of longRequired) {
+    const kind = questionKind(f.label);
+    if (kind === "factual") unresolved(f, "custom", "Only you can answer this");
+    else if (kind === "other" || noModel || points.length === 0 || drafts.length >= MAX_DRAFTS_PER_FORM) unresolved(f, "custom", "This question needs a written answer from you");
+    else drafts.push(f);
+  }
+  if (drafts.length) {
+    let reply: z.infer<typeof LargeReply> | null = null;
+    try {
+      const res = await complete({
+        tier: "large", system: LARGE_SYSTEM, prefix: candidatePrefix(points), schema: LargeReply, schemaName: "long_answers", strict: true, temperature: 0.2,
+        input: JSON.stringify({
+          job: { title: ctx.job.title, company: ctx.job.company, mustHaves: ctx.job.spec?.mustHaves.slice(0, 8) ?? [], posting: ctx.job.description.slice(0, 2500) },
+          questions: drafts.map((f) => ({ key: f.key, question: f.label.slice(0, 800) })),
+        }),
+        userId: input.userId, db, maxOutputTokens: 450 * drafts.length + 200,
+      });
+      usage.largeCalls++;
+      addUsage(usage, res.usage);
+      reply = res.output;
+    } catch {
+      reply = null;
+    }
+    const byKey = new Map((reply?.answers ?? []).map((r) => [r.key, r]));
+    for (const f of drafts) {
+      const d = byKey.get(f.key);
+      const problem = d ? draftProblem(d, facts, posting, f.label) : "Your profile does not support an honest answer to this question";
+      const text = d ? [d.need, ...d.examples, d.tie].map((x) => x.text.trim()).filter(Boolean).join(" ") : "";
+      if (problem || text.split(/\s+/).length > 130) { unresolved(f, "custom", problem ?? "The draft was too long"); continue; }
+      // Not saved to the answer bank: the need and the tie come from this posting, so the answer is true for this job only.
+      set(f, "custom", { status: "ready", value: text, source: "large" });
     }
   }
   timings.largeMs = Date.now() - t3;

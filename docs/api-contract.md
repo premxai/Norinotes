@@ -117,6 +117,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - POST `/api/applications/:id/cancel`: the person drops the application. It becomes `failed` with error `"Cancelled by
   you"` (Retry brings it back). 409 while Nori is on the employer's page (`applying`, `awaiting_code`) or once it was
   `submitted`; cancelling a failed one is a no-op 200.
+- Receipt fields (`receipt.sections[].fields[]`) Nori drafted carry `noriWrote: true`: show "Nori wrote this" next to
+  them. `receipt.prepared.drafted` lists those answers as `{ key, label, value }` (docs/applying.md).
 - Retry after a code that never came is allowed: the receipt carries `codeMissing: true` (the site holds an application
   until its code is entered), so the duplicate guard does not apply.
 - POST `/api/applications/:id/code` with `{ code }` (3 to 20 letters, digits, spaces or dashes): the verification code

@@ -37,12 +37,19 @@ read without a key is read before the click.
      may say "unsure", which becomes a pending question. Short answers are checked against the person's own facts only
      (career points, name, location; the job's title and company may be named): numbers, names, and every skill or tool
      the alias table knows, in any case or alias, must appear there;
-   - **required long free text**: at most **one large-model call** (gpt-4.1) for the form. Every sentence must name a
-     verbatim supporting quote. A sentence about the candidate (first person, or a year count) must quote the career
-     points; only a sentence about the company or the role may quote the posting. The quote must exist, the sentence's
-     numbers, names and tools must be in it (a claim cannot borrow terms from the question), and most of its content
-     words must come from it. Anything else is pending.
-     Optional long free text is left blank.
+   - **required long free text** (`questionKind`): only **story and motivation** questions are drafted (why this company
+     or role, a project you are proud of, anything else, a cover note). **Factual** questions in a text box (years with
+     a skill, have you used X, visa, citizenship, salary, start date, location, legal, EEO, past dealings with the
+     company, or any question that names a tool) are never drafted; a question that is neither is not drafted either.
+     Both go to the person. At most **one large-model call** (gpt-4.1) for the form drafts up to 4 of them (about 1 to 2
+     cents; the rest go to the person) in Prem's three-part format: one sentence on what the role needs, quoting the
+     posting; one or two real examples from the career points, each quoting one, with the person's actual titles, tools
+     and numbers; one sentence tying it to this team or product, quoting the posting. The need and the tie may not say
+     anything about the candidate (no first person, no year count). Each example passes the quote check: its numbers,
+     names and tools must be in its quote and most of its content words must come from it. At least one example must
+     share a term or two content words with the posting, or nothing in the career fits well enough. Anything that fails
+     is pending. Drafts are not saved to the answer bank (they are about this posting), and the receipt marks their
+     fields "Nori wrote this". Optional long free text is left blank.
    - **Legal questions** (work authorisation, sponsorship, criminal history, salary, relocation, start date, age,
      consent) come only from the profile, even when the model classified them; otherwise pending. The model never
      supplies their value.
@@ -105,6 +112,9 @@ read without a key is read before the click.
   writes `receipt.submitClicked` and confirms the row was updated. If that write fails, the click does not happen. A
   stored mark outranks the driver's own report, so a run that breaks at the click is failed and never sent again.
 - Receipts: grouped fields, files, screenshot, trace path, confirmation text, `prepared` summary and per-step timings.
+  `prepared.drafted` lists the answers Nori drafted (`{ key, label, value }`); a draft stays listed after another
+  preparation only while the application still holds the same text. A receipt field whose label matches one has
+  `noriWrote: true`.
 - Run events: `prepare_form`, `discovered`, `field_filled` (strategy, source, ms), `validation`, `timing`
   (openMs, discoverMs, filesMs, textMs, choicesMs, validateMs, readyMs), `captcha`, `verification`, `submit`.
 

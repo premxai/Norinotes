@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applications, careerPoints, companies, eq, formRecipes, jobs, profiles, runEvents, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
+import { createFakeProvider, setProvider } from "@norinote/ai";
 import {
   canonicalJobUrl, CompanyGate, createApplication, formFingerprint, greenhouseSchemaFromJson, loadRecipe, parseJobUrl, prepareForm, recordStrategies, saveRecipe,
   type GreenhouseJobJson,
@@ -130,6 +131,42 @@ describe("recipes and prepareForm (database)", () => {
     await t.db.update(companies).set({ atsToken: "discord-prep2" }).where(eq(companies.id, s2.companyId));
     const r2 = await prepareForm(t.db, s2.appId, { fetch: fetchStub, noModel: true });
     expect(r2.recipeHit).toBe(true);
+  });
+
+  it("lists the answers Nori drafted in the receipt, and keeps them listed only while the form gets the same text", async () => {
+    const s = await seed("drafted", "https://job-boards.greenhouse.io/discord/jobs/7001");
+    await t.db.update(jobs).set({ descriptionText: "Discord builds chat for communities. You will build and run backend APIs in Go." }).where(eq(jobs.id, s.jobId));
+    const form: GreenhouseJobJson = { id: 7001, questions: [
+      { label: "First Name", required: true, fields: [{ name: "first_name", type: "input_text" }] },
+      { label: "Why do you want to work at Discord?", required: true, fields: [{ name: "question_1", type: "textarea" }] },
+    ] } as GreenhouseJobJson;
+    const fetchStub = (async (url: string) => (String(url).includes("questions=true")
+      ? new Response(JSON.stringify(form), { status: 200, headers: { "content-type": "application/json" } })
+      : new Response("not found", { status: 404 }))) as typeof fetch;
+    setProvider(createFakeProvider({ chat: () => ({ answers: [{
+      key: "question_1", answerable: true,
+      need: { text: "The role builds and runs backend APIs in Go.", support: "You will build and run backend APIs in Go" },
+      examples: [{ text: "I built APIs in Go.", support: "Built APIs in Go." }],
+      tie: { text: "Discord builds chat for communities, which is where that work would go.", support: "Discord builds chat for communities" },
+    }] }) }));
+    try {
+      const r = await prepareForm(t.db, s.appId, { fetch: fetchStub });
+      expect(r.outcome).toBe("prepared");
+    } finally {
+      setProvider(null);
+    }
+    const value = "The role builds and runs backend APIs in Go. I built APIs in Go. Discord builds chat for communities, which is where that work would go.";
+    const drafted = async () => ((await t.db.select().from(applications).where(eq(applications.id, s.appId)))[0]!.receipt as { prepared: { drafted: unknown[] } }).prepared.drafted;
+    expect(await drafted()).toEqual([{ key: "question_1", label: "Why do you want to work at Discord?", value }]);
+
+    // Prepared again (the draft now comes back as an answer on the application): still Nori's.
+    await prepareForm(t.db, s.appId, { fetch: fetchStub, noModel: true });
+    expect(await drafted()).toEqual([{ key: "question_1", label: "Why do you want to work at Discord?", value }]);
+
+    // The person rewrote it: theirs now.
+    await t.db.update(applications).set({ answers: { "field:first_name": "Test", "field:question_1": "My own words." } }).where(eq(applications.id, s.appId));
+    await prepareForm(t.db, s.appId, { fetch: fetchStub, noModel: true });
+    expect(await drafted()).toEqual([]);
   });
 
   it("parks Workday at prepare time with the reason, without touching the browser", async () => {

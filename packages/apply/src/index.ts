@@ -13,7 +13,7 @@ export type { BrowserPool, BrowserPoolOptions, PoolArtifacts, PoolRunOptions, Po
 export { DRIVERS, detectDriver, defaultUnknownFormHandler, UNSUPPORTED_FORM_REASON, greenhouseDriver, leverDriver, ashbyDriver, greenhouseFormUrl, leverFormUrl, ashbyFormUrl } from "./drivers/index.js";
 export { submitAllowed } from "./flow.js";
 export { buildReceipt, formatReceipt, groupFields, sectionFor, RECEIPT_SECTIONS } from "./receipt.js";
-export type { ApplicationReceipt, ReceiptField, ReceiptSection, ReceiptSectionName } from "./receipt.js";
+export type { ApplicationReceipt, DraftedAnswer, ReceiptField, ReceiptSection, ReceiptSectionName } from "./receipt.js";
 export { loadApplyInputs, profileFromRows, MissingInputError } from "./inputs.js";
 export type { ApplyInputs } from "./inputs.js";
 export { questionId, classifyField, cleanLabel, phoneCountryValue } from "./form.js";

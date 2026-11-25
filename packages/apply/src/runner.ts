@@ -6,7 +6,7 @@ import { defaultUnknownFormHandler, detectDriver, DRIVERS } from "./drivers/inde
 import { submitAllowed } from "./flow.js";
 import { loadApplyInputs, type ApplyInputs } from "./inputs.js";
 import { PoolRunError, type BrowserPool, type PoolArtifacts } from "./pool.js";
-import { buildReceipt } from "./receipt.js";
+import { buildReceipt, type DraftedAnswer } from "./receipt.js";
 import { sharedCompanyGate, type CompanyGate } from "./gate.js";
 import { recordStrategies } from "./recipes.js";
 import { isTerminal, MAX_ATTEMPTS, submitMayHaveHappened } from "./state.js";
@@ -366,7 +366,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   const clickRecorded = submitMayHaveHappened(latest);
   const prepared = latest.receipt?.prepared;
   const receiptFor = (extra: Partial<Parameters<typeof buildReceipt>[0]> = {}): Record<string, unknown> => ({
-    ...(buildReceipt({ driver: driverName, dryRun, fill, submit, screenshotPath: outcome.screenshotPath, ...artifactPaths(artifacts), now: now(), ...extra }) as unknown as Record<string, unknown>),
+    ...(buildReceipt({ driver: driverName, dryRun, fill, submit, screenshotPath: outcome.screenshotPath, ...artifactPaths(artifacts), drafted: (prepared as { drafted?: DraftedAnswer[] } | undefined)?.drafted, now: now(), ...extra }) as unknown as Record<string, unknown>),
     ...(clickRecorded ? { submitClicked: true } : {}),
     ...(prepared ? { prepared } : {}),
     ...(fill.timings ? { timings: { ...fill.timings, ...(submit ? { submitMs: submit.durationMs } : {}) } } : {}),
