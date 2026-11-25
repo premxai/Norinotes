@@ -173,6 +173,7 @@ export async function chatTurn(db: Db, userId: string, message: string, deps: De
     }
   } catch (err) {
     if (err instanceof BudgetExceededError) text = "I've used today's AI budget for chatting. Everything else keeps working; we can talk again tomorrow.";
+    else if (err instanceof AiUnavailableError && err.reason === "not_configured") text = "AI is off on this server, so I can't chat right now. Everything else keeps working.";
     else if (err instanceof AiUnavailableError) text = "I can't think right now (the AI service is unavailable). Try again in a few minutes.";
     else throw err;
   }

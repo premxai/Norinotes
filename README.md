@@ -23,7 +23,7 @@ npm run dev --workspace @norinote/web   # dashboard on :3000
 
 With no `DATABASE_URL`, `npm run dev` uses an embedded PGlite database under `./data/pglite` and an in-memory queue, so nothing else needs installing. With a `DATABASE_URL` it uses Postgres and pg-boss; in production the API (`npm run dev:api`) and the worker (`npm run dev:worker`) run as separate processes against the same database.
 
-With no valid `OPENAI_API_KEY`, resumes and job specs are read with rule-based parsing and matching ranks by skill overlap; set a real key for model-quality reading, tailoring and embeddings. Real form submission stays off unless `ALLOW_REAL_SUBMIT=true`.
+With no `OPENAI_API_KEY`, or a key the vendor rejects, the AI service is off: resumes and job specs are read with rule-based parsing, matching ranks by skill overlap, the Nori chat says AI is off, and `GET /api/health/ai` answers 503. Set a real key for model-quality reading, tailoring and embeddings; the worker's catch-up then reads again what was read without it. `AI_FAKE=1` swaps in a deterministic fake model for demos (never in production). Real form submission stays off unless `ALLOW_REAL_SUBMIT=true`.
 
 ## Checks
 

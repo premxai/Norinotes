@@ -6,7 +6,8 @@
  * authentication failure quotes part of the API key.
  */
 
-export type AiUnavailableReason = "auth" | "rate_limit" | "server" | "network";
+/** `not_configured`: no OPENAI_API_KEY is set, so no call is made at all. */
+export type AiUnavailableReason = "auth" | "rate_limit" | "server" | "network" | "not_configured";
 
 export class AiUnavailableError extends Error {
   constructor(
@@ -26,12 +27,14 @@ const DESCRIPTIONS: Record<AiUnavailableReason, string> = {
   rate_limit: "rate limited",
   server: "provider error",
   network: "network error",
+  not_configured: "no API key is set",
 };
 
 const AUTH_COOLDOWN_MS = 5 * 60_000;
 const TRANSIENT_COOLDOWN_MS = 30_000;
 
 function cooldownFor(reason: AiUnavailableReason): number {
+  if (reason === "not_configured") return 0;
   return reason === "auth" ? AUTH_COOLDOWN_MS : TRANSIENT_COOLDOWN_MS;
 }
 
@@ -85,6 +88,7 @@ const defaultLogger: Logger = (event, fields) => {
 
 let logger: Logger = defaultLogger;
 let current: { until: number; error: AiUnavailableError } | null = null;
+let warnedNotConfigured = false;
 
 /** Where the one line per cooldown goes. Default: a JSON line on stderr. Pass null to restore the default. */
 export function setAiLogger(fn: Logger | null): void {
@@ -94,6 +98,16 @@ export function setAiLogger(fn: Logger | null): void {
 /** Forget any cooldown (tests, or after the key was fixed). */
 export function resetAiAvailability(): void {
   current = null;
+  warnedNotConfigured = false;
+}
+
+/** The error for a call made without OPENAI_API_KEY. Logged once per process, not once per call. */
+export function notConfiguredError(): AiUnavailableError {
+  if (!warnedNotConfigured) {
+    warnedNotConfigured = true;
+    logger("ai.unavailable", { reason: "not_configured" });
+  }
+  return new AiUnavailableError("not_configured", null, 0, "The AI service is off: OPENAI_API_KEY is not set.");
 }
 
 export type AiAvailability = { available: boolean; reason: AiUnavailableReason | null; retryAt: Date | null };

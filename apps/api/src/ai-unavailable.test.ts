@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createFakeProvider, setAiLogger, setProvider } from "@norinote/ai";
 import { careerPointEmbeddings, careerPoints, eq, profiles } from "@norinote/db";
 import { RESUME_READ_BASIC } from "@norinote/graph";
@@ -52,6 +52,24 @@ describe("resume routes when the AI service rejects our key (401)", () => {
     setProvider(createFakeProvider());
     await api.call("POST", "/api/profile/resume", { cookie, body: { text: RESUME } });
     expect(await prefs()).not.toHaveProperty(RESUME_READ_BASIC);
+  });
+
+  it("without OPENAI_API_KEY outside tests: basic parsing with the note and the re-read flag, no embeddings", async () => {
+    const { cookie, user } = await api.signup("no-key@example.com");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VITEST", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    try {
+      const res = await api.call("POST", "/api/profile/resume", { cookie, body: { text: RESUME } });
+      expect(res.status).toBe(200);
+      expect(res.json.note).toBe(NOTE);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(await pointCount(user.id)).toBeGreaterThan(3);
+    expect(await embeddedCount(user.id)).toBe(0);
+    const [row] = await api.db.select({ p: profiles.preferences }).from(profiles).where(eq(profiles.userId, user.id));
+    expect(row!.p).toMatchObject({ [RESUME_READ_BASIC]: true });
   });
 
   it("POST /api/profile/resume and /resume-file answer 200 with the same note", async () => {

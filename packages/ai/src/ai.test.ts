@@ -4,8 +4,8 @@ import { users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { JobSpec } from "@norinote/shared";
 import {
-  AiOutputError, BudgetExceededError, EMBEDDING_DIMENSIONS, complete, costMicros, createFakeProvider, dailyTokenBudget, embed,
-  fakeEmbedding, getProvider, modelFor, setProvider, usageToday,
+  AiOutputError, AiUnavailableError, BudgetExceededError, EMBEDDING_DIMENSIONS, aiAvailability, aiConfigured, complete, costMicros, createFakeProvider,
+  dailyTokenBudget, embed, fakeEmbedding, getProvider, modelFor, setAiLogger, setProvider, usageToday,
 } from "./index.js";
 
 let t: TestDb;
@@ -48,6 +48,24 @@ describe("provider selection", () => {
   it("uses the fake provider under test even when a key is set", () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-not-real");
     expect(getProvider().name).toBe("fake");
+  });
+
+  it("outside tests, without a key, the AI service is off: no fake, every call throws not_configured", async () => {
+    setAiLogger(() => undefined);
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VITEST", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    expect(aiConfigured()).toBe(false);
+    expect(aiAvailability()).toEqual({ available: false, reason: "not_configured", retryAt: null });
+    expect(() => getProvider()).toThrow(AiUnavailableError);
+    await expect(complete({ system: "s", input: "i" })).rejects.toMatchObject({ name: "AiUnavailableError", reason: "not_configured" });
+    await expect(embed(["text"], { userId, db: t.db })).rejects.toMatchObject({ reason: "not_configured" });
+    expect(await usageToday(t.db, userId)).toMatchObject({ calls: 0 });
+
+    vi.stubEnv("AI_FAKE", "1");
+    expect(aiConfigured()).toBe(true);
+    expect(getProvider().name).toBe("fake");
+    setAiLogger(null);
   });
 });
 

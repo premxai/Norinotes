@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { getDb, type Db } from "@norinote/db";
-import { costMicros, dailyTokenBudget, embeddingModel, modelFor, type Tier } from "./config.js";
-import { assertAiAvailable, noteProviderFailure, noteProviderSuccess, resetAiAvailability } from "./errors.js";
+import { aiConfigured, costMicros, dailyTokenBudget, embeddingModel, fakeAllowed, modelFor, type Tier } from "./config.js";
+import {
+  aiAvailability as providerAvailability, assertAiAvailable, noteProviderFailure, noteProviderSuccess, notConfiguredError, resetAiAvailability,
+  type AiAvailability,
+} from "./errors.js";
 import { createFakeProvider } from "./fake.js";
 import { createOpenAiProvider } from "./openai.js";
 import type { AiProvider, ChatMessage } from "./provider.js";
@@ -10,7 +13,7 @@ import { checkBudget, recordUsage } from "./usage.js";
 
 export * from "./config.js";
 export * from "./usage.js";
-export { AiUnavailableError, aiAvailability, classifyProviderError, resetAiAvailability, setAiLogger } from "./errors.js";
+export { AiUnavailableError, classifyProviderError, resetAiAvailability, setAiLogger } from "./errors.js";
 export type { AiAvailability, AiUnavailableReason } from "./errors.js";
 export { createFakeProvider, fakeEmbedding, sampleFromJsonSchema } from "./fake.js";
 export type { FakeProviderOptions } from "./fake.js";
@@ -27,13 +30,23 @@ export function setProvider(p: AiProvider | null): void {
   resetAiAvailability();
 }
 
-/** Under tests, or without OPENAI_API_KEY, the deterministic fake: no network, no cost. Otherwise OpenAI. */
+/**
+ * Under tests or with AI_FAKE=1, the deterministic fake: no network, no cost. Otherwise OpenAI with OPENAI_API_KEY.
+ * Without a key the AI service is off: this throws `AiUnavailableError` (reason `not_configured`), so every caller takes
+ * the same fallback as for a rejected key and nothing made up by the fake is ever stored.
+ */
 export function getProvider(): AiProvider {
   if (override) return override;
+  if (fakeAllowed()) return (cached?.name === "fake" ? cached : (cached = createFakeProvider()));
   const key = process.env.OPENAI_API_KEY?.trim();
-  const testing = process.env.NODE_ENV === "test" || !!process.env.VITEST;
-  if (testing || !key) return (cached?.name === "fake" ? cached : (cached = createFakeProvider()));
+  if (!key) throw notConfiguredError();
   return cached?.name === "openai" ? cached : (cached = createOpenAiProvider(key));
+}
+
+/** Whether model calls can be made now: not without a key (`not_configured`), nor during a cooldown after a provider failure. */
+export function aiAvailability(now = Date.now()): AiAvailability {
+  if (!override && !aiConfigured()) return { available: false, reason: "not_configured", retryAt: null };
+  return providerAvailability(now);
 }
 
 // ---- complete -------------------------------------------------------------------------------------------------------
@@ -93,10 +106,11 @@ export async function complete(args: CompleteArgs): Promise<CompleteResult<unkno
   const tier = args.tier ?? "small";
   const model = modelFor(tier);
   assertAiAvailable();
+  const provider = getProvider();
   const db = args.userId ? (args.db ?? (await getDb())) : undefined;
   if (db && args.userId) await checkBudget(db, args.userId, dailyTokenBudget());
 
-  const res = await getProvider().chat({
+  const res = await provider.chat({
     model,
     messages: buildMessages(args),
     temperature: args.temperature ?? 0,
@@ -130,9 +144,10 @@ export async function embed(texts: string[], opts: { userId?: string; db?: Db } 
   if (texts.length === 0) return [];
   const model = embeddingModel();
   assertAiAvailable();
+  const provider = getProvider();
   const db = opts.userId ? (opts.db ?? (await getDb())) : undefined;
   if (db && opts.userId) await checkBudget(db, opts.userId, dailyTokenBudget());
-  const res = await getProvider().embed({ model, texts }).catch((err: unknown) => { throw noteProviderFailure(err); });
+  const res = await provider.embed({ model, texts }).catch((err: unknown) => { throw noteProviderFailure(err); });
   noteProviderSuccess();
   if (res.vectors.length !== texts.length) throw new Error(`Embedding returned ${res.vectors.length} vectors for ${texts.length} texts`);
   if (db && opts.userId) await recordUsage(db, opts.userId, model, { promptTokens: res.promptTokens, completionTokens: 0 });

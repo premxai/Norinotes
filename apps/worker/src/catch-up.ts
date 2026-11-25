@@ -2,7 +2,8 @@
  * AI catch-up: what was done without the AI service is done again once it works. Jobs read with the heuristic spec get
  * the model's reading (and a new embedding; the match batch then scores them again), resumes read with the basic parser
  * get the detailed reading, inbox mail the fallback sorted as `other` is read again, and failed site or GitHub reads
- * are tried again a day later. Each part is bounded per run; nothing runs while the service is in a cooldown.
+ * are tried again a day later. Each part is bounded per run; nothing runs while the service is in a cooldown or off.
+ * The first run per database in a process also repairs what the old no-key fake wrote (see repair-ai-stub.ts) first.
  */
 import { BudgetExceededError, aiAvailability } from "@norinote/ai";
 import { and, eq, graphSources, gt, isNotNull, lt, ne, profiles, sql, type Db } from "@norinote/db";
@@ -10,6 +11,7 @@ import { RESUME_READ_BASIC, buildCareerPoints } from "@norinote/graph";
 import { reclassifyFallbackMessages, smallModel } from "@norinote/inbox";
 import { heuristicOnlyJobs } from "@norinote/match";
 import { JOBS, type QueueAdapter } from "@norinote/queue";
+import { repairAiStubRows } from "./repair-ai-stub.js";
 
 export type CatchUpDeps = {
   db: Db;
@@ -25,6 +27,8 @@ const RESUMES_PER_RUN = 5;
 /** Failed graph sources queued again per run. */
 const SOURCES_PER_RUN = 20;
 const DAY_MS = 86_400_000;
+/** Databases whose fake-model rows this process has already repaired. */
+const repaired = new WeakSet<Db>();
 /** A failed source is tried again once a day while it is younger than this: at most three automatic tries. */
 const SOURCE_RETRY_DAYS = 4;
 
@@ -32,6 +36,13 @@ export async function catchUp(deps: CatchUpDeps): Promise<Record<string, string 
   if (!aiAvailability().available) return { skipped: "ai unavailable" };
   const { db, queue } = deps;
   const now = deps.now();
+
+  let stub: Record<string, number> = {};
+  if (!repaired.has(db)) {
+    const r = await repairAiStubRows(db, now);
+    repaired.add(db);
+    stub = Object.fromEntries(Object.entries(r).filter(([, n]) => n > 0).map(([k, n]) => [`stub${k[0]!.toUpperCase()}${k.slice(1)}`, n]));
+  }
 
   const heuristic = await heuristicOnlyJobs(db, { now, engineAts: deps.engineAts });
   const jobsQueued = await deps.enqueueUnderstand(heuristic);
@@ -47,7 +58,7 @@ export async function catchUp(deps: CatchUpDeps): Promise<Record<string, string 
     if (await queue.enqueue(JOBS.graphReadSource, { sourceId: s.id }, { dedupeKey: s.id, dedupeSeconds: 3600 })) sourcesQueued++;
   }
 
-  return { heuristicJobs: heuristic.length, jobsQueued, resumes, inboxReread: inbox.reread, inboxOutcomes: inbox.outcomes, sourcesQueued };
+  return { ...stub, heuristicJobs: heuristic.length, jobsQueued, resumes, inboxReread: inbox.reread, inboxOutcomes: inbox.outcomes, sourcesQueued };
 }
 
 /** Resumes read with the basic parser get the detailed reading; the shortlist is rebuilt for each one that got it. */

@@ -11,6 +11,16 @@ export const DEFAULT_DAILY_TOKEN_BUDGET = 300_000;
 type Env = Record<string, string | undefined>;
 const pick = (v: string | undefined, fallback: string) => (v && v.trim() ? v.trim() : fallback);
 
+/** The deterministic fake model may stand in for the vendor: under tests, or when AI_FAKE=1 says so explicitly. */
+export function fakeAllowed(env: Env = process.env): boolean {
+  return env.NODE_ENV === "test" || !!env.VITEST || env.AI_FAKE === "1";
+}
+
+/** Model calls can be made: OPENAI_API_KEY is set, or the fake is allowed. Without either, the AI service is off. */
+export function aiConfigured(env: Env = process.env): boolean {
+  return !!env.OPENAI_API_KEY?.trim() || fakeAllowed(env);
+}
+
 /** `small` is the default everywhere; `large` only where a call names it. */
 export function modelFor(tier: Tier, env: Env = process.env): string {
   return tier === "large" ? pick(env.AI_LARGE_MODEL, DEFAULT_LARGE_MODEL) : pick(env.AI_SMALL_MODEL, DEFAULT_SMALL_MODEL);

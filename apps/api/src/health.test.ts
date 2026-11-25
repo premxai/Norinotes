@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { jobSpecs } from "@norinote/db";
 import { makeApi, seedJob, type Api } from "./testkit.js";
 
@@ -20,5 +20,19 @@ describe("GET /api/health/ai: is the AI reading jobs?", () => {
     expect(down.json).toMatchObject({ ok: false, recentSpecs: 6, ruleBased: 6 });
     // The plain health check (used by the platform to restart machines) is not affected.
     expect((await api.call("GET", "/api/health")).status).toBe(200);
+  });
+
+  it("is 503 at once when no OPENAI_API_KEY is set outside tests", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VITEST", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    try {
+      const res = await api.call("GET", "/api/health/ai");
+      expect(res.status).toBe(503);
+      expect(res.json).toMatchObject({ ok: false, configured: false });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect((await api.call("GET", "/api/health/ai")).json).toMatchObject({ configured: true });
   });
 });

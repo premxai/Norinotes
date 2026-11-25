@@ -23,9 +23,6 @@ export type InboxModel = (email: { from: string; subject: string; text: string }
 
 /** The small model (`AI_SMALL_MODEL`, gpt-4.1-mini by default) through @norinote/ai, charged to the user's budget. */
 export const smallModel: InboxModel = async (email, rules, opts) => {
-  // Without a key @norinote/ai answers with its deterministic fake, which must never decide a real message.
-  const testing = process.env.NODE_ENV === "test" || !!process.env.VITEST;
-  if (!testing && !process.env.OPENAI_API_KEY?.trim()) throw new AiUnavailableError("auth", null, 0, "OPENAI_API_KEY is not set");
   const { output } = await complete({
     tier: "small", system: SYSTEM, schema: ModelVerdict, schemaName: "inbox_verdict", strict: true, temperature: 0, maxOutputTokens: 60,
     input: `Rules said: ${rules.kind}${rules.ambiguity ? ` (unsure: ${rules.ambiguity})` : ""}\nFrom: ${email.from}\nSubject: ${email.subject}\n\n${email.text.slice(0, 4000)}`,
