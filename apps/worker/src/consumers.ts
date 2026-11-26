@@ -3,7 +3,7 @@ import { companies, eq, type Db } from "@norinote/db";
 import { PendingQuestion } from "@norinote/shared";
 import { planForm } from "@norinote/answers";
 import {
-  approveAndSubmit, createApplyHandler, createFinishHandler, createPrepareHandler, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
+  approveAndSubmit, autopilotStrongFit, createApplyHandler, createFinishHandler, createPrepareHandler, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
   staleRuns, STALE_RUN_MS,
   type ApplyDeps, type LiveInputBus,
 } from "@norinote/apply";
@@ -367,6 +367,13 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     if (after?.status === "prepared" && after.approvedAt && after.attempts === 0) {
       const res = await approveAndSubmit(db, after.id);
       if (res.ok && res.started) await queue.enqueue(JOBS.applyRun, { applicationId: after.id, trigger: "click" });
+      return restored;
+    }
+    // Autopilot for strong fits: one Nori prepared ahead goes out now when the person's schedule is on (within the cap).
+    if (after?.status === "prepared") {
+      const auto = await autopilotStrongFit(db, after.id, { now: now(), atsTypes: config.batchAts });
+      if (auto.started) await queue.enqueue(JOBS.applyRun, { applicationId: after.id, trigger: "autopilot" });
+      return { ...restored, autopilot: auto.started ? "sent" : (auto.reason ?? "not_started") };
     }
     return restored;
   }));

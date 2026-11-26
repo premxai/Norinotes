@@ -18,7 +18,11 @@ people who asked Nori to act for them: the schedule on (not paused), or Telegram
 (docs/telegram.md), which announces the job with Apply and Skip as soon as it is prepared. The batch rules apply (skip list,
 no company applied to in the last 60 days, one job per company, `BATCH_ATS`), and at most the person's daily limit of
 strong fits is prepared ahead a day. The application is marked with a `strong_fit` run event, goes to the front of the
-prepare queue, and waits for the person's OK like any other. `scripts/measure-fast-path.mts` times first_seen_at to the
+prepare queue, and waits for the person's OK, except with **autopilot**: when the person's schedule is on and not
+paused, the prepare consumer sends it as soon as it is prepared (`autopilotStrongFit`, `apply.run` trigger `autopilot`),
+within the daily limit (counted under the person's lock by `approveAndSubmit`), no company applied to in the last 60 days,
+not a skipped company, only `BATCH_ATS`. When it cannot be sent now, it stays prepared for the person. Whether autopilot
+sends is decided in one predicate, `autopilotSendsStrongFit`, so the apply decision policy can take it over. `scripts/measure-fast-path.mts` times first_seen_at to the
 shortlist and to prepared.
 
 `createPreparer` (apps/worker) tailors the resume (packages/tailor), answers the standard questions, then calls

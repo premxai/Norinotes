@@ -2,11 +2,13 @@
  * Strong fits, fast: a new job that fits a person this well (shortlist fit 0.8 or more) is prepared ahead, right after
  * it is matched, so it can be sent within hours of posting instead of waiting for the next scheduled run or a click.
  * Only for people who asked Nori to act for them (the caller decides who: the schedule, or a linked Telegram).
- * Preparing is not sending: an application prepared ahead waits for the person's OK like any other.
+ * Preparing is not sending: an application prepared ahead waits for the person's OK, unless the person turned on the
+ * schedule (autopilot): then it is sent as soon as it is prepared (`autopilotStrongFit`).
  */
-import { and, applications, companies, eq, gte, inArray, jobs, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { getNoriSettings, recentlyAppliedCompanies } from "./batch.js";
-import { capDayStart, createApplication, logEvent, normalizeCompany } from "./store.js";
+import { and, applications, companies, eq, gte, inArray, jobs, ne, runEvents, shortlist, sql, type Db } from "@norinote/db";
+import { getNoriSettings, RECENT_COMPANY_DAYS, recentlyAppliedCompanies } from "./batch.js";
+import { getSchedule, type NoriSchedule } from "./schedule.js";
+import { approveAndSubmit, capDayStart, createApplication, loadApplication, logEvent, normalizeCompany } from "./store.js";
 
 /** The fit at which a job counts as a strong fit (the "Strong fit" band). */
 export const STRONG_FIT = 0.8;
@@ -64,4 +66,49 @@ export async function prepareStrongFitsAhead(db: Db, userId: string, fits: reado
     out.created.push({ jobId: f.jobId, applicationId: res.application.id, fit: f.fit });
   }
   return out;
+}
+
+/**
+ * Whether autopilot sends a prepared strong fit on its own: only when the person turned the schedule on and has not
+ * paused it. The one place this is decided, so the apply decision policy (PRE-31) can replace it.
+ */
+export function autopilotSendsStrongFit(s: { schedule: NoriSchedule; fit: number | null }): boolean {
+  return s.schedule.enabled && !s.schedule.paused && s.fit !== null && s.fit >= STRONG_FIT;
+}
+
+export type AutopilotResult = { started: boolean; reason?: string };
+
+/**
+ * Autopilot for strong fits: a strong fit Nori prepared ahead goes to the employer's form as soon as it is prepared,
+ * instead of waiting for the next scheduled run, when `autopilotSendsStrongFit` says so. Within the same limits as a
+ * scheduled batch: the daily limit (counted and stamped atomically by `approveAndSubmit` under the person's lock), no
+ * company on the skip list or applied to in the last 60 days, only the job systems Nori sends through. When it does not
+ * send, the application stays prepared for the person (and the Telegram alert offers Apply). `started` means the caller
+ * must queue `apply.run` (trigger autopilot).
+ */
+export async function autopilotStrongFit(db: Db, applicationId: string, opts: { now: Date; atsTypes?: readonly string[] | null }): Promise<AutopilotResult> {
+  const app = await loadApplication(db, applicationId);
+  if (!app || app.status !== "prepared" || app.approvedAt || app.attempts > 0) return { started: false, reason: "not_waiting" };
+  const [marked] = await db.select({ data: runEvents.data }).from(runEvents)
+    .where(and(eq(runEvents.applicationId, app.id), eq(runEvents.step, STRONG_FIT_STEP))).limit(1);
+  if (!marked) return { started: false, reason: "not_strong_fit" };
+  const [row] = await db.select({ fit: shortlist.fit }).from(shortlist).where(and(eq(shortlist.userId, app.userId), eq(shortlist.jobId, app.jobId))).limit(1);
+  if (!autopilotSendsStrongFit({ schedule: await getSchedule(db, app.userId), fit: row?.fit ?? null })) return { started: false, reason: "autopilot_off" };
+
+  const [job] = await db.select({ companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType }).from(jobs)
+    .innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, app.jobId)).limit(1);
+  if (!job) return { started: false, reason: "not_found" };
+  if (opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType)) return { started: false, reason: "not_supported" };
+  const settings = await getNoriSettings(db, app.userId);
+  if (settings.skipCompanies.map(normalizeCompany).includes(normalizeCompany(job.companyName))) return { started: false, reason: "skipped_company" };
+  // Another application at this company in the cooldown window (this one counts itself, so it is left out).
+  const since = new Date(opts.now.getTime() - RECENT_COMPANY_DAYS * 86_400_000);
+  const [other] = await db.select({ id: applications.id }).from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
+    .where(and(eq(applications.userId, app.userId), eq(jobs.companyId, job.companyId), ne(applications.id, app.id), gte(applications.createdAt, since), ne(applications.status, "failed"))).limit(1);
+  if (other) return { started: false, reason: "applied_recently" };
+
+  const res = await approveAndSubmit(db, app.id, { now: opts.now, limit: settings.dailyLimit });
+  if (!res.ok) return { started: false, reason: res.cap ? "daily_limit" : res.reason };
+  if (res.started) await logEvent(db, app.id, "autopilot", "Autopilot sent this strong fit as soon as it was prepared", { data: { fit: row?.fit ?? null } });
+  return { started: res.started };
 }

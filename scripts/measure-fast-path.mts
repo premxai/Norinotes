@@ -5,14 +5,13 @@
  *
  * Runs the worker in this process with real timers (scheduler on, default MATCH_BATCH_MS), an in-memory PGlite database,
  * the in-memory queue, a local fake board (no network) and the fake AI provider (no paid calls). One person with a lane
- * and the schedule (autopilot) on, so a strong fit may be prepared for them. A new job is posted on the board and the
+ * and Telegram linked, so a strong fit is prepared ahead for them (no bot token: nothing is sent to Telegram). A new job is posted on the board and the
  * board is made due; the script waits for its shortlist row and its prepared application. Nothing is sent: the form
  * step is stubbed and ALLOW_REAL_SUBMIT is never set.
  */
 import { createFakeProvider, setProvider } from "@norinote/ai";
-import { applications, careerPoints, companies, eq, jobs, lanes, profiles, shortlist, users } from "@norinote/db";
+import { applications, careerPoints, channels, companies, eq, jobs, lanes, profiles, shortlist, users } from "@norinote/db";
 import { createTestDb } from "@norinote/db/testing";
-import { saveSchedule } from "@norinote/apply";
 import { embedCareerPoints } from "@norinote/graph";
 import { MemoryQueue } from "@norinote/queue";
 import { createLogger, createPreparer, loadConfig, startWorker } from "../apps/worker/src/index.js";
@@ -45,8 +44,8 @@ await db.insert(careerPoints).values([
     text: "Platform Engineer. Ran Kubernetes clusters on AWS with Docker and Terraform." },
 ]);
 await embedCareerPoints(db, userId);
-// The schedule (autopilot) on, at a time that is not due during the run.
-await saveSchedule(db, userId, { enabled: true, days: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], time: "03:00", timezone: "Pacific/Kiritimati", lastRunOn: null });
+// Telegram linked (its strong-fit alert is on by default): Nori prepares strong fits ahead, and nothing is sent on its own.
+await db.insert(channels).values({ userId, kind: "telegram", address: "measure-chat" });
 
 const posted: Array<{ id: number; title: string; at: string }> = [];
 const fakeFetch = (async (input: string | URL | Request) => {

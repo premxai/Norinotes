@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applications, channels, companies, eq, jobs, resumes, shortlist, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
-import { saveSchedule, type BrowserPool, type Preparer } from "@norinote/apply";
+import type { Page } from "playwright";
+import { saveSchedule, type BrowserPool, type Driver, type FillResult, type Preparer } from "@norinote/apply";
 import { saveTelegramSettings } from "@norinote/telegram";
 import { MemoryQueue, JOBS } from "@norinote/queue";
 import { loadConfig } from "./config.js";
@@ -15,9 +16,21 @@ afterAll(() => t.close());
 
 const pool: BrowserPool = {
   artifactsDir: "/tmp/artifacts",
-  run: async () => { throw new Error("no browser in this test"); },
+  async run(_label, fn) {
+    const value = await fn({} as Page, { context: {} as never, keepArtifacts: () => {}, screenshot: async (tag) => `/tmp/artifacts/${tag}.png` });
+    return { value, artifacts: {} };
+  },
   warmUp: async () => {}, close: async () => {},
-  stats: () => ({ size: 1, active: 0, waiting: 0, browserLaunched: false, launches: 0 }),
+  stats: () => ({ size: 1, active: 0, waiting: 0, browserLaunched: true, launches: 1 }),
+};
+const filled: FillResult = {
+  status: "filled", formUrl: "https://x.test/form", durationMs: 10, pending: [],
+  fields: [{ label: "First Name", value: "Ada", kind: "text" }], files: [{ label: "Resume/CV", path: "/tmp/resume.pdf" }],
+};
+const driver: Driver = {
+  name: "greenhouse", detect: () => true, formUrl: () => null,
+  fill: async () => filled,
+  submit: async () => { throw new Error("a dry run must never submit"); },
 };
 const prepared: string[] = [];
 const preparer: Preparer = {
@@ -45,10 +58,10 @@ async function strongFit(userId: string, fit = 0.9) {
   return j!.id;
 }
 
-describe("fast path: strong fits are prepared right after matching", () => {
+describe("fast path: strong fits are prepared right after matching, and autopilot sends them", () => {
   it("prepares a strong fit at once for a person with the schedule or the Telegram alert on, and for nobody else", async () => {
     const queue = new MemoryQueue();
-    const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer });
+    const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer, applyOverrides: { drivers: [driver] } });
     try {
       const people = { schedule: await person("schedule"), telegram: await person("telegram"), alertOff: await person("telegram-alert-off"), paused: await person("paused"), none: await person("none") };
       const strong = {
@@ -62,7 +75,11 @@ describe("fast path: strong fits are prepared right after matching", () => {
 
       const apps = await t.db.select().from(applications);
       const forJob = (jobId: string) => apps.find((a) => a.jobId === jobId);
-      expect(forJob(strong.schedule)).toMatchObject({ status: "prepared", approvedAt: null });
+      // Schedule on: autopilot sends it as soon as it is prepared. Telegram only: it waits for the person's OK.
+      // (A dry run here: the form is filled and the run stops before submit, back at prepared with a dry-run receipt.)
+      expect(forJob(strong.schedule)!.approvedAt).toEqual(NOW);
+      expect(forJob(strong.schedule)!.receipt).toMatchObject({ dryRun: true });
+      expect(queue.stats(JOBS.applyRun)).toMatchObject({ completed: 1, failed: 0 });
       expect(forJob(strong.telegram)).toMatchObject({ status: "prepared", approvedAt: null });
       expect(forJob(strong.alertOff)).toBeUndefined();
       expect(forJob(strong.paused)).toBeUndefined();
