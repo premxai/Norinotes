@@ -97,6 +97,9 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 ## Matching (packages/match)
 
 1. SQL filter: open, posted within 7 days (`MAX_JOB_AGE_HOURS`) (undated jobs only if they appeared after the board's first read), fits an enabled lane (title, location, remote), not blocked, gates pass.
+   Lane locations are places, read with the location parser: a state or country fits jobs inside it, a city fits jobs in
+   that city (other names count both ways: NYC and New York) in the state it names, or in its metro. The SQL filter is a
+   broader prefilter for locations (it does not parse); the exact check runs on its rows before anything is scored or kept.
 2. Vector rank: cosine similarity between the user's profile embedding and `job_embeddings`, top about 200. The profile
    embedding is graph's `profileEmbedding` (a weighted mean of the most recent and substantial career points), the same
    vector for the daily rebuild and for new-job matching.

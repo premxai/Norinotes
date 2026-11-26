@@ -57,7 +57,41 @@ describe("location matching", () => {
     expect(locationMatches("United States", "Remote - US")).toBe(true);
     expect(locationMatches("USA", "Chicago, United States")).toBe(true);
     expect(locationMatches("US", "Austin, USA")).toBe(true);
-    expect(locationMatches("United States", "Austin, Texas")).toBe(false);
+    expect(locationMatches("United States", "Austin, Texas")).toBe(true);
+    expect(locationMatches("United States", "San Francisco, CA")).toBe(true);
+    expect(locationMatches("US", "Remote - Germany")).toBe(false);
+    expect(locationMatches("United States", "London, UK")).toBe(false);
+  });
+
+  it("reads a lane state or country as an area, not as words", () => {
+    expect(locationMatches("California", "San Francisco, CA")).toBe(true);
+    expect(locationMatches("California", "Mountain View")).toBe(true);
+    expect(locationMatches("CA", "Los Angeles, California")).toBe(true);
+    expect(locationMatches("California", "Austin, TX")).toBe(false);
+    expect(locationMatches("Oregon", "Portland, ME")).toBe(false);
+    expect(locationMatches("Washington", "Seattle, WA")).toBe(true);
+    expect(locationMatches("Texas", "Remote - US; Austin, TX")).toBe(true);
+  });
+
+  it("treats a city and its other names as the same place, both ways", () => {
+    expect(locationMatches("NYC", "New York, NY")).toBe(true);
+    expect(locationMatches("New York, NY", "NYC - 1211 Ave of the Americas")).toBe(true);
+    expect(locationMatches("SF Bay Area", "San Francisco, CA")).toBe(true);
+    expect(locationMatches("Bay Area", "Palo Alto, CA")).toBe(true);
+    expect(locationMatches("San Francisco", "SF Bay Area")).toBe(true);
+    expect(locationMatches("NYC", "Jersey City, NJ")).toBe(true);
+  });
+
+  it("keeps a city lane to the state and country it names", () => {
+    expect(locationMatches("Portland, OR", "Portland, ME")).toBe(false);
+    expect(locationMatches("Portland, OR", "Portland, Oregon")).toBe(true);
+    expect(locationMatches("Portland, ME", "Portland, ME")).toBe(true);
+    expect(locationMatches("Washington, DC", "Seattle, Washington")).toBe(false);
+    expect(locationMatches("Washington, DC", "Washington, D.C.")).toBe(true);
+    expect(locationMatches("Cambridge, MA", "Cambridge, United Kingdom")).toBe(false);
+    expect(locationMatches("Cambridge, MA", "Cambridge, MA")).toBe(true);
+    expect(locationMatches("Boston, MA", "Cambridge, United Kingdom")).toBe(false);
+    expect(locationMatches("Portland, OR", "Portland, ME; Portland, OR")).toBe(true);
   });
 });
 

@@ -225,6 +225,43 @@ function parseLocationUncached(raw: string | null | undefined, remoteFlag: boole
   return out;
 }
 
+/**
+ * The US states and countries a place can be named by on its own: `names` maps every way the tables write one (lower case:
+ * "california", "ca", "washington dc", "united states", "usa", "us") to its area ("US-CA" for a state, "US" for a country),
+ * and `areas` gives each area the lower-case place names and the capitalised codes that `parseLocation` reads as inside it.
+ * Lets a SQL prefilter find an area's jobs by their location text without parsing it.
+ */
+export const AREA_NAMES: {
+  names: Readonly<Record<string, string>>;
+  areas: Readonly<Record<string, { names: readonly string[]; codes: readonly string[] }>>;
+} = (() => {
+  const names: Record<string, string> = {};
+  const areas: Record<string, { names: string[]; codes: string[] }> = {};
+  const area = (id: string) => (areas[id] ??= { names: [], codes: [] });
+  const push = (list: string[], v: string) => { if (!list.includes(v)) list.push(v); };
+  for (const [name, code] of Object.entries(COUNTRIES)) {
+    names[name] = code;
+    if (name.length > 2) push(area(code).names, name);
+  }
+  for (const [token, code] of Object.entries(COUNTRY_CODE_TOKENS)) {
+    names[token] = code;
+    push(area(code).codes, token.toUpperCase());
+  }
+  for (const [name, code] of Object.entries(US_STATES)) {
+    names[name] = `US-${code}`;
+    names[code.toLowerCase()] = `US-${code}`;
+    push(area(`US-${code}`).names, name);
+    push(area(`US-${code}`).codes, code);
+    push(area("US").names, name);
+    push(area("US").codes, code);
+  }
+  for (const [name, c] of Object.entries(CITIES)) {
+    push(area(c.country).names, name);
+    if (c.state) push(area(`US-${c.state}`).names, name);
+  }
+  return { names, areas };
+})();
+
 /** "San Francisco, CA" -> "US". The country of a free-text place, or null when it names none or several. */
 export function countryOf(raw: string | null | undefined): string | null {
   const p = parseLocation(raw);

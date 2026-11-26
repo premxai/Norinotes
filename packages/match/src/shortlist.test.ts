@@ -1,10 +1,10 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiUnavailableError, createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
-import { MAX_JOB_AGE_HOURS, and, applications, eq, shortlist, sql } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, and, applications, eq, queryRows, shortlist, sql } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { profileEmbedding } from "@norinote/graph";
 import { FitMapEntry, isUsPlace } from "@norinote/shared";
-import { laneFitsJob } from "./lanes.js";
+import { inlineLanesFitSql, laneFitsJob, locationMatches } from "./lanes.js";
 import { OUTCOME_REASON_PREFIX } from "./outcomes.js";
 import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
 import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
@@ -71,10 +71,16 @@ describe("buildShortlist: the SQL filter", () => {
     const lanesInput = [
       { name: "A", titles: ["Product Designer", "UX Designer"], locations: ["New York, NY", "United States"], remote: false },
       { name: "B", titles: ["Senior Data Scientist"], locations: ["Austin, TX"], remote: true },
+      { name: "C", titles: ["Product Designer"], locations: ["California", "Portland, OR", "Washington, DC", "Cambridge, MA"], remote: false },
+      { name: "D", titles: ["Data Analyst"], locations: ["NYC", "SF Bay Area"], remote: false },
     ];
     for (const l of lanesInput) await seedLane(t.db, userId, l);
     const titles = ["Product Designer", "Senior UX Designer II", "Designer", "Data Scientist, Growth", "Data Analyst", "Product Design Lead", "Staff Data Scientists"];
-    const places: Array<[string | null, boolean]> = [["New York City", false], ["Remote - US", true], ["Austin, Texas", false], ["Berlin", true], ["Berlin", false], [null, false], ["Chicago, USA", false], ["Denver, CO", true]];
+    const places: Array<[string | null, boolean]> = [
+      ["New York City", false], ["Remote - US", true], ["Austin, Texas", false], ["Berlin", true], ["Berlin", false], [null, false], ["Chicago, USA", false], ["Denver, CO", true],
+      ["San Francisco, CA", false], ["New York, NY", false], ["Portland, ME", false], ["Portland, Oregon", false], ["Seattle, Washington", false],
+      ["Washington, D.C.", false], ["Cambridge, MA", false], ["Palo Alto, CA", false], ["Jersey City, NJ", false],
+    ];
     const jobsMade: Array<{ id: string; title: string; location: string | null; remote: boolean }> = [];
     for (const title of titles) for (const [location, remote] of places) {
       const id = await seedJob(t.db, { companyId, title: `Theta ${title}`, location, remote, embedText: "designer", spec: baseSpec() });
@@ -86,6 +92,30 @@ describe("buildShortlist: the SQL filter", () => {
     expect(expected.length).toBeGreaterThan(10);
     expect(expected.length).toBeLessThan(jobsMade.length);
     expect(new Set(stats.candidateIds)).toEqual(new Set(expected));
+  });
+
+  it("lets through every job the in-memory location check accepts, and some it then rejects", async () => {
+    const lanePlaces = [
+      "United States", "USA", "US", "California", "CA", "Washington", "Oregon", "Texas", "NYC", "New York, NY", "SF Bay Area", "Bay Area",
+      "San Francisco, CA", "Portland, OR", "Portland, ME", "Washington, DC", "Cambridge, MA", "Boston, MA", "Seattle", "Rome", "London, UK", "Canada",
+    ];
+    const jobPlaces = [
+      "San Francisco, CA", "San Francisco Bay Area", "New York, NY", "NYC - 1211 Ave of the Americas", "Jersey City, NJ", "Portland, ME",
+      "Portland, Oregon", "Seattle, Washington", "Washington, D.C.", "Cambridge, United Kingdom", "Cambridge, MA", "Mountain View, California, United States",
+      "Remote - US", "Austin, Texas", "US-CA-San Jose", "Chicago, USA", "London, UK", "Toronto, Canada", "Zürich, Switzerland", "São Paulo, Brasil",
+      "Jerome, AZ", "Denver, CO", "Remote - Germany", "2 Locations", "Rome, Italy", "Remote - US; Austin, TX", "U.S.A.", "St. Louis, MO",
+    ];
+    const made = new Map<string, string>();
+    for (const place of jobPlaces) made.set(await seedJob(t.db, { companyId, title: "Mu Engineer", location: place, embedText: "mu" }), place);
+    let broader = 0;
+    for (const lane of lanePlaces) {
+      const rows = await queryRows<{ id: string }>(t.db, sql`SELECT id FROM jobs WHERE title = 'Mu Engineer' AND ${inlineLanesFitSql([{ titles: ["Mu Engineer"], locations: [lane], remote: false }])}`);
+      const fromSql = new Set(rows.map((r) => r.id));
+      const exact = [...made].filter(([, place]) => locationMatches(lane, place)).map(([id]) => id);
+      expect(exact.filter((id) => !fromSql.has(id)).map((id) => `${lane} -> ${made.get(id)}`)).toEqual([]);
+      broader += fromSql.size - exact.length;
+    }
+    expect(broader).toBeGreaterThan(0);
   });
 
   it("skips jobs the user already dismissed, applied to or started", async () => {
@@ -271,6 +301,17 @@ describe("buildShortlist: detailed fit, gates and saving", () => {
     await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript postgresql backend services"), now: NOW });
     const left = (await rowsOf(userId)).map((r) => r.jobId);
     expect(left.sort()).toEqual([best, nudged].sort());
+  });
+
+  it("a rebuild removes a row the SQL filter lets through but the exact lane location rejects", async () => {
+    const { userId, laneId, job } = await setup();
+    await t.db.execute(sql`UPDATE lanes SET locations = ARRAY['Portland, OR']::text[] WHERE id = ${laneId}`);
+    const oregon = await job("Lambda Engineer", baseSpec(), { location: "Portland, Oregon" });
+    const maine = await job("Lambda Engineer, Tools", baseSpec(), { location: "Portland, ME" });
+    await saveShortlistRows(t.db, userId, [{ jobId: maine, fit: 0.9, fitMap: [], reasons: [] }]);
+    const stats = await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript postgresql backend services"), now: NOW });
+    expect(stats.candidateIds).toEqual([oregon]);
+    expect((await rowsOf(userId)).map((r) => r.jobId)).toEqual([oregon]);
   });
 
   it("saveShortlistRows itself leaves dismissed and applied rows alone even when asked to overwrite them", async () => {
