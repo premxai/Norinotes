@@ -165,3 +165,51 @@ describe("spec quality", () => {
     expect(one.fit).toBeLessThan(0.9);
   });
 });
+
+describe("the strong band", () => {
+  const points = [point("Backend Engineer", "2020-01", null, ["Python", "PostgreSQL", "Kubernetes", "REST APIs", "Docker"]), point("Software Engineer", "2018-06", "2019-12", ["Python", "Docker"])];
+  const musts = ["Python", "PostgreSQL", "Kubernetes", "REST APIs"];
+  const weights = { Python: 1, PostgreSQL: 1, Kubernetes: 1, "REST APIs": 1, Docker: 0.3 };
+  const spec = (over: Parameters<typeof baseSpec>[0] = {}) => baseSpec({ mustHaves: musts, niceToHaves: ["Docker"], requirementWeights: weights, seniority: "mid", ...over });
+  const at = (a: Partial<Omit<ScoreFitArgs, "now">>) => fit({ spec: spec(), points, similarity: 0.5, jobTitle: "Backend Engineer", target: BACKEND_TARGET, quality: full, experienceYears: 8, ...a });
+  const strong = at({});
+
+  it("keeps a genuinely strong job at 0.8 and above", () => {
+    expect(strong.fit).toBeGreaterThanOrEqual(0.8);
+    expect(strong.components).toMatchObject({ cap: 1, alignment: 1, seniority: 1 });
+    expect(strong.reasons.some((x) => x.startsWith("Gap:"))).toBe(false);
+  });
+
+  it("holds a job with one clearly lacking, lightly weighted must-have at 0.79", () => {
+    const r = at({ spec: spec({ mustHaves: [...musts, "Terraform"], requirementWeights: { ...weights, Terraform: 0.1 } }) });
+    expect(Math.min(strong.fit, r.components.cap)).toBeGreaterThanOrEqual(0.8);
+    expect(r.fit).toBe(0.79);
+    expect(r.reasons).toContain("Gap: Terraform");
+  });
+
+  it("holds a job a level above the user at 0.79", () => {
+    const r = at({ spec: spec({ seniority: "senior", yearsMin: 10 }) });
+    expect(r.components.seniority).toBeLessThan(1);
+    expect(strong.fit * r.components.seniority).toBeGreaterThanOrEqual(0.8);
+    expect(r.fit).toBe(0.79);
+    expect(r.reasons).toContain("Gap: asks for more seniority than your 8.3 years in this kind of role");
+  });
+
+  it("holds a neighbouring function at 0.79, and a different family never reaches the band", () => {
+    const r = at({ target: { laneTitles: [], roleTitles: ["Software Engineer"] } });
+    expect(r.components.alignment).toBeLessThan(0.85);
+    expect(strong.fit * r.components.alignment!).toBeGreaterThanOrEqual(0.8);
+    expect(r.fit).toBe(0.79);
+    expect(r.reasons).toContain("Gap: a neighbouring kind of role to the ones you are looking for");
+    // Another family multiplies the fit by 0.65 at most, so it stays far below the band with its own gap.
+    const other = at({ jobTitle: "Product Manager" });
+    expect(other.fit).toBeLessThan(0.3);
+    expect(other.reasons).toContain("Gap: a different kind of role from the ones you are looking for");
+  });
+
+  it("does not move a score below 0.8", () => {
+    const r = at({ jobTitle: "Frontend Engineer", target: { laneTitles: ["Full Stack Engineer"], roleTitles: [] } });
+    expect(r.fit).toBeLessThan(0.8);
+    expect(r.fit).not.toBe(0.79);
+  });
+});

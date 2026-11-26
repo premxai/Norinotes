@@ -103,6 +103,8 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 3. Detailed fit: requirement by requirement against career points (exact skill match, embedding similarity, graph links), weighted by the spec; must-haves cap the score.
    Then scaled by function alignment (title and role family against the lanes and recent roles), seniority against the user's
    years in that function, and place; capped for jobs without a description or with only a heuristic spec. Scale: 0.8+ strong,
+   only when every must-have is evidenced, the job is not above the user's level and is their own function (alignment 0.85
+   or more), else held at 0.79 with the gap as a reason;
    0.6 to 0.8 plausible (the default lane minimum is 0.6), 0.45 to 0.6 stretch (the widening floor), under 0.3 irrelevant.
    0.6 (`DEFAULT_MIN_FIT`) is also the starting threshold: onboarding creates the first lane at it, and the Nori threshold
    ("Recommended", Apply for me) reads as it until the person saves one. 0.45 is only the shortlist widening floor, never

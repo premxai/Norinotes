@@ -359,7 +359,7 @@ function noteFor(req: Requirement, s: RequirementScore): string {
 // ---- the fit scale ----------------------------------------------------------------------------------------------------
 //
 // scoreFit returns a fit between 0 and 1 on a fixed scale:
-//   0.80 to 0.95  strong: the right kind of role at the right level, must-haves clearly evidenced
+//   0.80 to 0.95  strong: the right kind of role at the right level, must-haves clearly evidenced (gated, see below)
 //   0.60 to 0.80  plausible: right function, most must-haves evidenced, a gap or a level step away
 //   0.45 to 0.60  stretch: an adjacent role or level, or real gaps (widened rows must clear 0.45)
 //   0.30 to 0.45  weak
@@ -372,6 +372,9 @@ function noteFor(req: Requirement, s: RequirementScore): string {
 //              spec names few requirements, plus or minus 0.05 for the nice-to-haves
 //   mustHaveCap = 0.3 + 0.7 x (1 - weight x lack) of the weakest clearly lacking must-have
 // A requirement's evidence strength (0 to 1) becomes coverage linearly between 0.15 (nothing) and 0.8 (fully covered).
+// The strong band is gated: a fit of 0.80 or more is held at 0.79 (`HELD_FIT`), with a "Gap: ..." reason, unless every
+// must-have is evidenced (none below `LACKING`), the job is not above the user's level (no "above" seniority gap), and
+// the function alignment, when known, is at least `OWN_FUNCTION`. Scores below 0.80 are never changed by the gate.
 // Jobs without a description, or read only by the heuristic spec, are capped (0.65 and 0.75) and carry a confidence
 // below 1 that the shortlist uses to rank them after well-specified jobs.
 
@@ -386,6 +389,16 @@ const NICE_SWING = 0.1;
 const CORE_SIMILARITY_WEIGHT = 0.25;
 /** A different function multiplies the fit by at most this much more than nothing. */
 const DIFFERENT_FAMILY_FLOOR = 0.1;
+/** Lowest fit of the strong band, and where a job with a gap that rules out a strong fit is held instead. */
+const STRONG_FIT = 0.8;
+const HELD_FIT = 0.79;
+/**
+ * Lowest function alignment that counts as the user's own kind of role for a strong fit. In alignment.ts the same family
+ * and specialty scores 0.9 against a lane title and 0.855 against a recent role title (x 0.95), and a general software
+ * title against frontend, backend or full-stack 0.85; neighbouring specialties score at most 0.8 and other families at
+ * most 0.65. So 0.85 admits the same function and holds every neighbour.
+ */
+const OWN_FUNCTION = 0.85;
 
 /** Evidence strength (0 to 1) to how much of the requirement it covers. */
 export function coverageOf(strength: number): number {
@@ -525,17 +538,29 @@ export function scoreFit(args: ScoreFitArgs): FitResult {
   const quality = qualityOf(args.quality);
   fit = Math.min(fit, quality.cap);
 
+  const lacking = musts.filter((r) => r.cov < LACKING).sort((a, b) => b.req.weight - a.req.weight)[0];
+  const hold: StrongHold = {
+    mustHave: lacking ? lacking.req.text : null,
+    above: level.direction === "above" && level.score < 1,
+    function: alignment != null && alignment < OWN_FUNCTION,
+  };
+  const held = round(clamp(fit)) >= STRONG_FIT && (hold.mustHave != null || hold.above || hold.function);
+  if (held) fit = HELD_FIT;
+
   const fitMap = rows.map((r) => r.entry).sort((a, b) => Number(b.mustHave) - Number(a.mustHave) || b.weight - a.weight);
   const components: FitComponents = {
     coverage: round(coverage), similarity: round(simScore), cap: round(cap), alignment, seniority: level.score, functionYears, place, quality: quality.level,
   };
   return {
-    fit: round(clamp(fit)), fitMap, reasons: reasonsFor(fitMap, args, simScore, alignment, level, functionYears),
+    fit: round(clamp(fit)), fitMap, reasons: reasonsFor(fitMap, args, simScore, alignment, level, functionYears, held ? hold : null),
     requirementScore: round(requirementScore), capped, confidence: quality.confidence, components,
   };
 }
 
-function reasonsFor(fitMap: readonly FitMapItem[], args: ScoreFitArgs, simScore: number, alignment: number | null, level: SeniorityFit, years: number | null): string[] {
+/** What keeps a job out of the strong band: a clearly lacking must-have, a level above the user's, or a neighbouring function. */
+type StrongHold = { mustHave: string | null; above: boolean; function: boolean };
+
+function reasonsFor(fitMap: readonly FitMapItem[], args: ScoreFitArgs, simScore: number, alignment: number | null, level: SeniorityFit, years: number | null, hold: StrongHold | null): string[] {
   const reasons: string[] = [];
   const pointById = new Map(args.points.map((p) => [p.id, p]));
   const strong = fitMap
@@ -547,10 +572,11 @@ function reasonsFor(fitMap: readonly FitMapItem[], args: ScoreFitArgs, simScore:
     reasons.push(`Strong evidence for ${e.requirement}${p ? `: ${where(p)}` : ""}`);
   }
   const gaps: string[] = [];
-  const gap = fitMap.filter((e) => e.mustHave && e.score < 0.4).sort((a, b) => b.weight - a.weight)[0];
-  if (gap) gaps.push(`Gap: ${gap.requirement}`);
+  const gap = hold?.mustHave ?? fitMap.filter((e) => e.mustHave && e.score < 0.4).sort((a, b) => b.weight - a.weight)[0]?.requirement;
+  if (gap) gaps.push(`Gap: ${gap}`);
   if (alignment != null && alignment < 0.5) gaps.push("Gap: a different kind of role from the ones you are looking for");
-  if (level.direction === "above" && level.score < 0.85) {
+  else if (hold?.function) gaps.push("Gap: a neighbouring kind of role to the ones you are looking for");
+  if (level.direction === "above" && (level.score < 0.85 || hold?.above)) {
     gaps.push(`Gap: asks for more seniority than your ${years != null ? `${round(years, 1)} years` : "experience"} in this kind of role`);
   } else if (level.direction === "below" && level.score < 0.85) {
     gaps.push("Gap: more junior than your experience");
