@@ -122,6 +122,32 @@ describe("reading the code from a connected Gmail while a run waits", () => {
     expect(stored[0]).toMatchObject({ kind: "verification_code", applicationId: appId, code: "482913" });
   });
 
+  it("keeps only the waiting application's code: a login code linked to an older application is never written", async () => {
+    const { userId, appId } = await waitingApplication();
+    // An earlier, unrelated application to a company whose own domain sends personal login codes.
+    const [c] = await t.db.insert(companies).values({ name: "Amazon", atsType: "workday", atsToken: `amzn-${Math.random()}`, domain: "amazon.com" }).returning();
+    const [j] = await t.db.insert(jobs).values({ companyId: c!.id, atsType: "workday", externalId: `${Math.random()}`, title: "Engineer", applyUrl: "https://amazon.example/jobs/1", dedupeKey: `${Math.random()}` }).returning();
+    await t.db.insert(applications).values({ userId, jobId: j!.id, status: "submitted" });
+    await saveGmailConnection(t.db, userId, { connectedAccountId: "ca_3", startedAt: new Date().toISOString(), activeAt: new Date().toISOString() });
+    const gmail = fakeGmail([
+      { id: "y1", from: "Amazon <account-update@amazon.com>", subject: "Your Amazon sign-in code", text: "Your one-time passcode is 318274. Don't share it.", receivedAt: new Date() },
+      { id: "y2", from: "Lever <no-reply@hire.lever.co>", subject: "Your security code", text: "Your security code is: 660412", receivedAt: new Date() },
+    ]);
+    expect(await awaitVerificationWithGmail({ db: t.db, gmail, applicationId: appId, since: new Date(Date.now() - 1000), timeoutMs: 300, accept: "code", pollMs: 20, intervalMs: 500 })).toBeNull();
+    expect(gmail.fetched).toBeGreaterThan(0);
+    expect(await t.db.select().from(inboxMessages).where(eq(inboxMessages.userId, userId))).toHaveLength(0);
+  });
+
+  it("never polls a connection Composio does not report active", async () => {
+    const { userId, appId } = await waitingApplication();
+    await saveGmailConnection(t.db, userId, { connectedAccountId: "ca_4", startedAt: new Date().toISOString(), activeAt: null });
+    const events: string[] = [];
+    const gmail = { ...fakeGmail([]), status: async () => "EXPIRED" as const };
+    expect(await awaitVerificationWithGmail({ db: t.db, gmail, applicationId: appId, since: new Date(), timeoutMs: 50, accept: "code", pollMs: 10, log: (e) => events.push(e) })).toBeNull();
+    expect(gmail.fetched).toBe(0);
+    expect(events).toEqual(["gmail.not_active"]);
+  });
+
   it("is the plain waiter without a connection", async () => {
     const { appId } = await waitingApplication();
     const gmail = fakeGmail([]);
