@@ -200,6 +200,11 @@ parked systems.
   curated registry). From then on the poller reads it at the adaptive cadence above. Below the bar the board is
   `low_value` (or `empty`); a missing board is `dead`; robots.txt or a 401/403 makes it `disallowed`. Statuses and
   re-verification times are in docs/state-machines.md.
+- A verified board reaches the poller two ways. Immediately, promotion writes it into `companies` (`discovered_via` = its
+  source). Permanently, `npx tsx scripts/discover-boards.mts export` rewrites
+  `packages/ingest/src/board-registry-discovered.ts` with every board verification promoted, and `BOARD_REGISTRY`
+  includes that list next to the curated registry, so a fresh database (and `seedCompanies`) knows the boards without a
+  discovery run. The file records the counts each entry was kept on.
 - `npx tsx scripts/discover-boards.mts verify [--systems greenhouse,lever] [--all]` verifies locally;
   `npx tsx scripts/discover-boards.mts report` prints candidates found, verified, promoted, and fresh US target-role
   jobs per family before (registry and people's additions) and after.

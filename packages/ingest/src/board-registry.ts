@@ -2,12 +2,13 @@
 // script regenerated it); edit by hand or re-verify with a one-off script, and keep entries sorted by name.
 import type { AtsType } from "@norinote/shared";
 import { EARLY_CAREER_BOARDS } from "./board-registry-early-career.js";
+import { DISCOVERED_BOARDS } from "./board-registry-discovered.js";
 
 export type BoardEntry = { atsType: AtsType; token: string; name: string };
 
 export const VERIFIED_AT = "2026-10-20";
 
-const VERIFIED_BOARDS: BoardEntry[] = [
+export const VERIFIED_BOARDS: BoardEntry[] = [
   { atsType: "greenhouse", token: "affirm", name: "Affirm" },
   { atsType: "greenhouse", token: "airbnb", name: "Airbnb" },
   { atsType: "greenhouse", token: "airtable", name: "Airtable" },
@@ -188,8 +189,11 @@ const VERIFIED_BOARDS: BoardEntry[] = [
   { atsType: "greenhouse", token: "zuora", name: "Zuora" },
 ];
 
-/** The generated list plus the curated early-career boards (see board-registry-early-career.ts), without duplicates. */
+/**
+ * The generated list, the curated early-career boards (board-registry-early-career.ts) and the boards board discovery
+ * verified and promoted (board-registry-discovered.ts), without duplicates.
+ */
 export const BOARD_REGISTRY: BoardEntry[] = [
   ...VERIFIED_BOARDS,
-  ...EARLY_CAREER_BOARDS.filter((e) => !VERIFIED_BOARDS.some((b) => b.atsType === e.atsType && b.token === e.token)),
+  ...[...EARLY_CAREER_BOARDS, ...DISCOVERED_BOARDS].filter((e) => !VERIFIED_BOARDS.some((b) => b.atsType === e.atsType && b.token === e.token)),
 ];

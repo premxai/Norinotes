@@ -36,7 +36,7 @@ export { dedupeKey, normalizeCompany, normalizeText } from "./dedupe.js";
 export { BLOCKED_SOURCES, BlockedSourceError, isBlockedBoard, isBlockedCompany, normalizeSourceKey } from "./blocklist.js";
 export type { BlockedSource } from "./blocklist.js";
 
-export { BOARD_REGISTRY, VERIFIED_AT } from "./board-registry.js";
+export { BOARD_REGISTRY, VERIFIED_AT, VERIFIED_BOARDS } from "./board-registry.js";
 export type { BoardEntry } from "./board-registry.js";
 export { EARLY_CAREER_BOARDS, EARLY_CAREER_VERIFIED_AT } from "./board-registry-early-career.js";
 
