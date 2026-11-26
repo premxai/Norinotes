@@ -12,11 +12,19 @@ describe("pollIntervalMs", () => {
     expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 100000 })).toBe(HOUR);
   });
 
-  it("is shortened by lane demand (at most to a third), never below the system's minimum", () => {
-    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 0, demand: 3 })).toBe(12 * HOUR);
-    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 0, demand: 100 })).toBe(8 * HOUR);
-    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 100000, demand: 100 })).toBe(30 * 60_000);
-    expect(pollIntervalMs({ atsType: "workday", newJobs7d: 100000, demand: 100 })).toBe(6 * HOUR);
+  it("reads a board with lane demand every 3 hours, and hourly when it often posts jobs that fit", () => {
+    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 0, demand: 1 })).toBe(3 * HOUR);
+    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 0, demand: 5, matching7d: 2 })).toBe(3 * HOUR);
+    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 3, demand: 1, matching7d: 3 })).toBe(HOUR);
+    // Matching jobs without an enabled lane (demand 0) change nothing.
+    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 0, matching7d: 10 })).toBe(24 * HOUR);
+    // A busy board is never read less often because of demand.
+    expect(pollIntervalMs({ atsType: "greenhouse", newJobs7d: 100000, demand: 1 })).toBe(HOUR);
+  });
+
+  it("never goes below the job system's minimum", () => {
+    expect(pollIntervalMs({ atsType: "workday", newJobs7d: 100000, demand: 100, matching7d: 50 })).toBe(6 * HOUR);
+    expect(pollIntervalMs({ atsType: "workable", newJobs7d: 0, demand: 1, matching7d: 50 })).toBe(3 * HOUR);
     expect(pollIntervalMs({ atsType: "workable", newJobs7d: 100000 })).toBe(3 * HOUR);
   });
 });
