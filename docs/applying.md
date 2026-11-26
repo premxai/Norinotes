@@ -71,6 +71,14 @@ shortlist and to prepared.
    - **Legal questions** (work authorisation, sponsorship, criminal history, salary, relocation, start date, age,
      consent) come only from the profile, even when the model classified them; otherwise pending. The model never
      supplies their value.
+   - **Attestations** (the `consent` slot): each consent, acknowledgement or certification is one of ten kinds
+     (`attestationType`: privacy, demographic data, retention for future roles, accuracy, background check, AI policy,
+     interview recording, arbitration, being contacted, terms), from Greenhouse's `gdpr_*` keys or the label. It is
+     ticked only from the person's own answer for that exact kind (`preferences.attestations`, set through
+     `PUT /api/profile`); a yes to one kind never ticks another, and the answer bank and the model never fill one.
+     A no picks the form's decline option, or goes to the person when the form requires agreement. No answer for the
+     kind: pending when required, blank when optional. Consenting to a background check is an attestation; "can you pass
+     a background check?" is a criminal-history question.
    - **EEO**: the profile's choice, else the form's "decline to self-identify" option when the question is required;
      optional ones without a profile choice stay blank.
    - Puzzles and anti-bot checks in the form ("decode this text", "prove you are not a bot") are never answered.

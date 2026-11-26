@@ -19,7 +19,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   visa, other) is what the matching gates and form answers read for citizenship and permanent residence; being
   authorised to work says neither.
 - GET `/api/me`, PUT `/api/profile`. `autoApplyDailyCap` (0 to 100) is the daily limit: applications approved per UTC
-  day, by any channel; 0 = no limit.
+  day, by any channel; 0 = no limit. `attestations` holds the person's answer per kind of form attestation (`privacy`,
+  `demographic_data`, `retention`, `accuracy`, `background_check`, `ai_policy`, `recording`, `arbitration`,
+  `contact`, `terms`): `true`, `false` or `null` (not answered, Nori asks). PUT a partial object; `null` forgets one.
+  Nori ticks a form's attestation only from the answer for its kind (docs/applying.md).
 - POST `/api/profile/resume` (pasted text), POST `/api/profile/resume-file` (upload)
 - The answer bank (answers Nori remembered from forms, and the user's own): GET `/api/profile/answers` returning
   `[{ id, questionText, answer, source, lastUsedAt }]` (`source` is `user`, `default` or `model`; most recently used

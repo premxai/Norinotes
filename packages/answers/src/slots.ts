@@ -86,7 +86,9 @@ const LABEL_RULES: [RegExp, Slot, ((f: SlotField) => boolean)?][] = [
   [/\bsponsor|sponorship|\bvisa\b|h-?1b/, "sponsorship"],
   [/authori[sz]ed to work|work authori[sz]ation|legally (authori[sz]ed|eligible|able|permitted)|eligible to work|right to work|work permit|employment eligibility|legal(ly)? (right|entitled) to work|work authori[sz]ed/, "work_auth"],
   [/^(are|is) you (a |an )?[a-z .]{0,30}(citizen|permanent resident|green card holder|u\.? ?s\.? person)\b/, "work_auth", isChoiceLike],
-  [/convicted|criminal|felony|misdemeanou?r|background check.*(pass|consent)|arrest/, "criminal"],
+  // Consenting to a background check is an attestation, not an answer about the person's record.
+  [/\b(consent|agree|authori[sz]e|acknowledge)\b.{0,60}\bbackground (check|screen)|\bbackground (check|screen).{0,60}\b(consent|authori[sz]ation|disclosure)\b/, "consent", (f) => f.type === "checkbox" || f.type === "boolean" || f.options.length <= 3],
+  [/convicted|criminal|felony|misdemeanou?r|background check.*(pass|consent)|pass (a |the )?background check|arrest/, "criminal"],
   [/salary|compensation|pay (expectation|range|requirement)|desired (pay|rate)|expected (pay|rate)|rate expectation|\bote\b/, "salary"],
   [/relocat/, "relocation", (f) => notProse(f) && !/address from which|where (do|will) you|plan on working from|currently based within|commuting distance/.test(lc(f.label))],
   [/start date|when (can|could|would) you (start|begin|join)|earliest (possible )?(start|date|availab)|earliest .{0,30}\bstart|available to start|available for full[- ]time|notice period/, "start_date"],
@@ -100,7 +102,7 @@ const LABEL_RULES: [RegExp, Slot, ((f: SlotField) => boolean)?][] = [
   [/sexual orientation|lgbtq|transgender/, "eeo_orientation"],
   [/\bgender\b|\bsex\b/, "eeo_gender"],
   [/\brace\b|ethnic/, "eeo_race"],
-  [/(i )?(consent|agree|acknowledge|certify|confirm|accept)\b.*(privacy|data|information|processing|terms|policy|retain|collect|store|accurate|true|notetaker|record)|privacy (policy|notice)|gdpr|consent to (contact|be contacted)|has my consent|^i (confirm|acknowledge) (that )?i have read/, "consent", (f) => f.type === "checkbox" || f.type === "boolean" || f.options.length <= 3],
+  [/(i )?(consent|agree|acknowledge|certify|confirm|accept)\b.*(privacy|data|information|processing|terms|policy|retain|collect|store|accurate|true|notetaker|record|arbitration|artificial intelligence|\bai\b|future (roles|positions|openings|opportunities)|talent (pool|community))|privacy (policy|notice)|gdpr|consent to (contact|be contacted)|has my consent|^i (confirm|acknowledge) (that )?i have read/, "consent", (f) => f.type === "checkbox" || f.type === "boolean" || f.options.length <= 3],
   [/(hear|heard|learn(ed)?|find|found) (out )?about (us|this|the|our|[a-z]+\?)|how did you (find|hear|learn|discover|come across)|where did you (first )?(hear|find|see|learn)|referral source|source of (this )?application/, "hear_about"],
   [/linkedin/, "linkedin"],
   [/github|samples of (your )?code|code samples/, "github", (f) => f.type !== "file"],
@@ -142,6 +144,45 @@ export function classifySlot(f: SlotField): Slot {
   if (ph) for (const [re, slot, guard] of LABEL_RULES) if (re.test(ph) && (!guard || guard(f))) return slot;
   return "custom";
 }
+
+/**
+ * Attestations: what a consent, acknowledgement or certification checkbox is about. Each kind is ticked only when the
+ * person said yes to that exact kind (`preferences.attestations`), never from a general consent or another kind.
+ */
+export const ATTESTATIONS = ["privacy", "demographic_data", "retention", "accuracy", "background_check", "ai_policy", "recording", "arbitration", "contact", "terms"] as const;
+export type Attestation = (typeof ATTESTATIONS)[number];
+
+const ATTESTATION_KEYS: Record<string, Attestation> = {
+  gdpr_processing_consent_given: "privacy", gdpr_demographic_data_consent_given: "demographic_data", gdpr_retention_consent_given: "retention",
+};
+
+/** First match wins: the specific kinds before the general privacy and terms ones. */
+const ATTESTATION_RULES: [RegExp, Attestation][] = [
+  [/background (check|screen)|consumer report|credit check|drug (test|screen)/, "background_check"],
+  [/arbitrat/, "arbitration"],
+  [/notetaker|note-taker|\brecord(ed|ing|ings)?\b|transcri/, "recording"],
+  [/\b(ai|a\.i\.|artificial intelligence|automated (decision|tools?|systems?|screening))\b/, "ai_policy"],
+  [/demographic/, "demographic_data"],
+  [/\bretain|retention|future (roles|positions|openings|opportunities)|talent (pool|community|network)/, "retention"],
+  [/accurate|true(,)? (and|&) (complete|correct|accurate)|truthful|\bcertify\b|falsif|misrepresent|omission/, "accuracy"],
+  [/consent to (be )?contact|contact(ed)? (me|you) (about|by|via|regarding)|marketing|newsletter/, "contact"],
+  [/privacy|gdpr|personal (data|information)|process(ing)?\b|data protection|\bcollect|\bstore\b/, "privacy"],
+  [/terms|conditions|\bpolicy\b|i have read/, "terms"],
+];
+
+/** The kind of attestation a consent field asks for, or null when it cannot tell. */
+export function attestationType(f: Pick<SlotField, "key" | "label">): Attestation | null {
+  const byKey = ATTESTATION_KEYS[f.key.toLowerCase()];
+  if (byKey) return byKey;
+  const l = lc(f.label);
+  return ATTESTATION_RULES.find(([re]) => re.test(l))?.[1] ?? null;
+}
+
+const ATTESTATION_WHAT: Record<Attestation, string> = {
+  privacy: "processing your personal data", demographic_data: "storing your demographic answers", retention: "keeping your details for future roles",
+  accuracy: "certifying that your application is accurate", background_check: "a background check", ai_policy: "the employer's AI policy",
+  recording: "recording or transcribing interviews", arbitration: "an arbitration agreement", contact: "being contacted", terms: "the employer's terms",
+};
 
 /** Facts read from the career points: current employer and title, school, degree. */
 export type CareerFacts = { currentCompany: string; currentTitle: string; school: string; degree: string; discipline: string };
@@ -254,9 +295,18 @@ export function slotValue(slot: Slot, f: SlotField, facts: Facts, career: Career
       return no ? { status: "ready", value: no, source: "decline" } : { status: "pending", reason: "The form asks for messaging consent" };
     }
     case "consent": {
-      const yes = facts.preferences.autoConsent === true || facts.preferences.consentToProcessing === true;
-      if (!yes) return f.required ? { status: "pending", reason: "The form asks for your consent; Norinote never gives it for you" } : { status: "skip", reason: "optional consent" };
-      return ready(f.options.length ? (f.options.find((o) => isYes(o) || /agree|consent|accept|acknowledge/i.test(o)) ?? null) : "Yes", "consent");
+      // Only the person's own answer for this exact kind of attestation; nothing else ticks it.
+      const kind = attestationType(f);
+      const given = facts.preferences.attestations;
+      const said = kind && given && typeof given === "object" ? (given as Record<string, unknown>)[kind] : undefined;
+      const what = kind ? ATTESTATION_WHAT[kind] : "this statement";
+      if (typeof said !== "boolean") {
+        return f.required ? { status: "pending", reason: `The form asks you to agree to ${what}; Norinote only agrees where you said so` } : { status: "skip", reason: "optional attestation" };
+      }
+      if (said) return ready(f.options.length ? (f.options.find((o) => isYes(o) || /agree|consent|accept|acknowledge|certify/i.test(o)) ?? null) : "Yes", what);
+      const no = f.options.find((o) => isNo(o) || /do not|don'?t|decline|disagree/i.test(o));
+      if (no) return { status: "ready", value: no, source: "profile" };
+      return f.required ? { status: "pending", reason: `You chose not to agree to ${what}, and the form requires it` } : { status: "skip", reason: "the person does not agree" };
     }
     case "eeo_signature": return { status: "skip", reason: "a signature is the person's own" };
     case "eeo_gender": case "eeo_race": case "eeo_hispanic": case "eeo_veteran": case "eeo_disability": case "eeo_orientation": {

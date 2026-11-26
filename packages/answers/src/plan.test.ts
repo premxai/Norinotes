@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createFakeProvider, setProvider, type ChatRequest } from "@norinote/ai";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { applications, eq, inboxAddresses } from "@norinote/db";
-import { classifySlot, draftProblem, draftSimilarity, isAiTrap, loadBank, NEAR_COPY, nearCopyOf, planForm, questionKind, saveAnswer, slotValue, careerFacts, factsFrom, ungroundedTokens, unsupportedSentences, type PlanField, type SlotField } from "./index.js";
+import { attestationType, classifySlot, draftProblem, draftSimilarity, isAiTrap, loadBank, NEAR_COPY, nearCopyOf, planForm, questionKind, saveAnswer, slotValue, careerFacts, factsFrom, ungroundedTokens, unsupportedSentences, type PlanField, type SlotField } from "./index.js";
 import { addApplication, seedJob, seedUser } from "./test-fixtures.js";
 
 let t: TestDb;
@@ -91,6 +91,9 @@ describe("slotValue: profile only, never a guess", () => {
     const willing = { ...facts, preferences: { ...facts.preferences, willingToRelocate: false } };
     expect(slotValue("relocation", f("q", "Do you require relocation to work in a hybrid schedule in our SF office?", "select", ["Yes", "No"]), willing, career, ctx)).toMatchObject({ status: "pending" });
     expect(slotValue("consent", f("gdpr", "I consent to the processing of my data", "checkbox"), facts, career, ctx)).toMatchObject({ status: "pending" });
+    // A blanket consent preference no longer ticks anything.
+    const blanket = factsFrom({ preferences: { autoConsent: true, consentToProcessing: true } }, "a@b.c");
+    expect(slotValue("consent", f("gdpr", "I consent to the processing of my data", "checkbox"), blanket, career, ctx)).toMatchObject({ status: "pending" });
     expect(slotValue("criminal", f("q", "Have you been convicted of a felony?", "select", ["Yes", "No"], false), facts, career, ctx)).toMatchObject({ status: "skip" });
     expect(slotValue("eeo_gender", f("q", "Gender", "select", ["Male", "Female", "I don't wish to answer"]), facts, career, ctx))
       .toEqual({ status: "ready", value: "I don't wish to answer", source: "decline" });
@@ -362,7 +365,54 @@ describe("near-copies of earlier drafts", () => {
     const { userId: fresh } = await seedUser(t.db, "plan-copy-fresh");
     const { jobId: job2 } = await seedJob(t.db, "plan-copy-fresh");
     const plan2 = await planForm(t.db, { userId: fresh, jobId: job2, fields: [f("s1", "Why do you want to work at Initech?", "textarea"), f("s2", "What excites you about this role?", "textarea")] });
-    expect(plan2.entries.map((e) => e.status)).toEqual(["ready", "pending"]);
+    expect(plan2.entries.map((e) => e.status)).toEqual(["ready", "pending"]);  });
+});
+
+describe("attestations: one kind, one answer", () => {
+  const cb = (key: string, label: string, required = true) => f(key, label, "checkbox", [], required);
+
+  it("tells the kinds apart, by Greenhouse key or by label", () => {
+    const cases: [PlanField, string][] = [
+      [cb("gdpr_processing_consent_given", "I consent"), "privacy"],
+      [cb("gdpr_demographic_data_consent_given", "By checking this box ..."), "demographic_data"],
+      [cb("gdpr_retention_consent_given", "Keep my details"), "retention"],
+      [cb("q1", "I consent to a background check if I receive an offer"), "background_check"],
+      [cb("q2", "I agree to the mutual arbitration agreement"), "arbitration"],
+      [cb("q3", "I acknowledge the company's AI use policy"), "ai_policy"],
+      [cb("q4", "I consent to an AI notetaker recording my interviews"), "recording"],
+      [cb("q5", "I certify that the information in this application is true and complete"), "accuracy"],
+      [cb("q6", "I have read and agree to the privacy notice"), "privacy"],
+      [cb("q7", "I agree to be considered for future roles"), "retention"],
+    ];
+    for (const [field, kind] of cases) expect([field.label, classifySlot(field), attestationType(field)]).toEqual([field.label, "consent", kind]);
+    // Passing a background check is a question about the person, not an attestation.
+    expect(classifySlot(f("q8", "Are you able to pass a background check?", "select", ["Yes", "No"]))).toBe("criminal");
+  });
+
+  it("ticks a kind only from the person's own answer for that kind", () => {
+    const facts = factsFrom({ preferences: { attestations: { privacy: true, arbitration: false } } }, "a@b.c");
+    const career = careerFacts([]);
+    const ctx = { jobCountry: "US" };
+    expect(slotValue("consent", cb("gdpr_processing_consent_given", "I consent to the processing of my personal data"), facts, career, ctx)).toMatchObject({ status: "ready", value: "Yes" });
+    // Privacy says nothing about a background check, the AI policy or accuracy.
+    expect(slotValue("consent", cb("q1", "I consent to a background check"), facts, career, ctx)).toMatchObject({ status: "pending", reason: expect.stringMatching(/background check/) });
+    expect(slotValue("consent", cb("q3", "I acknowledge the AI use policy"), facts, career, ctx)).toMatchObject({ status: "pending" });
+    expect(slotValue("consent", cb("q5", "I certify this is accurate", false), facts, career, ctx)).toMatchObject({ status: "skip" });
+    // A no stays a no: the decline option, or the person's call when the form insists.
+    expect(slotValue("consent", f("q2", "Do you agree to arbitration?", "select", ["I agree", "I do not agree"]), facts, career, ctx)).toMatchObject({ status: "ready", value: "I do not agree" });
+    expect(slotValue("consent", cb("q2b", "I agree to the arbitration agreement"), facts, career, ctx)).toMatchObject({ status: "pending", reason: expect.stringMatching(/chose not to agree/) });
+  });
+
+  it("never fills an attestation from the answer bank or a model", async () => {
+    const { userId } = await seedUser(t.db, "plan-attest");
+    const { jobId } = await seedJob(t.db, "plan-attest");
+    await saveAnswer(t.db, userId, "I consent to a background check", "Yes", "user");
+    const provider = createFakeProvider();
+    setProvider(provider);
+    const plan = await planForm(t.db, { userId, jobId, fields: [cb("q1", "I consent to a background check")] });
+    expect(plan.entries[0]).toMatchObject({ slot: "consent", status: "pending" });
+    expect(provider.calls).toHaveLength(0);
+
 
   });
 });
