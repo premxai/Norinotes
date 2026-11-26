@@ -61,8 +61,11 @@ shortlist and to prepared.
      anything about the candidate (no first person, no year count). Each example passes the quote check: its numbers,
      names and tools must be in its quote and most of its content words must come from it. At least one example must
      share a term or two content words with the posting, or nothing in the career fits well enough. Anything that fails
-     is pending. Drafts are not saved to the answer bank (they are about this posting), and the receipt marks their
-     fields "Nori wrote this". Optional long free text is left blank.
+     is pending. A draft that is a near-copy of one Nori wrote for the same person is pending too: compared with every
+     `receipt.prepared.drafted` answer on their other applications from the last 90 days and with the drafts already
+     accepted on this form, a copy is three-word-shingle Jaccard 0.7 or more, or 0.45 or more when the same company reads
+     both (`nearCopyOf`). The same real example in answers to different companies is expected and allowed. Drafts are
+     not saved to the answer bank (they are about this posting), and the receipt marks their fields "Nori wrote this". Optional long free text is left blank.
    - **Legal questions** (work authorisation, sponsorship, criminal history, salary, relocation, start date, age,
      consent) come only from the profile, even when the model classified them; otherwise pending. The model never
      supplies their value.

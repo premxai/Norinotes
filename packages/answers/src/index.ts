@@ -10,6 +10,6 @@ export { isOpenEnded, draftAnswer, isAiTrap, AI_TRAP } from "./draft.js";
 export { matchOption, normalizeQuestion, sameSpecifics, distinctiveTokens, cosine } from "./text.js";
 export { SLOTS, LEGAL_SLOTS, EEO_SLOTS, classifySlot, slotValue, careerFacts, phoneCountry, labelKey } from "./slots.js";
 export type { Slot, SlotField, SlotValue, FieldType, CareerFacts } from "./slots.js";
-export { planForm, fieldAnswerKey, questionSlug, ungroundedTokens, unsupportedSentences, isLongText, isCandidateClaim, questionKind, draftProblem, MAX_DRAFTS_PER_FORM } from "./plan.js";
-export type { QuestionKind } from "./plan.js";
+export { planForm, fieldAnswerKey, questionSlug, ungroundedTokens, unsupportedSentences, isLongText, isCandidateClaim, questionKind, draftProblem, MAX_DRAFTS_PER_FORM, draftSimilarity, nearCopyOf, NEAR_COPY, RECENT_DRAFT_DAYS } from "./plan.js";
+export type { QuestionKind, EarlierDraft } from "./plan.js";
 export type { FormPlan, PlanEntry, PlanField, PlanFormInput, PlanSource, PlanUsage } from "./plan.js";
