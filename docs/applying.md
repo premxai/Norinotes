@@ -14,7 +14,7 @@ read without a key is read before the click.
 
 **Strong fits are prepared at once** (packages/apply/src/strong-fit.ts). Early applicants get far more interviews, so a
 new job that fits a person at 0.8 or more is prepared right after `match.new-jobs` saves it, before anyone asks. Only for
-people who asked Nori to act for them: the schedule on (not paused), or Telegram linked with its strong-fit alert on
+people who asked Nori to act for them and have not paused Nori altogether (`noriPaused`, docs/state-machines.md): the schedule on (not paused), or Telegram linked with its strong-fit alert on
 (docs/telegram.md), which announces the job with Apply and Skip as soon as it is prepared. The batch rules apply (skip list,
 no company applied to in the last 60 days, one job per company, `BATCH_ATS`, never a hard no of the apply decision), and at most the person's daily limit of
 strong fits is prepared ahead a day. The application is marked with a `strong_fit` run event, goes to the front of the

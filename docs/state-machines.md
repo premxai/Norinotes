@@ -89,6 +89,8 @@ What Nori would do with a new match, recomputed from stored rows on every call a
 
 `running → done` (nothing left to send) or `→ stopped` (the person stopped it; final). The drain reopens `done` when a batch application comes back to send. A recommended batch started less than 60 s ago is reused, not duplicated, and is capped at what is left of today's limit.
 
+**The one pause** (`profiles.preferences.noriPaused`, `packages/apply/src/pause.ts`): while it is set, `drainBatches` approves nothing (a running batch keeps its place and its view reads `waitingFor: "paused"`), `runSchedules` starts nothing and marks no day as run, `autopilotStrongFit` answers `paused`, `prepareStrongFitsAhead` and `actsForPerson` create nothing, and the prepare consumer holds an application the person approved before the pause, as does the auto-answer step. The person's own clicks, Finish and Cancel still work. The flag has its own key and the scheduler's `lastRunOn` write is guarded on it, so no scheduler or settings write can clear it.
+
 ## Jobs
 
 - **Freshness window:** only a job posted in the last 7 days is shown or matched to anyone (`MAX_JOB_AGE_HOURS`, the one

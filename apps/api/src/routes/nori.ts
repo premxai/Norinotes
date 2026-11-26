@@ -4,9 +4,9 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, applications, applyBatches, companies, desc, eq, gte, inArray, jobs } from "@norinote/db";
+import { and, applications, applyBatches, companies, desc, eq, gte, inArray, isNull, jobs, sql } from "@norinote/db";
 import { AGGRESSIVENESS, decideApplies } from "@norinote/match";
-import { MAX_BATCH, WEEKDAYS, batchView, dailyCapUse, getNoriSettings, getSchedule, nextRunOn, recentBatches, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
+import { MAX_BATCH, WEEKDAYS, batchView, dailyCapUse, getNoriSettings, getSchedule, isNoriPaused, nextRunOn, recentBatches, recommendedJobIds, saveNoriSettings, saveSchedule, setNoriPaused, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { HttpError, notFound, parseBody, uuidParam } from "../http.js";
@@ -27,6 +27,8 @@ const Settings = z.object({
   aggressiveness: z.enum(AGGRESSIVENESS).optional(),
   skipCompanies: z.array(z.string().trim().min(1).max(200)).max(1000).optional(),
   dailyLimit: z.number().int().min(1).max(100).optional(),
+  /** The one pause: stops everything Nori does on its own until it is cleared. */
+  paused: z.boolean().optional(),
 }).strict();
 
 /** What a parked application needs from the person, for the "Needs you" list. */
@@ -59,16 +61,28 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
   const auth = requireUser(ctx);
   const { db } = ctx;
 
-  r.get("/settings", auth, async (c) => c.json({ settings: await getNoriSettings(db, c.get("user").id) }));
+  const settingsView = async (userId: string) => ({ ...(await getNoriSettings(db, userId)), paused: await isNoriPaused(db, userId) });
+
+  r.get("/settings", auth, async (c) => c.json({ settings: await settingsView(c.get("user").id) }));
 
   r.put("/settings", auth, async (c) => {
     const patch = await parseBody(c, Settings);
-    const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+    const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined && v !== patch.paused));
     const userId = c.get("user").id;
+    if (patch.paused !== undefined) {
+      await setNoriPaused(db, userId, patch.paused);
+      // Resuming: an Apply the person pressed before the pause was held back; it goes out now. A batch carries on by
+      // itself (the drain picks it up), and a paused schedule runs at its next time.
+      if (!patch.paused) {
+        const held = await db.select({ id: applications.id }).from(applications)
+          .where(and(eq(applications.userId, userId), isNull(applications.batchId), inArray(applications.status, ["queued", "preparing", "prepared"]), sql`${applications.approvedAt} is not null`));
+        for (const a of held) await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: a.id }, { dedupeKey: `prepare:${a.id}`, dedupeSeconds: 60 });
+      }
+    }
     const settings = await saveNoriSettings(db, userId, clean);
     // The threshold is every role's minFit, and skipped companies leave the shortlist: both change the matches.
     if (patch.minFit !== undefined || patch.skipCompanies !== undefined) await enqueueSoft(ctx, JOBS.matchUser, { userId, reason: "profile" });
-    return c.json({ settings });
+    return c.json({ settings: { ...settings, paused: await isNoriPaused(db, userId) } });
   });
 
   /**

@@ -228,7 +228,12 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 
 ## Nori page ("Apply for me")
 - GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, aggressiveness, skipCompanies,
-  dailyLimit (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
+  dailyLimit (1-100; the profile's daily cap, default 20), paused } }`. PUT takes any of these; unknown keys are 400.
+  - `paused` is **the one pause** (`preferences.noriPaused`, its own key, so nothing else can clear it). It stops
+    everything Nori does on its own: the schedule starts no batch, a running batch sends nothing more (its view reads
+    `waitingFor: "paused"`), autopilot sends no strong fit, strong fits are not prepared ahead, and questions are not
+    answered and resent. The person's own clicks still work. Nothing already sent is undone. Resuming re-queues an
+    Apply they pressed before the pause, and a running batch carries on at its next spacing slot.
   - `aggressiveness` (`cautious` | `balanced` | `wide`, default `balanced`; stored in `preferences.nori.aggressiveness`)
     is how much Nori sends without asking (ARCHITECTURE.md, Matching step 6): cautious sends only strong matches, 10 a
     week; balanced also worth-a-shot ones posted in the last 2 days, 20 a week; wide asks less of those, 30 a week.
@@ -262,7 +267,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - GET `/api/nori/batches` (latest 10) and GET `/api/nori/batches/:id` (with its applications: id, jobId, title,
   company, status, error, needs). A batch view: `{ id, status: running|stopped|done, createdAt, finishedAt,
   lastStartedAt, counts: { total, sent, working, preparing, ready, needsYou, cancelled, failed }, waitingFor:
-  spacing|daily_limit|preparing|you|null, nextAt }`.
+  spacing|daily_limit|preparing|you|paused|null, nextAt }`.
 - POST `/api/nori/batches/:id/stop`: cancels what has not started (`"Cancelled by you"`); sent ones stay sent.
 - GET `/api/nori/decisions` (Apply decisions): `{ aggressiveness, weekUsed, weekLeft, decisions: [{ jobId, title, company,
   group: strong|worth_a_shot|stretch|null, action: send|later|ask|skip, reasons: [string], fit }] }` for the person's new
@@ -285,8 +290,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   model call per message, charged to the person's daily AI budget; when it is used up (or AI is down) the reply says so
   and nothing changes. `reply.actions: [{ kind, summary, undoId }]` lists every change Nori made: `set_threshold`,
   `set_aggressiveness` (cautious, balanced or wide), `set_daily_limit`, `add_role`, `remove_role`, `skip_company`, `unskip_company`, `apply_now` (a batch of Recommended
-  jobs), `schedule_on` and `schedule_off` (the autopilot below). `undoId` is null when there is nothing to undo. Nori never
-  changes anything without listing it.
+  jobs), `schedule_on` and `schedule_off` (the autopilot below), `pause` (stop everything Nori does on its own) and
+  `resume`. `undoId` is null when there is nothing to undo. Nori never changes anything without listing it.
 - POST `/api/nori/chat/undo/:undoId` returning `{ ok, summary }`: puts back what that change replaced (undoing
   `apply_now` stops the batch). Once only: `{ ok: false, summary: "Already undone" }` the second time; 404 for an unknown id.
 
@@ -297,7 +302,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   date it runs (null when off or paused). On a chosen day, within the hour after `time`, the worker starts one "Apply
   for me" batch of the jobs the apply decision sends (as for Apply now: at most what today's limit still allows, within
   the weekly pace, Greenhouse only for now) and marks the day as run; the batch summary goes out like any batch's. The chat can turn it on (`schedule_on`) and pause it
-  (`schedule_off`), each undoable. While it is on and not paused, a new strong fit (0.8+) is also sent as soon as Nori has
+  (`schedule_off`), each undoable; the one pause (`paused`) stops it too, and a paused user never has a day marked as run. While it is on and not paused, a new strong fit (0.8+) is also sent as soon as Nori has
   prepared it, any day and time, when the apply decision says `send` (within the same daily limit and the weekly pace;
   see docs/applying.md); its run log has an `apply_decision` event, and an `autopilot` event when it was sent. One the
   decision leaves to the person (`ask`) stays prepared, and the Telegram strong-fit alert asks "Your call" with Apply

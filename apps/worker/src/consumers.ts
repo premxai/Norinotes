@@ -3,7 +3,7 @@ import { companies, eq, type Db } from "@norinote/db";
 import { PendingQuestion, type AtsType } from "@norinote/shared";
 import { planForm } from "@norinote/answers";
 import {
-  approveAndSubmit, autopilotStrongFit, createApplyHandler, createFinishHandler, createPrepareHandler, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
+  approveAndSubmit, autopilotStrongFit, createApplyHandler, createFinishHandler, createPrepareHandler, isNoriPaused, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
   staleRuns, STALE_RUN_MS,
   type ApplyDeps, type LiveInputBus,
 } from "@norinote/apply";
@@ -156,6 +156,8 @@ const BACKED_OFF_RETRY_SECONDS = 5 * 60;
 async function autoAnswerPending(db: Db, applicationId: string): Promise<{ answered: number; resumed: boolean }> {
   const row = await loadApplication(db, applicationId);
   if (!row || row.status !== "needs_user" || !row.approvedAt || row.pendingQuestions.length === 0) return { answered: 0, resumed: false };
+  // Paused: do not answer and send on the person's behalf. Nothing is lost; it resumes when they do.
+  if (await isNoriPaused(db, row.userId)) return { answered: 0, resumed: false };
   const questions = row.pendingQuestions.flatMap((q) => { const p = PendingQuestion.safeParse(q); return p.success ? [p.data] : []; });
   if (questions.length === 0) return { answered: 0, resumed: false };
   const plan = await planForm(db, {
@@ -388,6 +390,8 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     // (the batch only sends the ones still waiting for an OK). Only a first preparation: a retried one waits for the
     // person again.
     const after = await loadApplication(db, payload.applicationId);
+    // Paused: an Apply pressed before the pause waits here and goes out when the person resumes.
+    if (after?.status === "prepared" && after.approvedAt && (await isNoriPaused(db, after.userId))) return { ...restored, paused: true };
     if (after?.status === "prepared" && after.approvedAt && after.attempts === 0) {
       const res = await approveAndSubmit(db, after.id);
       if (res.ok && res.started) await queue.enqueue(JOBS.applyRun, { applicationId: after.id, trigger: "click" });
