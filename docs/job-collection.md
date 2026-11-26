@@ -22,6 +22,40 @@ there is no per-user web search.
 - SmartRecruiters stays parked whatever we decide about the others: its robots.txt disallows every path for our
   User-Agent, so it has no registry entries either.
 
+## Turning Lever on in production
+
+Lever's connector and form driver are ready, but production reads and sends only Greenhouse: `fly.api.toml` and
+`fly.worker.toml` both set `ENGINE_ATS = "greenhouse"`. Turning Lever on is the maintainer's job. It needs no new
+secret, no migration and no model key.
+
+1. Set `ENGINE_ATS = "greenhouse,lever"` in the `[env]` of **both** `fly.api.toml` and `fly.worker.toml`, then
+   redeploy both apps. On the worker, this setting decides which boards are polled, read, matched and caught up. On the
+   API, it decides which jobs the lists and counts show, and whether "Add a company" says a Lever board is read now. Keep
+   the two values the same. Otherwise people see jobs the worker never matches, or the worker matches jobs nobody sees.
+2. `BATCH_ATS` (on both apps) gates "Apply for me" batches, chat batches and autopilot schedules. It does not gate
+   Apply on a single job. Leave it at `"greenhouse"` until the first one-click Lever applications have been watched
+   from start to finish. Then set it to `"greenhouse,lever"` on both apps.
+3. Boards: the worker seeds the 20 Lever boards in `BOARD_REGISTRY` every time it starts. For more boards, run
+   `npx tsx scripts/import-seeds.mts --only lever --dry-run` and then the same command without `--dry-run`, against the
+   production database. They come in as `candidate` rows and are checked on their first poll (`VALIDATE_PER_RUN`).
+4. Nothing else needs to change. `HOST_BOARDS_PER_RUN` is a cap per host, so `api.lever.co` gets its own budget
+   alongside Greenhouse's. The request helpers (http.ts) obey robots.txt and Lever's `Crawl-delay: 1`. Lever has no form
+   API, so prepare reads each Lever form in the browser pool (`BROWSER_POOL_SIZE`) as well as filling it at the click.
+
+What to expect, from a dry run on 2026-11-26 of 34 fresh US postings at 21 companies, using `scripts/eval/lever-targets.mts`
+and `scripts/eval/lever-live.mts` with the fictional applicant, no model key and no submission:
+
+- Every form was read.
+- 70% of required fields were filled from the profile.
+- Every other required field went to the person as a pending question with its real label. These are factual, legal,
+  consent and custom questions that Norinote never drafts.
+- 8 of the 34 forms needed nothing from the person.
+
+Lever pages load an invisible hCaptcha. No challenge appeared while filling, but one can appear at submit. When it
+does, the application parks as `ready_to_finish` and the person solves it in the live view. No real Lever submission
+has been sent yet, so watch the first ones. Lever's feed dates jobs by `createdAt`, which can be earlier than the
+posting date, so a few fresh Lever jobs leave the 7-day window early.
+
 ## Connector contract (`packages/ingest/src/types.ts`)
 
 - `Connector { atsType, ready?, capabilities?, listJobs(token, http?, { etag? }), fetchJob?, parseUrl }`.

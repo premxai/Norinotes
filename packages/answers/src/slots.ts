@@ -81,13 +81,13 @@ const LABEL_RULES: [RegExp, Slot, ((f: SlotField) => boolean)?][] = [
   [/cover letter/, "cover_letter", (f) => f.type === "file" || f.type === "textarea"],
   [/\b(resume|cv|résumé|curriculum vitae)\b/, "resume", (f) => f.type === "file"],
   [/^(resume|cv)\b.*\b(text|paste)|paste (your )?(resume|cv)/, "resume_text"],
-  [/\bsponsor|sponorship|\bvisa\b|h-?1b/, "sponsorship"],
+  [/\bsponsor|sponorship|\bvisa\b|h-?1b|file an? (petition|application) .{0,40}immigration|employment[\s-]+based immigration/, "sponsorship"],
   [/authori[sz]ed to work|work authori[sz]ation|legally (authori[sz]ed|eligible|able|permitted)|eligible to work|right to work|work permit|employment eligibility|legal(ly)? (right|entitled) to work|work authori[sz]ed/, "work_auth"],
   [/^(are|is) you (a |an )?[a-z .]{0,30}(citizen|permanent resident)\b/, "work_auth", isChoiceLike],
   [/convicted|criminal|felony|misdemeanou?r|background check.*(pass|consent)|arrest/, "criminal"],
   [/salary|compensation|pay (expectation|range|requirement)|desired (pay|rate)|expected (pay|rate)|rate expectation|\bote\b/, "salary"],
   [/relocat/, "relocation", (f) => notProse(f) && !/address from which|where (do|will) you|plan on working from|currently based within|commuting distance/.test(lc(f.label))],
-  [/start date|when (can|could|would) you (start|begin|join)|earliest (possible )?(start|date|availab)|earliest .{0,30}\bstart|available to start|available for full[- ]time|notice period/, "start_date"],
+  [/start date|when (can|could|would) you (start|begin|join)|earliest (possible )?(start|date|availab)|earliest .{0,30}\bstart|available to (start|begin)|available for full[- ]time|notice period/, "start_date"],
   [/(18|eighteen)( years)?( of age| years old| or older)|\bover 18\b|at least 18|legal (working )?age/, "age"],
   [/\b(pronoun)/, "pronouns"],
   [/sms|text messages?|whatsapp/, "sms_consent", (f) => f.options.length > 0 || f.type === "checkbox" || f.type === "boolean"],
@@ -113,14 +113,14 @@ const LABEL_RULES: [RegExp, Slot, ((f: SlotField) => boolean)?][] = [
   [/(current|most recent|present)\)? (company|employer|organi[sz]ation)|(current|most recent).{0,20}\b(company|employer)\b|^company( name)?$|^employer$/, "current_company", (f) => isText(f) && notProse(f)],
   [/(current|most recent|present) (job )?(title|role|position)|^(job )?title$/, "current_title", (f) => isText(f) && shortLabel(f) && notProse(f)],
   [/^(school|university|college|institution)( name)?$|school name|university name|(name of|which) (school|university|college)|^school\b|which university/, "school"],
-  [/^degree\b|highest (level of )?(degree|education)|degree (type|level|obtained)/, "degree"],
+  [/^degree\b|(highest|most recent) (level of )?(formal )?(degree|education)|degree (type|level|obtained)/, "degree"],
   [/^(discipline|major|field of study|area of study)\b/, "discipline"],
   [/address( line)? ?2|apartment|\bapt\b|\bsuite\b/, "custom"],
   [/street address|address( line)? ?1|^address$|^mailing address/, "address"],
   [/\b(zip|postal)( code)?\b/, "zip"],
   [/^city\b/, "city"],
   [/^(state|province)\b|state ?\/ ?province/, "state"],
-  [/^country\b|country of residence|which country|country (do you|where you) (live|reside)|country (in which|where) you are (located|based)|what country are you (based|located)/, "country", (f) => !/work|citizen|authori/.test(lc(f.label))],
+  [/^country\b|country of residence|which country|^what is your country\b|country (do you|where you) (live|reside)|country (in which|where) you are (located|based)|what country are you (based|located)/, "country", (f) => !/work|citizen|authori/.test(lc(f.label))],
   [/^(current )?location\b|location \(city\)|where are you (currently )?(based|located)|where (do you|will you) (currently )?(live|plan on working|plan to work)|from where do you (intend|plan) to work|address from which you plan|what is your (current )?location|current (city|address)|city and state/, "location", notProse],
 ];
 
@@ -142,7 +142,7 @@ export function classifySlot(f: SlotField): Slot {
 }
 
 /** Facts read from the career points: current employer and title, school, degree. */
-export type CareerFacts = { currentCompany: string; currentTitle: string; school: string; degree: string; discipline: string };
+export type CareerFacts = { currentCompany: string; currentTitle: string; school: string; degree: string; discipline: string; degreeCompleted: boolean };
 
 const sortKey = (d: string | null | undefined) => (d ?? "").padEnd(7, "-");
 
@@ -160,7 +160,29 @@ export function careerFacts(points: readonly CareerPoint[]): CareerFacts {
     school: edu?.org ?? "",
     degree: m ? m[1]!.trim() : degreeText,
     discipline: m ? (m[2] ?? "").trim() : "",
+    degreeCompleted: !!edu?.endDate && edu.endDate <= new Date().toISOString().slice(0, 7),
   };
+}
+
+/** Option patterns for the level of a degree written as "B.S.", "MSc", "Ph.D." and so on. */
+const DEGREE_LEVELS: [RegExp, RegExp][] = [
+  [/^(mba|m\.?b\.?a\.?)$/, /\bm\.?b\.?a\b|business administration/],
+  [/^(ph\.?\s?d\.?|doctor of philosophy|doctorate)$/, /\bph\.?\s?d\b|doctor of philosophy|doctorate/],
+  [/^(master'?s?|m\.?\s?[as]\.?|msc|m\.?eng|ms|ma)$/, /\bmaster|graduate degree/],
+  [/^(bachelor'?s?|b\.?\s?[as]\.?|bsc|b\.?eng|bs|ba)$/, /\bbachelor/],
+  [/^(associate'?s?)$/, /\bassociate/],
+];
+
+/**
+ * A completed degree's level among options such as "Bachelor's Degree" or "Graduate degree earned", never an option for
+ * a degree still in progress. Null when the degree is not finished or no option names its level.
+ */
+function degreeLevel(f: SlotField, career: CareerFacts): string | null {
+  if (!career.degreeCompleted || f.options.length === 0) return null;
+  const level = DEGREE_LEVELS.find(([deg]) => deg.test(lc(career.degree)))?.[1];
+  if (!level) return null;
+  const hits = f.options.filter((o) => level.test(lc(o)) && !/pursuing|in progress|currently|enrolled|some /.test(lc(o)));
+  return hits.length === 1 ? hits[0]! : null;
 }
 
 export type SlotValue =
@@ -237,7 +259,7 @@ export function slotValue(slot: Slot, f: SlotField, facts: Facts, career: Career
     case "current_company": return ready(fit(f, career.currentCompany), "current employer");
     case "current_title": return ready(fit(f, career.currentTitle), "current title");
     case "school": return ready(fit(f, career.school), "school");
-    case "degree": return ready(fit(f, career.degree), "degree");
+    case "degree": return ready(fit(f, career.degree) ?? degreeLevel(f, career), "degree");
     case "discipline": return ready(fit(f, career.discipline), "field of study");
     case "pronouns": {
       const p = typeof facts.preferences.pronouns === "string" ? facts.preferences.pronouns : "";

@@ -23,6 +23,7 @@ describe("profile defaults", () => {
     expect(ans("Will you now or in the future require visa sponsorship?", "select", ["Yes", "No"])).toBe("No");
     expect(ans("Do you require sponsorship?", "boolean")).toBe("No");
     expect(ans("Are you able to work without sponsorship?", "select", ["Yes, I can work without sponsorship", "No, I need sponsorship"])).toBe("Yes, I can work without sponsorship");
+    expect(ans("Are you legally authorized to work in the United States without future sponsorship?", "select", ["Yes", "No"])).toBe("Yes");
     expect(ans("Are you authorized to work in the US?", "select", ["Yes, I am authorized", "No, I am not authorized"])).toBe("Yes, I am authorized");
   });
 
