@@ -39,6 +39,8 @@ export type SlotField = {
   id?: string | null;
   autocomplete?: string | null;
   placeholder?: string | null;
+  /** Help text the form shows with the question (Greenhouse's description), as plain text. */
+  description?: string | null;
   /** Where the field sits: the main form, an EEO block, a compliance block. */
   section?: "main" | "eeo" | "compliance" | null;
 };

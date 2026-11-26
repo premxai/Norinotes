@@ -6,7 +6,7 @@ export { pendingDigest } from "./digest.js";
 export type { PendingDigest, PendingGroup } from "./digest.js";
 export { defaultAnswer, factsFrom, countryCode, countryIn } from "./defaults.js";
 export type { Facts, ProfileRowLike } from "./defaults.js";
-export { isOpenEnded, draftAnswer } from "./draft.js";
+export { isOpenEnded, draftAnswer, isAiTrap, AI_TRAP } from "./draft.js";
 export { matchOption, normalizeQuestion, sameSpecifics, distinctiveTokens, cosine } from "./text.js";
 export { SLOTS, LEGAL_SLOTS, EEO_SLOTS, classifySlot, slotValue, careerFacts, phoneCountry, labelKey } from "./slots.js";
 export type { Slot, SlotField, SlotValue, FieldType, CareerFacts } from "./slots.js";
