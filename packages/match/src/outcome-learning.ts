@@ -18,6 +18,7 @@ import {
   OUTCOME_REASON_PREFIX, boardSizeOf, loadOutcomeHistory, resolveApplication, syncInboxOutcomes, type OutcomeHistoryRow,
 } from "./outcomes.js";
 import { roleFamilyOf } from "./roles.js";
+import { warnSwallowed } from "./log.js";
 
 export const OUTCOME_LEARNING = {
   version: 1,
@@ -199,7 +200,8 @@ export async function applyOutcomeLearning(db: Db, userId: string, items: Nudgea
       // Second place: an explanation line from the model goes first and the list is cut to three.
       item.reasons.splice(Math.min(1, item.reasons.length), 0, applied === delta ? reason : reason.replace(/\([+-]0\.\d\d fit\)$/, `(${applied > 0 ? "+" : "-"}${Math.abs(applied).toFixed(2)} fit)`));
     }
-  } catch {
+  } catch (err) {
     // Learning is a nudge, never a reason for a shortlist to fail.
+    warnSwallowed("match.outcome_learning_failed", err);
   }
 }

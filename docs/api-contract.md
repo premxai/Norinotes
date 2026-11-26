@@ -99,6 +99,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 ## Shortlist
 - GET `/api/shortlist` returning
   `[{ id, jobId, fit, reasons, status, createdAt, job: { id, companyName, companyLogoUrl, title, location, remote, applyUrl, postedAt } }]`
+- GET `/api/shortlist/meta` returning `{ total, widened, lanesMatched, poolUsed, reading }` for the list's banner. `reading` is
+  `"basic"` when more than half of the listed roles were read without the AI (only a rule-based job spec, no job
+  embedding, or no embedded career points, so they were ranked by skill overlap), else `"full"` (also for an empty list).
+  The dashboard can show a plain note for `"basic"`, e.g. "Your matches are using basic reading right now".
 - POST `/api/shortlist/:jobId/dismiss`
 
 ## Applications

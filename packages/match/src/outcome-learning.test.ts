@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeEmbedding } from "@norinote/ai";
 import { applications, eq, lanes, outcomes, profiles, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
@@ -156,5 +156,20 @@ describe("the shortlist hook", () => {
     expect((await loadOutcomeLearning(t.db, userId, NOW)).active).toBe(false);
     await applyOutcomeLearning(t.db, "not-a-uuid", items, () => null, NOW);
     expect(items[0]!.fit).toBe(0.7);
+  });
+
+  it("logs one warn line when it fails unexpectedly, and leaves the candidates alone", async () => {
+    const items = [{ jobId: "00000000-0000-0000-0000-000000000000", title: "Data Analyst", fit: 0.7, reasons: ["r"], rankScore: 0.7, confidence: 1 }];
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      await applyOutcomeLearning(t.db, "not-a-uuid", items, () => null, NOW);
+      const lines = warn.mock.calls.map((c) => JSON.parse(String(c[0])) as Record<string, unknown>);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatchObject({ level: "warn", event: "match.outcome_learning_failed" });
+      expect(JSON.stringify(lines[0])).not.toContain("not-a-uuid");
+    } finally {
+      warn.mockRestore();
+    }
+    expect(items[0]).toMatchObject({ fit: 0.7, reasons: ["r"], rankScore: 0.7 });
   });
 });

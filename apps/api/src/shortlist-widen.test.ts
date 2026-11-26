@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { MAX_JOB_AGE_HOURS, careerPoints, lanes, profiles, eq } from "@norinote/db";
+import { fakeEmbedding } from "@norinote/ai";
+import { MAX_JOB_AGE_HOURS, careerPointEmbeddings, careerPoints, jobEmbeddings, jobSpecs, lanes, profiles, eq } from "@norinote/db";
+import { HEURISTIC_SPEC_VERSION, SPEC_VERSION } from "@norinote/match";
 import { makeApi, seedJob, seedShortlist, type Api } from "./testkit.js";
 
 let api: Api;
@@ -7,13 +9,18 @@ beforeAll(async () => { api = await makeApi(); });
 afterAll(() => api.close());
 
 type Item = { jobId: string; reasons: string[]; widenedBy: string | null; job: { title: string } };
-type Meta = { total: number; widened: string[]; lanesMatched: number; poolUsed: boolean };
+const SPEC = {
+  mustHaves: [], niceToHaves: [], skills: [], seniority: "mid" as const, roleFamily: "hospitality", yearsMin: null,
+  location: { remote: "unknown" as const, countries: [], cities: [] }, citizenshipRequired: false, clearanceRequired: false, sponsorship: "unknown" as const,
+  responsibilities: [], requirementWeights: {},
+};
+type Meta = { total: number; widened: string[]; lanesMatched: number; poolUsed: boolean; reading: "full" | "basic" };
 
 describe("GET /api/shortlist/meta and widenedBy", () => {
   it("needs a session, and an empty shortlist is zero everywhere", async () => {
     expect((await api.call("GET", "/api/shortlist/meta")).status).toBe(401);
     const u = await api.signup("meta-empty@example.com");
-    expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json).toEqual({ total: 0, widened: [], lanesMatched: 0, poolUsed: false });
+    expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json).toEqual({ total: 0, widened: [], lanesMatched: 0, poolUsed: false, reading: "full" });
   });
 
   it("counts roles, lists the widening steps used in ladder order, and keeps the array response for compatibility", async () => {
@@ -38,7 +45,7 @@ describe("GET /api/shortlist/meta and widenedBy", () => {
 
     const meta = await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie });
     expect(meta.status).toBe(200);
-    expect(meta.json).toEqual({ total: 4, widened: ["adjacent_titles", "role_pool"], lanesMatched: 1, poolUsed: true });
+    expect(meta.json).toEqual({ total: 4, widened: ["adjacent_titles", "role_pool"], lanesMatched: 1, poolUsed: true, reading: "basic" });
   });
 
   it("ignores dismissed and closed rows, and exposes widenedBy on a job’s match", async () => {
@@ -47,13 +54,31 @@ describe("GET /api/shortlist/meta and widenedBy", () => {
     await seedShortlist(api.db, u.user.id, job.id, 0.6, { reasons: ["Fits at 60%", "widened:remote"] });
     const { job: gone } = await seedJob(api.db, { title: "Warehouse Associate II", closed: true });
     await seedShortlist(api.db, u.user.id, gone.id, 0.9, { reasons: ["widened:older"] });
-    expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json).toEqual({ total: 1, widened: ["remote"], lanesMatched: 0, poolUsed: false });
+    expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json).toEqual({ total: 1, widened: ["remote"], lanesMatched: 0, poolUsed: false, reading: "basic" });
 
     const detail = await api.call("GET", `/api/jobs/${job.id}`, { cookie: u.cookie });
     expect(detail.json.match).toMatchObject({ widenedBy: "remote", explanation: { reasons: ["Fits at 60%"] } });
 
     await api.call("POST", `/api/shortlist/${job.id}/dismiss`, { cookie: u.cookie });
     expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json.total).toBe(0);
+  });
+
+  it("says whether most of the list was read without the AI", async () => {
+    const u = await api.signup("meta-reading@example.com");
+    const [point] = await api.db.insert(careerPoints).values({ userId: u.user.id, kind: "role", title: "Backend Engineer", startDate: "2021-01", text: "python services", sourceQuote: "x" }).returning();
+    await api.db.insert(careerPointEmbeddings).values({ careerPointId: point!.id, userId: u.user.id, embedding: fakeEmbedding("python services"), model: "test" });
+    const mk = async (title: string, version: number, model: string) => {
+      const { job } = await seedJob(api.db, { title });
+      await api.db.insert(jobSpecs).values({ jobId: job.id, version, spec: SPEC, model });
+      await api.db.insert(jobEmbeddings).values({ jobId: job.id, embedding: fakeEmbedding(title), model: "test" });
+      await seedShortlist(api.db, u.user.id, job.id, 0.7);
+    };
+    const reading = async () => (await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json.reading;
+    await mk("Sommelier", SPEC_VERSION, "gpt-4.1-mini");
+    await mk("Head Barista", HEURISTIC_SPEC_VERSION, "heuristic");
+    expect(await reading()).toBe("full");
+    await mk("Pastry Chef", HEURISTIC_SPEC_VERSION, "heuristic");
+    expect(await reading()).toBe("basic");
   });
 
   it("hides a saved row once its job is older than 7 days", async () => {

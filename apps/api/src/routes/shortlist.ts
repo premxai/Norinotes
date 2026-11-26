@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { and, applications, careerPoints, companies, desc, eq, freshJobSql, inArray, isNull, jobs, profiles, shortlist, sql } from "@norinote/db";
 import { companyKey, isSkippedCompany, readSkipCompanies } from "@norinote/shared";
-import { WIDENED_BY, widenedByOf, withoutWidenedReasons, type WidenedBy } from "@norinote/match";
+import { WIDENED_BY, shortlistReading, widenedByOf, withoutWidenedReasons, type WidenedBy } from "@norinote/match";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
 import { intParam, notFound, uuidParam } from "../http.js";
@@ -67,16 +67,19 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
 
   /**
    * What the list above is made of, for the banner: how many roles, which widening steps were used (in ladder order),
-   * how many fit the lanes as written, and whether the role-family pool contributed.
+   * how many fit the lanes as written, whether the role-family pool contributed, and whether most of it was read without
+   * the AI (`reading: "basic"`).
    */
   r.get("/meta", auth, async (c) => {
-    const entries = await loadEntries(c.get("user").id, 200);
+    const userId = c.get("user").id;
+    const entries = await loadEntries(userId, 200);
     const used = new Set(entries.flatMap((e) => (e.widenedBy ? [e.widenedBy] : [])));
     return c.json({
       total: entries.length,
       widened: WIDENED_BY.filter((w) => used.has(w)),
       lanesMatched: entries.filter((e) => e.widenedBy === null).length,
       poolUsed: used.has("role_pool"),
+      reading: await shortlistReading(db, userId, entries.map((e) => e.row.jobId)),
     });
   });
 

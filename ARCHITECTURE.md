@@ -104,7 +104,10 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    0.6 to 0.8 plausible (the default lane minimum is 0.6), 0.45 to 0.6 stretch (the widening floor), under 0.3 irrelevant.
    Gates also drop remote jobs limited to countries or regions the user cannot work in. Order: lane matches, then widened
    rows; well-specified jobs first, then fit x confidence plus a small recency bonus.
-4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring.
+4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring. A failure there, or in the
+   outcome nudge, never fails the shortlist; an unexpected one logs one JSON warn line (`match.explain_failed`,
+   `match.outcome_learning_failed`, error class and code only), while over budget and the AI being unavailable stay quiet.
+   `GET /api/shortlist/meta` reports `reading: "basic"` when most listed jobs were read without the AI.
 5. Outcome nudge (`outcome-learning.ts`): after 10 resolved applications, fit moves by at most 0.05 toward role families,
    seniority, job systems and board sizes that got the user replies and away from repeated silence or rejection (age-decayed),
    after gates and the lane minimum; the row says why ("From your replies: ... (+0.02 fit)"). See docs/outcomes.md.
