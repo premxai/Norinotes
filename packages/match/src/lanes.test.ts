@@ -18,6 +18,21 @@ describe("title matching", () => {
     ["Data Scientist", "Senior Data Scientist, Growth"],
     ["Machine Learning Engineer", "Machine Learning Research Engineer"],
     ["Product Designer", "Product Designer (Contract)"],
+    ["ML Engineer", "Machine Learning Engineer"],
+    ["Machine Learning Engineer", "Senior ML Engineer"],
+    ["Frontend Engineer", "Front-End Engineer"],
+    ["Front End Engineer", "Senior Frontend Engineer"],
+    ["Full-Stack Engineer", "Fullstack Engineer"],
+    ["Data Scientist", "Data Science Manager"],
+    ["Data Scientist", "Senior Data Scientists, Ads"],
+    ["SWE", "Software Engineer II"],
+    ["PM", "Senior Product Manager, Payments"],
+    ["SRE", "Site Reliability Engineer"],
+    ["QA Engineer", "Quality Assurance Engineer"],
+    ["UX Designer", "Senior User Experience Designer"],
+    ["AI Engineer", "Artificial Intelligence Engineer"],
+    ["Software Engineer", "Software Engineering Manager"],
+    ["Machine Learning Engineer", "Senior Software Engineer, Machine Learning"],
   ])("lane %j fits job %j", (lane, job) => expect(titleMatches(lane, job)).toBe(true));
 
   it.each([
@@ -27,6 +42,11 @@ describe("title matching", () => {
     ["Data Scientist", "Data Analyst"],
     ["Machine Learning Engineer", "Software Engineer"],
     ["Backend Engineer", "Frontend Engineer"],
+    ["Product Manager", "Product Marketing Manager"],
+    ["Account Executive", "Executive Assistant to the Account Director"],
+    ["PM", "Product Operations Manager"],
+    ["Frontend Engineer", "Backend Engineer"],
+    ["Data Scientist", "Data Analyst"],
   ])("lane %j does not fit job %j", (lane, job) => expect(titleMatches(lane, job)).toBe(false));
 
   it("tolerates one missing word in a long lane title", () => {

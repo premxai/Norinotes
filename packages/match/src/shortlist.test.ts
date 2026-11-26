@@ -4,7 +4,7 @@ import { MAX_JOB_AGE_HOURS, and, applications, eq, queryRows, shortlist, sql } f
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { profileEmbedding } from "@norinote/graph";
 import { FitMapEntry, isUsPlace } from "@norinote/shared";
-import { inlineLanesFitSql, laneFitsJob, locationMatches } from "./lanes.js";
+import { inlineLanesFitSql, laneFitsJob, locationMatches, titleMatches } from "./lanes.js";
 import { OUTCOME_REASON_PREFIX } from "./outcomes.js";
 import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
 import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
@@ -73,9 +73,11 @@ describe("buildShortlist: the SQL filter", () => {
       { name: "B", titles: ["Senior Data Scientist"], locations: ["Austin, TX"], remote: true },
       { name: "C", titles: ["Product Designer"], locations: ["California", "Portland, OR", "Washington, DC", "Cambridge, MA"], remote: false },
       { name: "D", titles: ["Data Analyst"], locations: ["NYC", "SF Bay Area"], remote: false },
+      { name: "E", titles: ["ML Engineer", "Product Manager"], locations: ["United States"], remote: false },
     ];
     for (const l of lanesInput) await seedLane(t.db, userId, l);
-    const titles = ["Product Designer", "Senior UX Designer II", "Designer", "Data Scientist, Growth", "Data Analyst", "Product Design Lead", "Staff Data Scientists"];
+    const titles = ["Product Designer", "Senior UX Designer II", "Designer", "Data Scientist, Growth", "Data Analyst", "Product Design Lead", "Staff Data Scientists",
+      "Data Science Manager", "Machine Learning Engineer", "Product Marketing Manager", "Senior PM, Growth"];
     const places: Array<[string | null, boolean]> = [
       ["New York City", false], ["Remote - US", true], ["Austin, Texas", false], ["Berlin", true], ["Berlin", false], [null, false], ["Chicago, USA", false], ["Denver, CO", true],
       ["San Francisco, CA", false], ["New York, NY", false], ["Portland, ME", false], ["Portland, Oregon", false], ["Seattle, Washington", false],
@@ -112,6 +114,26 @@ describe("buildShortlist: the SQL filter", () => {
       const rows = await queryRows<{ id: string }>(t.db, sql`SELECT id FROM jobs WHERE title = 'Mu Engineer' AND ${inlineLanesFitSql([{ titles: ["Mu Engineer"], locations: [lane], remote: false }])}`);
       const fromSql = new Set(rows.map((r) => r.id));
       const exact = [...made].filter(([, place]) => locationMatches(lane, place)).map(([id]) => id);
+      expect(exact.filter((id) => !fromSql.has(id)).map((id) => `${lane} -> ${made.get(id)}`)).toEqual([]);
+      broader += fromSql.size - exact.length;
+    }
+    expect(broader).toBeGreaterThan(0);
+  });
+
+  it("lets through every title the in-memory title check accepts, and some it then rejects", async () => {
+    const laneTitles = ["ML Engineer", "Frontend Engineer", "Data Scientist", "Product Manager", "Account Executive", "SWE", "PM", "UX Designer", "Full-Stack Engineer", "Software Engineer"];
+    const jobTitles = [
+      "Machine Learning Engineer", "Front-End Engineer", "Senior Frontend Engineer", "Data Science Manager", "Senior Data Scientist, Ads",
+      "Product Marketing Manager", "Senior Product Manager, Payments", "Executive Assistant to the Account Director", "Account Executive, Mid-Market",
+      "Software Engineer II", "Software Engineering Manager", "User Experience Designer", "Full Stack Engineer", "Backend Engineer", "AI/ML Engineer",
+    ];
+    const made = new Map<string, string>();
+    for (const title of jobTitles) made.set(await seedJob(t.db, { companyId, title: `Nu ${title}`, location: null }), `Nu ${title}`);
+    let broader = 0;
+    for (const lane of laneTitles) {
+      const rows = await queryRows<{ id: string }>(t.db, sql`SELECT id FROM jobs WHERE title LIKE 'Nu %' AND ${inlineLanesFitSql([{ titles: [lane], locations: [], remote: false }])}`);
+      const fromSql = new Set(rows.map((r) => r.id));
+      const exact = [...made].filter(([, title]) => titleMatches(lane, title)).map(([id]) => id);
       expect(exact.filter((id) => !fromSql.has(id)).map((id) => `${lane} -> ${made.get(id)}`)).toEqual([]);
       broader += fromSql.size - exact.length;
     }

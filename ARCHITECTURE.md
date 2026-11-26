@@ -100,6 +100,10 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    Lane locations are places, read with the location parser: a state or country fits jobs inside it, a city fits jobs in
    that city (other names count both ways: NYC and New York) in the state it names, or in its metro. The SQL filter is a
    broader prefilter for locations (it does not parse); the exact check runs on its rows before anything is scored or kept.
+   Lane titles match by words after joining compounds (front-end), one stem per role word (engineering, scientist) and
+   spelling out abbreviations (ML, SWE, PM, SRE, QA, UX/UI). The lane's role noun must follow its own modifier in the job
+   title, or be the job title's role noun with no other business function before it ("Product Marketing Manager" is not a
+   "Product Manager"). SQL checks only the words; the role-noun check runs together with the exact location check.
 2. Vector rank: cosine similarity between the user's profile embedding and `job_embeddings`, top about 200. The profile
    embedding is graph's `profileEmbedding` (a weighted mean of the most recent and substantial career points), the same
    vector for the daily rebuild and for new-job matching.
