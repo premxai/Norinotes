@@ -3,7 +3,8 @@ import { applications, channels, companies, eq, jobs, resumes, shortlist, users 
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { Page } from "playwright";
 import { saveSchedule, type BrowserPool, type Driver, type FillResult, type Preparer } from "@norinote/apply";
-import { saveTelegramSettings } from "@norinote/telegram";
+import { placeInGroup, type DECISION_FIT_MAPS } from "@norinote/match/testing";
+import { saveTelegramSettings, strongFitEvents } from "@norinote/telegram";
 import { MemoryQueue, JOBS } from "@norinote/queue";
 import { loadConfig } from "./config.js";
 import { silentLogger } from "./log.js";
@@ -50,11 +51,12 @@ async function person(optIn: "schedule" | "telegram" | "telegram-alert-off" | "p
   if (optIn === "telegram-alert-off") await saveTelegramSettings(t.db, u!.id, { events: { strongFit: false } });
   return u!.id;
 }
-async function strongFit(userId: string, fit = 0.9) {
+async function strongFit(userId: string, fit = 0.9, group: keyof typeof DECISION_FIT_MAPS = "strong") {
   const [c] = await t.db.insert(companies).values({ name: `Co ${n}`, atsType: "greenhouse", atsToken: `co${n++}` }).returning();
   const [j] = await t.db.insert(jobs).values({ companyId: c!.id, atsType: "greenhouse", externalId: `x${n}`, title: "Backend Engineer", applyUrl: `https://job-boards.greenhouse.io/co/jobs/${n}`, dedupeKey: `f${n}` }).returning();
   // No career points: match.new-jobs leaves this row as it is, and only the strong-fit step acts on it.
   await t.db.insert(shortlist).values({ userId, jobId: j!.id, fit, status: "new" });
+  await placeInGroup(t.db, userId, j!.id, group);
   return j!.id;
 }
 
@@ -87,6 +89,32 @@ describe("fast path: strong fits are prepared right after matching, and autopilo
       expect(forJob(plausible)).toBeUndefined();
       expect(prepared.sort()).toEqual([forJob(strong.schedule)!.id, forJob(strong.telegram)!.id].sort());
       expect(queue.stats(JOBS.prepareApplication)).toMatchObject({ completed: 2, failed: 0 });
+    } finally {
+      await worker.stop();
+    }
+  });
+});
+
+describe("fast path: autopilot sends only what the apply decision sends", () => {
+  it("sends a prepared strong fit on balanced, and asks about a prepared stretch through the strong-fit alert instead of sending it", async () => {
+    const queue = new MemoryQueue();
+    const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer, applyOverrides: { drivers: [driver] } });
+    try {
+      const userId = await person("schedule");
+      const strong = await strongFit(userId);
+      const stretch = await strongFit(userId, 0.85, "stretch");
+      await queue.enqueue(JOBS.matchNewJobs, { jobIds: [strong, stretch] });
+      await queue.drain();
+      expect(queue.failures()).toEqual([]);
+
+      const apps = await t.db.select().from(applications).where(eq(applications.userId, userId));
+      const forJob = (jobId: string) => apps.find((a) => a.jobId === jobId)!;
+      expect(forJob(strong).approvedAt).toEqual(NOW);
+      expect(forJob(stretch)).toMatchObject({ status: "prepared", approvedAt: null });
+      const alerts = await strongFitEvents(t.db, userId, new Date(0), { webUrl: "https://app.test", secret: "s" });
+      expect(alerts.map((a) => a.applicationId)).toEqual([forJob(stretch).id]);
+      expect(alerts[0]!.payload.text).toMatch(/^<b>Your call<\/b>: Backend Engineer at Co /);
+      expect(JSON.stringify(alerts[0]!.payload.keyboard)).toContain("Skip");
     } finally {
       await worker.stop();
     }

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applications, applyBatches, eq, lanes, profiles } from "@norinote/db";
+import { placeInGroup } from "@norinote/match/testing";
 import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
 
 let api: Api;
@@ -114,6 +115,10 @@ describe("Apply now from Recommended, the company, a used code", () => {
     await seedShortlist(api.db, user.id, strong.job.id, 0.9);
     await seedShortlist(api.db, user.id, weak.job.id, 0.5);
     await seedShortlist(api.db, user.id, skipped.job.id, 0.95);
+    // The apply decision picks what is sent: a strong job, not a stretch (Nori asks about that one) or a skipped company.
+    await placeInGroup(api.db, user.id, strong.job.id, "strong");
+    await placeInGroup(api.db, user.id, weak.job.id, "stretch");
+    await placeInGroup(api.db, user.id, skipped.job.id, "strong");
     const res = await api.call("POST", "/api/nori/batches", { cookie, body: { recommended: true } });
     expect(res.status).toBe(201);
     expect(res.json.added).toBe(1);

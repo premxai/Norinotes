@@ -1,12 +1,13 @@
 /**
  * The Nori chat (dashboard v2, the Nori page). The person talks to Nori; Nori answers about their matches and
- * applications and can change how it works for them: the threshold, the daily limit, roles, companies to skip, and
+ * applications and can change how it works for them: the threshold, how much Nori sends on its own, the daily limit, roles, companies to skip, and
  * "apply now" (a batch of Recommended jobs). One small-model call per message, charged to the person's daily AI budget.
  * Every change comes back as an action with an undo id; nothing is changed silently. Schedules (autopilot) are not here.
  */
 import { z } from "zod";
 import { AiUnavailableError, BudgetExceededError, complete } from "@norinote/ai";
 import { and, applications, asc, companies, desc, eq, gte, jobs, lanes, lt, noriChatMessages, noriChatUndo, shortlist, sql, type Db } from "@norinote/db";
+import { AGGRESSIVENESS, type Aggressiveness } from "@norinote/match";
 import { getNoriSettings, getSchedule, nextRunOn, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 
 export type ChatAction = { kind: string; summary: string; undoId: string | null };
@@ -15,8 +16,8 @@ export type ChatMessageView = { id: string; role: "user" | "nori"; text: string;
 const Intent = z.object({
   reply: z.string(),
   actions: z.array(z.object({
-    kind: z.enum(["set_threshold", "set_daily_limit", "add_role", "remove_role", "skip_company", "unskip_company", "apply_now", "schedule_on", "schedule_off"]),
-    /** set_threshold: a percent 0-100; set_daily_limit: 1-100; apply_now: how many (1-50); roles/companies: the name. */
+    kind: z.enum(["set_threshold", "set_aggressiveness", "set_daily_limit", "add_role", "remove_role", "skip_company", "unskip_company", "apply_now", "schedule_on", "schedule_off"]),
+    /** set_threshold: a percent 0-100; set_aggressiveness: cautious, balanced or wide; set_daily_limit: 1-100; apply_now: how many (1-50); roles/companies: the name. */
     value: z.string(),
   })),
 });
@@ -24,7 +25,9 @@ const Intent = z.object({
 const SYSTEM = `You are Nori, a friendly job-application agent inside Norinote. You talk with one person about their job search.
 You can answer questions from the CONTEXT (their roles, threshold, daily limit, skipped companies, matches, applications).
 You can change things only through actions; list each change the person clearly asked for, nothing they did not ask for:
-- set_threshold: value = the minimum match percent 0-100 for "Recommended" and Apply for me.
+- set_threshold: value = the minimum match percent 0-100 for the Recommended list.
+- set_aggressiveness: value = "cautious" (Nori sends only strong matches on its own, 10 a week), "balanced" (also good
+  matches posted in the last 2 days, 20 a week) or "wide" (asks less of those, 30 a week). Anything else Nori asks about first.
 - set_daily_limit: value = how many applications a day (1-100).
 - add_role: value = a job title to look for (adds a role).
 - remove_role: value = the role name exactly as listed in CONTEXT.
@@ -58,7 +61,7 @@ async function contextFor(db: Db, userId: string, now: Date): Promise<string> {
   const sentToday = await db.select({ n: sql<number>`count(*)::int` }).from(applications)
     .where(and(eq(applications.userId, userId), gte(applications.submittedAt, new Date(now.getTime() - 86_400_000))));
   return [
-    `Threshold: ${Math.round(settings.minFit * 100)}%. Daily limit: ${settings.dailyLimit}. Minutes between applications: ${settings.spacingMinutes}.`,
+    `Threshold: ${Math.round(settings.minFit * 100)}%. Sends on its own: ${settings.aggressiveness}. Daily limit: ${settings.dailyLimit}. Minutes between applications: ${settings.spacingMinutes}.`,
     `Roles: ${roles.length ? roles.map((r) => `${r.name} (${r.titles.join(", ")})${r.enabled ? "" : " [off]"}`).join("; ") : "none"}.`,
     `Companies skipped: ${settings.skipCompanies.length ? settings.skipCompanies.join(", ") : "none"}.`,
     `Matches waiting: ${counts?.matches ?? 0}, of which Recommended (at or above the threshold): ${counts?.recommended ?? 0}. Sent in the last 24 hours: ${sentToday[0]?.n ?? 0}.`,
@@ -93,6 +96,13 @@ async function act(db: Db, userId: string, a: z.infer<typeof Intent>["actions"][
       await saveNoriSettings(db, userId, { minFit: Math.round(pct) / 100 });
       await deps.enqueueMatch();
       return { kind: a.kind, summary: `Threshold set to ${Math.round(pct)}% (was ${Math.round(settings.minFit * 100)}%)`, undoId };
+    }
+    case "set_aggressiveness": {
+      const next = value.toLowerCase() as Aggressiveness;
+      if (!AGGRESSIVENESS.includes(next) || next === settings.aggressiveness) return null;
+      const undoId = await remember(db, userId, a.kind, { aggressiveness: settings.aggressiveness });
+      await saveNoriSettings(db, userId, { aggressiveness: next });
+      return { kind: a.kind, summary: `Nori is now ${next} (was ${settings.aggressiveness})`, undoId };
     }
     case "set_daily_limit": {
       const n = Number.parseInt(value, 10);
@@ -193,6 +203,10 @@ export async function undoChatAction(db: Db, userId: string, undoId: string, dep
       await saveNoriSettings(db, userId, { minFit: Number(b.minFit) });
       await deps.enqueueMatch();
       summary = `Threshold back to ${Math.round(Number(b.minFit) * 100)}%`;
+      break;
+    case "set_aggressiveness":
+      await saveNoriSettings(db, userId, { aggressiveness: b.aggressiveness as Aggressiveness });
+      summary = `Back to ${String(b.aggressiveness)}`;
       break;
     case "set_daily_limit":
       await saveNoriSettings(db, userId, { dailyLimit: Number(b.dailyLimit) });

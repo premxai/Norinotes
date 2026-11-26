@@ -40,7 +40,7 @@ export {
   type BatchCounts, type BatchSkip, type BatchView, type DrainStep, type NoriSettings, type StartBatchResult,
 } from "./batch.js";
 export {
-  STRONG_FIT, STRONG_FIT_STEP, autopilotSendsStrongFit, autopilotStrongFit, newStrongFits, prepareStrongFitsAhead,
+  APPLY_DECISION_STEP, STRONG_FIT, STRONG_FIT_STEP, autopilotOn, autopilotStrongFit, newStrongFits, prepareStrongFitsAhead,
   type AutopilotResult, type PrepareAheadResult, type StrongFit,
 } from "./strong-fit.js";
 export {

@@ -1,5 +1,5 @@
 import { and, applications, companies, eq, gte, inArray, inboxMessages, isNull, jobs, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { STRONG_FIT_STEP } from "@norinote/apply";
+import { APPLY_DECISION_STEP, STRONG_FIT_STEP } from "@norinote/apply";
 import type { InlineKeyboard } from "./client.js";
 import { jobLink } from "./digest.js";
 import { clip, esc, plural } from "./format.js";
@@ -100,6 +100,8 @@ export async function codeNeededEvents(db: Db, userId: string, since: Date, webU
 /**
  * New strong fits Nori prepared ahead (run event `strong_fit`) since `since`, still waiting for the person's OK: one
  * message each, with Apply (sends it now, within today's limit), Skip and Details. Not urgent, so quiet hours hold it.
+ * When autopilot's apply decision (run event `apply_decision`) asked the person, the message is the one-tap prompt
+ * ("Your call", with the decision's reason); a hard no (`skip`) gets no message.
  */
 export async function strongFitEvents(db: Db, userId: string, since: Date, o: { webUrl: string; secret: string }): Promise<EventMessage[]> {
   const rows = await db.select({ app: applications, title: jobs.title, company: companies.name, location: jobs.location, remote: jobs.remote, fit: shortlist.fit, reasons: shortlist.reasons })
@@ -109,11 +111,18 @@ export async function strongFitEvents(db: Db, userId: string, since: Date, o: { 
       eq(applications.userId, userId), eq(applications.status, "prepared"), isNull(applications.approvedAt), gte(applications.preparedAt, since),
       sql`exists (select 1 from ${runEvents} where ${runEvents.applicationId} = ${applications.id} and ${runEvents.step} = ${STRONG_FIT_STEP})`,
     )).limit(20);
-  return rows.map(({ app, title, company, location, remote, fit, reasons }) => {
+  const decisions = rows.length
+    ? await db.select({ applicationId: runEvents.applicationId, data: runEvents.data }).from(runEvents)
+      .where(and(inArray(runEvents.applicationId, rows.map((r) => r.app.id)), eq(runEvents.step, APPLY_DECISION_STEP))).orderBy(runEvents.id)
+    : [];
+  const decisionOf = new Map(decisions.map((d) => [d.applicationId, (d.data ?? {}) as { action?: string; reasons?: string[] }]));
+  return rows.filter(({ app }) => decisionOf.get(app.id)?.action !== "skip").map(({ app, title, company, location, remote, fit, reasons }) => {
     const where = [location, remote && !/remote/i.test(location ?? "") ? "Remote" : null].filter(Boolean).join(" · ");
-    const why = (reasons ?? []).find((r) => !r.startsWith("widened:") && r.trim() !== "");
+    const decision = decisionOf.get(app.id);
+    const ask = decision?.action === "ask";
+    const why = ask ? decision?.reasons?.[0] : (reasons ?? []).find((r) => !r.startsWith("widened:") && r.trim() !== "");
     const text = [
-      `<b>Strong fit</b>: ${esc(clip(title, 90))} at ${esc(clip(company, 60))}`,
+      `<b>${ask ? "Your call" : "Strong fit"}</b>: ${esc(clip(title, 90))} at ${esc(clip(company, 60))}`,
       [where ? esc(clip(where, 80)) : null, fit != null ? `${Math.round(fit * 100)}% fit` : null].filter(Boolean).join(" · "),
       ...(why ? [`<i>${esc(clip(why, 160))}</i>`] : []),
       "Nori has your resume and answers ready. Apply sends it now; early applicants hear back more often.",

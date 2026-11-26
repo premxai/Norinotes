@@ -148,7 +148,17 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 
    Groups that are not sent on their own become a one-tap Apply/Skip prompt (`ask`). Sends are one per company and spread
    across kinds of jobs. Sendable jobs beyond the pace are `later`. Autopilot and batches call this one function; the
-   caller still applies the daily cap.
+   caller still applies the daily cap:
+   - Apply now and the schedule (`recommendedJobIds`) send only `send` jobs, with what is left of today's limit as
+     `maxSends`;
+   - autopilot for a strong fit prepared ahead (`autopilotStrongFit`) sends it only on `send`; on `ask` the Telegram
+     strong-fit alert is the one-tap prompt; preparing ahead skips hard no's;
+   - a batch of jobs the person picked is their approval: groups and pace do not filter it, hard no's are refused
+     (`not_a_fit`);
+   - GET `/api/nori/decisions` shows the decisions for the dashboard's Apply/Skip prompt.
+
+   The person sets `aggressiveness` on the Nori page settings or in the chat; `minFit` still sets the Recommended list
+   and the roles' minimum. The 60-day company rule is defined once (`RECENT_COMPANY_DAYS` in decision.ts).
 
 ## Tailoring (packages/tailor)
 
@@ -189,7 +199,8 @@ Click to submitted in 12 to 30 seconds, under 2 cents, no invented answers. Deta
   tokens, Ashby's /api/ is disallowed by robots.txt), so the browser submits; everything readable without a key is read
   before the click.
 - State machine: `queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | failed`. A user
-  click on a prepared application approves and submits; autopilot uses the same path within the daily cap.
+  click on a prepared application approves and submits; autopilot uses the same path within the daily cap, for what
+  the apply decision (Matching step 6) says to send.
 - **Prepare** (`prepare.application`, `prepareForm`): form schema (Greenhouse's public questions API; Lever and Ashby read
   from the page in a warm context), form recipe cache (`form_recipes`: fingerprint of system, company and sorted
   label|type|options -> slot and widget strategy, never values), then the answer plan (packages/answers `planForm`): the

@@ -5,7 +5,7 @@
  * whatever has not started. The batch counts as the person's approval for each of its applications.
  */
 import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql, gte, inArray, isNull, jobs, lanes, profiles, shortlist, sql, type Db } from "@norinote/db";
-import { DEFAULT_MIN_FIT } from "@norinote/match";
+import { DEFAULT_MIN_FIT, RECENT_COMPANY_DAYS, decideApplies, readAggressiveness, type Aggressiveness } from "@norinote/match";
 import { readSkipCompanies } from "@norinote/shared";
 import { approveAndSubmit, createApplication, dailyCapUse, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
 
@@ -21,29 +21,35 @@ export const DEFAULT_BATCH_DAILY_LIMIT = 20;
 export type NoriSettings = {
   /** Minutes between two submissions of a batch. */
   spacingMinutes: number;
-  /** The fit the "All strong matches" shortcut starts at (0 to 1). */
+  /** The fit the Recommended list starts at (0 to 1), and every role's minimum. Sending uses `aggressiveness`. */
   minFit: number;
+  /** How much Nori sends without asking (the apply decision, packages/match decision.ts). */
+  aggressiveness: Aggressiveness;
   /** Company names a batch never applies to. */
   skipCompanies: string[];
   /** Applications a day across batches; 0 in the profile means the default. */
   dailyLimit: number;
 };
 
-export const DEFAULT_NORI_SETTINGS: Omit<NoriSettings, "dailyLimit"> = { spacingMinutes: 4, minFit: DEFAULT_MIN_FIT, skipCompanies: [] };
+export const DEFAULT_NORI_SETTINGS: Omit<NoriSettings, "dailyLimit" | "aggressiveness"> = { spacingMinutes: 4, minFit: DEFAULT_MIN_FIT, skipCompanies: [] };
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
 /**
- * How Nori works for the person. `minFit` is THE threshold ("Recommended" and Apply for me): `preferences.nori.minFit`
- * once saved, else the lowest of their enabled roles' (lanes') minFit, else `DEFAULT_MIN_FIT` (0.6). Saving it sets every role to it.
- * `skipCompanies` is the one skip list, `preferences.excludeCompanies` (see readSkipCompanies).
+ * How Nori works for the person. `minFit` is the Recommended list's threshold: `preferences.nori.minFit` once saved, else
+ * the lowest of their enabled roles' (lanes') minFit, else `DEFAULT_MIN_FIT` (0.6). Saving it sets every role to it. What
+ * Nori sends on its own is the apply decision, set by `aggressiveness` (`preferences.nori.aggressiveness`, default
+ * balanced). `skipCompanies` is the one skip list, `preferences.excludeCompanies` (see readSkipCompanies).
  */
 export function readNoriSettings(preferences: unknown, dailyCap: number | null | undefined, laneMinFits: readonly number[] = []): NoriSettings {
   const o = rec(rec(preferences).nori);
   const spacing = typeof o.spacingMinutes === "number" && o.spacingMinutes >= 1 && o.spacingMinutes <= 60 ? Math.round(o.spacingMinutes) : DEFAULT_NORI_SETTINGS.spacingMinutes;
   const saved = typeof o.minFit === "number" && o.minFit >= 0 && o.minFit <= 1 ? o.minFit : null;
   const minFit = saved ?? (laneMinFits.length ? Math.min(...laneMinFits) : DEFAULT_NORI_SETTINGS.minFit);
-  return { spacingMinutes: spacing, minFit, skipCompanies: readSkipCompanies(preferences), dailyLimit: dailyCap && dailyCap > 0 ? dailyCap : DEFAULT_BATCH_DAILY_LIMIT };
+  return {
+    spacingMinutes: spacing, minFit, aggressiveness: readAggressiveness(preferences), skipCompanies: readSkipCompanies(preferences),
+    dailyLimit: dailyCap && dailyCap > 0 ? dailyCap : DEFAULT_BATCH_DAILY_LIMIT,
+  };
 }
 
 export async function getNoriSettings(db: Db, userId: string): Promise<NoriSettings> {
@@ -56,7 +62,7 @@ export async function getNoriSettings(db: Db, userId: string): Promise<NoriSetti
 export async function saveNoriSettings(db: Db, userId: string, patch: Partial<NoriSettings>): Promise<NoriSettings> {
   const current = await getNoriSettings(db, userId);
   const next = { ...current, ...patch };
-  const nori = { spacingMinutes: next.spacingMinutes, minFit: next.minFit };
+  const nori = { spacingMinutes: next.spacingMinutes, minFit: next.minFit, aggressiveness: next.aggressiveness };
   const json = JSON.stringify(nori);
   const skip = patch.skipCompanies !== undefined ? JSON.stringify(readSkipCompanies({ excludeCompanies: patch.skipCompanies })) : null;
   const values = { userId, preferences: { nori, ...(skip ? { excludeCompanies: JSON.parse(skip) as string[] } : {}) }, ...(patch.dailyLimit !== undefined ? { dailyCap: patch.dailyLimit } : {}) };
@@ -75,10 +81,15 @@ export async function saveNoriSettings(db: Db, userId: string, patch: Partial<No
 
 // ---- starting a batch ---------------------------------------------------------------------------------------------
 
-export type BatchSkip = { jobId: string; reason: "not_found" | "not_supported" | "applied_recently" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" };
+/** `not_a_fit`: a hard no of the apply decision (`detail` says which, in plain words). */
+export type BatchSkip = {
+  jobId: string;
+  reason: "not_found" | "not_supported" | "applied_recently" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" | "not_a_fit";
+  detail?: string;
+};
 
-/** A company the person applied to within this many days is not sent another application by a batch. */
-export const RECENT_COMPANY_DAYS = 60;
+/** A company the person applied to within this many days is not sent another application (the apply decision's rule). */
+export { RECENT_COMPANY_DAYS };
 
 /**
  * Companies the person has an application with (any status but failed) in the last RECENT_COMPANY_DAYS, with the jobs
@@ -97,7 +108,9 @@ export type StartBatchResult = { batchId: string | null; added: Array<{ jobId: s
 
 /**
  * Creates the batch and an application per job (or adopts the person's own unsent one), at most one per company and
- * never for a skipped company. The caller queues `prepare.application` for each `created` one.
+ * never for a skipped company. The jobs the person picked are their approval, so the apply decision's groups and pace do
+ * not filter them, but its hard no's (`skip`) are refused as `not_a_fit`. The caller queues `prepare.application` for
+ * each `created` one.
  */
 export async function startBatch(db: Db, userId: string, jobIds: readonly string[], opts: { now?: Date; atsTypes?: readonly string[] | null } = {}): Promise<StartBatchResult> {
   const now = opts.now ?? new Date();
@@ -109,6 +122,7 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
     : [];
   const byId = new Map(rows.map((r) => [r.id, r]));
   const recent = await recentlyAppliedCompanies(db, userId, now);
+  const hardNo = new Map((await decideApplies(db, userId, { now, jobIds: ids })).decisions.filter((d) => d.action === "skip").map((d) => [d.jobId, d.reasons[0] ?? "Not a fit"]));
   const skipped: BatchSkip[] = [];
   const picked: string[] = [];
   const companiesSeen = new Set<string>();
@@ -119,6 +133,7 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
     if (opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType)) { skipped.push({ jobId: id, reason: "not_supported" }); continue; }
     if (recent.blocks(job.companyId, job.id)) { skipped.push({ jobId: id, reason: "applied_recently" }); continue; }
     if (skipSet.has(normalizeCompany(job.companyName))) { skipped.push({ jobId: id, reason: "skipped_company" }); continue; }
+    if (hardNo.has(id)) { skipped.push({ jobId: id, reason: "not_a_fit", detail: hardNo.get(id)! }); continue; }
     if (companiesSeen.has(job.companyId)) { skipped.push({ jobId: id, reason: "same_company" }); continue; }
     companiesSeen.add(job.companyId);
     picked.push(id);
@@ -274,30 +289,23 @@ export async function takeFinishedBatches(db: Db, userId: string): Promise<Array
 }
 
 /**
- * "Apply now" from Recommended: the person's new matches at or above their threshold, open and posted in the last 7 days
- * hours, best fit first, one per company, not applied to, not on the skip list, on the allowed job systems. At most
- * `limit` job ids, for startBatch.
+ * The jobs Nori sends on its own (Apply now, the schedule): the person's new matches that are open, posted in the last
+ * 7 days, not applied to, not on the skip list and on the allowed job systems, which the apply decision says to send
+ * now (`action: "send"`: its groups for the person's aggressiveness, within the weekly pace, one per company, spread
+ * across kinds of jobs). At most `limit` job ids, in the order to send them, for startBatch.
  */
 export async function recommendedJobIds(db: Db, userId: string, opts: { now?: Date; limit?: number; atsTypes?: readonly string[] | null } = {}): Promise<string[]> {
   const now = opts.now ?? new Date();
   const settings = await getNoriSettings(db, userId);
   const skip = new Set(settings.skipCompanies.map(normalizeCompany));
   const recent = await recentlyAppliedCompanies(db, userId, now);
-  const rows = await db.select({ jobId: shortlist.jobId, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType, applyUrl: jobs.applyUrl })
+  const rows = await db.select({ jobId: shortlist.jobId, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType })
     .from(shortlist).innerJoin(jobs, eq(jobs.id, shortlist.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
     .leftJoin(applications, and(eq(applications.jobId, shortlist.jobId), eq(applications.userId, userId)))
-    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), gte(shortlist.fit, settings.minFit), isNull(jobs.closedAt),
-      eq(companies.blocked, false), isNull(applications.id), freshJobSql(now)))
+    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), isNull(jobs.closedAt), eq(companies.blocked, false), isNull(applications.id), freshJobSql(now)))
     .orderBy(desc(shortlist.fit)).limit(200);
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const r of rows) {
-    if (out.length >= Math.min(opts.limit ?? 10, MAX_BATCH)) break;
-    if (opts.atsTypes?.length && !opts.atsTypes.includes(r.atsType)) continue;
-    if (recent.blocks(r.companyId, r.jobId)) continue;
-    if (skip.has(normalizeCompany(r.companyName)) || seen.has(r.companyId)) continue;
-    seen.add(r.companyId);
-    out.push(r.jobId);
-  }
-  return out;
+  const candidates = rows.filter((r) => !(opts.atsTypes?.length && !opts.atsTypes.includes(r.atsType)) && !recent.blocks(r.companyId, r.jobId) && !skip.has(normalizeCompany(r.companyName)));
+  if (candidates.length === 0) return [];
+  const { decisions } = await decideApplies(db, userId, { now, jobIds: candidates.map((r) => r.jobId), maxSends: Math.min(opts.limit ?? 10, MAX_BATCH) });
+  return decisions.filter((d) => d.action === "send").map((d) => d.jobId);
 }

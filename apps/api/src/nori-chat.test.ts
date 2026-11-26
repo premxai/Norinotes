@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createFakeProvider, setProvider } from "@norinote/ai";
 import { eq, lanes } from "@norinote/db";
+import { placeInGroup } from "@norinote/match/testing";
 import { makeApi, seedJob, seedShortlist, type Api } from "./testkit.js";
 
 let api: Api;
@@ -49,6 +50,7 @@ describe("the Nori chat", () => {
     const { cookie, user } = await api.signup("chat-apply@example.com");
     const { job } = await seedJob(api.db, { company: "Chat Co" });
     await seedShortlist(api.db, user.id, job.id, 0.9);
+    await placeInGroup(api.db, user.id, job.id, "strong");
     says("Sending your Recommended jobs now.", [{ kind: "apply_now", value: "5" }]);
     const res = await api.call("POST", "/api/nori/chat", { cookie, body: { message: "apply now" } });
     const action = res.json.reply.actions[0];
@@ -56,6 +58,20 @@ describe("the Nori chat", () => {
     expect((await api.call("GET", "/api/nori/batches", { cookie })).json.batches[0].status).toBe("running");
     expect((await api.call("POST", `/api/nori/chat/undo/${action.undoId}`, { cookie })).json).toMatchObject({ ok: true });
     expect((await api.call("GET", "/api/nori/batches", { cookie })).json.batches[0].status).toBe("stopped");
+  });
+
+  it("sets how much Nori sends on its own, and undo puts it back", async () => {
+    const { cookie } = await api.signup("chat-aggressive@example.com");
+    says("Done.", [{ kind: "set_aggressiveness", value: "Wide" }]);
+    const res = await api.call("POST", "/api/nori/chat", { cookie, body: { message: "be more aggressive" } });
+    const action = res.json.reply.actions[0];
+    expect(action).toMatchObject({ kind: "set_aggressiveness", summary: "Nori is now wide (was balanced)" });
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json.settings.aggressiveness).toBe("wide");
+    expect((await api.call("POST", `/api/nori/chat/undo/${action.undoId}`, { cookie })).json).toEqual({ ok: true, summary: "Back to balanced" });
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json.settings.aggressiveness).toBe("balanced");
+    // Not a setting, or no change: nothing to list.
+    says("Okay.", [{ kind: "set_aggressiveness", value: "reckless" }, { kind: "set_aggressiveness", value: "balanced" }]);
+    expect((await api.call("POST", "/api/nori/chat", { cookie, body: { message: "go wild" } })).json.reply.actions).toEqual([]);
   });
 
   it("ignores changes it can't make, and says so when AI is unavailable", async () => {

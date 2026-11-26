@@ -1,6 +1,7 @@
 /**
  * Nori's schedule (autopilot, the Nori page): on the days and at the time the person chose, in their time zone, Nori
- * starts an "Apply for me" batch of their new Recommended jobs, within the daily limit. Off until the person turns it
+ * starts an "Apply for me" batch of the new jobs the apply decision says to send (`recommendedJobIds`), within what is
+ * left of the daily limit and the weekly pace. Off until the person turns it
  * on; `paused` stops it without losing the settings. The batch summary goes out like any batch's (Telegram).
  * Stored in `profiles.preferences.noriSchedule`.
  */
@@ -86,8 +87,8 @@ export async function saveSchedule(db: Db, userId: string, patch: Partial<Omit<N
 export type ScheduledRun = { userId: string; batchId: string | null; created: string[]; reason?: string };
 
 /**
- * One pass over everyone whose schedule is on: for each that is due, start a batch of new Recommended jobs (as many as
- * today's limit still allows), and mark today as run whether or not there was anything to send. Returns the new
+ * One pass over everyone whose schedule is on: for each that is due, start a batch of the jobs the apply decision sends
+ * (`action: "send"`, at most what today's limit still allows, within the weekly pace), and mark today as run whether or not there was anything to send. Returns the new
  * applications the caller must queue `prepare.application` for.
  */
 export async function runSchedules(db: Db, opts: { now?: Date; atsTypes?: readonly string[] | null } = {}): Promise<ScheduledRun[]> {

@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, applications, companies, eq, jobs, runEvents, shortlist, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
+import { placeInGroup, type DECISION_FIT_MAPS } from "@norinote/match/testing";
 import { saveNoriSettings } from "./batch.js";
 import { DEFAULT_SCHEDULE, saveSchedule } from "./schedule.js";
-import { autopilotSendsStrongFit, autopilotStrongFit, newStrongFits, prepareStrongFitsAhead, STRONG_FIT_STEP } from "./strong-fit.js";
+import { APPLY_DECISION_STEP, autopilotOn, autopilotStrongFit, newStrongFits, prepareStrongFitsAhead, STRONG_FIT_STEP } from "./strong-fit.js";
 
 let t: TestDb;
 beforeAll(async () => { t = await createTestDb(); });
@@ -75,6 +76,17 @@ describe("prepareStrongFitsAhead", () => {
     expect((await t.db.select().from(applications).where(eq(applications.userId, other))).length).toBe(0);
   });
 
+  it("never prepares a hard no of the apply decision", async () => {
+    const u = await user();
+    const [ok, no] = [await job("Fine"), await job("Nope")];
+    for (const j of [ok, no]) await fitOn(u, j.id, 0.9);
+    await placeInGroup(t.db, u, ok.id, "strong");
+    await placeInGroup(t.db, u, no.id, "hard_no");
+    const res = await prepareStrongFitsAhead(t.db, u, await newStrongFits(t.db, [ok.id, no.id]), { now: NOW });
+    expect(res.created.map((c) => c.jobId)).toEqual([ok.id]);
+    expect(res.skipped).toEqual([{ jobId: no.id, reason: "not_a_fit" }]);
+  });
+
   it("prepares at most the daily limit of strong fits ahead in a day", async () => {
     const u = await user();
     await saveNoriSettings(t.db, u, { dailyLimit: 2 });
@@ -90,10 +102,11 @@ describe("prepareStrongFitsAhead", () => {
 });
 
 describe("autopilot for strong fits", () => {
-  /** A strong fit Nori prepared ahead for this person, now prepared and waiting. */
-  async function preparedAhead(userId: string, company = "Auto", companyId?: string) {
+  /** A strong fit Nori prepared ahead for this person, now prepared and waiting; `group` is where the apply decision puts it. */
+  async function preparedAhead(userId: string, company = "Auto", companyId?: string, group: keyof typeof DECISION_FIT_MAPS = "strong") {
     const j = await job(company, companyId ? { companyId } : {});
     await fitOn(userId, j.id, 0.9);
+    await placeInGroup(t.db, userId, j.id, group);
     const res = await prepareStrongFitsAhead(t.db, userId, await newStrongFits(t.db, [j.id]), { now: NOW });
     const id = res.created[0]!.applicationId;
     await t.db.update(applications).set({ status: "prepared", preparedAt: NOW }).where(eq(applications.id, id));
@@ -101,13 +114,11 @@ describe("autopilot for strong fits", () => {
   }
   const statusOf = async (id: string) => (await t.db.select().from(applications).where(eq(applications.id, id)))[0]!;
 
-  it("decides in one predicate: schedule on, not paused, fit 0.8 or more", () => {
+  it("acts only while the schedule is on and not paused", () => {
     const on = { ...DEFAULT_SCHEDULE, enabled: true };
-    expect(autopilotSendsStrongFit({ schedule: on, fit: 0.85 })).toBe(true);
-    expect(autopilotSendsStrongFit({ schedule: on, fit: 0.79 })).toBe(false);
-    expect(autopilotSendsStrongFit({ schedule: on, fit: null })).toBe(false);
-    expect(autopilotSendsStrongFit({ schedule: { ...on, paused: true }, fit: 0.9 })).toBe(false);
-    expect(autopilotSendsStrongFit({ schedule: DEFAULT_SCHEDULE, fit: 0.9 })).toBe(false);
+    expect(autopilotOn(on)).toBe(true);
+    expect(autopilotOn({ ...on, paused: true })).toBe(false);
+    expect(autopilotOn(DEFAULT_SCHEDULE)).toBe(false);
   });
 
   it("sends a prepared strong fit at once when the schedule is on, and never when it is off or paused", async () => {
@@ -119,7 +130,7 @@ describe("autopilot for strong fits", () => {
     expect(await statusOf(a.id)).toMatchObject({ status: "prepared", approvedAt: null });
 
     await saveSchedule(t.db, off, { paused: false });
-    expect(await autopilotStrongFit(t.db, a.id, { now: NOW })).toEqual({ started: true });
+    expect(await autopilotStrongFit(t.db, a.id, { now: NOW })).toEqual({ started: true, group: "strong" });
     expect(await statusOf(a.id)).toMatchObject({ status: "applying", approvedAt: NOW });
     // Asked again (a retried job): nothing more happens.
     expect(await autopilotStrongFit(t.db, a.id, { now: NOW })).toEqual({ started: false, reason: "not_waiting" });
@@ -141,17 +152,41 @@ describe("autopilot for strong fits", () => {
     const second = await preparedAhead(u, "Two");
     await saveNoriSettings(t.db, u, { dailyLimit: 1 });
     expect(await autopilotStrongFit(t.db, second.id, { now: NOW, atsTypes: ["lever"] })).toEqual({ started: false, reason: "not_supported" });
-    expect(await autopilotStrongFit(t.db, first.id, { now: NOW })).toEqual({ started: true });
-    expect(await autopilotStrongFit(t.db, second.id, { now: NOW })).toEqual({ started: false, reason: "daily_limit" });
+    expect(await autopilotStrongFit(t.db, first.id, { now: NOW })).toEqual({ started: true, group: "strong" });
+    expect(await autopilotStrongFit(t.db, second.id, { now: NOW })).toEqual({ started: false, reason: "daily_limit", group: "strong" });
     expect(await statusOf(second.id)).toMatchObject({ status: "prepared", approvedAt: null });
 
     const v = await user();
     await saveSchedule(t.db, v, { enabled: true });
     const sameCompany = await preparedAhead(v, "Cool");
     await t.db.insert(applications).values({ userId: v, jobId: (await job("Cool", { companyId: sameCompany.job.companyId })).id, status: "submitted", createdAt: NOW });
-    expect(await autopilotStrongFit(t.db, sameCompany.id, { now: NOW })).toEqual({ started: false, reason: "applied_recently" });
+    expect(await autopilotStrongFit(t.db, sameCompany.id, { now: NOW })).toEqual({ started: false, reason: "not_a_fit", detail: "You applied to this company in the last 60 days", group: null });
     const skipped = await preparedAhead(v, "Skipme");
     await saveNoriSettings(t.db, v, { skipCompanies: ["Skipme"] });
-    expect(await autopilotStrongFit(t.db, skipped.id, { now: NOW })).toEqual({ started: false, reason: "skipped_company" });
+    expect(await autopilotStrongFit(t.db, skipped.id, { now: NOW })).toEqual({ started: false, reason: "not_a_fit", detail: "A company you skip", group: null });
+  });
+
+  it("sends only what the apply decision sends: a stretch is asked about, a hard no is not sent, and the weekly pace stops sends", async () => {
+    const u = await user();
+    await saveSchedule(t.db, u, { enabled: true });
+    const stretch = await preparedAhead(u, "Stretchy", undefined, "stretch");
+    expect(await autopilotStrongFit(t.db, stretch.id, { now: NOW })).toEqual({ started: false, reason: "ask", group: "stretch" });
+    expect(await statusOf(stretch.id)).toMatchObject({ status: "prepared", approvedAt: null });
+    const [logged] = await t.db.select().from(runEvents).where(and(eq(runEvents.applicationId, stretch.id), eq(runEvents.step, APPLY_DECISION_STEP)));
+    expect(logged!.data).toMatchObject({ group: "stretch", action: "ask", reasons: [expect.any(String)] });
+
+    // Prepared as a strong fit, then the posting turned out to need a must-have the person lacks.
+    const hardNo = await preparedAhead(u, "Nope");
+    await placeInGroup(t.db, u, hardNo.job.id, "hard_no");
+    expect(await autopilotStrongFit(t.db, hardNo.id, { now: NOW })).toEqual({ started: false, reason: "not_a_fit", detail: "Missing a must-have: Kubernetes", group: null });
+
+    // Cautious: 10 a week. Ten approvals in the last 7 days use the week up.
+    await saveNoriSettings(t.db, u, { aggressiveness: "cautious", dailyLimit: 50 });
+    for (let i = 0; i < 10; i++) {
+      await t.db.insert(applications).values({ userId: u, jobId: (await job(`Week ${i}`)).id, status: "submitted", approvedAt: new Date(NOW.getTime() - (i + 1) * 3_600_000) });
+    }
+    const paced = await preparedAhead(u, "Paced");
+    expect(await autopilotStrongFit(t.db, paced.id, { now: NOW })).toEqual({ started: false, reason: "weekly_pace", group: "strong" });
+    expect(await statusOf(paced.id)).toMatchObject({ status: "prepared", approvedAt: null });
   });
 });

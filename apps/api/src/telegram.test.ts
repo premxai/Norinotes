@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applications, channelMessages, channels, eq, runEvents, shortlist } from "@norinote/db";
-import { STRONG_FIT_STEP } from "@norinote/apply";
+import { APPLY_DECISION_STEP, STRONG_FIT_STEP } from "@norinote/apply";
 import { createBotClient, packId, runTelegramTick, SendQueue, signCallback, webhookSecret, type NotifierDeps } from "@norinote/telegram";
 import { callbackUpdate, fakeBotApi, textUpdate } from "@norinote/telegram/testing";
 import { makeApi, seedJob, seedShortlist, type Api } from "./testkit.js";
@@ -185,6 +185,28 @@ describe("strong fit alert", () => {
     await hook(callbackUpdate(5101, 2, signCallback(api.config.sessionSecret!, s.user.id, "a", [packId(sent.jobId)])));
     expect(lastAnswer().text).toMatch(/Applying to Infra Engineer at Lambda/);
     expect(api.queuedOf("apply.run").some((q) => q.payload.applicationId === sent.appId)).toBe(true);
+  });
+
+  it("asks about a job autopilot's apply decision left to the person, and stays quiet about a hard no", async () => {
+    const s = await linked("tg-strong-decision@example.com", 5103);
+    await api.call("PUT", "/api/channels/telegram", { cookie: s.cookie, body: { quietHours: { enabled: false }, events: { digest: false, summary: false } } });
+    const prepared = async (title: string, company: string, data: Record<string, unknown>) => {
+      const j = await seedJob(api.db, { title, company });
+      await seedShortlist(api.db, s.user.id, j.job.id, 0.85);
+      const [app] = await api.db.insert(applications).values({ userId: s.user.id, jobId: j.job.id, status: "prepared", preparedAt: new Date() }).returning();
+      await api.db.insert(runEvents).values({ applicationId: app!.id, step: STRONG_FIT_STEP, message: "Strong fit" });
+      await api.db.insert(runEvents).values({ applicationId: app!.id, step: APPLY_DECISION_STEP, message: "Apply decision", data });
+    };
+    await prepared("Stretch Engineer", "Xi", { group: "stretch", action: "ask", reasons: ["Several must-haves don't show in your history"] });
+    await prepared("Nope Engineer", "Omicron", { group: null, action: "skip", reasons: ["Missing a must-have: Kubernetes"] });
+    fake.clear();
+    await runTelegramTick(notifier());
+    const ask = fake.sent().filter((m) => m.text.includes("Stretch Engineer"));
+    expect(ask).toHaveLength(1);
+    expect(ask[0]!.text.split("\n")[0]).toBe("<b>Your call</b>: Stretch Engineer at Xi");
+    expect(ask[0]!.text).toContain("Several must-haves don't show in your history");
+    expect(ask[0]!.reply_markup!.inline_keyboard![0]!.map((b) => b.text)).toEqual(["Apply", "Skip", "Details"]);
+    expect(fake.sent().filter((m) => m.text.includes("Nope Engineer"))).toHaveLength(0);
   });
 
   it("waits for quiet hours to end", async () => {

@@ -175,26 +175,33 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
 
 ## Nori page ("Apply for me")
-- GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, skipCompanies, dailyLimit
-  (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
-  - `minFit` (0-1) is THE threshold: "Recommended" (`GET /api/jobs?view=best&minScore=<minFit>`), the "All strong"
-    shortcut and the roles. Until it is saved it reads as the lowest of the enabled roles' minFit (0.6 with none;
+- GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, aggressiveness, skipCompanies,
+  dailyLimit (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
+  - `aggressiveness` (`cautious` | `balanced` | `wide`, default `balanced`; stored in `preferences.nori.aggressiveness`)
+    is how much Nori sends without asking (ARCHITECTURE.md, Matching step 6): cautious sends only strong matches, 10 a
+    week; balanced also worth-a-shot ones posted in the last 2 days, 20 a week; wide asks less of those, 30 a week.
+    Everything Nori sends on its own (Apply now, the schedule, autopilot for strong fits) follows it.
+  - `minFit` (0-1) is the Recommended list's threshold (`GET /api/jobs?view=best&minScore=<minFit>`), the dashboard's
+    "All strong" shortcut (it picks jobs for a batch the person starts, so it is their approval) and the roles. It no
+    longer decides what Nori sends on its own. Until it is saved it reads as the lowest of the enabled roles' minFit (0.6 with none;
     onboarding creates the first role at 0.6).
     Saving it sets every role's minFit to it and re-runs matching.
   - `skipCompanies` (up to 1000 names) is THE skip list, the same as `profile.preferences.excludeCompanies`: saving
     either changes both. Matching leaves those companies out of the shortlist, Today hides them, batches skip them
     ("Acme, Inc." and "acme" are the same company).
-- POST `/api/nori/batches` with `{ recommended: true, limit? }` (Apply now): the server picks the Recommended jobs itself
-  (new matches at or above the threshold, open, last 7 days, not applied, not skipped, one per company, best fit
-  first, allowed job systems; `limit` 1-50, default 10). 409 when there are none. Same response as below. It never
+- POST `/api/nori/batches` with `{ recommended: true, limit? }` (Apply now): the server picks the jobs itself: new
+  matches that are open, from the last 7 days, not applied, not skipped, on allowed job systems, that the apply decision
+  sends now (`action: "send"` in GET `/api/nori/decisions`: the groups the person's aggressiveness sends, within the
+  weekly pace, one per company, spread across kinds of jobs; `limit` 1-50, default 10). 409 when there are none. Same response as below. It never
   takes more jobs than today's limit has room for (`dailyLimit` minus applications approved today, UTC); 429 when there
   is no room. Pressed again within 60 seconds while the batch it started is running (a double click), it starts nothing
   and returns that batch: 200 `{ batch, added: <its total>, skipped: [], reused: true }`.
-- POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once. At most one job per company,
-  never a skipped company; an unsent application of theirs is taken over, a sent one is skipped. 201 `{ batch, added,
-  skipped: [{ jobId, reason }] }` (reasons: not_found, not_supported, applied_recently (another job at a company applied to in the last 60
-  days), skipped_company, same_company, already_applied,
-  duplicate_recent); 409 when nothing could be added. Applications are prepared now. `BATCH_ATS` on the API (e.g.
+- POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once, whatever their apply
+  decision group and the weekly pace. At most one job per company, never a skipped company, never a hard no; an unsent
+  application of theirs is taken over, a sent one is skipped. 201 `{ batch, added, skipped: [{ jobId, reason, detail? }] }`
+  (reasons: not_found, not_supported, applied_recently (another job at a company applied to in the last 60
+  days), skipped_company, same_company, already_applied, duplicate_recent, not_a_fit (a hard no of the apply decision;
+  `detail` says which in plain words, e.g. "Missing a must-have: Kubernetes")); 409 when nothing could be added. Applications are prepared now. `BATCH_ATS` on the API (e.g.
   `greenhouse`) limits batches to those job systems; others are skipped as not_supported. Shortlist jobs carry
   `atsType`, so the page can offer only those.
 - The worker (every 30 s) starts a running batch's next prepared application when nothing of it is on a page, the
@@ -205,6 +212,13 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   lastStartedAt, counts: { total, sent, working, preparing, ready, needsYou, cancelled, failed }, waitingFor:
   spacing|daily_limit|preparing|you|null, nextAt }`.
 - POST `/api/nori/batches/:id/stop`: cancels what has not started (`"Cancelled by you"`); sent ones stay sent.
+- GET `/api/nori/decisions` (Apply decisions): `{ aggressiveness, weekUsed, weekLeft, decisions: [{ jobId, title, company,
+  group: strong|worth_a_shot|stretch|null, action: send|later|ask|skip, reasons: [string], fit }] }` for the person's new
+  matches, sends first (in sending order), then later, ask and skip, each best fit first. `send`: Nori would send it now
+  (within what is left of today's limit and `weekLeft`, approved applications in the last 7 days counted in
+  `weekUsed`); `later`: it would, but the limit, the pace or one-per-company holds it; `ask`: the one-tap prompt (Apply
+  starts a one-job batch with `{ jobIds }`, Skip dismisses it); `skip`: a hard no (`group` null), never sent. `reasons`
+  are plain sentences for the person. No model call.
 - GET `/api/nori/needs-you`: `{ items: [{ applicationId, jobId, title, company, applyUrl, status, needs: questions|code|captcha|
   account|offsite|other, reason, questions, batchId, updatedAt }] }`, newest first. `status` is `needs_user` or
   `ready_to_finish` (one step left: `needs` is captcha or account). Batch counts' `needsYou` include both.
@@ -215,7 +229,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - POST `/api/nori/chat` with `{ message }` (1-2000 chars) returning `{ message, reply }` (both message views). One small
   model call per message, charged to the person's daily AI budget; when it is used up (or AI is down) the reply says so
   and nothing changes. `reply.actions: [{ kind, summary, undoId }]` lists every change Nori made: `set_threshold`,
-  `set_daily_limit`, `add_role`, `remove_role`, `skip_company`, `unskip_company`, `apply_now` (a batch of Recommended
+  `set_aggressiveness` (cautious, balanced or wide), `set_daily_limit`, `add_role`, `remove_role`, `skip_company`, `unskip_company`, `apply_now` (a batch of Recommended
   jobs). `undoId` is null when there is nothing to undo. Nori never changes anything without listing it. No schedule yet.
 - POST `/api/nori/chat/undo/:undoId` returning `{ ok, summary }`: puts back what that change replaced (undoing
   `apply_now` stops the batch). Once only: `{ ok: false, summary: "Already undone" }` the second time; 404 for an unknown id.
@@ -225,10 +239,13 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   lastRunOn, nextRunOn } }`. Off by default (weekdays 09:00 America/Los_Angeles once turned on). PUT takes any of
   enabled, days (1-7), time (24-hour HH:MM), timezone (IANA), paused; anything else is 400. `nextRunOn` is the next local
   date it runs (null when off or paused). On a chosen day, within the hour after `time`, the worker starts one "Apply
-  for me" batch of new Recommended jobs (as many as today's limit still allows, Greenhouse only for now) and marks the
-  day as run; the batch summary goes out like any batch's. The chat can turn it on (`schedule_on`) and pause it
+  for me" batch of the jobs the apply decision sends (as for Apply now: at most what today's limit still allows, within
+  the weekly pace, Greenhouse only for now) and marks the day as run; the batch summary goes out like any batch's. The chat can turn it on (`schedule_on`) and pause it
   (`schedule_off`), each undoable. While it is on and not paused, a new strong fit (0.8+) is also sent as soon as Nori has
-  prepared it, any day and time, within the same daily limit (see docs/applying.md); its run log has an `autopilot` event.
+  prepared it, any day and time, when the apply decision says `send` (within the same daily limit and the weekly pace;
+  see docs/applying.md); its run log has an `apply_decision` event, and an `autopilot` event when it was sent. One the
+  decision leaves to the person (`ask`) stays prepared, and the Telegram strong-fit alert asks "Your call" with Apply
+  and Skip.
 - A Greenhouse job whose form lives on the company's own site (Greenhouse's page redirects there) is prepared as usual;
   at the click Nori follows the posting to the form (docs/applying.md). When it leads to a form of the company's own
   or another job system Nori doesn't fill, the application shows with

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, applications, applyBatches, companies, eq, jobs, shortlist, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
+import { placeInGroup } from "@norinote/match/testing";
 import { countBatch, drainBatches, readNoriSettings, saveNoriSettings, startBatch, stopBatch, batchView } from "./batch.js";
 import { retryApplication } from "./store.js";
 
@@ -30,10 +31,10 @@ const setStatus = (id: string, status: "prepared" | "submitted" | "needs_user", 
 
 describe("Nori settings", () => {
   it("has sensible defaults and keeps what the person saves", async () => {
-    expect(readNoriSettings(undefined, 0)).toEqual({ spacingMinutes: 4, minFit: 0.6, skipCompanies: [], dailyLimit: 20 });
+    expect(readNoriSettings(undefined, 0)).toEqual({ spacingMinutes: 4, minFit: 0.6, aggressiveness: "balanced", skipCompanies: [], dailyLimit: 20 });
     const u = await user();
     const s = await saveNoriSettings(t.db, u, { spacingMinutes: 10, skipCompanies: ["Acme Inc"], dailyLimit: 5 });
-    expect(s).toEqual({ spacingMinutes: 10, minFit: 0.6, skipCompanies: ["Acme Inc"], dailyLimit: 5 });
+    expect(s).toEqual({ spacingMinutes: 10, minFit: 0.6, aggressiveness: "balanced", skipCompanies: ["Acme Inc"], dailyLimit: 5 });
   });
 });
 
@@ -88,6 +89,18 @@ describe("starting a batch", () => {
     // A posting on the company's own careers site is sent too: Nori follows it to the form.
     expect(res.added.map((x) => x.jobId)).toEqual([ok, emb]);
     expect(res.skipped).toEqual([{ jobId: second, reason: "applied_recently" }]);
+  });
+
+  it("takes the jobs the person picked whatever their group, but refuses a hard no with a plain reason", async () => {
+    const u = await user();
+    const [strong, stretch, no] = [await job("Pick One"), await job("Pick Two"), await job("Pick Three")];
+    for (const [id, group] of [[strong, "strong"], [stretch, "stretch"], [no, "hard_no"]] as const) {
+      await t.db.insert(shortlist).values({ userId: u, jobId: id, fit: 0.8 });
+      await placeInGroup(t.db, u, id, group);
+    }
+    const res = await startBatch(t.db, u, [strong, stretch, no]);
+    expect(res.added.map((x) => x.jobId).sort()).toEqual([strong, stretch].sort());
+    expect(res.skipped).toEqual([{ jobId: no, reason: "not_a_fit", detail: "Missing a must-have: Kubernetes" }]);
   });
 
   it("makes no batch when nothing can be added", async () => {

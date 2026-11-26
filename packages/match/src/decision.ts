@@ -169,7 +169,10 @@ export type ApplyDecisions = {
 
 export type DecideOptions = {
   now: Date;
-  /** Only these jobs (each must be on the person's shortlist). Default: every `new` row on it. */
+  /**
+   * Only these jobs (each must be on the person's shortlist, `new` or `applied`: a job Nori already made an application
+   * for, such as a strong fit prepared ahead). Default: every `new` row on it.
+   */
   jobIds?: readonly string[];
   /** At most this many sends (for example what is left of today's cap). Default: the week's remaining pace. */
   maxSends?: number;
@@ -203,7 +206,7 @@ export async function decideApplies(db: Db, userId: string, opts: DecideOptions)
     .from(shortlist)
     .innerJoin(jobs, eq(jobs.id, shortlist.jobId))
     .innerJoin(companies, eq(companies.id, jobs.companyId))
-    .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), opts.jobIds ? inArray(shortlist.jobId, [...opts.jobIds]) : undefined));
+    .where(and(eq(shortlist.userId, userId), opts.jobIds ? and(inArray(shortlist.jobId, [...opts.jobIds]), inArray(shortlist.status, ["new", "applied"])) : eq(shortlist.status, "new")));
   if (rows.length === 0) return { aggressiveness, policy, weekUsed, weekLeft, decisions: [] };
 
   const specRows = await db.select({ jobId: jobSpecs.jobId, spec: jobSpecs.spec, model: jobSpecs.model }).from(jobSpecs)
@@ -213,7 +216,10 @@ export async function decideApplies(db: Db, userId: string, opts: DecideOptions)
   const recentSince = new Date(now.getTime() - RECENT_COMPANY_DAYS * 86_400_000);
   const recent = await db.select({ companyId: jobs.companyId, jobId: jobs.id }).from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
     .where(and(eq(applications.userId, userId), gte(applications.createdAt, recentSince), sql`${applications.status} <> 'failed'`));
-  const recentCompanies = new Set(recent.map((r) => r.companyId));
+  // A company counts as applied to when it has an application for another job (this job's own application does not).
+  const recentJobs = new Map<string, Set<string>>();
+  for (const r of recent) recentJobs.set(r.companyId, (recentJobs.get(r.companyId) ?? new Set()).add(r.jobId));
+  const appliedRecently = (companyId: string, jobId: string) => [...(recentJobs.get(companyId) ?? [])].some((j) => j !== jobId);
 
   const profile = await loadMatchProfile(db, userId, now);
   const sendable: Array<ApplyDecision & { companyId: string; family: string }> = [];
@@ -222,7 +228,7 @@ export async function decideApplies(db: Db, userId: string, opts: DecideOptions)
     const s = specs.get(r.jobId);
     if (!s) { rest.push({ jobId: r.jobId, group: null, action: "ask", reasons: ["Nori hasn't read this posting yet"], fit: r.fit }); continue; }
     if (isSkippedCompany(skip, r.companyName)) { rest.push({ jobId: r.jobId, group: null, action: "skip", reasons: ["A company you skip"], fit: r.fit }); continue; }
-    if (recentCompanies.has(r.companyId)) { rest.push({ jobId: r.jobId, group: null, action: "skip", reasons: [`You applied to this company in the last ${RECENT_COMPANY_DAYS} days`], fit: r.fit }); continue; }
+    if (appliedRecently(r.companyId, r.jobId)) { rest.push({ jobId: r.jobId, group: null, action: "skip", reasons: [`You applied to this company in the last ${RECENT_COMPANY_DAYS} days`], fit: r.fit }); continue; }
     const a = assessJob({ ...r, fitMap: r.fitMap as JobForDecision["fitMap"], spec: s.spec, heuristicSpec: s.heuristic }, profile, policy, now);
     if (!a.group) { rest.push({ jobId: r.jobId, group: null, action: "skip", reasons: a.reasons, fit: r.fit }); continue; }
     if (policy.autoSend.includes(a.group)) sendable.push({ jobId: r.jobId, group: a.group, action: "send", reasons: a.reasons, fit: r.fit, companyId: r.companyId, family: kindOf(r.title) });
