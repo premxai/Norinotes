@@ -98,7 +98,7 @@ describe("fast path: strong fits are prepared right after matching, and autopilo
 describe("fast path: autopilot sends only what the apply decision sends", () => {
   it("sends a prepared strong fit on balanced, and asks about a prepared stretch through the strong-fit alert instead of sending it", async () => {
     const queue = new MemoryQueue();
-    const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer, applyOverrides: { drivers: [driver] } });
+    const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer, applyOverrides: { drivers: [driver], stillOpen: undefined } });
     try {
       const userId = await person("schedule");
       const strong = await strongFit(userId);
