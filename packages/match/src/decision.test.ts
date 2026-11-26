@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, eq, profiles, shortlist } from "@norinote/db";
+import { applications, applyBatches, eq, profiles, shortlist } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { APPLY_POLICIES, assessJob, decideApplies, readAggressiveness, type JobForDecision } from "./decision.js";
 import type { EvidencePoint } from "./profile.js";
-import { NOW, baseSpec, hoursAgo, profileOf, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
+import { NOW, baseSpec, daysAgo, hoursAgo, profileOf, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 
 const point: EvidencePoint = {
   id: "p1", kind: "role", title: "Software Engineer", org: "Acme", startDate: "2022-01", endDate: null, text: "Built payment APIs in Python",
@@ -108,6 +108,7 @@ describe("decideApplies", () => {
     expect((await decideApplies(t.db, userId, { now: NOW, jobIds: [other] })).decisions).toMatchObject([{ jobId: other, action: "skip", reasons: ["You applied to this company in the last 60 days"] }]);
   });
 
+
   it("never sends a ghost job (reposted 3 or more times in 60 days) on its own: it asks", async () => {
     const userId = await seedUser(t.db);
     await t.db.update(profiles).set({ preferences: { nori: { aggressiveness: "wide" } } }).where(eq(profiles.userId, userId));
@@ -134,5 +135,54 @@ describe("decideApplies", () => {
     expect(by[twice]).toMatchObject({ action: "send", group: "strong" });
     expect(by[ghost]).toMatchObject({ action: "ask", group: "strong" });
     expect(by[ghost]!.reasons[0]).toBe("Reposted 3 times in 60 days");
+  });
+
+  it("counts a job already queued in a running batch against the weekly pace", async () => {
+    const userId = await seedUser(t.db);
+    await t.db.update(profiles).set({ preferences: { nori: { aggressiveness: "cautious" } } }).where(eq(profiles.userId, userId));
+    const [batch] = await t.db.insert(applyBatches).values({ userId, status: "running", total: 10 }).returning();
+    const queued = async (name: string) => {
+      const companyId = await seedCompany(t.db, { name });
+      const jobId = await seedJob(t.db, { companyId, title: "Software Engineer", spec: baseSpec({ seniority: "mid" }), location: null, postedAt: hoursAgo(5) });
+      await t.db.insert(applications).values({
+        userId, jobId, batchId: batch!.id, canonicalUrl: `https://example.test/${name.replace(/ /g, "-")}`, status: "prepared", createdAt: hoursAgo(2),
+      });
+      return jobId;
+    };
+    // Ten jobs the batch has queued but not approved yet fill the cautious pace of 10.
+    for (let i = 0; i < 10; i++) await queued(`Queued Co ${i}`);
+    const companyId = await seedCompany(t.db, { name: "Fresh Co" });
+    const freshJob = await seedJob(t.db, { companyId, title: "Software Engineer", spec: baseSpec({ seniority: "mid" }), location: null, postedAt: hoursAgo(5) });
+    await t.db.insert(shortlist).values({ userId, jobId: freshJob, fit: 0.9, fitMap: [must("Python", 0.8)], reasons: [] });
+    const r = await decideApplies(t.db, userId, { now: NOW });
+    expect(r).toMatchObject({ weekUsed: 10, weekLeft: 0 });
+    expect(r.decisions).toMatchObject([{ jobId: freshJob, group: "strong", action: "later" }]);
+  });
+
+  it("ignores jobs queued in a finished or stopped batch past the week, and counts an approved application once", async () => {
+    const userId = await seedUser(t.db);
+    const [done] = await t.db.insert(applyBatches).values({ userId, status: "done", total: 2 }).returning();
+    const [stopped] = await t.db.insert(applyBatches).values({ userId, status: "stopped", total: 1 }).returning();
+    const applied = async (slug: string, values: Partial<typeof applications.$inferInsert>) => {
+      const companyId = await seedCompany(t.db, { name: slug });
+      const jobId = await seedJob(t.db, { companyId, title: "Software Engineer", spec: baseSpec({ seniority: "mid" }), location: null, postedAt: hoursAgo(5) });
+      await t.db.insert(applications).values({ userId, jobId, canonicalUrl: `https://example.test/${slug}`, createdAt: daysAgo(10), ...values });
+    };
+    await applied("done-co", { batchId: done!.id, status: "prepared" });
+    await applied("stopped-co", { batchId: stopped!.id, status: "prepared" });
+    await applied("batch-approved-co", { batchId: done!.id, status: "submitted", approvedAt: daysAgo(3) });
+    await applied("approved-co", { status: "submitted", approvedAt: daysAgo(2) });
+    expect(await decideApplies(t.db, userId, { now: NOW })).toMatchObject({ weekUsed: 2, weekLeft: 18 });
+  });
+
+  it("counts an application once when it is both approved and in a running batch", async () => {
+    const userId = await seedUser(t.db);
+    const [batch] = await t.db.insert(applyBatches).values({ userId, status: "running", total: 1 }).returning();
+    const companyId = await seedCompany(t.db, { name: "Both Co" });
+    const jobId = await seedJob(t.db, { companyId, title: "Software Engineer", spec: baseSpec({ seniority: "mid" }), location: null, postedAt: hoursAgo(5) });
+    await t.db.insert(applications).values({
+      userId, jobId, batchId: batch!.id, canonicalUrl: "https://example.test/both", status: "applying", createdAt: hoursAgo(3), approvedAt: daysAgo(2),
+    });
+    expect(await decideApplies(t.db, userId, { now: NOW })).toMatchObject({ weekUsed: 1, weekLeft: 19 });
   });
 });

@@ -16,7 +16,7 @@
  *    are `later`.
  * 5. A ghost job (reposted 3 or more times in 60 days, see ghost.ts) is never sent on its own: at most `ask`.
  */
-import { and, applications, asc, companies, eq, gte, inArray, jobSpecs, jobs, profiles, shortlist, sql, type Db } from "@norinote/db";
+import { and, applications, applyBatches, asc, companies, eq, gte, inArray, jobSpecs, jobs, or, profiles, shortlist, sql, type Db } from "@norinote/db";
 import { companyKey, isSkippedCompany, readSkipCompanies } from "@norinote/shared";
 import { jobLevelBand, levelFromYears, matchTargetOf, titleAlignment } from "./alignment.js";
 import { coverageOf, relevantYears, type FitMapItem } from "./fit.js";
@@ -162,7 +162,10 @@ export type ApplyDecision = {
 export type ApplyDecisions = {
   aggressiveness: Aggressiveness;
   policy: ApplyPolicy;
-  /** Applications sent (approved) in the last 7 days, and how many more Nori may send on its own this week. */
+  /**
+   * Applications counted against the week's pace: approved in the last 7 days, or queued in a batch that is still
+   * running; and how many more Nori may send on its own this week.
+   */
   weekUsed: number;
   weekLeft: number;
   /** Sends first (in the order to send them), then later, ask, skip. */
@@ -182,9 +185,10 @@ export type DecideOptions = {
 
 /**
  * The single decision autopilot and batches call: for each job on the person's shortlist (or `jobIds`), whether Nori
- * sends it now, holds it for later, asks the person, or skips it. Sends respect the weekly pace (counted from approved
- * applications in the last 7 days), `maxSends`, one per company, and are spread across kinds of jobs (round robin over role
- * families, best fit first in each). The caller still applies the daily cap and creates the applications.
+ * sends it now, holds it for later, asks the person, or skips it. Sends respect the weekly pace (counted from applications
+ * approved in the last 7 days plus the jobs queued in a batch that is still running), `maxSends`, one per company, and are
+ * spread across kinds of jobs (round robin over role families, best fit first in each). The caller still applies the daily
+ * cap and creates the applications.
  */
 export async function decideApplies(db: Db, userId: string, opts: DecideOptions): Promise<ApplyDecisions> {
   const { now } = opts;
@@ -193,9 +197,12 @@ export async function decideApplies(db: Db, userId: string, opts: DecideOptions)
   const policy = APPLY_POLICIES[aggressiveness];
   const skip = new Set(readSkipCompanies(prefs?.preferences).map(companyKey));
 
+  // The week's use: applications approved in it, plus jobs already queued in a running batch (a batch creates its
+  // applications up front and approves them as it drains, so those are sends Nori will still make this week).
   const weekSince = new Date(now.getTime() - 7 * 86_400_000);
-  const [week] = await db.select({ n: sql<number>`count(*)::int` }).from(applications)
-    .where(and(eq(applications.userId, userId), gte(applications.approvedAt, weekSince)));
+  const [week] = await db.select({ n: sql<number>`count(distinct ${applications.id})::int` }).from(applications)
+    .leftJoin(applyBatches, eq(applyBatches.id, applications.batchId))
+    .where(and(eq(applications.userId, userId), or(gte(applications.approvedAt, weekSince), eq(applyBatches.status, "running"))));
   const weekUsed = week?.n ?? 0;
   const weekLeft = Math.max(0, policy.weeklyPace - weekUsed);
 

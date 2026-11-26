@@ -239,9 +239,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - GET `/api/nori/decisions` (Apply decisions): `{ aggressiveness, weekUsed, weekLeft, decisions: [{ jobId, title, company,
   group: strong|worth_a_shot|stretch|null, action: send|later|ask|skip, reasons: [string], fit }] }` for the person's new
   matches, sends first (in sending order), then later, ask and skip, each best fit first. `send`: Nori would send it now
-  (within what is left of today's limit and `weekLeft`, approved applications in the last 7 days counted in
-  `weekUsed`); `later`: it would, but the limit, the pace or one-per-company holds it; `ask`: the one-tap prompt (Apply
-  starts a one-job batch with `{ jobIds }`, Skip dismisses it); `skip`: a hard no (`group` null), never sent. `reasons`
+  (within what is left of today's limit and `weekLeft`: applications approved in the last 7 days plus jobs queued in
+  a batch that is still running, counted in `weekUsed`); `later`: it would, but the limit, the pace or one-per-company
+  holds it; `ask`: the one-tap prompt (Apply starts a one-job batch with `{ jobIds }`, Skip dismisses it); `skip`: a hard
+  no (`group` null), never sent. `reasons`
   are plain sentences for the person. No model call.
 - GET `/api/nori/needs-you`: `{ items: [{ applicationId, jobId, title, company, applyUrl, status, needs: questions|code|captcha|
   account|offsite|other, reason, questions, batchId, updatedAt }] }`, newest first. `status` is `needs_user` or
