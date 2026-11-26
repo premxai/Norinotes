@@ -12,6 +12,14 @@ read without a key is read before the click.
 
 ## Before the click: `prepare.application`
 
+**Strong fits are prepared at once** (packages/apply/src/strong-fit.ts). Early applicants get far more interviews, so a
+new job that fits a person at 0.8 or more is prepared right after `match.new-jobs` saves it, before anyone asks. Only for
+people who asked Nori to act for them: the schedule on (not paused) or Telegram linked. The batch rules apply (skip list,
+no company applied to in the last 60 days, one job per company, `BATCH_ATS`), and at most the person's daily limit of
+strong fits is prepared ahead a day. The application is marked with a `strong_fit` run event, goes to the front of the
+prepare queue, and waits for the person's OK like any other. `scripts/measure-fast-path.mts` times first_seen_at to the
+shortlist and to prepared.
+
 `createPreparer` (apps/worker) tailors the resume (packages/tailor), answers the standard questions, then calls
 `prepareForm` (packages/apply/src/prepare.ts):
 
