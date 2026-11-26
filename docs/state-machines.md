@@ -8,10 +8,12 @@ Change a machine here first, then in code.
 `queued → preparing → prepared → applying → (awaiting_code →) submitted`, with `needs_user`, `ready_to_finish` and `failed` as exits.
 
 - **One step left (`ready_to_finish`):** `applying → ready_to_finish` when the form is filled (every question answered) and
-  a visible captcha or a sign-in page is all that is left, or when the submit click met a captcha challenge (receipt
+  a visible captcha or a sign-in page is all that is left (a bot-check page shown instead of the form, such as Cloudflare's
+  "Performing security verification", counts as a captcha), or when the submit click met a captcha challenge (receipt
   `captchaHeld`: the challenge held the form, so it was not sent). `ready_to_finish → applying` only for the person
   (`by: "user"`, approved), with a fresh set of attempts: Finish in the live view, or Retry. `ready_to_finish → failed` on
-  Cancel. The worker never moves it on its own; Telegram groups these into "N applications need one tap".
+  Cancel. The worker never moves it on its own; Telegram groups these into "N applications need one tap". A site that
+  refuses the browser outright (Access Denied, 403) is `needs_user` with kind `blocked`, not `failed` and not one step left.
 - **Finish session** (`apply.finish`, `finishApplications`): up to 5 applications, one after another on one fresh browser
   context. Each moves `ready_to_finish → applying` when its turn comes, never earlier. While the person is at the wall the
   receipt holds `handoff`; afterwards the usual `applying` exits apply. A wall the person did not get past, or a run that

@@ -247,7 +247,9 @@ export async function detectCaptcha(page: Page): Promise<string | null> {
     const box = await el.boundingBox().catch(() => null);
     // A checkbox widget is about 300x75; a challenge (bframe, hCaptcha challenge) is larger. The score badge is 256x60 and invisible-sized.
     const challenge = /bframe|frame=challenge|hcaptcha.*challenge|turnstile|challenges\.cloudflare/i.test(url);
-    if (box && box.width >= (challenge ? 100 : 200) && box.height >= (challenge ? 100 : 60)) return `frame:${url.slice(0, 120)}`;
+    // Cloudflare's Turnstile widget is about 300x65, smaller than a challenge but still one the person has to pass.
+    const minHeight = /turnstile|challenges\.cloudflare/i.test(url) ? 40 : challenge ? 100 : 60;
+    if (box && box.width >= (challenge ? 100 : 200) && box.height >= minHeight) return `frame:${url.slice(0, 120)}`;
   }
   return runScript<string | null>(page, CAPTCHA_SCRIPT);
 }
