@@ -43,6 +43,7 @@ is a response), `interviews` (interview or offer), `rejections`, `offers`, `noRe
 - **Resume.** `off` (no tailoring report), `v1` (tailoring report version 1 with model rewrites), `v1-selection` (selection
   only; the model was unavailable). Recorded once per submitted application in `applications.tailoring_version`, so later
   edits to a resume do not rewrite history. No automatic tailoring change is made from this yet.
+- **Dashboard.** The Tracker page shows the overall counts and rates, then role family and fit band, with counts only for small samples.
 - `learning`: whether the nudge is active, how many resolved applications it has (`needed`: 10) and its current nudges.
 
 ## Learning: the outcome nudge

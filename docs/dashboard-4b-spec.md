@@ -122,6 +122,15 @@ and `GET /api/inbox` filtered to this application.
 - **Selection:** from 1024 px the newest message is open on arrival and the URL follows (`/inbox/:id`), so Back works.
 - **Empty:** "Nothing here yet. Codes and replies from employers land here, and Nori uses them to finish applications."
 
+### Tracker: interview rates (`/tracker`)
+
+Under the Sankey, an "Interviews" section from `GET /api/outcomes/summary` (loaded with the page, 60 s). It shows applications
+sent, replies, interviews (an interview or an offer), the interview rate and the response rate, then the same counts by
+role family and by fit band. One line explains "settled": an outcome, or `noResponseDays` days of silence. A group with
+`smallSample` shows counts and "Too few to rate yet (needs N settled)", with N from `minSample`; the page never computes a
+rate. Nothing submitted: the section is hidden and the Tracker's empty state shows. Loading is a pulse block, an error a
+short note. Rows stack on phones.
+
 ## 6. Components (new)
 
 | Component | Spec |

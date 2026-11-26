@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api, type Flow, type FlowNode } from "@/lib/api";
+import { api, type Flow, type FlowNode, type OutcomeStats, type OutcomeSummary } from "@/lib/api";
 import { shortDate } from "@/lib/app-state";
 import { usePolling } from "@/lib/use-polling";
 import { PageHead } from "./PageHead";
@@ -154,7 +154,119 @@ function Sankey({ flow, label }: { flow: Flow; label: string }) {
   );
 }
 
+const ROLE_NAMES: Record<string, string> = {
+  software_engineering: "Software engineering",
+  product: "Product",
+  design: "Design",
+  data_analysis: "Data and analysis",
+  sales: "Sales",
+  marketing: "Marketing",
+  customer_success: "Customer success",
+  operations: "Operations",
+  finance: "Finance",
+  people: "People",
+  legal: "Legal",
+  healthcare: "Healthcare",
+  education: "Education",
+  other: "Other",
+  unknown: "Other",
+};
+const BAND_NAMES: Record<string, string> = {
+  "0.8+": "Strong fit (0.8 and up)",
+  "0.6-0.8": "Good fit (0.6 to 0.8)",
+  widened: "Widened search",
+  "under 0.6": "Weaker fit (under 0.6)",
+  unranked: "Not from your list",
+};
+const pct = (r: number) => `${Math.round(r * 1000) / 10}%`;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function Counts({ s }: { s: OutcomeStats }) {
+  return (
+    <>
+      {plural(s.applications, "application", "applications")} sent, {plural(s.responses, "reply", "replies")}, {plural(s.interviews, "interview", "interviews")}
+    </>
+  );
+}
+
+function Rates({ s, minSample }: { s: OutcomeStats; minSample: number }) {
+  if (s.interviewRate === null || s.responseRate === null) return <p className="text-small text-ink-2">Too few to rate yet (needs {minSample} settled)</p>;
+  return (
+    <p className="text-small text-ink-2">
+      <span className="font-semibold text-ink tabular-nums">{pct(s.interviewRate)}</span> interviews, <span className="font-semibold text-ink tabular-nums">{pct(s.responseRate)}</span> replies
+    </p>
+  );
+}
+
+function Group({ title, rows, names, minSample }: { title: string; rows: OutcomeStats[]; names: Record<string, string>; minSample: number }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-body font-semibold text-ink">{title}</h3>
+      <ul className="flex flex-col divide-y divide-line">
+        {rows.map((s) => (
+          <li key={s.key} className="flex flex-col gap-0.5 py-2.5 tablet:flex-row tablet:items-baseline tablet:justify-between tablet:gap-4">
+            <div>
+              <p className="font-semibold text-ink">{names[s.key] ?? s.key}</p>
+              <p className="text-small text-ink-2 tabular-nums">
+                <Counts s={s} />
+              </p>
+            </div>
+            <Rates s={s} minSample={minSample} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Interviews({ sum }: { sum: ReturnType<typeof usePolling<OutcomeSummary>> }) {
+  const s = sum.data;
+  if (!s && sum.error && sum.status !== 401) {
+    return <p className="rounded-card border-[1.5px] border-line bg-surface p-4 text-ink-2 tablet:p-6">Couldn&rsquo;t load your interview numbers. This page tries again by itself.</p>;
+  }
+  if (!s) return <div aria-hidden="true" className="h-[240px] animate-pulse rounded-card border-[1.5px] border-line bg-surface" />;
+  const o = s.overall;
+  if (o.applications === 0) return null;
+  return (
+    <section aria-labelledby="interviews-title" className="flex flex-col gap-4 rounded-card border-[1.5px] border-line bg-surface p-4 tablet:p-6">
+      <div className="flex flex-col gap-1">
+        <h2 id="interviews-title" className="text-[1.125rem] font-semibold text-ink">
+          Interviews
+        </h2>
+        <p className="text-small text-ink-2">
+          Rates count settled applications: ones with an outcome, or {s.noResponseDays} days of silence. Interviews include offers.
+        </p>
+      </div>
+      <dl className="grid grid-cols-2 gap-3 tablet:grid-cols-5">
+        {(
+          [
+            ["Sent", String(o.applications)],
+            ["Replies", String(o.responses)],
+            ["Interviews", String(o.interviews)],
+            ["Interview rate", o.interviewRate === null ? "Too few" : pct(o.interviewRate)],
+            ["Response rate", o.responseRate === null ? "Too few" : pct(o.responseRate)],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k} className="rounded-row bg-tint px-4 py-3">
+            <dt className="text-small text-ink-2">{k}</dt>
+            <dd className="mt-0.5 text-[1.5rem] font-semibold text-ink tabular-nums">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {o.smallSample && (
+        <p className="text-small text-ink-2">
+          Too few to rate yet (needs {s.minSample} settled). You have {o.settled}.
+        </p>
+      )}
+      <Group title="By role" rows={s.byRoleFamily} names={ROLE_NAMES} minSample={s.minSample} />
+      <Group title="By fit" rows={s.byFitBand} names={BAND_NAMES} minSample={s.minSample} />
+    </section>
+  );
+}
+
 export function Tracker() {
+  const sum = usePolling("outcome-summary", () => api.summary(), 60_000);
   const [days, setDays] = useState<Days>(null);
   const flow = usePolling(`flow:${days ?? "all"}`, () => api.flow(days), 60_000);
   const f = flow.data;
@@ -222,6 +334,7 @@ export function Tracker() {
           </section>
         </>
       )}
+      <Interviews sum={sum} />
     </main>
   );
 }

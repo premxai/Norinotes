@@ -204,7 +204,24 @@ export type OutcomeStats = {
   medianDaysToFirstReply: number | null;
   smallSample: boolean;
 };
-export type OutcomeSummary = { overall: OutcomeStats; minSample: number; noResponseDays: number };
+export type OutcomeLearning = {
+  active: boolean;
+  resolved: number;
+  positive: number;
+  needed: number;
+  computedAt: string;
+  nudges: { dimension: string; value: string; positive: number; resolved: number; delta: number }[];
+};
+export type OutcomeSummary = {
+  overall: OutcomeStats;
+  bySystem: OutcomeStats[];
+  byRoleFamily: OutcomeStats[];
+  byFitBand: OutcomeStats[];
+  byResume: OutcomeStats[];
+  minSample: number;
+  noResponseDays: number;
+  learning: OutcomeLearning | null;
+};
 /** A row of the applications list (`GET /api/applications`). */
 export type ApplicationRow = { application: Application; job: Job; resume: ResumeView | null };
 
