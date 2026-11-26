@@ -246,7 +246,7 @@ function ApplyForMe({ settings, pick, onStarted }: { settings: NoriSettings | nu
   const all = [...(list.data ?? [])].sort((a, b) => b.fit - a.fit);
   const entries = all.filter(batchable);
   const hidden = all.length - entries.length;
-  const minFit = settings?.minFit ?? 0.7;
+  const minFit = settings?.minFit ?? 0.6;
   // A pick from Today that isn't on Greenhouse isn't listed, so it isn't sent either.
   const picked = chosen.filter((id) => entries.some((e) => e.jobId === id));
   const n = picked.length;
