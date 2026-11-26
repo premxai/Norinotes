@@ -1,4 +1,5 @@
 import { fakeEmbedding } from "@norinote/ai";
+import { isUsPlace } from "@norinote/shared";
 import {
   careerPointEmbeddings, careerPoints, companies, jobEmbeddings, jobSpecs, jobs, lanes, profiles, users, type Db,
 } from "@norinote/db";
@@ -64,9 +65,11 @@ export const NEUTRAL_DESCRIPTION = Array.from({ length: 8 }, () =>
 
 export async function seedJob(db: Db, o: SeedJob): Promise<string> {
   const id = uniq();
+  const location = o.location === undefined ? "San Francisco, CA" : o.location;
+  const remote = o.remote ?? false;
   const [j] = await db.insert(jobs).values({
     companyId: o.companyId, atsType: "greenhouse", externalId: id, title: o.title ?? "Software Engineer",
-    location: o.location === undefined ? "San Francisco, CA" : o.location, remote: o.remote ?? false,
+    location, remote, us: isUsPlace(location, remote),
     descriptionText: o.description ?? (o.spec ? NEUTRAL_DESCRIPTION : ""), applyUrl: `https://example.test/jobs/${id}`,
     postedAt: o.postedAt === undefined ? hoursAgo(48) : o.postedAt, firstSeenAt: o.firstSeenAt ?? hoursAgo(48),
     closedAt: o.closedAt ?? null, dedupeKey: id,

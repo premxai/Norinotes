@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
 import { and, applications, eq, shortlist, sql } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
-import { FitMapEntry } from "@norinote/shared";
+import { FitMapEntry, isUsPlace } from "@norinote/shared";
 import { laneFitsJob } from "./lanes.js";
 import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
 import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
@@ -35,7 +35,7 @@ describe("buildShortlist: the SQL filter", () => {
     const ok = {
       sf: await mk("Zeta Engineer II"),
       developer: await mk("Staff Zeta Developer, Payments", { location: "San Francisco Bay Area" }),
-      remote: await mk("Zeta Engineers", { location: "Remote - Germany", remote: true }),
+      remote: await mk("Zeta Engineers", { location: "Remote - US", remote: true }),
       noPostedDate: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: hoursAgo(30) }),
       justInside: await mk("Zeta Engineer, Platform", { postedAt: hoursAgo(71) }),
     };
@@ -51,6 +51,8 @@ describe("buildShortlist: the SQL filter", () => {
       wrongTitle: await mk("Zeta Marketing Manager"),
       disabledLaneTitle: await mk("Zeta Manager"),
       wrongCity: await mk("Zeta Engineer", { location: "London, UK" }),
+      // A remote lane takes remote jobs, but only US ones.
+      remoteAbroad: await mk("Zeta Engineers", { location: "Remote - Germany", remote: true }),
       noLocation: await mk("Zeta Engineer", { location: null }),
       missingWord: await mk("Zeta Analyst"),
     };
@@ -70,7 +72,7 @@ describe("buildShortlist: the SQL filter", () => {
     ];
     for (const l of lanesInput) await seedLane(t.db, userId, l);
     const titles = ["Product Designer", "Senior UX Designer II", "Designer", "Data Scientist, Growth", "Data Analyst", "Product Design Lead", "Staff Data Scientists"];
-    const places: Array<[string | null, boolean]> = [["New York City", false], ["Remote - US", true], ["Austin, Texas", false], ["Berlin", true], ["Berlin", false], [null, false], ["Chicago, USA", false]];
+    const places: Array<[string | null, boolean]> = [["New York City", false], ["Remote - US", true], ["Austin, Texas", false], ["Berlin", true], ["Berlin", false], [null, false], ["Chicago, USA", false], ["Denver, CO", true]];
     const jobsMade: Array<{ id: string; title: string; location: string | null; remote: boolean }> = [];
     for (const title of titles) for (const [location, remote] of places) {
       const id = await seedJob(t.db, { companyId, title: `Theta ${title}`, location, remote, embedText: "designer", spec: baseSpec() });
@@ -78,7 +80,7 @@ describe("buildShortlist: the SQL filter", () => {
     }
     // "Theta" is not in any lane title, so make the lanes ignore it: lane words must all be present, so it never matters.
     const stats = await buildShortlist(t.db, userId, { profileEmbedding: profileVec("designer"), now: NOW, candidates: 1000 });
-    const expected = jobsMade.filter((j) => lanesInput.some((l) => laneFitsJob({ ...l, enabled: true }, j))).map((j) => j.id);
+    const expected = jobsMade.filter((j) => isUsPlace(j.location, j.remote) && lanesInput.some((l) => laneFitsJob({ ...l, enabled: true }, j))).map((j) => j.id);
     expect(expected.length).toBeGreaterThan(10);
     expect(expected.length).toBeLessThan(jobsMade.length);
     expect(new Set(stats.candidateIds)).toEqual(new Set(expected));
