@@ -70,9 +70,9 @@ Per user:
   payload, status, not_before for quiet hours, chat_id, telegram_message_id). Link tokens are `auth_tokens` of kind
   `telegram_link` (hashed, single use, 15 minutes); settings live in `profiles.preferences.telegram`. See docs/telegram.md.
 - `llm_usage` (user_id, day, prompt_tokens, completion_tokens, cost_micros)
-- `outcomes` (application_id, kind: reply/interview/rejection/offer, at, source: inbox/manual, message_id, deleted_at): one row per
-  classified, linked, trusted inbox message for a submitted application, or added by the user; removal is soft so a re-read
-  never brings it back. "No response" (30 days, no outcome) is derived, not stored. A confirmation sets
+- `outcomes` (application_id, kind: reply/interview/rejection/offer, at, source: inbox/manual, message_id, deleted_at): at most one
+  active row per application and kind (unique index), from a classified, linked, trusted inbox message for a submitted
+  application or added by the user; removal is soft so mail never brings a removed kind back. "No response" (30 days, no outcome) is derived, not stored. A confirmation sets
   `applications.confirmed_at`; `applications.tailoring_version` records which tailoring produced the submitted resume.
   The per-user outcome nudge lives in `profiles.preferences.outcomeLearning`. Details in docs/outcomes.md.
 

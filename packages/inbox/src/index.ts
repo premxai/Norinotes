@@ -12,7 +12,7 @@ export { classifyMessage, extractCode, extractLinks, findCodes, magicLink } from
 export type { Classification, CodeCandidate, CodeResult } from "./classify.js";
 export { createResendForwarder, createStubForwarder, forwardMessage } from "./forward.js";
 export type { ForwardEnvelope, Forwarder, ForwardResult } from "./forward.js";
-export { atsOfSender, fromAts, linkApplication, loadCandidates, pickApplication, senderBase, senderSpeaksFor } from "./link.js";
+export { atsOfSender, fromAts, linkApplication, loadCandidates, pickApplication, senderBase, senderSpeaksFor, speaksForApplication } from "./link.js";
 export type { AppCandidate, LinkResult } from "./link.js";
 export { settleAmbiguous, smallModel } from "./model.js";
 export type { InboxModel } from "./model.js";

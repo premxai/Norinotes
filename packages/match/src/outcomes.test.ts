@@ -100,6 +100,33 @@ describe("recording outcomes from classified inbox messages", () => {
     expect(await rowsOf(app.id)).toHaveLength(0);
   });
 
+  it("drops a corrected row when the application already has that kind, instead of keeping two", async () => {
+    const userId = await seedUser(t.db);
+    const app = await submittedApp(t.db, userId);
+    await message(t.db, userId, app.id, "interview");
+    const m = await message(t.db, userId, app.id, "rejection");
+    await syncInboxOutcomes(t.db, { userId });
+    await t.db.update(inboxMessages).set({ kind: "interview" }).where(eq(inboxMessages.id, m.id));
+    expect(await syncInboxOutcomes(t.db, { userId })).toMatchObject({ corrected: 1 });
+    expect((await listOutcomes(t.db, app.id)).map((r) => r.kind)).toEqual(["interview"]);
+  });
+
+  it("keeps one outcome per kind: a second mail of a kind adds nothing, and a kind the person removed stays removed", async () => {
+    const userId = await seedUser(t.db);
+    const app = await submittedApp(t.db, userId);
+    await message(t.db, userId, app.id, "recruiter_reply", { trusted: true }, daysAgo(6));
+    await message(t.db, userId, app.id, "recruiter_reply", { trusted: true }, daysAgo(4));
+    await message(t.db, userId, app.id, "rejection", { trusted: true }, daysAgo(3));
+    expect(await syncInboxOutcomes(t.db, { userId })).toMatchObject({ recorded: 2 });
+    const rows = await listOutcomes(t.db, app.id);
+    expect(rows.map((r) => r.kind)).toEqual(["reply", "rejection"]);
+    expect(rows[0]!.at).toEqual(daysAgo(6));
+    await removeOutcome(t.db, app.id, rows[1]!.id, NOW);
+    await message(t.db, userId, app.id, "rejection", { trusted: true }, daysAgo(1));
+    expect(await syncInboxOutcomes(t.db, { userId })).toMatchObject({ recorded: 0 });
+    expect((await listOutcomes(t.db, app.id)).map((r) => r.kind)).toEqual(["reply"]);
+  });
+
   it("only touches the given user", async () => {
     const a = await seedUser(t.db);
     const b = await seedUser(t.db);
@@ -129,6 +156,15 @@ describe("manual outcomes", () => {
     expect((await listOutcomes(t.db, app.id)).map((o) => o.kind)).toEqual(["reply", "interview"]);
     // The row is kept (with deleted_at) so the message stays accounted for.
     expect((await rowsOf(app.id)).filter((r) => r.deletedAt !== null)).toHaveLength(1);
+  });
+
+  it("adds one row when the same kind is reported twice at once", async () => {
+    const userId = await seedUser(t.db);
+    const app = await submittedApp(t.db, userId);
+    const [a, b] = await Promise.all([addManualOutcome(t.db, app.id, "interview", daysAgo(1)), addManualOutcome(t.db, app.id, "interview", daysAgo(1))]);
+    expect([a.created, b.created].sort()).toEqual([false, true]);
+    expect(a.outcome.id).toBe(b.outcome.id);
+    expect(await rowsOf(app.id)).toHaveLength(1);
   });
 
   it("will not remove another application's outcome", async () => {

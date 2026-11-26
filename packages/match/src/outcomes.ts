@@ -3,9 +3,10 @@
  * history the summary and the outcome learning read. See docs/outcomes.md.
  *
  * - The inbox classifies linked mail; `syncInboxOutcomes` turns a trusted, linked rejection, interview, recruiter reply or
- *   offer for a submitted application into one `outcomes` row per message (idempotent), and a confirmation into
- *   `applications.confirmed_at` (a receipt, not an outcome). The inbox writes its own row per application and kind as the
- *   mail arrives; the sync attaches the message id to that row instead of adding a second one.
+ *   offer for a submitted application into an `outcomes` row (idempotent), and a confirmation into
+ *   `applications.confirmed_at` (a receipt, not an outcome). There is one active outcome per application and kind (a
+ *   unique index): the first message of a kind records it, later ones of the same kind add nothing, and a kind the person
+ *   removed is not recorded again from mail. The inbox writes the row with its message id as the mail arrives.
  * - Users add or remove outcomes by hand (`addManualOutcome`, `removeOutcome`). Removal is soft, so a re-read of the same
  *   message never brings a corrected outcome back.
  * - "No response" is derived, never stored: a submitted application with no outcome 30 days after submission.
@@ -81,14 +82,17 @@ export async function syncInboxOutcomes(db: Db, opts: { userId?: string; message
     if (!m.applicationId || !usable(m.meta)) continue;
     const kind = FROM_INBOX[m.kind]!;
     try {
-      // The inbox writes one row per application and kind when the mail arrives: give it its message id.
-      const [own] = await db.select({ id: outcomes.id }).from(outcomes)
-        .where(and(eq(outcomes.applicationId, m.applicationId), eq(outcomes.kind, kind), eq(outcomes.source, "inbox"), isNull(outcomes.messageId)))
-        .orderBy(asc(outcomes.at)).limit(1);
+      // One outcome per application and kind. An older inbox row without a message id takes this message; any other row
+      // of the kind, active or removed by the person, means there is nothing to add.
+      const existing = await db.select({ id: outcomes.id, source: outcomes.source, messageId: outcomes.messageId }).from(outcomes)
+        .where(and(eq(outcomes.applicationId, m.applicationId), eq(outcomes.kind, kind)))
+        .orderBy(asc(outcomes.at));
+      const own = existing.find((o) => o.source === "inbox" && o.messageId === null);
       if (own) {
         const done = await db.update(outcomes).set({ messageId: m.id }).where(and(eq(outcomes.id, own.id), isNull(outcomes.messageId))).returning({ id: outcomes.id });
         if (done.length) { res.linked++; continue; }
       }
+      if (existing.length) continue;
       const ins = await db.insert(outcomes).values({ applicationId: m.applicationId, kind, at: m.receivedAt, source: "inbox", messageId: m.id })
         .onConflictDoNothing().returning({ id: outcomes.id });
       res.recorded += ins.length;
@@ -99,13 +103,15 @@ export async function syncInboxOutcomes(db: Db, opts: { userId?: string; message
   }
 
   // A message re-read later (the model settled an ambiguous one) may have changed kind: its row follows it.
-  const tracked = await db.select({ outcomeId: outcomes.id, kind: outcomes.kind, messageKind: inboxMessages.kind }).from(outcomes)
+  // When the application already has the new kind (or the person removed it), the row is dropped instead of becoming a second.
+  const tracked = await db.select({ outcomeId: outcomes.id, applicationId: outcomes.applicationId, kind: outcomes.kind, messageKind: inboxMessages.kind }).from(outcomes)
     .innerJoin(inboxMessages, eq(inboxMessages.id, outcomes.messageId))
     .where(and(scope, eq(outcomes.source, "inbox"), isNull(outcomes.deletedAt)));
   for (const t of tracked) {
     const want = FROM_INBOX[t.messageKind];
     if (want === t.kind) continue;
-    if (want) await db.update(outcomes).set({ kind: want }).where(eq(outcomes.id, t.outcomeId));
+    const [taken] = want ? await db.select({ id: outcomes.id }).from(outcomes).where(and(eq(outcomes.applicationId, t.applicationId), eq(outcomes.kind, want))).limit(1) : [];
+    if (want && !taken) await db.update(outcomes).set({ kind: want }).where(eq(outcomes.id, t.outcomeId));
     else await db.delete(outcomes).where(eq(outcomes.id, t.outcomeId));
     res.corrected++;
   }
@@ -168,8 +174,12 @@ export async function addManualOutcome(db: Db, applicationId: string, kind: Outc
   const [same] = await db.select(outcomeCols).from(outcomes)
     .where(and(eq(outcomes.applicationId, applicationId), eq(outcomes.kind, kind), isNull(outcomes.deletedAt))).limit(1);
   if (same) return { outcome: same, created: false };
-  const [row] = await db.insert(outcomes).values({ applicationId, kind, at, source: "manual" }).returning(outcomeCols);
-  return { outcome: row!, created: true };
+  const [row] = await db.insert(outcomes).values({ applicationId, kind, at, source: "manual" }).onConflictDoNothing().returning(outcomeCols);
+  if (row) return { outcome: row, created: true };
+  // Another request added the same kind a moment ago (one active outcome per application and kind).
+  const [won] = await db.select(outcomeCols).from(outcomes)
+    .where(and(eq(outcomes.applicationId, applicationId), eq(outcomes.kind, kind), isNull(outcomes.deletedAt))).limit(1);
+  return { outcome: won!, created: false };
 }
 
 /** Removes one outcome (soft: a re-read of its message never brings it back). False when there was nothing to remove. */

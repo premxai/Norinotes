@@ -1,0 +1,2 @@
+UPDATE "outcomes" AS o SET "deleted_at" = now() WHERE o."deleted_at" IS NULL AND EXISTS (SELECT 1 FROM "outcomes" AS p WHERE p."application_id" = o."application_id" AND p."kind" = o."kind" AND p."deleted_at" IS NULL AND (p."at", p."id") < (o."at", o."id"));--> statement-breakpoint
+CREATE UNIQUE INDEX "outcomes_application_kind_active_uq" ON "outcomes" USING btree ("application_id","kind") WHERE "outcomes"."deleted_at" IS NULL;

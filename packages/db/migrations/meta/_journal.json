@@ -127,6 +127,13 @@
       "when": 1795647253079,
       "tag": "0017_jobs_us",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795721001368,
+      "tag": "0018_outcomes_one_per_kind",
+      "breakpoints": true
     }
   ]
 }

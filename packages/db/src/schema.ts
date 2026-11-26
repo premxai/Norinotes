@@ -483,7 +483,12 @@ export const outcomes = pgTable("outcomes", {
   /** The user removed it (a wrong automatic outcome). Kept, so re-reading the same message never brings it back. */
   deletedAt: ts("deleted_at"),
   createdAt: createdAt(),
-}, (t) => [index("outcomes_application_idx").on(t.applicationId), uniqueIndex("outcomes_message_uq").on(t.messageId)]);
+}, (t) => [
+  index("outcomes_application_idx").on(t.applicationId),
+  uniqueIndex("outcomes_message_uq").on(t.messageId),
+  /** One active outcome per application and kind. */
+  uniqueIndex("outcomes_application_kind_active_uq").on(t.applicationId, t.kind).where(sql`${t.deletedAt} IS NULL`),
+]);
 
 export const schema = {
   companies, jobs, jobSpecs, jobEmbeddings, users, sessions, authTokens, profiles, lanes, careerPoints,
