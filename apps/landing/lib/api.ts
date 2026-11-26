@@ -274,7 +274,21 @@ export type AddedCompany = {
   company: { id: string; name: string; system: string; systemName: string; reading: boolean };
   openJobs?: number | null;
 };
-export type NoriSettings = { spacingMinutes: number; minFit: number; skipCompanies: string[]; dailyLimit: number };
+export type Aggressiveness = "cautious" | "balanced" | "wide";
+export type NoriSettings = { spacingMinutes: number; minFit: number; aggressiveness: Aggressiveness; skipCompanies: string[]; dailyLimit: number };
+/** GET /api/nori/decisions: what Nori would do with each new match. `ask` is the person's call (Apply or Skip). */
+export type NoriDecision = { jobId: string; title: string; company: string; group: "strong" | "worth_a_shot" | "stretch" | null; action: "send" | "later" | "ask" | "skip"; reasons: string[]; fit: number };
+/** Why a person skips a job, in the order they see them: SKIP_REASON_LABELS in @norinote/shared (api.test.ts keeps them the same). */
+export const SKIP_REASON_LABELS = {
+  not_my_kind: "Not my kind of role",
+  too_senior: "Too senior",
+  too_junior: "Too junior",
+  wrong_location: "Wrong location",
+  company: "Company I don't want",
+  missing_skills: "Missing skills",
+  other: "Other",
+} as const;
+export type SkipReason = keyof typeof SKIP_REASON_LABELS;
 export type BatchCounts = { total: number; sent: number; working: number; preparing: number; ready: number; needsYou: number; cancelled: number; failed: number };
 export type Batch = { id: string; status: "running" | "stopped" | "done"; createdAt: string; finishedAt: string | null; lastStartedAt: string | null; counts: BatchCounts; waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | null; nextAt: string | null };
 export type Needs = "questions" | "code" | "captcha" | "account" | "other";
@@ -340,7 +354,8 @@ export const api = {
   logout: () => call<{ ok: true }>("/auth/logout", { json: {} }),
   resendVerification: () => call<{ ok: true; verified?: boolean }>("/auth/resend-verification", { json: {} }),
   shortlistMeta: () => call<{ total: number; widened: string[]; lanesMatched: number; poolUsed: boolean }>("/shortlist/meta"),
-  dismiss: (jobId: string) => call<{ ok: true }>(`/shortlist/${encodeURIComponent(jobId)}/dismiss`, { json: {} }),
+  /** Skip a job; a reason may also be added to a job already skipped. `addedToSkipList`: the company went on the skip list. */
+  dismiss: (jobId: string, reason?: SkipReason) => call<{ ok: true; reason: SkipReason | null; addedToSkipList: boolean }>(`/shortlist/${encodeURIComponent(jobId)}/dismiss`, { json: reason ? { reason } : {} }),
   // The server wraps the job ({ job, match }); only the job is read here.
   job: (id: string) => call<{ job: Job }>(`/jobs/${encodeURIComponent(id)}`),
   // The Jobs page: open jobs from the last 7 days (all of them, or those that fit the person's searches), one job with
@@ -425,6 +440,7 @@ export const api = {
   startBatch: (jobIds: string[]) => call<{ batch: Batch; added: number; skipped: BatchSkip[] }>("/nori/batches", { json: { jobIds } }),
   stopBatch: (id: string) => call<{ ok: true }>(`/nori/batches/${encodeURIComponent(id)}/stop`, { json: {} }),
   needsYou: () => call<{ items: NeedsItem[] }>("/nori/needs-you"),
+  noriDecisions: () => call<{ aggressiveness: Aggressiveness; weekUsed: number; weekLeft: number; decisions: NoriDecision[] }>("/nori/decisions"),
   noriChat: (before?: string) => call<{ messages: NoriMessage[] }>(`/nori/chat${before ? `?before=${encodeURIComponent(before)}` : ""}`),
   sendNori: (message: string) => call<{ message: NoriMessage; reply: NoriMessage }>("/nori/chat", { json: { message } }),
   undoNori: (undoId: string) => call<{ ok: boolean; summary: string }>(`/nori/chat/undo/${encodeURIComponent(undoId)}`, { json: {} }),
