@@ -123,6 +123,14 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     logoTimer.unref();
   }
 
+  // Board discovery: verify due candidates against their live feeds and promote the good ones, every
+  // DISCOVERY_EVERY_MINUTES (off by default).
+  let discoveryTimer: ReturnType<typeof setInterval> | null = null;
+  if (opts.scheduler !== false && config.discoveryEveryMs > 0) {
+    discoveryTimer = setInterval(() => { void consumers.verifyDiscoveredBoards(); }, config.discoveryEveryMs);
+    discoveryTimer.unref();
+  }
+
   // AI catch-up: once the AI service works again, redo what was done without it (heuristic job specs, basic resume
   // readings, inbox mail sorted by the fallback, failed site reads), every AI_CATCH_UP_EVERY_MINUTES (10).
   let catchUpTimer: ReturnType<typeof setInterval> | null = null;
@@ -178,6 +186,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     if (timer) clearInterval(timer);
     if (sweepTimer) clearInterval(sweepTimer);
     if (logoTimer) clearInterval(logoTimer);
+    if (discoveryTimer) clearInterval(discoveryTimer);
     if (drainTimer) clearInterval(drainTimer);
     await consumers.stopSweep();
     stopRetention();

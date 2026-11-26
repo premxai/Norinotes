@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { companies, eq, type Db } from "@norinote/db";
-import { PendingQuestion } from "@norinote/shared";
+import { PendingQuestion, type AtsType } from "@norinote/shared";
 import { planForm } from "@norinote/answers";
 import {
   approveAndSubmit, autopilotStrongFit, createApplyHandler, createFinishHandler, createPrepareHandler, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
@@ -10,10 +10,10 @@ import {
 import { AiUnavailableError } from "@norinote/ai";
 import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
 import {
-  feedHost, fillJobDescription, HostBackedOffError, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, resolveLogoDomains, sweepStaleJobs, type DueBoard,
+  feedHost, fillJobDescription, HostBackedOffError, verifyCandidates, HostBackoff, maxPollsPerHost, nextBoards, pollBoard, resolveLogoDomains, sweepStaleJobs, type DueBoard,
 } from "@norinote/ingest";
 import { createResendForwarder, createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
-import { buildShortlist, jobsFittingLanes, loadCurrentSpec, matchNewJobs, understandJob, unspeccedJobsForBoard, unspeccedJobsForUser } from "@norinote/match";
+import { buildShortlist, jobsFittingLanes, loadCurrentSpec, matchNewJobs, targetFamilyOf, understandJob, unspeccedJobsForBoard, unspeccedJobsForUser } from "@norinote/match";
 import { JOBS, type Handler, type JobContext, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
 import { boostCompaniesForUser } from "./boost.js";
 import { catchUp } from "./catch-up.js";
@@ -51,6 +51,8 @@ export type Consumers = {
   catchUp(): Promise<LogFields>;
   /** One run of `resolveLogoDomains`; logs and returns how many domains it found. A run already going is not doubled. */
   findLogoDomains(): Promise<number>;
+  /** One run of board discovery's verification (see `verifyCandidates`); logs and returns how many boards it promoted. A run already going is not doubled. */
+  verifyDiscoveredBoards(): Promise<number>;
   /** Queues again the applications a lost run left in preparing, applying or awaiting_code (see `staleRuns`). Returns how many. */
   recoverStaleRuns(): Promise<number>;
 };
@@ -243,6 +245,28 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
         return 0;
       } finally {
         sweeping = null;
+      }
+    })());
+  }
+
+  let verifyingBoards: Promise<number> | null = null;
+  function verifyDiscoveredBoards(): Promise<number> {
+    return (verifyingBoards ??= (async () => {
+      const started = Date.now();
+      try {
+        const done = await verifyCandidates(db, {
+          classify: targetFamilyOf, now, fetch: deps.fetch, limit: config.discoveryBatch,
+          atsTypes: config.engineAts.length ? config.engineAts as AtsType[] : null,
+        });
+        const outcomes: Record<string, number> = {};
+        for (const b of done) outcomes[b.outcome] = (outcomes[b.outcome] ?? 0) + 1;
+        log.info("discovery.verify", { ok: true, ms: Date.now() - started, verified: done.length, ...outcomes });
+        return outcomes.promoted ?? 0;
+      } catch (err) {
+        log.error("discovery.verify", { ok: false, ms: Date.now() - started, error: err instanceof Error ? err.message : String(err) });
+        return 0;
+      } finally {
+        verifyingBoards = null;
       }
     })());
   }
@@ -443,7 +467,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     })());
   }
 
-  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs, findLogoDomains, recoverStaleRuns, catchUp: runCatchUp,
+  return { enqueueDueBoards, enqueueValidations, flushMatchBatch: () => batcher.flush(), sweepJobs, findLogoDomains, verifyDiscoveredBoards, recoverStaleRuns, catchUp: runCatchUp,
     stopSweep: async () => { sweepAbort.abort(); await sweeping; },
   };
 }

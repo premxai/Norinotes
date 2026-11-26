@@ -54,6 +54,16 @@ Change a machine here first, then in code.
 
 `candidate → active | dead`; `active → probation → dead` when a board disappears; `→ disabled` after repeated errors or 401/403. `blocked` is permanent. Polls outside the engine scope (`ENGINE_ATS`) are dropped. A back-off retry is kept to one per board per 5 minutes.
 
+## Discovered boards (`board_candidates.status`)
+
+`new → promoted | low_value | empty | dead | disallowed | failing` on verification (`verifyCandidates`,
+packages/ingest/src/discovery/verify.ts). Promotion writes the board into `companies` (`active`, or brings back a
+`candidate`/`dead`/`disabled` row that is not blocked). Every status is verified again later: promoted, low_value,
+empty, disallowed and failing after 30 days, dead after 90; a failed read is retried after a day and becomes `failing`
+on the third failure in a row. A low_value or empty board that reaches the bar later is promoted then. A promoted board
+only gets fresh numbers: from then on the poller owns its `companies` row. A board already live when it is loaded
+starts as `promoted`.
+
 ## Shortlist (`shortlist.status`)
 
 `new → dismissed | applied`, never back. Creating any application marks the row `applied`, including one Nori creates to

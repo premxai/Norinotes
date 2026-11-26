@@ -131,7 +131,7 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
 - Extra columns: `host` (politeness group: Workday by wdN cluster, Oracle by tenant host, others by feed host), `status_reason`,
   `empty_since`, `boost_until` (a user is waiting on the company: it polls at priority 200 until then; the boost lapses by itself);
   `jobs.missing_reads` counts complete reads that missed a job (closed at 2, reset when seen).
-- Priorities: curated registry 100, seeds 0, empty boards -10. `nextBoards` orders by effective priority, then `next_poll_at`
+- Priorities: curated registry 100, boards promoted by discovery 50, seeds 0, empty boards -10. `nextBoards` orders by effective priority, then `next_poll_at`
   (never polled first), at most `HOST_BOARDS_PER_RUN` per host group; the worker queues candidates (validation) on their own budget
   (`VALIDATE_PER_RUN`) and runs at most 2 (Workable), the connector's `maxConcurrencyPerHost` or `POLLS_PER_HOST` (4) polls per host group.
 - A 401/403 from the host (`BlockedByHostError`) disables the board with a reason and no retries; it is rechecked weekly.
@@ -190,6 +190,22 @@ parked systems.
 - `npx tsx scripts/discover-boards.mts load [--dry-run]` lists every enabled source into `board_candidates` (status
   `new`). A board listed by several sources is stored once (case-insensitive) with every source's id; a board already
   live in `companies` is stored as `promoted` and linked. Blocklisted boards are skipped.
+- Verification (`verifyCandidates`, discovery/verify.ts): each due candidate's feed is read once through its connector, the
+  same read the poller makes (robots.txt and Crawl-delay obeyed in http.ts), one board at a time per feed host with a
+  1 s gap; a host that keeps answering 429/503 is left alone for the rest of the run. The board is scored on its open US
+  jobs (`isUsPlace`) dated in the last 7 days whose title is in a target role family (`targetFamilyOf` in
+  packages/match: ai_ml, data, product, software, design). Undated jobs never count.
+- Promotion: a score of at least `PROMOTE_BAR` (2) puts the board into `companies` as `active` with
+  `discovered_via` = the first source that listed it and priority 50 (`PRIORITY.discovered`, between seeds and the
+  curated registry). From then on the poller reads it at the adaptive cadence above. Below the bar the board is
+  `low_value` (or `empty`); a missing board is `dead`; robots.txt or a 401/403 makes it `disallowed`. Statuses and
+  re-verification times are in docs/state-machines.md.
+- `npx tsx scripts/discover-boards.mts verify [--systems greenhouse,lever] [--all]` verifies locally;
+  `npx tsx scripts/discover-boards.mts report` prints candidates found, verified, promoted, and fresh US target-role
+  jobs per family before (registry and people's additions) and after.
+- In production the worker verifies `DISCOVERY_BATCH` (30) due candidates of the engine scope (`ENGINE_ATS`) every
+  `DISCOVERY_EVERY_MINUTES`. Off by default: load candidates first (`discover-boards.mts load` against the
+  production database, which is the maintainer's call), then set e.g. `DISCOVERY_EVERY_MINUTES=10`.
 - The old path, `npx tsx scripts/import-seeds.mts [--dry-run] [--only workday,oracle] [--include-empty] [--dir folder]`,
   still imports seed rows straight into `companies` as `candidate` (the first poll validates them); it is the only
   way to seed Workday and Oracle tenants.

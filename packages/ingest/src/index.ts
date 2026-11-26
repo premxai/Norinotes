@@ -75,8 +75,10 @@ export { UnsafeUrlError, assertPublicUrl, isPrivateAddress, safeFetch } from "./
 
 export {
   atsCompanySlugsSource, atsDirectorySource, atsScrapersSource, CANDIDATE_SOURCES, DISCOVERY_ATS, loadCandidates, openAtsFeedSource,
-  openJobsSource, parseAtsCompanySlugs, parseAtsDirectory, parseOpenJobsSlugs, politeDownload, tregSource, userSource,
+  openJobsSource, parseAtsCompanySlugs, parseAtsDirectory, parseOpenJobsSlugs, politeDownload, registrySource, tregSource, userSource,
 } from "./discovery/sources.js";
+export { FAILS_TO_PARK, PROMOTE_BAR, REVERIFY_MS, scoreJobs, verifyCandidates } from "./discovery/verify.js";
+export type { BoardScore, TargetClassifier, VerifiedBoard, VerifyOptions, VerifyOutcome } from "./discovery/verify.js";
 export type { CandidateBoard, CandidateSource, Download, SourceContext, SourceLoad } from "./discovery/sources.js";
 
 export { CompanyInputError, DISCOVERY_SYSTEMS, MAX_VERIFY_REQUESTS, boardsInPage, companyNameKey, discoverCompany, systemName, tokensForName } from "./discover.js";
