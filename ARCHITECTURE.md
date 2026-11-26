@@ -142,7 +142,7 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    - stretch: everything else.
 
    The person's aggressiveness (`preferences.nori.aggressiveness`) sets which groups are sent without asking and the
-   weekly pace (approved applications in the last 7 days):
+   weekly pace (applications approved in the last 7 days, plus jobs already queued in a batch that is still running):
    - cautious: strong only, 10 a week;
    - balanced (the default): strong and worth a shot, 20 a week;
    - wide: the same groups with less evidence asked of worth a shot, 30 a week.
