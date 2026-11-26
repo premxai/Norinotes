@@ -9,14 +9,36 @@ const lane = (over: Partial<{ titles: string[]; locations: string[]; remote: boo
 describe("parseWorkAuth", () => {
   it("reads the per-country form and normalises country names", () => {
     const wa = parseWorkAuth({ "United States": { authorized: true, needsSponsorship: false, citizenship: "US" }, UK: { authorised: true, requiresSponsorship: true } });
-    expect(wa.countries.US).toEqual({ authorized: true, needsSponsorship: false, citizen: true, clearance: null });
+    expect(wa.countries.US).toEqual({ authorized: true, needsSponsorship: false, citizen: true, permanentResident: true, clearance: null });
     expect(wa.countries.GB).toMatchObject({ authorized: true, needsSponsorship: true, citizen: null });
     expect(wa.primary).toBe("US");
   });
 
   it("reads the flat form Nori used as the US entry", () => {
     const wa = parseWorkAuth({ authorizedUS: true, needsSponsorship: true, clearance: "secret" });
-    expect(wa.countries.US).toEqual({ authorized: true, needsSponsorship: true, citizen: null, clearance: true });
+    expect(wa.countries.US).toEqual({ authorized: true, needsSponsorship: true, citizen: null, permanentResident: null, clearance: true });
+  });
+
+  it("reads permanent residence from the onboarding status, and a citizen always counts as one", () => {
+    const us = (raw: Record<string, unknown>) => parseWorkAuth(raw).countries.US;
+    // What onboarding stores: the status next to the citizen flag it derives.
+    expect(us({ US: { authorized: true, needsSponsorship: false, status: "permanent_resident", citizen: false } })).toMatchObject({ citizen: false, permanentResident: true });
+    expect(us({ US: { authorized: true, needsSponsorship: false, status: "citizen", citizen: true } })).toMatchObject({ citizen: true, permanentResident: true });
+    expect(us({ US: { authorized: true, needsSponsorship: true, status: "visa", citizen: false } })).toMatchObject({ citizen: false, permanentResident: false });
+    expect(us({ US: { authorized: true, status: "other", citizen: false } })).toMatchObject({ citizen: false, permanentResident: null });
+    // The status alone, an explicit flag, and a citizen without any status.
+    expect(us({ US: { status: "permanent_resident" } })).toMatchObject({ citizen: false, permanentResident: true });
+    expect(us({ US: { permanentResident: "yes" } })).toMatchObject({ citizen: null, permanentResident: true });
+    expect(us({ US: { citizen: true, permanentResident: false } })).toMatchObject({ citizen: true, permanentResident: true });
+    expect(us({ US: { authorized: true } })).toMatchObject({ citizen: null, permanentResident: null });
+  });
+
+  it("reads permanent residence from the legacy flat status", () => {
+    expect(parseWorkAuth({ authorizedUS: true, needsSponsorship: false, status: "permanent_resident" }).countries.US)
+      .toEqual({ authorized: true, needsSponsorship: false, citizen: false, permanentResident: true, clearance: null });
+    expect(parseWorkAuth({ authorizedUS: true, status: "citizen" }).countries.US).toMatchObject({ citizen: true, permanentResident: true });
+    expect(parseWorkAuth({ authorizedUS: true, status: "visa", visaType: "H-1B" }).countries.US).toMatchObject({ citizen: false, permanentResident: false });
+    expect(parseWorkAuth({ usCitizen: true }).countries.US).toMatchObject({ citizen: true, permanentResident: true });
   });
 
   it("prefers the country of the profile location as primary", () => {
@@ -42,6 +64,31 @@ describe("checkGates", () => {
     const unknown = checkGates(spec, profileOf());
     expect(unknown.reasons[0]).toMatch(/does not say you are a US citizen/);
     expect(checkGates(spec, profileOf({ workAuth: { US: { citizen: true } } })).ok).toBe(true);
+  });
+
+  it("lets only citizens into a citizens-only job, whatever else the profile says", () => {
+    const spec = baseSpec({ citizenshipRequired: true, citizenshipScope: "citizen" });
+    const gate = (US: Record<string, unknown>) => checkGates(spec, profileOf({ workAuth: { US } }));
+    expect(gate({ status: "citizen", citizen: true }).ok).toBe(true);
+    expect(gate({ status: "permanent_resident", citizen: false }).reasons).toEqual(["This role requires US citizenship and you are not a US citizen."]);
+    expect(gate({ status: "visa", citizen: false }).reasons).toEqual(["This role requires US citizenship and you are not a US citizen."]);
+    expect(gate({}).reasons).toEqual(["This role requires US citizenship and your profile does not say you are a US citizen."]);
+  });
+
+  it("lets citizens and permanent residents into a U.S.-person job, and no one else", () => {
+    const spec = baseSpec({ citizenshipRequired: true, citizenshipScope: "us_person" });
+    const gate = (US: Record<string, unknown>) => checkGates(spec, profileOf({ workAuth: { US } }));
+    expect(gate({ status: "citizen", citizen: true }).ok).toBe(true);
+    expect(gate({ status: "permanent_resident", citizen: false })).toEqual({ ok: true, reasons: [] });
+    expect(gate({ status: "visa", citizen: false }).reasons).toEqual(["This role is open only to US citizens and permanent residents, and you are neither."]);
+    expect(gate({}).reasons).toEqual(["This role is open only to US citizens and permanent residents, and your profile does not say you are either."]);
+    expect(gate({ status: "other", citizen: false }).reasons).toEqual(["This role is open only to US citizens and permanent residents, and your profile does not say you are either."]);
+  });
+
+  it("reads a spec stored before the scope existed as citizens-only", () => {
+    const old = baseSpec({ citizenshipRequired: true });
+    delete (old as { citizenshipScope?: unknown }).citizenshipScope;
+    expect(checkGates(old, profileOf({ workAuth: { US: { status: "permanent_resident", citizen: false } } })).ok).toBe(false);
   });
 
   it("closes the clearance gate unless the user holds or can obtain one", () => {

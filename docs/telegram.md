@@ -24,6 +24,7 @@ Only private chats that are linked get anything. Any other chat gets one line: c
 
 | Message | When | Buttons |
 |---|---|---|
+| Strong fit | a new job that fits at 0.8 or more, as soon as Nori has prepared it ahead (`strong_fit` run event; see docs/applying.md), while it still waits for the person's OK | Apply, Skip, Details |
 | Daily shortlist | once per local day from `dailyTime` (default 09:00) in `timezone` (default UTC, or the browser's zone at link time); nothing on a day with nothing new | per job: Apply n, Skip n, Details n (link to `/jobs?job=<id>`) |
 | Questions | unanswered pending questions on the user's parked applications that no earlier message asked (30 days) | choice: one button per option; text: Type answer n (or reply to the message); files, multi-select, over 10 options: Answer in the app |
 | Submitted | an application reached `submitted` | Receipt (link to `/applications/<id>`) |
@@ -41,7 +42,7 @@ Events are only announced for things that happened after linking and within the 
 **Quiet hours** (default 22:00 to 08:00 local, can be turned off) hold every message until they end, except urgent ones:
 "needs you" and questions for an application the user already approved (it is waiting to be sent).
 
-Every message has a dedupe key (`digest:2026-11-02`, `submitted:<id>`, `needs_user:<id>:<attempt>:<hash>`, `inbox:<id>`,
+Every message has a dedupe key (`digest:2026-11-02`, `strong_fit:<application id>`, `submitted:<id>`, `needs_user:<id>:<attempt>:<hash>`, `inbox:<id>`,
 `questions:<hash of the newly open questions>`, `summary:<date>`) in `channel_messages`, so a tick that runs twice sends nothing
 twice. Rows older than 90 days are deleted.
 
@@ -54,7 +55,8 @@ twice. Rows older than 90 days are deleted.
     If preparation parks it on questions, the questions message follows and answering resumes it.
   - When the profile has a daily cap above 0 and today's approvals have reached it, Apply refuses and says so. (A cap of 0
     means autopilot is off; manual approvals, from the web or Telegram, are then not limited.)
-- **Skip** dismisses the row (as `POST /api/shortlist/:jobId/dismiss`, other cities of the same role too).
+- **Skip** dismisses the row (as `POST /api/shortlist/:jobId/dismiss`, other cities of the same role too). On a strong-fit
+  alert it also cancels the application Nori prepared ahead (`failed`, "Cancelled by you"; Retry brings it back).
 - **Details** is a plain link to the app.
 - Applied and skipped jobs lose their buttons (`editMessageReplyMarkup`); the toast says what happened.
 
@@ -93,7 +95,7 @@ another user's chat, is answered with an empty toast and does nothing. Question 
 ```json
 { "dailyTime": "09:00", "timezone": "Europe/London", "count": 5, "summaryTime": "20:00",
   "quietHours": { "enabled": true, "start": "22:00", "end": "08:00" },
-  "events": { "digest": true, "questions": true, "submitted": true, "needsUser": true, "inbox": true, "summary": true } }
+  "events": { "digest": true, "questions": true, "submitted": true, "needsUser": true, "inbox": true, "summary": true, "strongFit": true } }
 ```
 
 Stored in `profiles.preferences.telegram` (kept out of the user-facing preferences returned by `/api/me`).

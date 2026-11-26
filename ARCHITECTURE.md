@@ -50,7 +50,7 @@ Package names are `@norinote/<name>`. TypeScript ESM, Node 22, npm workspaces, v
 Shared, written once:
 - `companies` (ats_type, ats_token, name, last_polled_at, blocked)
 - `jobs` (company_id, ats_type, external_id, title, location, remote, description_text, apply_url, posted_at, first_seen_at, last_seen_at, closed_at, dedupe_key)
-- `job_specs` (job_id, version, spec jsonb: must_haves, nice_to_haves, skills with level and years, seniority, role_family, years_min, location rules, citizenship_required, clearance_required, sponsorship: yes/no/unknown, responsibilities; model, created_at)
+- `job_specs` (job_id, version, spec jsonb: must_haves, nice_to_haves, skills with level and years, seniority, role_family, years_min, location rules, citizenship_required, citizenship_scope (citizen, or us_person: citizens and permanent residents; missing reads as citizen), clearance_required, sponsorship: yes/no/unknown, responsibilities; model, created_at)
 - `job_embeddings` (job_id, embedding vector(1536))
 
 Per user:
@@ -83,9 +83,9 @@ Per user:
 |---|---|---|
 | `ingest.poll-board` | schedule, per board every 3 h, oldest first | fetch one board, upsert jobs, close missing ones, enqueue `understand` only for new jobs that fit an enabled lane of some user |
 | `understand.job` | new job that fits a lane, or an unspecced job that fits a user's new lane (`match.user`) | extract `job_specs` with the small model, write `job_embeddings`; at most 4 at once (`UNDERSTAND_CONCURRENCY`). Without the AI service: a heuristic spec (version 0, `model: heuristic`), upgraded later |
-| `match.new-jobs` | after `understand` batches | find users whose lanes and embeddings fit the new jobs; detailed fit; upsert `shortlist` |
+| `match.new-jobs` | after `understand` batches (0.5 s quiet, at most 5 s) | find users whose lanes and embeddings fit the new jobs; detailed fit; upsert `shortlist`; a strong fit (0.8+) for someone with the schedule or Telegram on gets an application and `prepare.application` at once |
 | `match.user` | profile, graph or lanes change | queue `understand` for the user's unspecced lane-fitting jobs, then rebuild the shortlist from the stored index (jobs without an embedding are ranked by skill overlap) |
-| `prepare.application` | job reaches the top of a shortlist, or user queues it | tailor resume, draft answers from the answer bank, mark prepared |
+| `prepare.application` | a new strong fit (see `match.new-jobs`; first in line), a schedule batch, or user queues it | tailor resume, draft answers from the answer bank, mark prepared |
 | `apply.run` | user click (counts as approval) or autopilot within the daily cap | fill and submit with the warm browser pool |
 | `apply.finish` | the person's Finish on applications with one step left (`ready_to_finish`) | one live-view session: fill again, hand the captcha or sign-in to the person, then submit |
 | `inbox.receive` | inbound email webhook (`/api/inbox/webhook/:provider` stores first) | settle ambiguous mail with the small model, relink, record outcomes, wake `awaitVerification`, forward if enabled; a 6-hourly retention sweep deletes mail older than `INBOX_RETENTION_DAYS` (90) |
@@ -98,14 +98,35 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 ## Matching (packages/match)
 
 1. SQL filter: open, posted within 7 days (`MAX_JOB_AGE_HOURS`) (undated jobs only if they appeared after the board's first read), fits an enabled lane (title, location, remote), not blocked, gates pass.
-2. Vector rank: cosine similarity between the user's profile embedding (mean of top career points) and `job_embeddings`, top about 200.
+   Lane locations are places, read with the location parser: a state or country fits jobs inside it, a city fits jobs in
+   that city (other names count both ways: NYC and New York) in the state it names, or in its metro. The SQL filter is a
+   broader prefilter for locations (it does not parse); the exact check runs on its rows before anything is scored or kept.
+   Lane titles match by words after joining compounds (front-end), one stem per role word (engineering, scientist) and
+   spelling out abbreviations (ML, SWE, PM, SRE, QA, UX/UI). The lane's role noun must follow its own modifier in the job
+   title, or be the job title's role noun with no other business function before it ("Product Marketing Manager" is not a
+   "Product Manager"). SQL checks only the words; the role-noun check runs together with the exact location check.
+2. Vector rank: cosine similarity between the user's profile embedding and `job_embeddings`, top about 200. The profile
+   embedding is graph's `profileEmbedding` (a weighted mean of the most recent and substantial career points), the same
+   vector for the daily rebuild and for new-job matching.
 3. Detailed fit: requirement by requirement against career points (exact skill match, embedding similarity, graph links), weighted by the spec; must-haves cap the score.
    Then scaled by function alignment (title and role family against the lanes and recent roles), seniority against the user's
    years in that function, and place; capped for jobs without a description or with only a heuristic spec. Scale: 0.8+ strong,
+   only when every must-have is evidenced, the job is not above the user's level and is their own function (alignment 0.85
+   or more), else held at 0.79 with the gap as a reason;
    0.6 to 0.8 plausible (the default lane minimum is 0.6), 0.45 to 0.6 stretch (the widening floor), under 0.3 irrelevant.
-   Gates also drop remote jobs limited to countries or regions the user cannot work in. Order: lane matches, then widened
+   0.6 (`DEFAULT_MIN_FIT`) is also the starting threshold: onboarding creates the first lane at it, and the Nori threshold
+   ("Recommended", Apply for me) reads as it until the person saves one. 0.45 is only the shortlist widening floor, never
+   an apply threshold.
+   Gates also drop remote jobs limited to countries or regions the user cannot work in. Citizenship gate: the detector
+   (`clearance.ts`) tells "citizens only" from "U.S. person" (ITAR/EAR export control, "citizen or permanent resident",
+   "green card holders and citizens") and the spec stores it as `citizenshipScope`; a citizens-only job needs the user's
+   US `citizen`, a U.S.-person job takes `citizen` or `permanentResident` (from the onboarding status; citizens count),
+   and a profile that states neither fails both. Order: lane matches, then widened
    rows; well-specified jobs first, then fit x confidence plus a small recency bonus.
-4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring.
+4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring. A failure there, or in the
+   outcome nudge, never fails the shortlist; an unexpected one logs one JSON warn line (`match.explain_failed`,
+   `match.outcome_learning_failed`, error class and code only), while over budget and the AI being unavailable stay quiet.
+   `GET /api/shortlist/meta` reports `reading: "basic"` when most listed jobs were read without the AI.
 5. Outcome nudge (`outcome-learning.ts`): after 10 resolved applications, fit moves by at most 0.05 toward role families,
    seniority, job systems and board sizes that got the user replies and away from repeated silence or rejection (age-decayed),
    after gates and the lane minimum; the row says why ("From your replies: ... (+0.02 fit)"). See docs/outcomes.md.

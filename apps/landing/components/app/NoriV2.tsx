@@ -436,6 +436,7 @@ function SetupCard({
                 </p>
                 <p className="text-small text-ink-2">
                   New Recommended jobs go out on their own, within your cap.
+                  Strong fits go as soon as they’re ready.
                   {schedule.nextRunOn
                     ? ` Next: ${runDate(schedule.nextRunOn)}.`
                     : ""}

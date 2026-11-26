@@ -18,6 +18,17 @@ describe("shared contracts", () => {
     expect(JobSpec.safeParse({ ...spec, sponsorship: "maybe" }).success).toBe(false);
   });
 
+  it("reads a job spec stored before the citizenship scope existed as citizens-only", () => {
+    const spec = {
+      mustHaves: [], niceToHaves: [], skills: [], seniority: "mid", roleFamily: "software engineering", yearsMin: null,
+      location: { remote: "onsite", countries: ["US"], cities: [] },
+      citizenshipRequired: true, clearanceRequired: false, sponsorship: "unknown", responsibilities: [],
+    };
+    expect(JobSpec.parse(spec).citizenshipScope).toBe("citizen");
+    expect(JobSpec.parse({ ...spec, citizenshipScope: "us_person" }).citizenshipScope).toBe("us_person");
+    expect(JobSpec.safeParse({ ...spec, citizenshipScope: "anyone" }).success).toBe(false);
+  });
+
   it("bounds fit and min fit to 0..1", () => {
     expect(Lane.safeParse({ id: "1", name: "x", titles: [], locations: [], remote: true, minFit: 1.5, enabled: true }).success).toBe(false);
     expect(ShortlistItem.safeParse({ id: "1", jobId: "2", fit: 0.8, fitMap: [], reasons: [], status: "new", createdAt: "2026-01-01T00:00:00Z" }).success).toBe(true);

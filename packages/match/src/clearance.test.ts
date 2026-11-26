@@ -83,6 +83,35 @@ describe("detectRestrictions", () => {
     expect(detectRestrictions(job("Subject to ITAR export controls; U.S. persons only."))).toMatchObject({ citizenship: true });
   });
 
+  it.each([
+    "Must be a U.S. person as defined by ITAR (citizen or lawful permanent resident).",
+    "Green card holders and US citizens only.",
+    "Must be a US citizen or permanent resident.",
+    "This role is subject to ITAR; applicants must be U.S. persons.",
+    "This position requires access to technology subject to the EAR; applicants must be U.S. persons.",
+    "Candidates must be a U.S. person as defined in the Export Administration Regulations (15 CFR 772.1).",
+    "This position is subject to ITAR.",
+    "Applicants must be US citizens or green card holders.",
+  ])("reads a U.S.-person restriction (citizens and permanent residents): %s", (text) => {
+    expect(detectRestrictions(job(text))).toMatchObject({ citizenship: true, citizenshipScope: "us_person" });
+  });
+
+  it.each([
+    "US citizens only.",
+    "Must be a US citizen.",
+    "Applicants must be U.S. citizens.",
+    "U.S. citizenship is required for this role.",
+    "Due to ITAR, applicants must be US citizens.",
+    "Must be a US citizen; permanent residents are not eligible.",
+  ])("reads a citizens-only restriction: %s", (text) => {
+    expect(detectRestrictions(job(text))).toMatchObject({ citizenship: true, citizenshipScope: "citizen" });
+  });
+
+  it("lets the stricter sentence win when a posting says both", () => {
+    expect(detectRestrictions(job("This role is subject to ITAR. Applicants must be U.S. citizens."))).toMatchObject({ citizenship: true, citizenshipScope: "citizen" });
+    expect(detectRestrictions(job("Build things."))).toMatchObject({ citizenship: false, citizenshipScope: "citizen" });
+  });
+
   it("reports an explicit \"none needed\" only when nothing restricts", () => {
     expect(detectRestrictions(job("We do not require a security clearance."))).toMatchObject({ citizenship: false, clearance: false, clearanceNegated: true, citizenshipNegated: false });
     expect(detectRestrictions(job("We do not require a degree. Must be a U.S. citizen."))).toMatchObject({ citizenship: true, citizenshipNegated: false, clearanceNegated: false });

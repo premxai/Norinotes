@@ -67,8 +67,30 @@ user, url, crawl), `status` (candidate, active, probation, disabled, dead), `las
 - New seeds start as `candidate`; a validation job reads the feed once: jobs found -> `active`; empty -> `active` with low
   priority; not found -> `dead`.
 - 5 consecutive errors or 14 days at zero jobs -> `disabled`, rechecked weekly.
-- `next_poll_at = now + clamp(24h / (1 + new_jobs_7d / 7), 1h, 48h)`, shortened for companies that fit many users'
-  lanes (lane demand), and never sooner than the system's politeness allows.
+- `next_poll_at`: see Polling cadence below.
+
+## Polling cadence
+
+Early applicants get far more interviews, so the boards where people's jobs appear are read most often
+(`pollIntervalMs` in packages/ingest/src/schedule.ts, lane demand in apps/worker/src/demand.ts):
+
+| Board | Read again after |
+|---|---|
+| Its recent jobs fit some user's enabled lane, and it posted at least 3 jobs that fit a lane in the last 7 days | about 1 hour |
+| Its recent jobs fit some user's enabled lane (quiet: fewer than 3 such jobs in 7 days) | about 3 hours |
+| Nobody's lanes fit it | `clamp(24h / (1 + new_jobs_7d / 7), 1h, 48h)` |
+
+- Lane demand is worked out just before each poll: the enabled lanes (of any user, read once per 5 minutes) whose
+  titles match one of the board's 100 most recent open job titles, and how many of the board's jobs from the last
+  7 days (posted, or first seen) match a lane title. A busy board is never read less often because of demand.
+- Politeness stays first. No board is read sooner than its job system allows (Workday, Oracle and iCIMS 6 h, Workable
+  3 h, SmartRecruiters 2 h, the rest 30 minutes), whatever its demand. Per-host limits (`HOST_BOARDS_PER_RUN`,
+  `POLLS_PER_HOST`, Workable 2), robots.txt and Crawl-delay (http.ts), Retry-After and the host back-off apply to every
+  read. Greenhouse, Lever, Ashby, Breezy, Pinpoint, Teamtailor and Personio are read with If-None-Match, so an hourly
+  read of an unchanged board is a 304 with no body.
+- A user waiting on a company (signup, a lane change) still boosts it for 24 hours (`boost_until`), which puts it first
+  in the queue.
+- Each `ingest.poll-board` log line carries `demand`, `matching7d` and `nextPollMinutes`.
 
 Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.ts`):
 

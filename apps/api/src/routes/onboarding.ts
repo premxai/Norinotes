@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq, lanes, profiles, sql } from "@norinote/db";
 import { parseContact } from "@norinote/graph";
 import { assignInboxAddress } from "@norinote/inbox";
+import { DEFAULT_MIN_FIT } from "@norinote/match";
 import { JOBS } from "@norinote/queue";
 import { ensureProfile, requireUser } from "../auth/session.js";
 import { HttpError, parseBody, parseWith } from "../http.js";
@@ -11,9 +12,6 @@ import {
 } from "../profile-model.js";
 import { ingestResume, type IngestResult } from "../resume-ingest.js";
 import { enqueueSoft, limitUser, type AppEnv, type Ctx } from "../types.js";
-
-/** A new person's first search keeps good and plausible fits (0.45 and up), so Today is full from day one; they can raise it. */
-const ONBOARDING_MIN_FIT = 0.45;
 
 const Body = z.object({ step: z.enum(ONBOARDING_STEPS), data: z.record(z.string(), z.unknown()).default({}) });
 const ResumeData = z.object({ text: z.string().min(20, "Paste the full resume text").max(200_000).optional() });
@@ -67,7 +65,10 @@ export function onboardingRoutes(ctx: Ctx): Hono<AppEnv> {
   return r;
 }
 
-/** The last step is saved: the first lane from the preferences, the owned inbox address, and a first shortlist run. */
+/**
+ * The last step is saved: the first lane from the preferences (at `DEFAULT_MIN_FIT`, the same starting threshold Nori
+ * reads until one is saved), the owned inbox address, and a first shortlist run.
+ */
 async function finishOnboarding(ctx: Ctx, userId: string, profile: typeof profiles.$inferSelect): Promise<void> {
   const { db } = ctx;
   const prefs = (profile.preferences ?? {}) as Record<string, unknown>;
@@ -76,7 +77,7 @@ async function finishOnboarding(ctx: Ctx, userId: string, profile: typeof profil
     const locations = Array.isArray(prefs.locations) ? prefs.locations.filter((l): l is string => typeof l === "string") : [];
     const [existing] = await db.select({ n: sql<number>`count(*)::int` }).from(lanes).where(eq(lanes.userId, userId));
     if ((existing?.n ?? 0) === 0) {
-      await db.insert(lanes).values({ userId, name: (titles[0] ?? "My lane").slice(0, 100), titles, locations, remote: prefs.remote !== "no", minFit: ONBOARDING_MIN_FIT, enabled: true });
+      await db.insert(lanes).values({ userId, name: (titles[0] ?? "My lane").slice(0, 100), titles, locations, remote: prefs.remote !== "no", minFit: DEFAULT_MIN_FIT, enabled: true });
     }
   }
   if (ctx.config.inboundEmailDomain) {

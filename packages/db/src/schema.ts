@@ -426,7 +426,7 @@ export const channels = pgTable("channels", {
 }, (t) => [uniqueIndex("channels_user_kind_uq").on(t.userId, t.kind)]);
 
 /** What a `channel_messages` row is: a message for the user, or (`apply_intent`) an Apply tap waiting for its application to be prepared. */
-export type ChannelMessageKind = "digest" | "questions" | "prompt" | "submitted" | "needs_user" | "inbox" | "summary" | "notice" | "apply_intent";
+export type ChannelMessageKind = "digest" | "questions" | "prompt" | "submitted" | "needs_user" | "inbox" | "summary" | "notice" | "apply_intent" | "strong_fit";
 
 /**
  * Outbox and log of Telegram messages (see docs/telegram.md). One row per message per user, deduplicated by `dedupe_key`

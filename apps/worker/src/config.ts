@@ -35,7 +35,7 @@ export type WorkerConfig = {
   codeWaitMs: number;
   /** How often connected Gmail is read for employer replies (GMAIL_REPLY_POLL_MINUTES, default 60). */
   gmailRepliesEveryMs: number;
-  /** Quiet time before understood jobs are matched as one batch, in ms. Default 5 s. */
+  /** Quiet time before understood jobs are matched as one batch, in ms (a batch is never held more than 5 s). Default 0.5 s. */
   matchBatchMs: number;
   /** One small-model sentence for the best matches of a rebuilt shortlist. Default on. */
   explainTop: number;
@@ -78,7 +78,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     batchDrainMs: int(env.BATCH_DRAIN_SECONDS, 30, 0) * 1000,
     batchAts: (env.BATCH_ATS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     engineAts: (env.ENGINE_ATS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
-    matchBatchMs: int(env.MATCH_BATCH_MS, 5000),
+    matchBatchMs: int(env.MATCH_BATCH_MS, 500),
     explainTop: int(env.MATCH_EXPLAIN_TOP, 3),
     jobSweepEveryMs: int(env.JOB_SWEEP_EVERY_MINUTES, 60) * 60_000,
     jobSweepBatch: int(env.JOB_SWEEP_BATCH, 500, 1),

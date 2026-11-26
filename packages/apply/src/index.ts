@@ -40,6 +40,10 @@ export {
   type BatchCounts, type BatchSkip, type BatchView, type DrainStep, type NoriSettings, type StartBatchResult,
 } from "./batch.js";
 export {
+  STRONG_FIT, STRONG_FIT_STEP, autopilotSendsStrongFit, autopilotStrongFit, newStrongFits, prepareStrongFitsAhead,
+  type AutopilotResult, type PrepareAheadResult, type StrongFit,
+} from "./strong-fit.js";
+export {
   DEFAULT_SCHEDULE, WEEKDAYS, getSchedule, isDue, localClock, nextRunOn, readSchedule, runSchedules, saveSchedule,
   type NoriSchedule, type ScheduledRun, type Weekday,
 } from "./schedule.js";

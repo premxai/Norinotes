@@ -231,7 +231,7 @@ export type InboxSettings = { forwardTo: string | null; forwardEnabled: boolean;
 
 // Part 4c: the answers Nori remembered, Telegram and the account (4c spec sections 5 and 6).
 export type BankAnswer = { id: string; questionText: string; answer: string; source: "user" | "default" | "model"; lastUsedAt: string | null };
-export type TelegramEvents = { digest: boolean; questions: boolean; submitted: boolean; needsUser: boolean; inbox: boolean; summary: boolean };
+export type TelegramEvents = { digest: boolean; questions: boolean; submitted: boolean; needsUser: boolean; inbox: boolean; summary: boolean; strongFit: boolean };
 export type TelegramSettings = { dailyTime: string; timezone: string; count: number; summaryTime: string; quietHours: { enabled: boolean; start: string; end: string }; events: TelegramEvents };
 export type TelegramState = { configured: boolean; botUsername: string | null; linked: boolean; linkedAt: string | null; settings: TelegramSettings };
 export type Session = { id: string; current: boolean; device: string; createdAt: string; expiresAt: string };

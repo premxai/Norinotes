@@ -1,9 +1,11 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
-import { MAX_JOB_AGE_HOURS, and, applications, eq, shortlist, sql } from "@norinote/db";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { AiUnavailableError, createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
+import { MAX_JOB_AGE_HOURS, and, applications, eq, queryRows, shortlist, sql } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
+import { profileEmbedding } from "@norinote/graph";
 import { FitMapEntry, isUsPlace } from "@norinote/shared";
-import { laneFitsJob } from "./lanes.js";
+import { inlineLanesFitSql, laneFitsJob, locationMatches, titleMatches } from "./lanes.js";
+import { OUTCOME_REASON_PREFIX } from "./outcomes.js";
 import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
 import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 
@@ -69,10 +71,18 @@ describe("buildShortlist: the SQL filter", () => {
     const lanesInput = [
       { name: "A", titles: ["Product Designer", "UX Designer"], locations: ["New York, NY", "United States"], remote: false },
       { name: "B", titles: ["Senior Data Scientist"], locations: ["Austin, TX"], remote: true },
+      { name: "C", titles: ["Product Designer"], locations: ["California", "Portland, OR", "Washington, DC", "Cambridge, MA"], remote: false },
+      { name: "D", titles: ["Data Analyst"], locations: ["NYC", "SF Bay Area"], remote: false },
+      { name: "E", titles: ["ML Engineer", "Product Manager"], locations: ["United States"], remote: false },
     ];
     for (const l of lanesInput) await seedLane(t.db, userId, l);
-    const titles = ["Product Designer", "Senior UX Designer II", "Designer", "Data Scientist, Growth", "Data Analyst", "Product Design Lead", "Staff Data Scientists"];
-    const places: Array<[string | null, boolean]> = [["New York City", false], ["Remote - US", true], ["Austin, Texas", false], ["Berlin", true], ["Berlin", false], [null, false], ["Chicago, USA", false], ["Denver, CO", true]];
+    const titles = ["Product Designer", "Senior UX Designer II", "Designer", "Data Scientist, Growth", "Data Analyst", "Product Design Lead", "Staff Data Scientists",
+      "Data Science Manager", "Machine Learning Engineer", "Product Marketing Manager", "Senior PM, Growth"];
+    const places: Array<[string | null, boolean]> = [
+      ["New York City", false], ["Remote - US", true], ["Austin, Texas", false], ["Berlin", true], ["Berlin", false], [null, false], ["Chicago, USA", false], ["Denver, CO", true],
+      ["San Francisco, CA", false], ["New York, NY", false], ["Portland, ME", false], ["Portland, Oregon", false], ["Seattle, Washington", false],
+      ["Washington, D.C.", false], ["Cambridge, MA", false], ["Palo Alto, CA", false], ["Jersey City, NJ", false],
+    ];
     const jobsMade: Array<{ id: string; title: string; location: string | null; remote: boolean }> = [];
     for (const title of titles) for (const [location, remote] of places) {
       const id = await seedJob(t.db, { companyId, title: `Theta ${title}`, location, remote, embedText: "designer", spec: baseSpec() });
@@ -84,6 +94,50 @@ describe("buildShortlist: the SQL filter", () => {
     expect(expected.length).toBeGreaterThan(10);
     expect(expected.length).toBeLessThan(jobsMade.length);
     expect(new Set(stats.candidateIds)).toEqual(new Set(expected));
+  });
+
+  it("lets through every job the in-memory location check accepts, and some it then rejects", async () => {
+    const lanePlaces = [
+      "United States", "USA", "US", "California", "CA", "Washington", "Oregon", "Texas", "NYC", "New York, NY", "SF Bay Area", "Bay Area",
+      "San Francisco, CA", "Portland, OR", "Portland, ME", "Washington, DC", "Cambridge, MA", "Boston, MA", "Seattle", "Rome", "London, UK", "Canada",
+    ];
+    const jobPlaces = [
+      "San Francisco, CA", "San Francisco Bay Area", "New York, NY", "NYC - 1211 Ave of the Americas", "Jersey City, NJ", "Portland, ME",
+      "Portland, Oregon", "Seattle, Washington", "Washington, D.C.", "Cambridge, United Kingdom", "Cambridge, MA", "Mountain View, California, United States",
+      "Remote - US", "Austin, Texas", "US-CA-San Jose", "Chicago, USA", "London, UK", "Toronto, Canada", "Zürich, Switzerland", "São Paulo, Brasil",
+      "Jerome, AZ", "Denver, CO", "Remote - Germany", "2 Locations", "Rome, Italy", "Remote - US; Austin, TX", "U.S.A.", "St. Louis, MO",
+    ];
+    const made = new Map<string, string>();
+    for (const place of jobPlaces) made.set(await seedJob(t.db, { companyId, title: "Mu Engineer", location: place, embedText: "mu" }), place);
+    let broader = 0;
+    for (const lane of lanePlaces) {
+      const rows = await queryRows<{ id: string }>(t.db, sql`SELECT id FROM jobs WHERE title = 'Mu Engineer' AND ${inlineLanesFitSql([{ titles: ["Mu Engineer"], locations: [lane], remote: false }])}`);
+      const fromSql = new Set(rows.map((r) => r.id));
+      const exact = [...made].filter(([, place]) => locationMatches(lane, place)).map(([id]) => id);
+      expect(exact.filter((id) => !fromSql.has(id)).map((id) => `${lane} -> ${made.get(id)}`)).toEqual([]);
+      broader += fromSql.size - exact.length;
+    }
+    expect(broader).toBeGreaterThan(0);
+  });
+
+  it("lets through every title the in-memory title check accepts, and some it then rejects", async () => {
+    const laneTitles = ["ML Engineer", "Frontend Engineer", "Data Scientist", "Product Manager", "Account Executive", "SWE", "PM", "UX Designer", "Full-Stack Engineer", "Software Engineer"];
+    const jobTitles = [
+      "Machine Learning Engineer", "Front-End Engineer", "Senior Frontend Engineer", "Data Science Manager", "Senior Data Scientist, Ads",
+      "Product Marketing Manager", "Senior Product Manager, Payments", "Executive Assistant to the Account Director", "Account Executive, Mid-Market",
+      "Software Engineer II", "Software Engineering Manager", "User Experience Designer", "Full Stack Engineer", "Backend Engineer", "AI/ML Engineer",
+    ];
+    const made = new Map<string, string>();
+    for (const title of jobTitles) made.set(await seedJob(t.db, { companyId, title: `Nu ${title}`, location: null }), `Nu ${title}`);
+    let broader = 0;
+    for (const lane of laneTitles) {
+      const rows = await queryRows<{ id: string }>(t.db, sql`SELECT id FROM jobs WHERE title LIKE 'Nu %' AND ${inlineLanesFitSql([{ titles: [lane], locations: [], remote: false }])}`);
+      const fromSql = new Set(rows.map((r) => r.id));
+      const exact = [...made].filter(([, title]) => titleMatches(lane, title)).map(([id]) => id);
+      expect(exact.filter((id) => !fromSql.has(id)).map((id) => `${lane} -> ${made.get(id)}`)).toEqual([]);
+      broader += fromSql.size - exact.length;
+    }
+    expect(broader).toBeGreaterThan(0);
   });
 
   it("skips jobs the user already dismissed, applied to or started", async () => {
@@ -254,6 +308,34 @@ describe("buildShortlist: detailed fit, gates and saving", () => {
     expect(citizens && lowFit).toBeTruthy();
   });
 
+  it("re-checks old rows against the lane minimum with the raw fit, so an outcome nudge never removes a row", async () => {
+    const { userId, laneId, job } = await setup();
+    await t.db.execute(sql`UPDATE lanes SET min_fit = 0.6 WHERE id = ${laneId}`);
+    const best = await job("Lambda Engineer", baseSpec({ mustHaves: ["TypeScript"] }));
+    // Neither is a candidate this run (no spec, no embedding), so both fall outside its rows and are re-checked.
+    const nudged = await job("Lambda Engineer, Tools", baseSpec(), { spec: undefined, embedText: undefined });
+    const plain = await job("Lambda Engineer, Infra", baseSpec(), { spec: undefined, embedText: undefined });
+    await saveShortlistRows(t.db, userId, [
+      { jobId: nudged, fit: 0.58, fitMap: [], reasons: ["Fits", `${OUTCOME_REASON_PREFIX}0 of 4 data analysis applications led to a reply or interview, against 5 of 12 overall (-0.03 fit)`] },
+      { jobId: plain, fit: 0.58, fitMap: [], reasons: ["Fits"] },
+    ]);
+
+    await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript postgresql backend services"), now: NOW });
+    const left = (await rowsOf(userId)).map((r) => r.jobId);
+    expect(left.sort()).toEqual([best, nudged].sort());
+  });
+
+  it("a rebuild removes a row the SQL filter lets through but the exact lane location rejects", async () => {
+    const { userId, laneId, job } = await setup();
+    await t.db.execute(sql`UPDATE lanes SET locations = ARRAY['Portland, OR']::text[] WHERE id = ${laneId}`);
+    const oregon = await job("Lambda Engineer", baseSpec(), { location: "Portland, Oregon" });
+    const maine = await job("Lambda Engineer, Tools", baseSpec(), { location: "Portland, ME" });
+    await saveShortlistRows(t.db, userId, [{ jobId: maine, fit: 0.9, fitMap: [], reasons: [] }]);
+    const stats = await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript postgresql backend services"), now: NOW });
+    expect(stats.candidateIds).toEqual([oregon]);
+    expect((await rowsOf(userId)).map((r) => r.jobId)).toEqual([oregon]);
+  });
+
   it("saveShortlistRows itself leaves dismissed and applied rows alone even when asked to overwrite them", async () => {
     const userId = await seedUser(t.db);
     const mk = () => seedJob(t.db, { companyId, title: "Rho Engineer" });
@@ -300,6 +382,28 @@ describe("buildShortlist: detailed fit, gates and saving", () => {
     const stats = await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript"), now: NOW, explain: {} });
     expect(stats.saved).toBe(1);
     expect(stats.items[0]!.reasons[0]).toMatch(/^Strong evidence for TypeScript/);
+  });
+  it("logs one warn line when the explanation fails unexpectedly, and none when the AI service is unavailable", async () => {
+    const { userId, job } = await setup();
+    await job("Lambda Engineer", baseSpec({ mustHaves: ["TypeScript"] }));
+    await job("Lambda Engineer, Two", baseSpec({ mustHaves: ["TypeScript"] }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const events = () => warn.mock.calls.map((c) => String(c[0])).filter((l) => l.includes("match.explain_failed"));
+    const embedOk = async (r: { texts: string[] }) => ({ vectors: r.texts.map((x) => fakeEmbedding(x)), promptTokens: 1 });
+    try {
+      setProvider({ name: "buggy", chat: () => Promise.reject(new TypeError("x is undefined")), embed: embedOk });
+      const stats = await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript"), now: NOW, explain: { top: 2 } });
+      expect(stats.saved).toBe(2);
+      expect(events()).toHaveLength(1);
+      expect(JSON.parse(events()[0]!)).toMatchObject({ level: "warn", event: "match.explain_failed", error: "TypeError" });
+
+      warn.mockClear();
+      setProvider({ name: "down", chat: () => Promise.reject(new AiUnavailableError("server", 503)), embed: embedOk });
+      expect((await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript"), now: NOW, explain: { top: 2 } })).saved).toBe(2);
+      expect(events()).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
@@ -361,6 +465,24 @@ describe("matchNewJobs", () => {
     expect(r.lanePairs).toBe(2);
     expect(r.perUser[userId]!.gated.map((g) => g.jobId)).toEqual([noSponsor]);
     expect((await rowsOf(userId)).map((x) => [x.jobId, x.status]).sort()).toEqual([[dismissed, "dismissed"], [ok, "new"]].sort());
+  });
+
+  it("compares with graph's weighted profile vector, the one buildShortlist gets", async () => {
+    const userId = await seedUser(t.db);
+    await seedLane(t.db, userId, { titles: ["Kappa Engineer"], locations: [], minFit: 0.1 });
+    const role = { title: "Backend Engineer", start: "2022-01", skills: ["TypeScript"], text: "built typescript services and apis for payments, owned the on-call rotation and the release process" };
+    await seedPoint(t.db, userId, role);
+    // Old, short and of a light kind: the weighted vector barely counts it, a plain mean would count it as much as the role.
+    await seedPoint(t.db, userId, { kind: "education", title: "Marine Biology", start: "2004-09", end: "2008-06", text: "coral reef fieldwork" });
+    const jobText = `${role.title} ${role.text} ${role.skills.join(" ")}`;
+    const jobId = await seedJob(t.db, { companyId, title: "Kappa Engineer", spec: baseSpec({ mustHaves: ["TypeScript"] }), embedText: jobText });
+
+    const weighted = (await profileEmbedding(t.db, userId, NOW))!;
+    const expected = weighted.reduce((s, x, i) => s + x * fakeEmbedding(jobText)[i]!, 0);
+    expect(expected).toBeGreaterThan(0.95);
+    const result = await matchNewJobs(t.db, [jobId], { now: NOW, minSimilarity: 0.9 });
+    expect(result.pairsFitted).toBe(1);
+    expect(result.perUser[userId]!.items[0]!.similarity).toBeCloseTo(expected, 3);
   });
 
   it("does nothing for an empty batch", async () => {

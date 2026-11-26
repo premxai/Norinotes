@@ -31,6 +31,7 @@ export const SENIORITIES = ["intern", "entry", "mid", "senior", "staff", "princi
 export const SKILL_LEVELS = ["basic", "working", "advanced", "expert"] as const;
 export const SPONSORSHIP = ["yes", "no", "unknown"] as const;
 export const REMOTE_RULES = ["remote", "hybrid", "onsite", "unknown"] as const;
+export const CITIZENSHIP_SCOPES = ["citizen", "us_person"] as const;
 
 /**
  * What a job asks for, extracted once per job by the small model. Optional values are nullable (never missing) so the
@@ -54,6 +55,11 @@ export const JobSpec = z.object({
     cities: z.array(z.string()),
   }),
   citizenshipRequired: z.boolean(),
+  /**
+   * Who meets `citizenshipRequired`: "citizen" (US citizens only) or "us_person" (citizens and lawful permanent residents,
+   * the ITAR/EAR export-control "U.S. person"). Specs stored before this field existed read as "citizen".
+   */
+  citizenshipScope: z.enum(CITIZENSHIP_SCOPES).default("citizen"),
   clearanceRequired: z.boolean(),
   sponsorship: z.enum(SPONSORSHIP),
   responsibilities: z.array(z.string()),
@@ -61,7 +67,8 @@ export const JobSpec = z.object({
   requirementWeights: z.record(z.string(), z.number()).default({}),
 });
 /**
- * The input type, so `requirementWeights` may be left out when building one by hand (it defaults to `{}` when parsed).
- * Anything read from the database should go through `JobSpec.parse`, or use `spec.requirementWeights ?? {}`.
+ * The input type, so `requirementWeights` and `citizenshipScope` may be left out when building one by hand (they default to
+ * `{}` and "citizen" when parsed). Anything read from the database should go through `JobSpec.parse`, or use
+ * `spec.requirementWeights ?? {}` and `spec.citizenshipScope ?? "citizen"`.
  */
 export type JobSpec = z.input<typeof JobSpec>;

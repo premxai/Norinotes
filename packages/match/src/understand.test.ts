@@ -5,6 +5,7 @@ import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { JobSpec } from "@norinote/shared";
 import { SPEC_VERSION, finalizeSpec, jobEmbeddingText, understandJob, type JobSpecModelOutput } from "./understand.js";
 import { seedCompany, seedJob } from "./test-helpers.js";
+import { heuristicSpec } from "./heuristic-spec.js";
 
 let t: TestDb;
 let companyId: string;
@@ -146,6 +147,17 @@ describe("understandJob", () => {
     expect(finalizeSpec(modelOutput({ sponsorship: "unknown" }), job(sponsorWords)).sponsorship).toBe("yes");
     expect(finalizeSpec(modelOutput({ sponsorship: "no" }), job("We are not able to sponsor visas.")).sponsorship).toBe("no");
     expect(finalizeSpec(modelOutput({ sponsorship: "yes" }), job("We're not able to offer visa sponsorship at this time.")).sponsorship).toBe("no");
+  });
+
+  it("stores whether permanent residents meet the citizenship restriction, from the model and the heuristic path", () => {
+    const job = (descriptionText: string) => ({ title: "Software Engineer", descriptionText, remote: false, location: null });
+    const usPerson = "Must be a U.S. person as defined by ITAR (citizen or lawful permanent resident).";
+    expect(finalizeSpec(modelOutput({ citizenshipRequired: true }), job(usPerson))).toMatchObject({ citizenshipRequired: true, citizenshipScope: "us_person" });
+    expect(finalizeSpec(modelOutput(), job("US citizens only."))).toMatchObject({ citizenshipRequired: true, citizenshipScope: "citizen" });
+    expect(finalizeSpec(modelOutput({ citizenshipRequired: true }), job("Great team."))).toMatchObject({ citizenshipRequired: true, citizenshipScope: "citizen" });
+    expect(heuristicSpec(job(usPerson))).toMatchObject({ citizenshipRequired: true, citizenshipScope: "us_person" });
+    expect(heuristicSpec(job("Green card holders and US citizens only."))).toMatchObject({ citizenshipRequired: true, citizenshipScope: "us_person" });
+    expect(heuristicSpec(job("Must be a US citizen."))).toMatchObject({ citizenshipRequired: true, citizenshipScope: "citizen" });
   });
 
   it("finds a restriction that only shows in the title or a must-have", async () => {

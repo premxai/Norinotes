@@ -11,9 +11,9 @@ const lane = (over: Record<string, unknown> = {}) => ({ name: "Engineer", titles
 describe("one threshold and one skip list", () => {
   it("reads the threshold from the roles until it is saved, then sets every role to it", async () => {
     const { cookie, user } = await api.signup("threshold@example.com");
-    // A role saved without minFit takes the threshold (0.7 by default).
+    // A role saved without minFit takes the threshold (0.6 by default).
     await api.call("PUT", "/api/lanes", { cookie, body: [lane()] });
-    expect((await api.call("GET", "/api/lanes", { cookie })).json[0].minFit).toBe(0.7);
+    expect((await api.call("GET", "/api/lanes", { cookie })).json[0].minFit).toBe(0.6);
     await api.db.update(lanes).set({ minFit: 0.45 }).where(eq(lanes.userId, user.id));
     expect((await api.call("GET", "/api/nori/settings", { cookie })).json.settings.minFit).toBe(0.45);
 

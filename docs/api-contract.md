@@ -15,7 +15,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 ## Onboarding and profile
 - GET `/api/onboarding`; PUT `/api/onboarding` with body `{ step, data }`, steps: resume, contact, authorization,
   screening, preferences. Finishing creates a first lane from the preferences. The authorization step needs
-  `workAuth.status`; without it the PUT returns 400 "Choose your work status".
+  `workAuth.status`; without it the PUT returns 400 "Choose your work status". The status (citizen, permanent_resident,
+  visa, other) is what the matching gates and form answers read for citizenship and permanent residence; being
+  authorised to work says neither.
 - GET `/api/me`, PUT `/api/profile`. `autoApplyDailyCap` (0 to 100) is the daily limit: applications approved per UTC
   day, by any channel; 0 = no limit.
 - POST `/api/profile/resume` (pasted text), POST `/api/profile/resume-file` (upload)
@@ -80,6 +82,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   (a save is a bookmark: it does not add the job to the other lists, unlike a job added by link). GET
   `/api/jobs/locations` returns `{ locations: [{ name, count }] }`, the 30 most common open-job locations.
   `job.requirements.responsibilities` is the full list of what the job involves ("What you'll do").
+  `job.requirements.disqualifiers` says "Requires US citizenship" for a citizens-only job and "Requires US citizenship
+  or permanent residency" for a U.S.-person job (ITAR/EAR export control, "green card holders and citizens").
 
 ## Companies people ask for
 - POST `/api/companies` with `{ query }` (a company name, or a link: its board or its own careers page; 2 to 2000
@@ -99,6 +103,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 ## Shortlist
 - GET `/api/shortlist` returning
   `[{ id, jobId, fit, reasons, status, createdAt, job: { id, companyName, companyLogoUrl, title, location, remote, applyUrl, postedAt } }]`
+- GET `/api/shortlist/meta` returning `{ total, widened, lanesMatched, poolUsed, reading }` for the list's banner. `reading` is
+  `"basic"` when more than half of the listed roles were read without the AI (only a rule-based job spec, no job
+  embedding, or no embedded career points, so they were ranked by skill overlap), else `"full"` (also for an empty list).
+  The dashboard can show a plain note for `"basic"`, e.g. "Your matches are using basic reading right now".
 - POST `/api/shortlist/:jobId/dismiss`
 
 ## Applications
@@ -170,7 +178,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, skipCompanies, dailyLimit
   (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
   - `minFit` (0-1) is THE threshold: "Recommended" (`GET /api/jobs?view=best&minScore=<minFit>`), the "All strong"
-    shortcut and the roles. Until it is saved it reads as the lowest of the enabled roles' minFit (0.7 with none).
+    shortcut and the roles. Until it is saved it reads as the lowest of the enabled roles' minFit (0.6 with none;
+    onboarding creates the first role at 0.6).
     Saving it sets every role's minFit to it and re-runs matching.
   - `skipCompanies` (up to 1000 names) is THE skip list, the same as `profile.preferences.excludeCompanies`: saving
     either changes both. Matching leaves those companies out of the shortlist, Today hides them, batches skip them
@@ -218,7 +227,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   date it runs (null when off or paused). On a chosen day, within the hour after `time`, the worker starts one "Apply
   for me" batch of new Recommended jobs (as many as today's limit still allows, Greenhouse only for now) and marks the
   day as run; the batch summary goes out like any batch's. The chat can turn it on (`schedule_on`) and pause it
-  (`schedule_off`), each undoable.
+  (`schedule_off`), each undoable. While it is on and not paused, a new strong fit (0.8+) is also sent as soon as Nori has
+  prepared it, any day and time, within the same daily limit (see docs/applying.md); its run log has an `autopilot` event.
 - A Greenhouse job whose form lives on the company's own site (Greenhouse's page redirects there) is prepared as usual;
   at the click Nori follows the posting to the form (docs/applying.md). When it leads to a form of the company's own
   or another job system Nori doesn't fill, the application shows with
@@ -253,7 +263,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   401 bad signature, 413 too large. See docs/inbox.md
 - POST `/api/inbound/email` (older webhook, shared secret, any shape; kept for compatibility)
 - GET `/api/channels/telegram` returning `{ configured, botUsername, linked, linkedAt, settings: { dailyTime, timezone, count,
-  summaryTime, quietHours: { enabled, start, end }, events: { digest, questions, submitted, needsUser, inbox, summary } } }`;
+  summaryTime, quietHours: { enabled, start, end }, events: { digest, questions, submitted, needsUser, inbox, summary, strongFit } } }` (`strongFit`, default on:
+  a strong fit as soon as Nori prepared it, with Apply and Skip; turning it off also stops Nori preparing strong fits ahead
+  unless the schedule is on);
   PUT `/api/channels/telegram` with any subset of `settings` (same response; 400 on a bad time or zone); DELETE
   `/api/channels/telegram` returning `{ ok, linked: false }`; POST `/api/channels/telegram/link` (optional `{ timezone }`, the
   browser's zone) returning `{ code, expiresAt, botUsername, link }` (`link` is `https://t.me/<bot>?start=<code>`, single use,

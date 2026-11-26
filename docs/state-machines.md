@@ -27,7 +27,9 @@ Change a machine here first, then in code.
   - `batchId`: the batch drain sends it when its spacing slot comes.
   - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` / `captchaHeld` decide whether a re-run could duplicate an application. `submitClicked` is written, and the write confirmed, before every submit click; no confirmed write, no click.
 - **Recovery:** the worker's drain loop re-queues `preparing` / `applying` / `awaiting_code` rows untouched for 25 minutes (`staleRuns`). A row whose submit may already have been clicked is never re-sent; it goes to `needs_user`.
-- **Who sends:** the prepare consumer sends approved applications (batch or not); the batch drain sends the batch's prepared, unapproved ones. The API's `sendsOnItsOwn` tells the UI which ones go out without another OK.
+- **Who sends:** the prepare consumer sends approved applications (batch or not), and, when the person's schedule is on and
+  not paused, a strong fit Nori prepared ahead (`autopilotStrongFit`: daily limit counted atomically by `approveAndSubmit`,
+  no company applied to in 60 days, skip list, `BATCH_ATS`; the decision is `autopilotSendsStrongFit`); the batch drain sends the batch's prepared, unapproved ones. The API's `sendsOnItsOwn` tells the UI which ones go out without another OK.
 
 ## Apply batches (`apply_batches.status`)
 
@@ -45,7 +47,9 @@ Change a machine here first, then in code.
 
 ## Shortlist (`shortlist.status`)
 
-`new → dismissed | applied`, never back. Creating any application marks the row `applied`. A full rebuild re-checks older `new` rows against the person's current roles, gates, skip list and minimum fit, and removes those that fail.
+`new → dismissed | applied`, never back. Creating any application marks the row `applied`, including one Nori creates to
+prepare a new strong fit (0.8+) ahead for a person with the schedule or the Telegram strong-fit alert on (run event
+`strong_fit`). Skip on that alert cancels the application (`failed`, "Cancelled by you"). A full rebuild re-checks older `new` rows against the person's current roles, gates, skip list and minimum fit, and removes those that fail.
 
 ## Telegram outbox (`channel_messages.status`)
 

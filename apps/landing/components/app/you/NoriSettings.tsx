@@ -411,6 +411,7 @@ function Answers({ initial }: { initial: BankAnswer[] | string }) {
 
 const EVENTS: [keyof TelegramEvents, string][] = [
   ["digest", "Morning list"],
+  ["strongFit", "Strong fits, as soon as they’re ready"],
   ["questions", "Questions from Nori"],
   ["submitted", "Sent applications"],
   ["needsUser", "When Nori needs you"],

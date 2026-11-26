@@ -37,11 +37,12 @@ describe("createDemandCounter", () => {
     const [u] = await t.db.insert(users).values({ email: `d${n++}@example.test`, passwordHash: "x" }).returning();
     await t.db.insert(lanes).values({ userId: u!.id, name: titles[0]!, titles, locations: [], remote: true, enabled });
   }
-  async function board(titles: Array<[string, boolean]>) {
+  async function board(titles: Array<[string, boolean, Date?]>) {
     const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: `c${n++}`, name: "Co" }).returning();
-    for (const [title, closed] of titles) {
+    for (const [title, closed, postedAt] of titles) {
       await t.db.insert(jobs).values({
         companyId: c!.id, atsType: "greenhouse", externalId: `e${n++}`, title, applyUrl: "https://x.test", dedupeKey: `d${n}`, closedAt: closed ? NOW : null,
+        postedAt: postedAt ?? null, firstSeenAt: NOW,
       });
     }
     return c!.id;
@@ -54,24 +55,32 @@ describe("createDemandCounter", () => {
     await lane(["Designer"]);
     const id = await board([["Senior Backend Engineer", false], ["Marketing Manager", false], ["Designer", true]]);
     const demand = createDemandCounter(t.db, () => NOW);
-    expect(await demand(id)).toBe(2);
+    expect(await demand(id)).toEqual({ lanes: 2, matching7d: 1 });
+  });
+
+  it("counts the jobs from the last 7 days whose title matches an enabled lane", async () => {
+    await lane(["Backend Engineer"]);
+    const old = new Date(NOW.getTime() - 10 * 86_400_000);
+    const recent = new Date(NOW.getTime() - 2 * 86_400_000);
+    const id = await board([["Backend Engineer", false, recent], ["Senior Backend Engineer", false, recent], ["Backend Engineer II", false, old], ["Cook", false, recent], ["Backend Engineer III", true, recent]]);
+    expect(await createDemandCounter(t.db, () => NOW)(id)).toEqual({ lanes: 1, matching7d: 2 });
   });
 
   it("is 0 for a company with no jobs yet, and when nobody has a lane", async () => {
     const empty = await board([]);
-    expect(await createDemandCounter(t.db, () => NOW)(empty)).toBe(0);
+    expect(await createDemandCounter(t.db, () => NOW)(empty)).toEqual({ lanes: 0, matching7d: 0 });
     await lane(["Backend Engineer"]);
-    expect(await createDemandCounter(t.db, () => NOW)(empty)).toBe(0);
+    expect(await createDemandCounter(t.db, () => NOW)(empty)).toEqual({ lanes: 0, matching7d: 0 });
   });
 
   it("reads lanes once per five minutes", async () => {
     const id = await board([["Backend Engineer", false]]);
     let now = NOW;
     const demand = createDemandCounter(t.db, () => now);
-    expect(await demand(id)).toBe(0);
+    expect((await demand(id)).lanes).toBe(0);
     await lane(["Backend Engineer"]);
-    expect(await demand(id)).toBe(0); // cached
+    expect((await demand(id)).lanes).toBe(0); // cached
     now = new Date(NOW.getTime() + 6 * 60_000);
-    expect(await demand(id)).toBe(1);
+    expect((await demand(id)).lanes).toBe(1);
   });
 });

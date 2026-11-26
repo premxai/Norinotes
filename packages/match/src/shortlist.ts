@@ -2,20 +2,23 @@ import { z } from "zod";
 import type { SQL } from "drizzle-orm";
 import { AiUnavailableError, complete, embed } from "@norinote/ai";
 import {
-  and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
+  and, applications, asc, careerPointEmbeddings, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
   MAX_JOB_AGE_HOURS, notInArray, or, shortlist, sql, type Db,
 } from "@norinote/db";
+import { profileEmbedding } from "@norinote/graph";
 import { isSkippedCompany } from "@norinote/shared";
 import { matchTargetOf, widenedTooFar, type MatchTarget } from "./alignment.js";
 import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitMapItem, type QualityLevel } from "./fit.js";
 import { checkGates } from "./gates.js";
 import { heuristicSpec } from "./heuristic-spec.js";
 import { engineJobSql } from "./engine.js";
-import { inlineLanesFitSql, laneFitsSql, locationFitsSql, matchingLanes } from "./lanes.js";
+import { inlineLanesFitSql, laneFitsSql, locationFits, locationFitsSql, matchingLanes, type JobLike, type LaneLike } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
+import { warnSwallowed } from "./log.js";
 import { applyOutcomeLearning } from "./outcome-learning.js";
+import { rawFitOf } from "./outcomes.js";
 import { placeFactor } from "./location.js";
-import { loadMatchProfile, meanProfileEmbedding, type MatchProfile } from "./profile.js";
+import { loadMatchProfile, type MatchProfile } from "./profile.js";
 import { rolePool } from "./roles.js";
 import { DEFAULT_SKILL_MAP, type SkillMap } from "./skills.js";
 import { SPEC_VERSION, type StoredJobSpec } from "./understand.js";
@@ -53,7 +56,7 @@ export type MatchOptions = {
 
 export type BuildShortlistOptions = MatchOptions & {
   /**
-   * Mean of the user's top career point embeddings (graph exports `profileEmbedding`). Null when the user has none (the AI
+   * The user's profile vector: graph's `profileEmbedding`, the same one matchNewJobs uses. Null when the user has none (the AI
    * service was unavailable): every job is then ranked by skill overlap instead of vector similarity.
    */
   profileEmbedding: number[] | null;
@@ -201,6 +204,24 @@ async function loadSpecs(db: Db, jobIds: readonly string[]): Promise<Map<string,
   return out;
 }
 
+/** Whether a person's listed jobs were read with the AI (`full`) or mostly without it (`basic`). */
+export type ShortlistReading = "full" | "basic";
+
+/**
+ * How the listed jobs were read, from stored data: a job counts as read without the AI when its newest spec is heuristic
+ * (or it has none), or it has no embedding, or the person has no embedded career points (both rank by skill overlap
+ * then). `basic` when more than half of the jobs were read that way; an empty list is `full`.
+ */
+export async function shortlistReading(db: Db, userId: string, jobIds: readonly string[]): Promise<ShortlistReading> {
+  if (jobIds.length === 0) return "full";
+  const [embedded] = await db.select({ id: careerPointEmbeddings.careerPointId }).from(careerPointEmbeddings).where(eq(careerPointEmbeddings.userId, userId)).limit(1);
+  if (!embedded) return "basic";
+  const specs = await loadSpecs(db, jobIds);
+  const withEmbedding = new Set((await db.select({ jobId: jobEmbeddings.jobId }).from(jobEmbeddings).where(inArray(jobEmbeddings.jobId, [...jobIds]))).map((r) => r.jobId));
+  const basic = jobIds.filter((id) => !withEmbedding.has(id) || (specs.get(id)?.heuristic ?? true)).length;
+  return basic * 2 > jobIds.length ? "basic" : "full";
+}
+
 // ---- ranking ----------------------------------------------------------------------------------------------------------
 
 /** At most this much is added to the ranking key of a job posted just now, nothing at the 7-day limit (`MAX_JOB_AGE_HOURS`), so newer jobs rank a little higher. */
@@ -236,8 +257,9 @@ async function explainTop(db: Db, profile: MatchProfile, items: Array<ShortlistC
       const res = await complete({ tier: "small", system: WHY_SYSTEM, prefix, input, schema: Why, schemaName: "why_fits", strict: true, userId: profile.userId, db, maxOutputTokens: 80 });
       const line = res.output.line.replace(/\s+/g, " ").trim().slice(0, 240);
       if (line && line !== "fake") item.reasons = [line, ...item.reasons].slice(0, 3);
-    } catch {
+    } catch (err) {
       // Over budget or a model error: the deterministic reasons stand.
+      warnSwallowed("match.explain_failed", err);
       return;
     }
   }
@@ -442,8 +464,9 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
     }));
   };
   const maxRows = opts.limit ?? 20;
+  const fits = (c: JobLike) => fitsLanesExactly(profile.lanes, c, !!engine);
   let page = await vectorPage(0);
-  const candidates: CandidateJob[] = [...page, ...await lexicalCandidates(db, profile, fitsUser, opts, limit)];
+  const candidates: CandidateJob[] = [...page, ...await lexicalCandidates(db, profile, fitsUser, opts, limit)].filter(fits);
   const base = await scoreCandidates(db, profile, candidates, opts);
   // Many lane jobs but most of a full page rejected (a new grad among senior roles): read the next pages before widening.
   const mostlyRejected = (r: ScoreResult, n: number) => r.gated.length + r.belowMinFit >= n / 2;
@@ -452,10 +475,11 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
   for (let pages = 1; base.scored.length < maxRows && page.length === limit && mostlyRejected(last, lastN) && pages < LANE_PAGES; pages++) {
     page = await vectorPage(pages * limit);
     if (page.length === 0) break;
-    candidates.push(...page);
-    const more = await scoreCandidates(db, profile, page, opts);
+    const fitting = page.filter(fits);
+    candidates.push(...fitting);
+    const more = await scoreCandidates(db, profile, fitting, opts);
     last = more;
-    lastN = page.length;
+    lastN = fitting.length;
     base.scored = [...base.scored, ...more.scored].sort(byRank);
     base.gated.push(...more.gated);
     base.belowMinFitIds.push(...more.belowMinFitIds);
@@ -597,6 +621,14 @@ function widenCandidate(r: WidenRow): CandidateJob {
   };
 }
 
+/**
+ * The exact lane check on rows the SQL lane filter let through (that filter is broader on locations, see `locationFitsSql`):
+ * some lane fits the job by title and location, or, in the engine scope, by location alone.
+ */
+function fitsLanesExactly(lanesOfUser: readonly LaneLike[], job: JobLike, engine: boolean): boolean {
+  return engine ? lanesOfUser.some((l) => l.enabled !== false && locationFits(l, job)) : matchingLanes(lanesOfUser, job).length > 0;
+}
+
 /** Widened rows from an earlier run that this run did not choose again: the lanes may match by now, or the jobs are gone. */
 async function removeStaleWidened(db: Db, userId: string, keepJobIds: readonly string[]): Promise<void> {
   await db.delete(shortlist).where(and(
@@ -611,12 +643,13 @@ async function removeStaleWidened(db: Db, userId: string, keepJobIds: readonly s
  * New rows from earlier runs that this run did not save are checked again against the person's lanes, gates and lane
  * minimum as they are now: an early run (the resume step of onboarding) may have used a temporary lane before lanes or
  * work authorisation existed, and later runs only add rows. A row that fails is removed; a row that still passes stays,
- * even when it fell outside this run's top rows. Rows the person acted on, and jobs no longer fresh, are left alone.
+ * even when it fell outside this run's top rows. The lane minimum is checked against the raw fit: an outcome nudge never
+ * removes a row. Rows the person acted on, and jobs no longer fresh, are left alone.
  */
 async function removeStaleRows(db: Db, profile: MatchProfile, laneFilter: SQL, engine: SQL | undefined, keepJobIds: readonly string[], now: Date): Promise<void> {
   const rows = await db
     .select({
-      jobId: shortlist.jobId, fit: shortlist.fit, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name,
+      jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name,
       fitsLanes: sql<boolean>`${laneFilter}`,
     })
     .from(shortlist)
@@ -636,7 +669,7 @@ async function removeStaleRows(db: Db, profile: MatchProfile, laneFilter: SQL, e
     const fitLanes = matchingLanes(profile.lanes, job);
     const minFit = Math.min(...(fitLanes.length > 0 ? fitLanes : profile.lanes).map((l) => l.minFit), 1);
     const skipped = profile.skipCompanies ? isSkippedCompany(profile.skipCompanies, r.companyName) : false;
-    if (!r.fitsLanes || skipped || r.fit < minFit || (spec && !checkGates(spec, profile, job, { now }).ok)) stale.push(r.jobId);
+    if (!r.fitsLanes || !fitsLanesExactly(profile.lanes, job, !!engine) || skipped || rawFitOf(r.fit, r.reasons) < minFit || (spec && !checkGates(spec, profile, job, { now }).ok)) stale.push(r.jobId);
   }
   if (stale.length === 0) return;
   await db.delete(shortlist).where(and(eq(shortlist.userId, profile.userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, stale)));
@@ -741,10 +774,14 @@ export async function matchNewJobs(db: Db, jobIds: readonly string[], opts: Matc
 
   const minSimilarity = opts.minSimilarity ?? 0.2;
   const skills = opts.skills ?? DEFAULT_SKILL_MAP;
-  for (const [userId, userPairs] of byUser) {
-    const vec = await meanProfileEmbedding(db, userId);
+  const engine = !!engineJobSql(opts.engineAts);
+  for (const [userId, sqlPairs] of byUser) {
+    const vec = await profileEmbedding(db, userId, opts.now);
     const profile = await loadMatchProfile(db, userId, opts.now, opts.skills);
     if (!vec && profile.points.length === 0) continue;
+    const userPairs = sqlPairs.filter((p) => fitsLanesExactly(profile.lanes, p, engine));
+    result.lanePairs -= sqlPairs.length - userPairs.length;
+    if (userPairs.length === 0) continue;
     result.usersEvaluated++;
 
     // Cosine similarity where both sides have an embedding.

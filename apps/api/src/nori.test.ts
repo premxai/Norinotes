@@ -15,9 +15,9 @@ describe("the Nori page API", () => {
   afterAll(() => api.close());
 
   it("reads and saves how Nori works for the person", async () => {
-    expect((await api.call("GET", "/api/nori/settings", { cookie })).json).toEqual({ settings: { spacingMinutes: 4, minFit: 0.7, skipCompanies: [], dailyLimit: 20 } });
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json).toEqual({ settings: { spacingMinutes: 4, minFit: 0.6, skipCompanies: [], dailyLimit: 20 } });
     const put = await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 6, skipCompanies: ["Acme"], dailyLimit: 12 } });
-    expect(put.json).toEqual({ settings: { spacingMinutes: 6, minFit: 0.7, skipCompanies: ["Acme"], dailyLimit: 12 } });
+    expect(put.json).toEqual({ settings: { spacingMinutes: 6, minFit: 0.6, skipCompanies: ["Acme"], dailyLimit: 12 } });
     expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 0 } })).status).toBe(400);
     expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { surprise: true } })).status).toBe(400);
   });

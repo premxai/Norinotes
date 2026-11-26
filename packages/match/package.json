@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@norinote/db": "*",
+    "@norinote/graph": "*",
     "@norinote/shared": "*",
     "@norinote/ai": "*",
     "drizzle-orm": "^0.45.4",
