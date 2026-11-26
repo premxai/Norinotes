@@ -212,6 +212,9 @@ describe("understand on demand: a lane change reads the backlog", () => {
   it("a run waits 8 minutes for an emailed or typed code unless CODE_WAIT_MINUTES says otherwise", () => {
     expect(loadConfig({}).codeWaitMs).toBe(8 * 60_000);
     expect(loadConfig({ CODE_WAIT_MINUTES: "3" }).codeWaitMs).toBe(3 * 60_000);
+    expect(loadConfig({}).gmailRepliesEveryMs).toBe(60 * 60_000);
+    expect(loadConfig({ GMAIL_REPLY_POLL_MINUTES: "15" }).gmailRepliesEveryMs).toBe(15 * 60_000);
+    expect(loadConfig({ GMAIL_REPLY_POLL_MINUTES: "1" }).gmailRepliesEveryMs).toBe(60 * 60_000);
   });
 
   it("understand concurrency comes from UNDERSTAND_CONCURRENCY and defaults to 4", () => {

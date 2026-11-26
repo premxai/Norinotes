@@ -10,7 +10,7 @@ history, summary), `packages/match/src/outcome-learning.ts` (the nudge), `apps/a
 | What happened | Where it comes from | Stored as |
 |---|---|---|
 | recruiter reply, interview/scheduling, rejection, offer | a classified inbox message linked to a submitted application, not spam, from the company or its job system (`meta.trusted`) | `outcomes` row: application_id, kind (`reply`, `interview`, `rejection`, `offer`), at = arrival time, source `inbox`, message_id |
-| the same, arriving at the user's own mailbox | the user: `POST /api/applications/:id/outcomes` | `outcomes` row, source `manual` |
+| the same, arriving at the user's own mailbox | read from their connected Gmail (employer replies, docs/inbox.md), stored as a snippet and recorded the same way; or the user: `POST /api/applications/:id/outcomes` | `outcomes` row, source `inbox` (with message_id) or `manual` |
 | confirmation of receipt | a linked, trusted `confirmation` message | `applications.confirmed_at` and `receipt.confirmation` (not an outcome) |
 | no response | 30 days after submission with no active outcome | derived on read, never stored |
 
@@ -83,4 +83,5 @@ PGlite.
 
 - No automatic change to tailoring from outcomes; the summary only makes it measurable.
 - Outcome kinds are the inbox's; a "withdrawn by me" or "position closed" outcome would be a new kind.
-- Mail the user forwards from their own mailbox is not parsed; they add those outcomes by hand.
+- Without a connected Gmail, replies that reach only the user's own mailbox are added by hand. With one, the employer
+  replies watcher reads them (rules only; a mail the rules find ambiguous keeps the rules' reading).

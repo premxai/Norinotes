@@ -26,6 +26,32 @@ called over its REST API (v3.1, `x-api-key`), with `COMPOSIO_API_KEY` on the API
 Composio, not Norinote; for a public launch this becomes Norinote's own Google app, which needs Google's verification of
 the restricted Gmail scope.
 
+### Employer replies (connected Gmail)
+
+Rule (Prem, 2026-11-26): Nori may read messages from the companies the person applied to, and their job systems, to
+record outcomes. Nothing else in the mailbox is read or stored. `startGmailReplyWatcher` (packages/inbox/src/gmail-replies.ts)
+runs in the worker when `COMPOSIO_API_KEY` is set, every `GMAIL_REPLY_POLL_MINUTES` (default 60), one person at a time.
+`pollGmailReplies` does the following for each person with a Gmail connection:
+
+1. It asks Composio for the connection's state and stops unless it is ACTIVE.
+2. It takes the person's applications submitted in the last 120 days (stops if there are none) and builds Gmail searches
+   (`replyQueries`). Each search has `from:<the company's own domain>`, which is its known domain or its apply site when
+   that is not a job system, and `(from:(<the job system's mail domains>) "<company name>")`. Searches skip chats, sent
+   mail and drafts, start an hour before the last poll (or at the oldest submission on the first poll), and are split
+   below 1,500 characters. Pages are 50 messages, at most 10 pages per search.
+3. It classifies every message with the rules (no model call) and links it like any inbox mail. It keeps a message only
+   when `keepReply` holds: not spam, trusted (`speaksForApplication`), linked to a submitted application, and of kind
+   reply, interview, rejection, offer or confirmation. The check runs before anything is written, so other mail is never
+   stored.
+4. A kept message is stored as its classification, its link, the sender, the subject and a 280-character snippet. It has
+   no links and no code, `meta.snippetOnly` is set, and `received_at` is the Gmail date. Its outcome is recorded through
+   the inbox's own path, one per application and kind. A snippet is never classified again. The Gmail id
+   (`gmail:<id>`) makes a message seen twice count once.
+5. The poll time is saved in `profiles.preferences.gmailReplies.checkedAt` only when every search finished, so a
+   failure is retried next time.
+
+Kept replies show in `/api/inbox` and reach Telegram like other inbox mail. They follow the same retention.
+
 ### The code filter (Gmail)
 
 1. Gmail settings, **Forwarding and POP/IMAP**, **Add a forwarding address**: the user's Norinote address. Gmail sends a

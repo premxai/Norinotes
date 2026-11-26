@@ -153,6 +153,9 @@ breaking right after their heading (`break-after: avoid` on `h2`).
 - **Status and metadata:** 200, the titles, the canonical, indexable, prerendered.
 - **Text:** no `[[` in the HTML; the summary, every section and every table row rendered (counted against the
   Markdown); each section's id as section 4 says.
+- **Facts against the code (by hand, not tested):** the Gmail row and the Composio row match docs/inbox.md: Gmail is read
+  only for the waiting application's code and for employer replies, and a reply keeps the sender, subject, a short
+  snippet and its kind.
 - **Facts against the code:** the session length in the text equals the API's `sessionDays` default; the inbox's 90
   days equals `INBOX_RETENTION_DAYS`'s default; 1 to 365 equals the retention setting's range; Greenhouse, Lever and
   Ashby are the drivers `packages/apply` registers. The test reads the source files (it changes nothing), so a change

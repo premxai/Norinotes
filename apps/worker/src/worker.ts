@@ -5,7 +5,7 @@ import { JOBS } from "@norinote/queue";
 import { artifactsRoot, fileStoreFromEnv } from "@norinote/shared/files";
 import { setAiLogger } from "@norinote/ai";
 import { seedCompanies } from "@norinote/ingest";
-import { awaitVerificationWithGmail, createComposioGmail, startInboxRetention } from "@norinote/inbox";
+import { awaitVerificationWithGmail, createComposioGmail, startGmailReplyWatcher, startInboxRetention } from "@norinote/inbox";
 import { createQueue, type QueueAdapter } from "@norinote/queue";
 import { closeSharedBrowser } from "@norinote/tailor";
 import { loadConfig, type WorkerConfig } from "./config.js";
@@ -162,6 +162,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
 
   // Inbox retention: delete messages past INBOX_RETENTION_DAYS (default 90) or the user's own setting, every 6 hours.
   const stopRetention = opts.scheduler !== false ? startInboxRetention(db, { log: (event, fields) => log.info(event, fields) }) : () => undefined;
+  // Employer replies: every connected Gmail is read for mail from the companies the person applied to (with COMPOSIO_API_KEY).
+  const stopReplies = opts.scheduler !== false && gmail
+    ? startGmailReplyWatcher(db, gmail, { intervalMs: config.gmailRepliesEveryMs, log: (event, data) => log.info(event, data) })
+    : () => undefined;
   // Telegram: daily shortlist, questions and events for linked chats (only with TELEGRAM_BOT_TOKEN). See docs/telegram.md.
   const stopTelegram = opts.scheduler !== false ? startTelegram(db, queue, log) : () => undefined;
 
@@ -175,6 +179,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     if (drainTimer) clearInterval(drainTimer);
     await consumers.stopSweep();
     stopRetention();
+    stopReplies();
     stopTelegram();
     if (catchUpTimer) clearInterval(catchUpTimer);
     // The match batch is handed on once running jobs have finished: an understand job ending during the wait adds to it.

@@ -1,6 +1,6 @@
 # Privacy policy
 
-Last updated: 2026-11-07
+Last updated: 2026-11-26
 
 > **In short.** Norinote keeps what it needs to find jobs for you and apply with your OK: your account, your resume and
 > the career graph built from it, your profile and preferences, and a record of every application. A few services run
@@ -34,9 +34,10 @@ elsewhere.
 | **Answers Nori remembered:** your answers to application questions | Reusing them on later forms, so you're not asked twice | Until you edit or delete them, or delete the account |
 | **Applications:** each job, what was sent, the tailored resume, screenshots of the filled-in form, and a log of what Nori did | Your record of what was sent in your name | Until you delete the account |
 | **Nori's inbox:** email sent to your Nori address: the sender, subject and text; for attachments, only their names and sizes (never the files) | Verification codes and replies about your applications | 90 days by default; you can choose 1 to 365 |
+| **Gmail, if you connect it (read only):** Nori searches it for two things only: while it waits for a verification code, the code the employer's job system sent for that application; and replies from the companies you applied to and their job systems. From a reply it keeps the sender, the subject, the first few lines and what it was (a reply, an interview, a rejection or an offer). Anything else it sees is never kept | Typing the code for you, and recording what happened to your applications | Like Nori's inbox; disconnecting stops the reading |
 | **Telegram, if you connect it:** your Telegram chat id | Sending you the messages you chose (the daily list, questions, updates) | Until you disconnect |
 
-Voluntary self-identification and Telegram are up to you: you can leave them out, or remove them any time in the
+Voluntary self-identification, Gmail and Telegram are up to you: you can leave them out, or remove them any time in the
 app, which stops that use from then on. We also use what's above to keep Norinote secure and prevent abuse, for example
 the sessions list and limits on sign-in attempts.
 
@@ -58,6 +59,7 @@ data processing terms.
 | Vercel | Hosting this website | Global network |
 | Cloudflare | Receiving mail for Nori's inbox, and the domain's DNS | Global network |
 | Resend | Sending account emails (verification and password resets) | United States |
+| Composio | Connecting your Gmail and reading the mail described in section 2, only if you connect it | United States |
 | Telegram | Messages between you and Nori, only if you connect it | Telegram's own servers |
 
 **Company logos** on job cards load from Brandfetch's image server, which sees your IP address and that the request

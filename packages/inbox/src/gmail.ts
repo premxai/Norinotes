@@ -31,6 +31,8 @@ export interface ComposioGmail {
   disconnect(connectedAccountId: string): Promise<void>;
   /** Recent messages matching a Gmail search query, newest first. */
   fetch(userId: string, query: string, max?: number): Promise<GmailMessage[]>;
+  /** One page of messages matching a query, and the token for the next page (null on the last). */
+  fetchPage?(userId: string, query: string, opts: { max: number; pageToken?: string | null }): Promise<{ messages: GmailMessage[]; nextPageToken: string | null }>;
 }
 
 export class ComposioError extends Error {
@@ -125,12 +127,18 @@ export function createComposioGmail(opts: { apiKey: string; fetch?: typeof fetch
       await call("DELETE", `/api/v3.1/connected_accounts/${encodeURIComponent(id)}`);
     },
     async fetch(userId, query, max = 10) {
+      return (await this.fetchPage!(userId, query, { max })).messages;
+    },
+    async fetchPage(userId, query, { max, pageToken }) {
       const r = await call("POST", `/api/v3.1/tools/execute/${FETCH_TOOL}`, {
         user_id: userId, version: "latest",
-        arguments: { query, max_results: max, verbose: true, include_payload: true },
+        arguments: { query, max_results: max, verbose: true, include_payload: true, ...(pageToken ? { page_token: pageToken } : {}) },
       });
       if (r.successful === false) throw new ComposioError(`Gmail fetch failed: ${str(r.error).slice(0, 200)}`, 502);
-      return readGmailMessages(r);
+      let data: unknown = r.data;
+      if (typeof data === "string") { try { data = JSON.parse(data); } catch { data = {}; } }
+      const d = rec(data);
+      return { messages: readGmailMessages(r), nextPageToken: str(d.nextPageToken) || str(d.next_page_token) || null };
     },
   };
 }

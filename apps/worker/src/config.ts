@@ -33,6 +33,8 @@ export type WorkerConfig = {
   shortlistSize: number;
   /** How long a run waits on the page for an emailed code (from the person's mail filter, or typed in Norinote). Default 8 min. */
   codeWaitMs: number;
+  /** How often connected Gmail is read for employer replies (GMAIL_REPLY_POLL_MINUTES, default 60). */
+  gmailRepliesEveryMs: number;
   /** Quiet time before understood jobs are matched as one batch, in ms. Default 5 s. */
   matchBatchMs: number;
   /** One small-model sentence for the best matches of a rebuilt shortlist. Default on. */
@@ -71,6 +73,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     pollConcurrency: int(env.POLL_CONCURRENCY, 16, 1),
     understandConcurrency: int(env.UNDERSTAND_CONCURRENCY, 4, 1),
     codeWaitMs: int(env.CODE_WAIT_MINUTES, 8, 1) * 60_000,
+    gmailRepliesEveryMs: int(env.GMAIL_REPLY_POLL_MINUTES, 60, 5) * 60_000,
     shortlistSize: int(env.SHORTLIST_SIZE, 50, 1),
     batchDrainMs: int(env.BATCH_DRAIN_SECONDS, 30, 0) * 1000,
     batchAts: (env.BATCH_ATS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
