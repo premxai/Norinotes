@@ -49,7 +49,7 @@ Package names are `@norinote/<name>`. TypeScript ESM, Node 22, npm workspaces, v
 Shared, written once:
 - `companies` (ats_type, ats_token, name, last_polled_at, blocked)
 - `jobs` (company_id, ats_type, external_id, title, location, remote, description_text, apply_url, posted_at, first_seen_at, last_seen_at, closed_at, dedupe_key)
-- `job_specs` (job_id, version, spec jsonb: must_haves, nice_to_haves, skills with level and years, seniority, role_family, years_min, location rules, citizenship_required, clearance_required, sponsorship: yes/no/unknown, responsibilities; model, created_at)
+- `job_specs` (job_id, version, spec jsonb: must_haves, nice_to_haves, skills with level and years, seniority, role_family, years_min, location rules, citizenship_required, citizenship_scope (citizen, or us_person: citizens and permanent residents; missing reads as citizen), clearance_required, sponsorship: yes/no/unknown, responsibilities; model, created_at)
 - `job_embeddings` (job_id, embedding vector(1536))
 
 Per user:
@@ -107,7 +107,11 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    0.6 (`DEFAULT_MIN_FIT`) is also the starting threshold: onboarding creates the first lane at it, and the Nori threshold
    ("Recommended", Apply for me) reads as it until the person saves one. 0.45 is only the shortlist widening floor, never
    an apply threshold.
-   Gates also drop remote jobs limited to countries or regions the user cannot work in. Order: lane matches, then widened
+   Gates also drop remote jobs limited to countries or regions the user cannot work in. Citizenship gate: the detector
+   (`clearance.ts`) tells "citizens only" from "U.S. person" (ITAR/EAR export control, "citizen or permanent resident",
+   "green card holders and citizens") and the spec stores it as `citizenshipScope`; a citizens-only job needs the user's
+   US `citizen`, a U.S.-person job takes `citizen` or `permanentResident` (from the onboarding status; citizens count),
+   and a profile that states neither fails both. Order: lane matches, then widened
    rows; well-specified jobs first, then fit x confidence plus a small recency bonus.
 4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring. A failure there, or in the
    outcome nudge, never fails the shortlist; an unexpected one logs one JSON warn line (`match.explain_failed`,

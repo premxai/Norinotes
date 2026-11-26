@@ -148,6 +148,7 @@ export function heuristicSpec(job: HeuristicJob, skills: SkillMap = DEFAULT_SKIL
     yearsMin,
     location: { remote, countries, cities: [] },
     citizenshipRequired: restrictions.citizenship,
+    citizenshipScope: restrictions.citizenshipScope,
     clearanceRequired: restrictions.clearance,
     sponsorship,
     responsibilities: [],

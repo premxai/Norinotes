@@ -129,6 +129,7 @@ export function finalizeSpec(model: JobSpecModelOutput, job: Pick<JobRow, "title
       cities: model.location.cities.map(clean).filter(Boolean),
     },
     citizenshipRequired: restrictions.citizenship ? true : restrictions.citizenshipNegated ? false : model.citizenshipRequired,
+    citizenshipScope: restrictions.citizenshipScope,
     clearanceRequired: restrictions.clearance ? true : restrictions.clearanceNegated ? false : model.clearanceRequired,
     sponsorship,
     responsibilities: model.responsibilities.map(clean).filter(Boolean).slice(0, 6),

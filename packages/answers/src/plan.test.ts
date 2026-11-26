@@ -59,6 +59,32 @@ describe("slotValue: profile only, never a guess", () => {
     expect(slotValue("sponsorship", f("q", "Do you require visa sponsorship?", "select", ["Yes", "No"]), facts, career, ctx)).toMatchObject({ status: "ready", value: "No" });
   });
 
+  it("answers citizenship and permanent residence only from what the profile states, never from work authorisation", () => {
+    const yn = (label: string) => f("q", label, "select", ["Yes", "No"]);
+    const value = (label: string, US: Record<string, unknown>) => {
+      const fx = { ...facts, workAuth: { US } };
+      return slotValue(classifySlot(yn(label)), yn(label), fx, career, ctx);
+    };
+    const visa = { authorized: true, needsSponsorship: true, status: "visa", citizen: false };
+    const resident = { authorized: true, needsSponsorship: false, status: "permanent_resident", citizen: false };
+    const citizen = { authorized: true, needsSponsorship: false, status: "citizen", citizen: true };
+    const authorizedOnly = { authorized: true, needsSponsorship: false };
+    expect(classifySlot(yn("Are you a U.S. person as defined by ITAR?"))).toBe("work_auth");
+
+    expect(value("Are you a US citizen?", citizen)).toMatchObject({ status: "ready", value: "Yes" });
+    expect(value("Are you a US citizen?", resident)).toMatchObject({ status: "ready", value: "No" });
+    expect(value("Are you a US citizen?", visa)).toMatchObject({ status: "ready", value: "No" });
+    expect(value("Are you a US citizen?", authorizedOnly)).toMatchObject({ status: "pending" });
+
+    for (const label of ["Are you a U.S. citizen or permanent resident?", "Are you a U.S. person as defined by ITAR?"]) {
+      expect(value(label, citizen)).toMatchObject({ status: "ready", value: "Yes" });
+      expect(value(label, resident)).toMatchObject({ status: "ready", value: "Yes" });
+      expect(value(label, visa)).toMatchObject({ status: "ready", value: "No" });
+      expect(value(label, authorizedOnly)).toMatchObject({ status: "pending" });
+    }
+    expect(value("Are you a permanent resident of the United States?", citizen)).toMatchObject({ status: "pending" });
+  });
+
   it("makes legal questions the profile cannot answer pending, and declines EEO when the profile has no choice", () => {
     expect(slotValue("salary", f("q", "What are your compensation expectations?"), facts, career, ctx)).toMatchObject({ status: "pending" });
     expect(slotValue("relocation", f("q", "Are you open to relocation?", "select", ["Yes", "No"]), facts, career, ctx)).toMatchObject({ status: "pending" });
