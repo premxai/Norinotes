@@ -23,7 +23,7 @@ export type { ParsedLocation, RemoteMode } from "./location.js";
 export { laneFitsJob, laneFitsSql, locationFits, matchingLanes, significantTitleWords, titleMatches } from "./lanes.js";
 export type { JobLike, LaneLike } from "./lanes.js";
 export {
-  allowedCountries, experienceYearsOf, homeCountryOf, loadMatchProfile, meanProfileEmbedding, meanVector, normalizeCountry, parseWorkAuth, pointInterval, unionYears,
+  allowedCountries, experienceYearsOf, homeCountryOf, loadMatchProfile, meanVector, normalizeCountry, parseWorkAuth, pointInterval, unionYears,
 } from "./profile.js";
 export type { CountryAuth, EvidencePoint, MatchProfile, WorkAuth } from "./profile.js";
 export { detectRestrictions, needsUsCitizenshipOrClearance } from "./clearance.js";

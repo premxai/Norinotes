@@ -62,6 +62,7 @@ A per-user adjustment that is small, explainable and conservative.
   nudge never admits a job those turned away and never overrides a gate. It moves the stored fit (and the ranking key) and
   adds a reason in second place, e.g. "From your replies: 5 of 6 data analysis applications led to a reply or interview,
   against 5 of 12 overall (+0.02 fit)". The reason carries the exact change, so the raw fit can always be recovered.
+  A later rebuild that re-checks older rows against the lane minimum uses that raw fit too, so a nudge never removes a row.
 - **Storage.** `profiles.preferences.outcomeLearning` (version, computedAt, resolved, positive, active, nudges), written with
   `jsonb_set` so other preferences are untouched. Recomputed when older than 6 hours at the next shortlist build, and at
   once after a manual change or a summary read. A new nudge shows from the next shortlist rebuild. A failure in the

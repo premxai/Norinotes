@@ -5,6 +5,7 @@ import {
   and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
   MAX_JOB_AGE_HOURS, notInArray, or, shortlist, sql, type Db,
 } from "@norinote/db";
+import { profileEmbedding } from "@norinote/graph";
 import { isSkippedCompany } from "@norinote/shared";
 import { matchTargetOf, widenedTooFar, type MatchTarget } from "./alignment.js";
 import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitMapItem, type QualityLevel } from "./fit.js";
@@ -14,8 +15,9 @@ import { engineJobSql } from "./engine.js";
 import { inlineLanesFitSql, laneFitsSql, locationFitsSql, matchingLanes } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
 import { applyOutcomeLearning } from "./outcome-learning.js";
+import { rawFitOf } from "./outcomes.js";
 import { placeFactor } from "./location.js";
-import { loadMatchProfile, meanProfileEmbedding, type MatchProfile } from "./profile.js";
+import { loadMatchProfile, type MatchProfile } from "./profile.js";
 import { rolePool } from "./roles.js";
 import { DEFAULT_SKILL_MAP, type SkillMap } from "./skills.js";
 import { SPEC_VERSION, type StoredJobSpec } from "./understand.js";
@@ -53,7 +55,7 @@ export type MatchOptions = {
 
 export type BuildShortlistOptions = MatchOptions & {
   /**
-   * Mean of the user's top career point embeddings (graph exports `profileEmbedding`). Null when the user has none (the AI
+   * The user's profile vector: graph's `profileEmbedding`, the same one matchNewJobs uses. Null when the user has none (the AI
    * service was unavailable): every job is then ranked by skill overlap instead of vector similarity.
    */
   profileEmbedding: number[] | null;
@@ -611,12 +613,13 @@ async function removeStaleWidened(db: Db, userId: string, keepJobIds: readonly s
  * New rows from earlier runs that this run did not save are checked again against the person's lanes, gates and lane
  * minimum as they are now: an early run (the resume step of onboarding) may have used a temporary lane before lanes or
  * work authorisation existed, and later runs only add rows. A row that fails is removed; a row that still passes stays,
- * even when it fell outside this run's top rows. Rows the person acted on, and jobs no longer fresh, are left alone.
+ * even when it fell outside this run's top rows. The lane minimum is checked against the raw fit: an outcome nudge never
+ * removes a row. Rows the person acted on, and jobs no longer fresh, are left alone.
  */
 async function removeStaleRows(db: Db, profile: MatchProfile, laneFilter: SQL, engine: SQL | undefined, keepJobIds: readonly string[], now: Date): Promise<void> {
   const rows = await db
     .select({
-      jobId: shortlist.jobId, fit: shortlist.fit, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name,
+      jobId: shortlist.jobId, fit: shortlist.fit, reasons: shortlist.reasons, title: jobs.title, location: jobs.location, remote: jobs.remote, companyName: companies.name,
       fitsLanes: sql<boolean>`${laneFilter}`,
     })
     .from(shortlist)
@@ -636,7 +639,7 @@ async function removeStaleRows(db: Db, profile: MatchProfile, laneFilter: SQL, e
     const fitLanes = matchingLanes(profile.lanes, job);
     const minFit = Math.min(...(fitLanes.length > 0 ? fitLanes : profile.lanes).map((l) => l.minFit), 1);
     const skipped = profile.skipCompanies ? isSkippedCompany(profile.skipCompanies, r.companyName) : false;
-    if (!r.fitsLanes || skipped || r.fit < minFit || (spec && !checkGates(spec, profile, job, { now }).ok)) stale.push(r.jobId);
+    if (!r.fitsLanes || skipped || rawFitOf(r.fit, r.reasons) < minFit || (spec && !checkGates(spec, profile, job, { now }).ok)) stale.push(r.jobId);
   }
   if (stale.length === 0) return;
   await db.delete(shortlist).where(and(eq(shortlist.userId, profile.userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, stale)));
@@ -742,7 +745,7 @@ export async function matchNewJobs(db: Db, jobIds: readonly string[], opts: Matc
   const minSimilarity = opts.minSimilarity ?? 0.2;
   const skills = opts.skills ?? DEFAULT_SKILL_MAP;
   for (const [userId, userPairs] of byUser) {
-    const vec = await meanProfileEmbedding(db, userId);
+    const vec = await profileEmbedding(db, userId, opts.now);
     const profile = await loadMatchProfile(db, userId, opts.now, opts.skills);
     if (!vec && profile.points.length === 0) continue;
     result.usersEvaluated++;
