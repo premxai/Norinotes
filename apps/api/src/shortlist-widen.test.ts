@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { careerPoints, lanes, profiles, eq } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, careerPoints, lanes, profiles, eq } from "@norinote/db";
 import { makeApi, seedJob, seedShortlist, type Api } from "./testkit.js";
 
 let api: Api;
@@ -56,10 +56,10 @@ describe("GET /api/shortlist/meta and widenedBy", () => {
     expect((await api.call<Meta>("GET", "/api/shortlist/meta", { cookie: u.cookie })).json.total).toBe(0);
   });
 
-  it("hides a saved row once its job is older than 72 hours", async () => {
+  it("hides a saved row once its job is older than 7 days", async () => {
     const u = await api.signup("meta-stale@example.com");
     const { job: fresh } = await seedJob(api.db, { title: "Line Cook", hoursAgo: 70 });
-    const { job: stale } = await seedJob(api.db, { title: "Line Cook II", hoursAgo: 74 });
+    const { job: stale } = await seedJob(api.db, { title: "Line Cook II", hoursAgo: MAX_JOB_AGE_HOURS + 2 });
     await seedShortlist(api.db, u.user.id, fresh.id, 0.6);
     await seedShortlist(api.db, u.user.id, stale.id, 0.9);
     const list = await api.call<Item[]>("GET", "/api/shortlist", { cookie: u.cookie });
@@ -80,7 +80,7 @@ describe("jobs Best match for a user with no lanes", () => {
     const remote = await seedJob(api.db, { title: "Staff Backend Engineer", location: "Remote - US", remote: true });
     const wrongPlace = await seedJob(api.db, { title: "Backend Engineer", location: "Berlin, Germany", remote: false });
     const wrongRole = await seedJob(api.db, { title: "Marketing Manager", location: "Austin, TX", remote: false });
-    const widened = await seedJob(api.db, { title: "Site Reliability Engineer", location: "Berlin, Germany", remote: false });
+    const widened = await seedJob(api.db, { title: "Site Reliability Engineer", location: "Chicago, IL", remote: false });
     await seedShortlist(api.db, u.user.id, widened.job.id, 0.4, { reasons: ["widened:role_pool"] });
 
     expect(await api.db.select().from(lanes).where(eq(lanes.userId, u.user.id))).toEqual([]);

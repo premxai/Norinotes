@@ -6,8 +6,9 @@ export {
   normalizeTitle, normalizeCompany, DUPLICATE_WINDOW_DAYS, capDayStart, dailyCapUse, dailyCapReached,
 } from "./store.js";
 export type { ApplicationRow, CreateApplicationResult, ApproveResult, ApproveLaterResult, DailyCap, TransitionResult } from "./store.js";
-export { runApplication, driveApplication, createApplyHandler, createPrepareHandler, staleRuns, STALE_RUN_MS } from "./runner.js";
-export type { ApplyDeps, StaleRun, StepResult, WaitingFor } from "./runner.js";
+export { runApplication, driveApplication, createApplyHandler, createPrepareHandler, createFinishHandler, finishApplications, staleRuns, STALE_RUN_MS, MAX_FINISH_BATCH } from "./runner.js";
+export type { ApplyDeps, FinishDeps, StaleRun, StepResult, WaitingFor } from "./runner.js";
+export { LiveInput, LIVE_KEYS, applyLiveInput, createMemoryInputBus, createPgInputBus, liveInputBusFor, sharedMemoryInputBus, type LiveInputBus, type LiveInputHandler } from "./control.js";
 export { createBrowserPool, PoolRunError } from "./pool.js";
 export type { BrowserPool, BrowserPoolOptions, PoolArtifacts, PoolRunOptions, PoolRunResult, PoolStats, RunHandle } from "./pool.js";
 export { DRIVERS, detectDriver, defaultUnknownFormHandler, UNSUPPORTED_FORM_REASON, greenhouseDriver, leverDriver, ashbyDriver, greenhouseFormUrl, leverFormUrl, ashbyFormUrl } from "./drivers/index.js";
@@ -22,7 +23,7 @@ export { fillFields, pickOption } from "./fill.js";
 export type { FillOutcome, FillTimings } from "./fill.js";
 export { discoverFields, detectCaptcha, findSubmitButton } from "./form.js";
 export type { DiscoveredField } from "./form.js";
-export { CAPTCHA_REASON, EMAIL_CODE_REASON, ACCOUNT_REASON, BLOCKED_REASON } from "./flow.js";
+export { CAPTCHA_REASON, EMAIL_CODE_REASON, ACCOUNT_REASON, BLOCKED_REASON, FINISH_CAPTCHA_REASON, FINISH_ACCOUNT_REASON } from "./flow.js";
 export { prepareForm, loadFormSchema, readFormFromPage } from "./prepare.js";
 export type { PrepareFormDeps, PrepareFormResult } from "./prepare.js";
 export { followToForm, classifyPage, greenhouseIframe, isGreenhouseEmbed, type CareerSite, type CareerSiteKind } from "./careers.js";

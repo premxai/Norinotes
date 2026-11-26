@@ -88,6 +88,29 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
 - Workday list rows carry no text; `understand.job` fetches the posting (`fillJobDescription`) when the job fits a lane.
 - Seeds: `npx tsx scripts/import-seeds.mts [--dry-run] [--only workday,oracle] [--include-empty] [--dir folder]`.
 
+## Companies people ask for (`discoverCompany`, POST `/api/companies`)
+
+A person names a company, by name or by link, and Nori adds its public job board to `companies` for everyone
+(`packages/ingest/src/discover.ts`).
+
+- Systems: Greenhouse, Ashby, Lever, Workable, Rippling and Workday (`DISCOVERY_SYSTEMS`, minus any parked connector).
+- A board link is used as it is. Any other link is read as the company's careers page: one GET per hop (SSRF guard,
+  robots.txt obeyed, 1 MB at most) and the board links in it (hrefs, iframes, scripts, URLs in inline JSON) are the
+  candidates. A page that redirects to a board names it, and the board page itself is not requested.
+- A name is first matched against the registry (case, punctuation and a legal suffix ignored). Otherwise the tokens the
+  name is likely to use (`tokensForName`: "Acme Robotics" gives acmerobotics, acme-robotics) are tried on each
+  system's public feed in order. Workday needs a link (its tenant, cluster and site can't be guessed). Nothing searches
+  the web, and no person is ever looked up.
+- Dedupe: every candidate is matched against `companies` (system and token, case-insensitive) before any feed request.
+- Verification: the candidate's feed is read through its connector, the same read the poller makes, cut short after
+  `MAX_VERIFY_REQUESTS` (12) requests. The board must answer; a board guessed from a name must also list open jobs, so an
+  unrelated empty board with the same token isn't added. robots.txt applies to every request (http.ts).
+- LinkedIn, Indeed and Glassdoor are refused before any request, and never fetched even when a careers page links to
+  them. Blocked aggregators (`blocklist.ts`) are refused.
+- A new row is `active`, `discovered_via = 'user'`, default priority, and is polled on the next scheduler tick if its
+  system is in `ENGINE_ATS`. Who asked is not stored.
+- The API allows 10 requests per person per hour.
+
 ## Seeds (discovery without crawling, for now)
 
 - `kalil0321/ats-scrapers` `ats-companies/*.csv` (MIT code; data licence to confirm before redistributing): Workday,
@@ -99,10 +122,21 @@ Implementation notes (migration 0003, `packages/ingest/src/poll.ts`, `schedule.t
 - Seeds are imported by a script into `companies` as `candidate`; nothing is trusted until validated.
 - Later: Common Crawl columnar index (Athena) discovery and a career-page scan for custom domains.
 
-## Only the last 72 hours
+## US jobs only
 
-Users are shown and matched only jobs posted in the last 72 hours (`MAX_JOB_AGE_HOURS` and `freshJobSql` in
-packages/db/src/fresh.ts), everywhere: the shortlist, widening, role pools, the jobs list and summary, and the Telegram digest.
+Norinote shows US jobs only for now. Each job records whether it is in the US (`jobs.us`), decided when it is written
+(`upsertJobs`) by `isUsPlace` (packages/shared/src/location.ts, the same location parser the matcher's gates use): a place
+that names the US is in, one that names only other countries or regions ("London, UK", "Remote - Philippines", "EMEA")
+is out, and one that names no place ("Remote", "2 Locations", no text) is in. `freshJobSql` requires `jobs.us`, so a job
+outside the US reaches nobody: not the shortlist, the role pools, the jobs list and search, the location list, the
+summary or the Telegram digest. It is stored without its description like any job that is not fresh, and it is never
+understood (no model call). Rows written before the column existed count as US until their board is read again. The one
+exception is the same as for age: a job the user added by pasting its link.
+
+## Only the last 7 days
+
+Users are shown and matched only jobs posted in the last 7 days (`MAX_JOB_AGE_HOURS`, the one place the window is set, and `freshJobSql` in
+packages/db/src/fresh.ts), everywhere: the shortlist, widening, role pools, the jobs list and summary, and the Telegram digest. Within the window, newer jobs get a small ranking bonus (`RECENCY_HOURS` in packages/match/src/shortlist.ts).
 The age is the feed's posted date. For a job whose feed gives none, the time we first saw it stands in, but only if it
 appeared on a later read than the board's first (`companies.first_read_at`): a first read finds everything already on the
 board, of unknown age, so those undated jobs never count. Older jobs stay in the index (for closing and stats) but are not shown.
@@ -115,8 +149,8 @@ A full collection is about 1.3M open jobs, and almost all of their size is `desc
 needs only its small row, so the collector still knows it has seen it. Job rows are never deleted (an undated job inserted
 again would count as new).
 
-- At write time (`upsertJobs`, packages/ingest/src/store.ts): a job that is not fresh when written (posted more than 72
-  hours ago, or undated and listed on the board's first read; `isFreshJob` in packages/db/src/fresh.ts mirrors
+- At write time (`upsertJobs`, packages/ingest/src/store.ts): a job that is not fresh when written (posted more than 7
+  days ago, or undated and listed on the board's first read; `isFreshJob` in packages/db/src/fresh.ts mirrors
   `freshJobSql`) is stored without its description. A known job that is not fresh keeps whatever text it has, so later
   polls neither refill a trimmed job nor wipe one a user needs. Such jobs are never queued for understanding: the worker
   only queues new jobs that are fresh and fit a lane.
@@ -151,5 +185,5 @@ domains, so the worker finds them in our own postings (`resolveLogoDomains`, pac
 
 1. Precomputed pools per (role family x metro or remote), refreshed hourly from the shared index.
 2. When a user's lanes match fewer than 20 open jobs, widen step by step: adjacent titles, then remote, then the
-   role-family pool. Age is never widened: every step keeps the 72-hour limit. Tell the user which widening was used.
+   role-family pool. Age is never widened: every step keeps the 7-day limit. Tell the user which widening was used.
 3. On signup or a lane change, raise the priority of companies whose recent jobs fit the lanes and poll them first.

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { connect, migrate, type Db, type DbHandle } from "@norinote/db";
-import { createBrowserPool, createLiveFrameSink, drainBatches, runSchedules, type ApplyDeps, type BrowserPool, type Preparer } from "@norinote/apply";
+import { createBrowserPool, createLiveFrameSink, drainBatches, liveInputBusFor, runSchedules, type ApplyDeps, type BrowserPool, type LiveInputBus, type Preparer } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { artifactsRoot, fileStoreFromEnv } from "@norinote/shared/files";
 import { setAiLogger } from "@norinote/ai";
@@ -26,6 +26,8 @@ export type WorkerOptions = {
   now?: () => Date;
   /** Replaces the warm browser pool (tests). The worker does not close an injected pool. */
   pool?: BrowserPool;
+  /** The person's clicks and keys during a Finish session. Default: Postgres LISTEN/NOTIFY with DATABASE_URL, else in-process. */
+  liveInputs?: LiveInputBus;
   /** Replaces the tailor + answers Preparer (tests). */
   preparer?: Preparer;
   /** Other apply settings (drivers, loadInputs, codeTimeoutMs ...) for tests. */
@@ -87,7 +89,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
 
   // pg-boss needs to be running before queues can be worked.
   await queue.start();
-  const consumers = await registerConsumers({ db, queue, log, config, apply, fetch: opts.fetch, now });
+  const liveInputs = opts.liveInputs ?? liveInputBusFor(config.databaseUrl);
+  const consumers = await registerConsumers({ db, queue, log, config, apply, liveInputs, fetch: opts.fetch, now });
 
   if (opts.warmUp !== false && ownsPool) {
     // No Chromium installed (or no display libraries) must not stop ingest and matching from running.
@@ -102,7 +105,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     timer.unref();
   }
 
-  // Lean job storage: trim jobs that aged out of the 72-hour window and nobody refers to, every JOB_SWEEP_EVERY_MINUTES (60).
+  // Lean job storage: trim jobs that aged out of the 7-day window and nobody refers to, every JOB_SWEEP_EVERY_MINUTES (60).
   let sweepTimer: ReturnType<typeof setInterval> | null = null;
   if (opts.scheduler !== false && config.jobSweepEveryMs > 0) {
     void consumers.sweepJobs();
@@ -177,6 +180,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     // The match batch is handed on once running jobs have finished: an understand job ending during the wait adds to it.
     await queue.stop({ beforeClose: () => consumers.flushMatchBatch().catch(() => {}) });
     if (ownsPool) await pool.close().catch(() => {});
+    if (!opts.liveInputs) await liveInputs.close().catch(() => {});
     await closeSharedBrowser().catch(() => {});
     if (handle) await handle.close();
     log.info("worker.stopped");

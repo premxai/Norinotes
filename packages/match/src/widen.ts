@@ -11,7 +11,7 @@ import { adjacentTitles, mainFamilyOf, type RoleFamily } from "./roles.js";
  *  2. `remote`           remote jobs for those titles, when the user did not say "no remote"
  *  3. `role_pool`        the role-family pool for the user's main family and metro (see `rolePool`)
  *
- * Age is never widened: every step keeps the 72-hour limit (`MAX_JOB_AGE_HOURS`). `older` is kept in `WIDENED_BY` only to
+ * Age is never widened: every step keeps the 7-day limit (`MAX_JOB_AGE_HOURS`). `older` is kept in `WIDENED_BY` only to
  * read shortlist rows saved before that rule; no step produces it.
  *
  * Gates (citizenship, clearance, sponsorship, years, location scope), blocked companies and jobs the user already

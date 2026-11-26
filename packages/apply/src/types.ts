@@ -52,6 +52,12 @@ export type DriverContext = {
    * until the owned inbox is wired): the application is parked as needs_user with the reason.
    */
   waitForCode?: (hint: string) => Promise<string | null>;
+  /**
+   * Finish in the live view: hands a captcha or a sign-in page to the person and resolves true once they are past it
+   * (false: they stopped, or the wait ran out). Absent outside a Finish session: the wall parks the application instead.
+   * Nori never types into the page itself during a hand-off; only the person's own inputs reach it.
+   */
+  handoff?: (kind: "captcha" | "account") => Promise<boolean>;
   /** Widget strategies remembered by the form recipe cache, by normalised label. */
   strategyHints?: Record<string, WidgetStrategy>;
   onEvent: OnEvent;

@@ -1,4 +1,4 @@
-import type { AtsType } from "@norinote/shared";
+import { isUsPlace, type AtsType } from "@norinote/shared";
 import { and, companies, eq, inArray, isFreshJob, jobs, sql } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import { dedupeKey } from "./dedupe.js";
@@ -39,7 +39,7 @@ export type UpsertResult = {
 export type UpsertOptions = {
   /**
    * Store the description whatever the job's age. Default false: a job that is not fresh when written (posted more than
-   * 72 hours ago, or undated and listed on the board's first read; see `isFreshJob`) is stored without its description,
+   * 7 days ago (`MAX_JOB_AGE_HOURS`), or undated and listed on the board's first read; see `isFreshJob`) is stored without its description,
    * and a known one keeps the text it has. A pasted link sets this, so an older job gets (or gets back) its text.
    */
   keepText?: boolean;
@@ -50,7 +50,9 @@ export type UpsertOptions = {
  * row gets `lastSeenAt = now` and is reopened (`closedAt = null`). `postedAt` keeps its stored value when the feed no
  * longer says one. Duplicates by external id inside one batch collapse (the last wins).
  *
- * Only fresh jobs carry their description (unless `opts.keepText`): users are shown nothing older than 72 hours, and
+ * Every row records whether it is a US job (`us`, from its location); a job outside the US is never fresh.
+ *
+ * Only fresh jobs carry their description (unless `opts.keepText`): users are shown nothing older than 7 days, and
  * the text is almost all of a job's size. A job that is not fresh is written with an empty description, and since an
  * empty incoming description never overwrites a stored one, later reads neither refill nor wipe it.
  */
@@ -76,7 +78,8 @@ export async function upsertJobs(db: Db, companyId: string, atsType: AtsType, in
       const title = clean(j.title).trim();
       const location = j.location ? clean(j.location).trim() || null : null;
       const stored = have.get(j.externalId);
-      const fresh = opts.keepText || isFreshJob({ postedAt: j.postedAt ?? stored?.postedAt ?? null, firstSeenAt: stored?.firstSeenAt ?? now, firstReadAt }, now);
+      const us = isUsPlace(location, j.remote);
+      const fresh = opts.keepText || isFreshJob({ postedAt: j.postedAt ?? stored?.postedAt ?? null, firstSeenAt: stored?.firstSeenAt ?? now, firstReadAt, us }, now);
       if (!fresh && j.descriptionText.trim()) trimmed++;
       return {
         companyId,
@@ -93,6 +96,7 @@ export async function upsertJobs(db: Db, companyId: string, atsType: AtsType, in
         closedAt: null,
         missingReads: 0,
         dedupeKey: dedupeKey({ companyName: clean(j.companyName), title, location }),
+        us,
       };
     })).onConflictDoUpdate({
       target: [jobs.atsType, jobs.externalId],
@@ -110,6 +114,7 @@ export async function upsertJobs(db: Db, companyId: string, atsType: AtsType, in
         closedAt: sql`null`,
         missingReads: sql`0`,
         dedupeKey: sql`excluded.dedupe_key`,
+        us: sql`excluded.us`,
       },
     }).returning({ id: jobs.id, externalId: jobs.externalId });
 

@@ -149,7 +149,7 @@ export type JobWithMatch = {
   locationNames?: string[];
 };
 
-/** GET /api/jobs/summary: counts over open jobs posted in the last 72 hours. */
+/** GET /api/jobs/summary: counts over open jobs posted in the last 7 days. */
 export type JobsSummary = { open: number; newToday: number; fitsLanes: number; hasLanes: boolean };
 
 export type JobDetail = { job: Job; match: Match | null };

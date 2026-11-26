@@ -602,6 +602,21 @@ export function Applications({ initialId = null }: { initialId?: string | null }
   }
 
   const rows = list.data ?? [];
+  // One Finish session takes up to 5; it opens the first one, where the live view asks for the person's step.
+  const oneStep = Math.min(rows.filter((r) => r.application.status === "ready_to_finish").length, 5);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
+  async function finishAll() {
+    if (finishing) return;
+    setFinishing(true);
+    setFinishError(null);
+    const r = await api.finish();
+    setFinishing(false);
+    if (!r.ok) return setFinishError(r.error);
+    void list.refresh();
+    const first = r.data.applicationIds[0];
+    if (first) pick(first);
+  }
   const count = (t: Tab) => (t === "all" ? rows.length : rows.filter((r) => stageOf(r.application).tab === t).length);
   const q = query.trim().toLowerCase();
   const shown = rows.filter((r) => (tab === "all" || stageOf(r.application).tab === tab) && (!q || `${r.job.title} ${r.job.companyName}`.toLowerCase().includes(q)));
@@ -664,6 +679,15 @@ export function Applications({ initialId = null }: { initialId?: string | null }
                 placeholder="Search applications"
                 className="h-11 w-full rounded-input border-[1.5px] border-line-strong bg-bg px-3 text-body text-ink placeholder:text-ink-2"
               />
+              {oneStep >= 2 && (tab === "all" || tab === "in_progress") && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <button type="button" onClick={() => void finishAll()} aria-disabled={finishing || undefined} className={buttonClass("primary", "min-h-11")}>
+                    {finishing ? "Opening…" : `Finish all (${oneStep})`}
+                  </button>
+                  <span className="text-small text-ink-2">One step left on each. You do it in Nori&rsquo;s live view.</span>
+                </div>
+              )}
+              {finishError && <FormError>{finishError}</FormError>}
             </div>
             {!list.data ? (
               <ul aria-label="Loading your applications" className="flex flex-col gap-1.5 p-2">

@@ -68,7 +68,7 @@ under Storage settings.
 
 ## Lean storage
 
-The collected index is 2.9 GB, almost all job descriptions. Users only see the last 72 hours, so older jobs keep only a
+The collected index is 2.9 GB, almost all job descriptions. Users only see the last 7 days, so older jobs keep only a
 small "already seen" record. See docs/job-collection.md.
 
 ## Images

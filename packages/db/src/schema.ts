@@ -98,6 +98,11 @@ export const jobs = pgTable("jobs", {
   missingReads: integer("missing_reads").notNull().default(0),
   /** Normalised company + title + location, so the same job on two boards is stored once. */
   dedupeKey: text("dedupe_key").notNull(),
+  /**
+   * In the US (`isUsPlace` on the location when the job is written). Norinote shows US jobs only, so `freshJobSql` requires
+   * it. Rows written before this column default to true until their board is read again.
+   */
+  us: boolean("us").notNull().default(true),
 }, (t) => [
   uniqueIndex("jobs_ats_external_uq").on(t.atsType, t.externalId),
   index("jobs_closed_posted_idx").on(t.closedAt, t.postedAt),
@@ -250,7 +255,7 @@ export const shortlist = pgTable("shortlist", {
 
 /**
  * Jobs a user added themselves by pasting a link. These always show for that user, whatever their age or lane fit: the
- * 72-hour limit is for jobs Norinote finds, not ones the user picked.
+ * 7-day limit is for jobs Norinote finds, not ones the user picked.
  */
 export const savedJobs = pgTable("saved_jobs", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

@@ -86,6 +86,7 @@ Per user:
 | `match.user` | profile, graph or lanes change | queue `understand` for the user's unspecced lane-fitting jobs, then rebuild the shortlist from the stored index (jobs without an embedding are ranked by skill overlap) |
 | `prepare.application` | job reaches the top of a shortlist, or user queues it | tailor resume, draft answers from the answer bank, mark prepared |
 | `apply.run` | user click (counts as approval) or autopilot within the daily cap | fill and submit with the warm browser pool |
+| `apply.finish` | the person's Finish on applications with one step left (`ready_to_finish`) | one live-view session: fill again, hand the captcha or sign-in to the person, then submit |
 | `inbox.receive` | inbound email webhook (`/api/inbox/webhook/:provider` stores first) | settle ambiguous mail with the small model, relink, record outcomes, wake `awaitVerification`, forward if enabled; a 6-hourly retention sweep deletes mail older than `INBOX_RETENTION_DAYS` (90) |
 
 The Telegram notifier is not a queue: a 30-second timer in the worker (with `TELEGRAM_BOT_TOKEN`) queues and sends the daily
@@ -95,7 +96,7 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 
 ## Matching (packages/match)
 
-1. SQL filter: open, posted within 72 hours (undated jobs only if they appeared after the board's first read), fits an enabled lane (title, location, remote), not blocked, gates pass.
+1. SQL filter: open, posted within 7 days (`MAX_JOB_AGE_HOURS`) (undated jobs only if they appeared after the board's first read), fits an enabled lane (title, location, remote), not blocked, gates pass.
 2. Vector rank: cosine similarity between the user's profile embedding (mean of top career points) and `job_embeddings`, top about 200.
 3. Detailed fit: requirement by requirement against career points (exact skill match, embedding similarity, graph links), weighted by the spec; must-haves cap the score.
    Then scaled by function alignment (title and role family against the lanes and recent roles), seniority against the user's

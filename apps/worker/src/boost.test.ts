@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { companies, eq, inArray, jobs, lanes, profiles, users, careerPoints, shortlist, sql, queryRows, type Db } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, companies, eq, inArray, jobs, lanes, profiles, users, careerPoints, shortlist, sql, queryRows, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { BrowserPool } from "@norinote/apply";
 import { MemoryQueue, JOBS } from "@norinote/queue";
@@ -54,7 +54,7 @@ describe("companiesFittingLanes", () => {
     await job(t.db, noFit, "Backend Engineer", { location: "Berlin, Germany" });
     await job(t.db, closed, "Backend Engineer", { closedAt: daysAgo(1) });
     await job(t.db, blocked, "Backend Engineer");
-    await job(t.db, stale, "Backend Engineer", { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(73) });
+    await job(t.db, stale, "Backend Engineer", { postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 1), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 1) });
     await t.db.insert(shortlist).values({ userId, jobId: strongJob, fit: 0.9 });
 
     expect(await companiesFittingLanes(t.db, userId, NOW)).toEqual([strong, newer, older]);

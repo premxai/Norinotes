@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
+import { MAX_JOB_AGE_HOURS,
   applications, companies, EMBEDDING_DIMENSIONS, eq, jobEmbeddings, jobSpecs, jobs, savedJobs, shortlist, users,
 } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
@@ -54,19 +54,19 @@ const FULL: [boolean, boolean, boolean] = [true, true, true];
 const BARE: [boolean, boolean, boolean] = [false, false, false];
 
 describe("sweepStaleJobs", () => {
-  it("trims jobs out of the 72-hour window that nobody refers to, and keeps fresh and referenced ones whole", async () => {
+  it("trims jobs out of the 7-day window that nobody refers to, and keeps fresh and referenced ones whole", async () => {
     const co = await company();
     const firstRead = hoursAgo(24 * 30);
     const ids = {
       fresh: await job(co, hoursAgo(2)),
-      stale: await job(co, hoursAgo(100)),
+      stale: await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28)),
       undatedFirstRead: await job(co, null, { firstSeenAt: firstRead }),
       undatedLater: await job(co, null, { firstSeenAt: hoursAgo(10) }),
-      insideGrace: await job(co, hoursAgo(75)),
-      saved: await job(co, hoursAgo(100)),
-      applied: await job(co, hoursAgo(100)),
-      shortlisted: await job(co, hoursAgo(100)),
-      dismissed: await job(co, hoursAgo(100)),
+      insideGrace: await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 3)),
+      saved: await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28)),
+      applied: await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28)),
+      shortlisted: await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28)),
+      dismissed: await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28)),
       // Undated on a board that was never read: never fresh, like an undated job of a first read.
       neverRead: await job(await company(null), null, { firstSeenAt: hoursAgo(10) }),
     };
@@ -91,7 +91,7 @@ describe("sweepStaleJobs", () => {
   });
 
   it("drops the spec and embedding of a job that had no text to blank (a Workday list row)", async () => {
-    const id = await job(await company(), hoursAgo(100), { text: "" });
+    const id = await job(await company(), hoursAgo(MAX_JOB_AGE_HOURS + 28), { text: "" });
     expect(await sweepStaleJobs(t.db, { now: NOW })).toEqual({ jobs: 1, descriptions: 0, specs: 1, embeddings: 1, batches: 1, more: false });
     expect(await state(id)).toEqual(BARE);
   });
@@ -99,7 +99,7 @@ describe("sweepStaleJobs", () => {
   it("works in small batches, stops at maxBatches, and a second run finds nothing", async () => {
     const co = await company();
     const ids: string[] = [];
-    for (let i = 0; i < 5; i++) ids.push(await job(co, hoursAgo(100 + i)));
+    for (let i = 0; i < 5; i++) ids.push(await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28 + i)));
 
     expect(await sweepStaleJobs(t.db, { now: NOW, batchSize: 2, maxBatches: 1 })).toMatchObject({ jobs: 2, batches: 1, more: true });
     expect(await sweepStaleJobs(t.db, { now: NOW, batchSize: 2 })).toEqual({ jobs: 3, descriptions: 3, specs: 3, embeddings: 3, batches: 2, more: false });
@@ -109,7 +109,7 @@ describe("sweepStaleJobs", () => {
 
   it("stops between batches when asked to", async () => {
     const co = await company();
-    for (let i = 0; i < 3; i++) await job(co, hoursAgo(100));
+    for (let i = 0; i < 3; i++) await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28));
     const stop = new AbortController();
     stop.abort();
     expect(await sweepStaleJobs(t.db, { now: NOW, batchSize: 1, signal: stop.signal })).toMatchObject({ jobs: 0, more: true });

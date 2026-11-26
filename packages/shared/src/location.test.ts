@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { countryOf, parseLocation, placeAllowed, placeFactor, placeLabel } from "./location.js";
+import { countryOf, isUsPlace, parseLocation, placeAllowed, placeFactor, placeLabel } from "./location.js";
+
+describe("isUsPlace", () => {
+  it("keeps US places and places that name nowhere, and drops places elsewhere", () => {
+    for (const us of ["San Francisco, CA", "NYC - 1211 Ave of the Americas", "Remote - US", "Remote (United States)", "London, UK | New York, NY", "Remote", "2 Locations", null, "North America"]) {
+      expect(isUsPlace(us, false), String(us)).toBe(true);
+    }
+    for (const abroad of ["London, United Kingdom", "Bengaluru, India", "Remote - Philippines", "Europe Remote - Parking", "EMEA", "Berlin, Germany", "Toronto, Canada"]) {
+      expect(isUsPlace(abroad, false), abroad).toBe(false);
+    }
+  });
+});
 
 const US = new Set(["US"]);
 const UK = new Set(["GB"]);

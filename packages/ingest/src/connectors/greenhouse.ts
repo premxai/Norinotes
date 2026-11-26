@@ -22,7 +22,7 @@ function toJob(token: string, j: GhJob): NormalizedJob {
     descriptionText: htmlToText(html),
     applyUrl: j.absolute_url,
     // first_published is when the job went live. updated_at moves on every edit, so it is never used: an old job edited
-    // yesterday would pass the 72-hour limit. Without first_published the job is undated (see freshJobSql).
+    // yesterday would pass the age limit. Without first_published the job is undated (see freshJobSql).
     postedAt: parseDate(j.first_published),
   };
 }

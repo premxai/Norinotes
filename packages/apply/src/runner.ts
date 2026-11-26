@@ -12,6 +12,11 @@ import { recordStrategies } from "./recipes.js";
 import { isTerminal, MAX_ATTEMPTS, submitMayHaveHappened } from "./state.js";
 import { approveAndSubmit, loadApplication, logEvent, transitionApplication, type ApplicationRow } from "./store.js";
 import { startLiveFrames, type LiveFrameSink } from "./live.js";
+import { applyLiveInput, type LiveInput, type LiveInputBus } from "./control.js";
+import { detectCaptcha } from "./form.js";
+import { PASSWORD_SCRIPT, runScript } from "./dom.js";
+import type { Page } from "playwright";
+import type { RunHandle } from "./pool.js";
 import type {
   AiBrowserFallback, AwaitVerification, CodeWaiter, Driver, DriverContext, EventLevel, FillResult, NeedsUserKind, Preparer, SubmitResult, UnknownFormHandler,
 } from "./types.js";
@@ -206,18 +211,21 @@ async function countRetry(db: Db, row: ApplicationRow): Promise<void> {
     .where(and(eq(applications.id, row.id), eq(applications.status, "applying")));
 }
 
-async function applyStep(db: Db, row: ApplicationRow, deps: ApplyDeps): Promise<StepResult> {
+/** A Finish session's page: every application in it runs on this one page, and walls are handed to the person. */
+type Session = { page: Page; handle: RunHandle; handoff: (applicationId: string, kind: "captcha" | "account") => Promise<boolean> };
+
+async function applyStep(db: Db, row: ApplicationRow, deps: ApplyDeps, session?: Session): Promise<StepResult> {
   const id = row.id;
   if (inflight.has(id)) return result(id, "applying", { waiting: "concurrent" });
   inflight.add(id);
   try {
-    return await applyStepInner(db, row, deps);
+    return await applyStepInner(db, row, deps, session);
   } finally {
     inflight.delete(id);
   }
 }
 
-async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Promise<StepResult> {
+async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps, session?: Session): Promise<StepResult> {
   const id = row.id;
   const done = (to: ApplicationStatus, r: Awaited<ReturnType<typeof transitionApplication>>, extra: Partial<StepResult> = {}) =>
     result(id, r.ok ? r.application.status : to, { advanced: r.ok && !r.noop, waiting: WAITING_AFTER[to], ...extra, ...(r.ok ? {} : { message: r.reason }) });
@@ -277,6 +285,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
     onEvent,
     recordSubmitClick,
     ...(inputs.strategyHints ? { strategyHints: inputs.strategyHints } : {}),
+    ...(session ? { handoff: async (kind: "captcha" | "account") => { await flush(); return session.handoff(id, kind); } } : {}),
     ...(deps.codes || deps.verification ? {
       waitForCode: async (hint: string) => {
         await flush();
@@ -311,15 +320,18 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps): Pro
   let outcome: BrowserOutcome;
   let artifacts: PoolArtifacts = {};
   try {
-    const run = await deps.pool.run(id, async (page, handle) => {
+    const watched = async (page: Page, handle: RunHandle): Promise<BrowserOutcome> => {
       const sink = deps.liveFrames;
-      const stopLive = sink ? startLiveFrames(page, (jpeg) => sink({ applicationId: id, userId: row.userId, jpeg }), deps.liveFrameMs ?? 1000) : null;
+      const stopLive = sink ? startLiveFrames(page, (jpeg) => sink({ applicationId: id, userId: row.userId, jpeg }), deps.liveFrameMs ?? (session ? 500 : 1000)) : null;
       try {
         return await onPage(page, handle);
       } finally {
         await stopLive?.();
       }
-    }, { timeoutMs: (deps.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + (deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS), owner: row.userId });
+    };
+    const run = session
+      ? { value: await watched(session.page, session.handle), artifacts: {} }
+      : await deps.pool.run(id, watched, { timeoutMs: (deps.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + (deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS), owner: row.userId });
     outcome = run.value;
     artifacts = run.artifacts;
     async function onPage(page: Parameters<Parameters<BrowserPool["run"]>[1]>[0], handle: Parameters<Parameters<BrowserPool["run"]>[1]>[1]): Promise<BrowserOutcome> {
@@ -443,6 +455,123 @@ const artifactPaths = (a: PoolArtifacts): { screenshotPath?: string; tracePath?:
   ...(a.screenshotPath ? { screenshotPath: a.screenshotPath } : {}),
   ...(a.tracePath ? { tracePath: a.tracePath } : {}),
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Finish: the person does the last step in the live view
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Applications one Finish session takes, one after another on one page. */
+export const MAX_FINISH_BATCH = 5;
+const DEFAULT_HANDOFF_MS = 10 * 60_000;
+
+export type FinishDeps = ApplyDeps & {
+  /** Where the person's clicks and keys arrive from (POST /api/applications/:id/live/input). */
+  inputs: LiveInputBus;
+  /** How long Nori waits for the person at one wall (default 10 minutes). */
+  handoffTimeoutMs?: number;
+  /** How often Nori looks whether the wall is gone (default 1 s). */
+  handoffPollMs?: number;
+};
+
+/** Opens (or with null, closes) the hand-off on the receipt, merged in place like the submit click. */
+const setHandoff = (db: Db, applicationId: string, handoff: { kind: string; since: string } | null) =>
+  db.update(applications)
+    .set({ receipt: sql`coalesce(${applications.receipt}, '{}'::jsonb) || jsonb_build_object('handoff', ${JSON.stringify(handoff)}::jsonb)`, updatedAt: new Date() })
+    .where(eq(applications.id, applicationId));
+
+const wallCleared = async (page: Page, kind: "captcha" | "account"): Promise<boolean> =>
+  kind === "captcha" ? (await detectCaptcha(page)) === null : !(await runScript<boolean>(page, PASSWORD_SCRIPT).catch(() => true));
+
+/**
+ * Hands one wall to the person: the receipt says so (the dashboard makes the live view clickable), their inputs are played
+ * on the page, and Nori looks every `handoffPollMs` whether the wall is gone (twice in a row, or once after the person
+ * says done). Resolves false when they stop, the wait runs out, or the page is gone. Inputs are never logged or stored.
+ */
+async function handOffToPerson(db: Db, page: Page, applicationId: string, kind: "captcha" | "account", deps: FinishDeps): Promise<boolean> {
+  const timeoutMs = deps.handoffTimeoutMs ?? DEFAULT_HANDOFF_MS;
+  const pollMs = deps.handoffPollMs ?? 1000;
+  const inbox: LiveInput[] = [];
+  let wake: (() => void) | null = null;
+  const off = await deps.inputs.subscribe(applicationId, (input) => { inbox.push(input); wake?.(); });
+  await setHandoff(db, applicationId, { kind, since: (deps.now ?? (() => new Date()))().toISOString() });
+  await logEvent(db, applicationId, "handoff", kind === "captcha"
+    ? "Your turn: solve the captcha in the live view. Nori carries on once it's gone."
+    : "Your turn: sign in in the live view. Nori fills the form once you're in. Nori never stores your password.", { data: { kind } });
+  let outcome: "done" | "cancelled" | "timeout" = "timeout";
+  try {
+    const deadline = Date.now() + timeoutMs;
+    let lastLook = 0;
+    let clearLooks = 0;
+    while (Date.now() < deadline && !page.isClosed()) {
+      let checkNow = false;
+      while (inbox.length) {
+        const input = inbox.shift()!;
+        if (input.kind === "cancel") outcome = "cancelled";
+        else if (input.kind === "done") checkNow = true;
+        else await applyLiveInput(page, input).catch(() => {});
+      }
+      if (outcome === "cancelled") break;
+      if (checkNow || Date.now() - lastLook >= pollMs) {
+        lastLook = Date.now();
+        clearLooks = (await wallCleared(page, kind).catch(() => false)) ? clearLooks + 1 : 0;
+        if (clearLooks >= 2 || (checkNow && clearLooks >= 1)) { outcome = "done"; break; }
+      }
+      await new Promise<void>((resolve) => { wake = resolve; setTimeout(resolve, Math.max(50, pollMs - (Date.now() - lastLook))); });
+      wake = null;
+    }
+  } finally {
+    await off();
+    await setHandoff(db, applicationId, null);
+  }
+  await logEvent(db, applicationId, "handoff_done", outcome === "done" ? "Thanks, Nori takes it from here"
+    : outcome === "cancelled" ? "You stopped the live view" : `Nobody took the step in ${Math.round(timeoutMs / 60_000)} minutes`, { data: { kind, outcome } });
+  return outcome === "done";
+}
+
+/**
+ * A Finish session: the person's applications with one step left, one after another on one fresh browser context. Each is
+ * filled again from its recipe and answers; at the captcha or sign-in Nori hands the page to the person in the live view,
+ * waits until it is done, then submits. A sign-in carries over to the next application in the session; the context, and
+ * with it every sign-in, is thrown away at the end. Nothing in the session is traced or kept as a failure screenshot.
+ * An application the person did not get past goes back to ready_to_finish.
+ */
+export async function finishApplications(db: Db, userId: string, applicationIds: string[], deps: FinishDeps): Promise<StepResult[]> {
+  const ids = [...new Set(applicationIds)].slice(0, MAX_FINISH_BATCH);
+  const results: StepResult[] = [];
+  const perApp = (deps.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + (deps.codeTimeoutMs ?? DEFAULT_CODE_TIMEOUT_MS) + (deps.handoffTimeoutMs ?? DEFAULT_HANDOFF_MS);
+  const backToFinish = async (id: string, why: string) => {
+    const r = await transitionApplication(db, id, "ready_to_finish", { from: "applying", error: `${why} Press Finish to try again.`, message: why });
+    return result(id, r.ok ? r.application.status : "applying", { advanced: r.ok && !r.noop, waiting: "user", message: why });
+  };
+  let current: string | null = null;
+  try {
+    await deps.pool.run(`finish-${userId}`, async (page, handle) => {
+      const session: Session = { page, handle, handoff: (id, kind) => handOffToPerson(db, page, id, kind, deps) };
+      for (const id of ids) {
+        const row = await loadApplication(db, id);
+        if (!row || row.userId !== userId || row.status !== "ready_to_finish") {
+          results.push(result(id, row?.userId === userId ? row.status : "missing", { message: "not waiting for its last step" }));
+          continue;
+        }
+        const moved = await transitionApplication(db, id, "applying", { from: "ready_to_finish", by: "user", message: "Finish pressed: Nori fills it again and hands you the last step" });
+        if (!moved.ok) { results.push(result(id, row.status, { message: moved.reason })); continue; }
+        current = id;
+        const step = await applyStep(db, moved.application, deps, session);
+        current = null;
+        // A try that broke is not retried in the background, where nobody could take the step: it waits for Finish.
+        results.push(step.retry && step.status === "applying" ? await backToFinish(id, `The run broke (${step.message ?? "unknown error"}).`) : step);
+      }
+    }, { personal: true, owner: userId, timeoutMs: perApp * Math.max(1, ids.length) });
+  } catch (err) {
+    if (current) results.push(await backToFinish(current, `The live view stopped (${err instanceof Error ? err.message : String(err)}).`));
+  }
+  return results;
+}
+
+/** Handler for `apply.finish`: one Finish session for the person's chosen applications. */
+export function createFinishHandler(db: Db, deps: FinishDeps): (payload: Payload<"apply.finish">) => Promise<void> {
+  return async (payload) => { await finishApplications(db, payload.userId, payload.applicationIds, deps); };
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Queue handlers

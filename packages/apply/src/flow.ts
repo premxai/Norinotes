@@ -154,6 +154,9 @@ async function nextButton(page: Page) {
 
 const base = (started: number) => ({ durationMs: Date.now() - started });
 
+/** In a Finish session the person takes this step in the live view; otherwise the wall parks the application. */
+const handOff = (ctx: DriverContext, kind: "captcha" | "account"): Promise<boolean> => (ctx.handoff ? ctx.handoff(kind) : Promise.resolve(false));
+
 export async function fillFlow(page: Page, ctx: DriverContext, opts: FlowOptions): Promise<FillResult> {
   const started = Date.now();
   const timings: Record<string, number> = {};
@@ -171,7 +174,10 @@ export async function fillFlow(page: Page, ctx: DriverContext, opts: FlowOptions
     const wall = await botWall(page, status);
     if (wall === "captcha") {
       ctx.onEvent("captcha", "A bot check is showing instead of the page; leaving it for the user", { status }, "warn");
-      return needsUser("captcha", CAPTCHA_REASON);
+      if (!(await handOff(ctx, "captcha"))) return needsUser("captcha", CAPTCHA_REASON);
+      // The person passed it: the site's own page loads in its place.
+      await page.locator(firstField).first().waitFor({ state: "attached", timeout: FIRST_FIELD_TIMEOUT }).catch(() => {});
+      await waitForHydration(page);
     }
     if (wall === "blocked") {
       ctx.onEvent("needs_user", "The site turned automated access away; Norinote does not try to get around that", { status }, "warn");
@@ -184,12 +190,18 @@ export async function fillFlow(page: Page, ctx: DriverContext, opts: FlowOptions
 
     if (await runScript<boolean>(page, PASSWORD_SCRIPT)) {
       ctx.onEvent("needs_user", "The site asks for a password; Norinote never signs in or creates accounts", undefined, "warn");
-      return needsUser("account", ACCOUNT_REASON);
+      if (!(await handOff(ctx, "account"))) return needsUser("account", ACCOUNT_REASON);
+      // The person signed in: open the form again, now with their session.
+      await goto(page, ctx, target, firstField);
+      if (opts.beforeDiscover) await opts.beforeDiscover(page, ctx);
+      await declineCookies(page);
+      await revealForm(page, ctx, preferred);
+      if (await runScript<boolean>(page, PASSWORD_SCRIPT)) return needsUser("account", ACCOUNT_REASON);
     }
     const captcha = await detectCaptcha(page);
     if (captcha) {
       ctx.onEvent("captcha", `Captcha challenge on load (${captcha}); leaving it for the user`, { captcha }, "warn");
-      return needsUser("captcha", CAPTCHA_REASON);
+      if (!(await handOff(ctx, "captcha"))) return needsUser("captcha", CAPTCHA_REASON);
     }
 
     const td = Date.now();
@@ -260,10 +272,10 @@ export async function fillFlow(page: Page, ctx: DriverContext, opts: FlowOptions
   ctx.onEvent("timing", `Form ready in ${(timings.readyMs / 1000).toFixed(1)} s`, { ...timings, fields: filled.length });
   const extra = { strategies: all.strategies, healed: all.healed, timings };
 
-  const captcha = await detectCaptcha(page);
+  const captcha = pending.length ? null : await detectCaptcha(page);
   if (captcha) {
     ctx.onEvent("captcha", `Captcha challenge (${captcha}); leaving it for the user`, { captcha }, "warn");
-    return needsUser("captcha", CAPTCHA_REASON, { formUrl, fields: filled, files, pending, ...extra });
+    if (!(await handOff(ctx, "captcha"))) return needsUser("captcha", CAPTCHA_REASON, { formUrl, fields: filled, files, pending, ...extra });
   }
   if (await runScript<string | null>(page, EMAIL_CODE_SCRIPT).catch(() => null)) {
     ctx.onEvent("verification", "The site asks for an emailed code before submit", undefined, "warn");
@@ -382,7 +394,16 @@ export async function submitFlow(page: Page, ctx: DriverContext, _opts: Pick<Flo
 
     if (state === "captcha" || (await detectCaptcha(page))) {
       ctx.onEvent("captcha", "Captcha challenge after submit; leaving it for the user", undefined, "warn");
-      return { status: "needs_user", submitClicked: true, usedCode, needsUser: { kind: "captcha", reason: CAPTCHA_REASON }, ...base(started) };
+      const held = { status: "needs_user", submitClicked: true, usedCode, needsUser: { kind: "captcha", reason: CAPTCHA_REASON }, ...base(started) } satisfies SubmitResult;
+      if (!(await handOff(ctx, "captcha"))) return held;
+      // Solved: most sites send the form from the captcha's own callback. When the form is still there, send it once more.
+      state = await raceAfterSubmit(page, startUrl, 10_000, confirmedBefore, waitForSubmitResponse(page, 10_000));
+      if (state === "timeout" && (await page.locator("[data-norinote-form]").count().catch(() => 0)) > 0) {
+        const again = waitForSubmitResponse(page, 25_000);
+        await clickSubmit(page, ctx);
+        state = await raceAfterSubmit(page, startUrl, 25_000, confirmedBefore, again);
+      }
+      if (state === "captcha" || (await detectCaptcha(page))) return { ...held, ...base(started) };
     }
 
     const confirmationText = (await runScript<string | null>(page, CONFIRMATION_SCRIPT).catch(() => null)) ?? undefined;

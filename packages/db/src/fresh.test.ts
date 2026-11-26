@@ -16,10 +16,10 @@ async function company(firstReadAt: Date | null): Promise<string> {
   const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: `fresh-${seq++}`, name: "Fresh Co", firstReadAt }).returning();
   return c!.id;
 }
-async function job(companyId: string, postedAt: Date | null, firstSeenAt: Date): Promise<string> {
+async function job(companyId: string, postedAt: Date | null, firstSeenAt: Date, us = true): Promise<string> {
   const id = `fresh-job-${seq++}`;
   const [j] = await t.db.insert(jobs).values({
-    companyId, atsType: "greenhouse", externalId: id, title: "Engineer", applyUrl: `https://example.test/${id}`, dedupeKey: id, postedAt, firstSeenAt,
+    companyId, atsType: "greenhouse", externalId: id, title: "Engineer", applyUrl: `https://example.test/${id}`, dedupeKey: id, postedAt, firstSeenAt, us,
   }).returning();
   return j!.id;
 }
@@ -36,10 +36,10 @@ async function fresh(ids: string[], hours?: number, now = NOW): Promise<string[]
 describe("freshJobSql", () => {
   it("keeps a dated job posted 71 hours ago and drops one posted 73 hours ago, whatever its first sighting", async () => {
     const co = await company(hoursAgo(24 * 30));
-    const inside = await job(co, hoursAgo(71), hoursAgo(71));
-    const outside = await job(co, hoursAgo(73), hoursAgo(73));
+    const inside = await job(co, hoursAgo(MAX_JOB_AGE_HOURS - 1), hoursAgo(MAX_JOB_AGE_HOURS - 1));
+    const outside = await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 1), hoursAgo(MAX_JOB_AGE_HOURS + 1));
     // Seen only an hour ago, but its feed says it was posted four days ago: the posted date wins.
-    const oldPostSeenLate = await job(co, hoursAgo(96), hoursAgo(1));
+    const oldPostSeenLate = await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 24), hoursAgo(1));
     expect(await fresh([inside, outside, oldPostSeenLate])).toEqual([inside]);
   });
 
@@ -51,43 +51,54 @@ describe("freshJobSql", () => {
     expect(await fresh([onFirstRead, neverRead])).toEqual([]);
   });
 
-  it("counts an undated job first seen on a later read, within 72 hours of that sighting", async () => {
+  it("counts an undated job first seen on a later read, within 7 days of that sighting", async () => {
     const co = await company(hoursAgo(24 * 10));
-    const recent = await job(co, null, hoursAgo(71));
-    const tooLongAgo = await job(co, null, hoursAgo(73));
+    const recent = await job(co, null, hoursAgo(MAX_JOB_AGE_HOURS - 1));
+    const tooLongAgo = await job(co, null, hoursAgo(MAX_JOB_AGE_HOURS + 1));
     expect(await fresh([recent, tooLongAgo])).toEqual([recent]);
   });
 
-  it("narrows to a shorter window and caps `hours` at 72", async () => {
-    expect(MAX_JOB_AGE_HOURS).toBe(72);
+  it("narrows to a shorter window and caps `hours` at 7 days", async () => {
+    expect(MAX_JOB_AGE_HOURS).toBe(7 * 24);
     const co = await company(hoursAgo(24 * 30));
     const today = await job(co, hoursAgo(5), hoursAgo(5));
     const yesterday = await job(co, hoursAgo(30), hoursAgo(30));
     const undatedToday = await job(co, null, hoursAgo(20));
-    const old = await job(co, hoursAgo(100), hoursAgo(100));
+    const old = await job(co, hoursAgo(MAX_JOB_AGE_HOURS + 28), hoursAgo(MAX_JOB_AGE_HOURS + 28));
     const all = [today, yesterday, undatedToday, old];
     expect(await fresh(all, 24)).toEqual([today, undatedToday]);
     expect(await fresh(all)).toEqual([today, yesterday, undatedToday]);
-    // Asking for more than 72 hours gets 72 hours.
+    // Asking for more than 7 days gets 7 days.
     expect(await fresh(all, 24 * 365)).toEqual([today, yesterday, undatedToday]);
+  });
+});
+
+describe("US only", () => {
+  it("never keeps a job outside the US, however recent", async () => {
+    const co = await company(hoursAgo(24 * 30));
+    const here = await job(co, hoursAgo(2), hoursAgo(2));
+    const abroad = await job(co, hoursAgo(2), hoursAgo(2), false);
+    expect(await fresh([here, abroad])).toEqual([here]);
+    expect(isFreshJob({ postedAt: hoursAgo(2), firstSeenAt: hoursAgo(2), firstReadAt: hoursAgo(24 * 30), us: false }, NOW)).toBe(false);
   });
 });
 
 describe("isFreshJob", () => {
   it("agrees with freshJobSql on dated, undated, first-read and never-read jobs", async () => {
     const firstRead = hoursAgo(24 * 10);
-    const cases: { postedAt: Date | null; firstSeenAt: Date; firstReadAt: Date | null }[] = [
-      { postedAt: hoursAgo(71), firstSeenAt: hoursAgo(71), firstReadAt: firstRead },
-      { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(1), firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: hoursAgo(71), firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: hoursAgo(73), firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: firstRead, firstReadAt: firstRead },
-      { postedAt: null, firstSeenAt: hoursAgo(5), firstReadAt: null },
+    const cases: { postedAt: Date | null; firstSeenAt: Date; firstReadAt: Date | null; us: boolean }[] = [
+      { postedAt: hoursAgo(MAX_JOB_AGE_HOURS - 1), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS - 1), firstReadAt: firstRead, us: true },
+      { postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 1), firstSeenAt: hoursAgo(1), firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS - 1), firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 1), firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: firstRead, firstReadAt: firstRead, us: true },
+      { postedAt: null, firstSeenAt: hoursAgo(5), firstReadAt: null, us: true },
+      { postedAt: hoursAgo(1), firstSeenAt: hoursAgo(1), firstReadAt: firstRead, us: false },
     ];
     const ids: string[] = [];
-    for (const c of cases) ids.push(await job(await company(c.firstReadAt), c.postedAt, c.firstSeenAt));
+    for (const c of cases) ids.push(await job(await company(c.firstReadAt), c.postedAt, c.firstSeenAt, c.us));
     const kept = new Set(await fresh(ids));
     expect(cases.map((c) => isFreshJob(c, NOW))).toEqual(ids.map((id) => kept.has(id)));
-    expect(cases.map((c) => isFreshJob(c, NOW))).toEqual([true, false, true, false, false, false]);
+    expect(cases.map((c) => isFreshJob(c, NOW))).toEqual([true, false, true, false, false, false, false]);
   });
 });

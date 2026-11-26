@@ -398,6 +398,9 @@ export const CAPTCHA_SCRIPT = String.raw`function () {
   }
   var text = (document.body && document.body.innerText) || '';
   if (/verify (that )?you('| a)re (a )?human/i.test(text)) return 'text:verify you are human';
+  // A bot-check page in place of the site (Cloudflare's "Just a moment..."): the person passes it in the live view.
+  var check = /performing security verification|checking (if the site connection is secure|your browser)|just a moment...|are you a robot|press (&|and) hold|complete the security check/i;
+  if (check.test(document.title) || (text.length < 1500 && check.test(text))) return 'text:bot check';
   return null;
 }`;
 

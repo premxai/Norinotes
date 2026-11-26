@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, applications, applyBatches, asc, companies, desc, eq, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { approveAndSubmit, approveBeforePrepared, createApplication, dailyCapReached, liveFrameKey, retryApplication, saveAnswers, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
+import { and, applications, applyBatches, asc, companies, desc, eq, inArray, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
+import { approveAndSubmit, approveBeforePrepared, createApplication, dailyCapReached, LiveInput, liveFrameKey, logEvent, MAX_FINISH_BATCH, retryApplication, saveAnswers, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -25,6 +25,8 @@ export const CANCELLED = "Cancelled by you";
 const TypedCode = z.object({ code: z.string().trim().min(3).max(20).regex(/^[A-Za-z0-9 -]+$/, "A code has only letters, digits, spaces and dashes") });
 
 const LIST_DESCRIPTION_CHARS = 1200;
+/** Finish: which applications with one step left to take in this session (default: the oldest ones). */
+const Finish = z.object({ ids: z.array(z.uuid()).min(1).max(MAX_FINISH_BATCH).optional() });
 
 /** The user's own application, or 404 (never reveal that someone else's exists). */
 export async function ownedApplication(db: Db, userId: string, id: string): Promise<ApplicationRow> {
@@ -269,6 +271,34 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     const bytes = local ?? (ctx.files ? await ctx.files.get(key).catch(() => null) : null);
     if (!bytes) throw notFound("No live view for this application right now");
     return c.body(new Uint8Array(bytes), 200, { "content-type": "image/jpeg", "cache-control": "no-store", "x-live-status": app.status });
+  });
+
+  // Finish: the person takes the last step (a captcha, a sign-in) of their applications with one step left in Nori's live
+  // view. One session for up to 5, oldest first; the worker opens each in turn and hands the wall to the person.
+  r.post("/finish", auth, async (c) => {
+    const user = c.get("user");
+    const { ids } = await parseBody(c, Finish);
+    limitUser(ctx, "finish", user.id, 30, 3_600_000, "You started Finish many times in a row. Try again in a few minutes.");
+    const rows = await db.select({ id: applications.id }).from(applications)
+      .where(and(eq(applications.userId, user.id), eq(applications.status, "ready_to_finish"), ids ? inArray(applications.id, ids) : undefined))
+      .orderBy(asc(applications.updatedAt)).limit(MAX_FINISH_BATCH);
+    if (!rows.length) throw new HttpError(409, "Nothing is waiting for its last step", "Only applications with one step left can be finished.");
+    const applicationIds = rows.map((r) => r.id);
+    await enqueueRequired(ctx, JOBS.applyFinish, { userId: user.id, applicationIds }, { dedupeKey: `finish:${user.id}`, dedupeSeconds: 30 });
+    for (const id of applicationIds) await logEvent(db, id, "finish_requested", "Finish pressed: Nori opens it in the live view");
+    return c.json({ ok: true, applicationIds });
+  });
+
+  // The person's click, keys or scroll on the live view while Nori hands them a captcha or a sign-in page. Passed straight
+  // to the worker holding the page; never stored or logged (it may be a password). 409 when no hand-off is open.
+  r.post("/:id/live/input", auth, async (c) => {
+    const user = c.get("user");
+    limitUser(ctx, "live-input", user.id, 1200, 60_000, "Too many inputs at once. Slow down a little.");
+    const app = await ownedApplication(db, user.id, uuidParam(c));
+    const input = await parseBody(c, LiveInput);
+    if (app.status !== "applying" || !app.receipt?.handoff) throw new HttpError(409, "Nori isn't waiting for you on this application", app.status);
+    await ctx.liveInputs.publish(app.id, input);
+    return c.json({ ok: true });
   });
 
   r.post("/:id/retry", auth, async (c) => {

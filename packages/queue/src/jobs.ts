@@ -8,6 +8,7 @@ export const JOBS = {
   matchUser: "match.user",
   prepareApplication: "prepare.application",
   applyRun: "apply.run",
+  applyFinish: "apply.finish",
   inboxReceive: "inbox.receive",
   graphReadSource: "graph.read-source",
 } as const;
@@ -31,6 +32,8 @@ export const payloadSchemas = {
   "prepare.application": z.object({ applicationId: id }),
   /** Fill and submit. A user click counts as approval; autopilot runs inside the daily cap. */
   "apply.run": z.object({ applicationId: id, trigger: z.enum(["click", "autopilot"]) }),
+  /** Finish: the person does the last step (a captcha, a sign-in) of up to 5 applications in Nori's live view. */
+  "apply.finish": z.object({ userId: id, applicationIds: z.array(id).min(1).max(5) }),
   /** An inbound email was stored; parse it and wake a waiting apply.run. */
   "inbox.receive": z.object({ messageId: id }),
   /** Read one career-graph source the person named (their GitHub, their site) and store its facts. */
@@ -60,6 +63,9 @@ export const QUEUE_CONFIG: Record<JobName, QueueConfig> = {
   "prepare.application": { retryLimit: 3, retryDelaySeconds: 30, expireSeconds: 5 * 60, concurrency: 4 },
   // Applying drives a real browser and can wait for a verification email, so it gets the longest lease and few retries.
   "apply.run": { retryLimit: 1, retryDelaySeconds: 120, expireSeconds: 20 * 60, concurrency: 3 },
+  // A Finish session waits for the person at each wall (up to 10 minutes each, 5 applications). A retry after a crash only
+  // takes the applications still waiting for their last step; one nobody attends goes back to waiting after the hand-off.
+  "apply.finish": { retryLimit: 1, retryDelaySeconds: 30, expireSeconds: 75 * 60, concurrency: 1 },
   "inbox.receive": { retryLimit: 5, retryDelaySeconds: 10, expireSeconds: 2 * 60, concurrency: 4 },
   // A failed read marks the source failed itself, so a retry is only for a crash.
   "graph.read-source": { retryLimit: 1, retryDelaySeconds: 60, expireSeconds: 5 * 60, concurrency: 2 },

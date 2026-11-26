@@ -72,4 +72,7 @@ export { addJobByUrl, UnsupportedJobUrlError, JobNotFoundError } from "./add-job
 export type { AddJobOptions, AddJobResult } from "./add-job.js";
 
 export { UnsafeUrlError, assertPublicUrl, isPrivateAddress, safeFetch } from "./ssrf.js";
+
+export { CompanyInputError, DISCOVERY_SYSTEMS, MAX_VERIFY_REQUESTS, boardsInPage, companyNameKey, discoverCompany, systemName, tokensForName } from "./discover.js";
+export type { DiscoverOptions, DiscoverResult, DiscoveredCompany } from "./discover.js";
 export type { HostLookup } from "./ssrf.js";

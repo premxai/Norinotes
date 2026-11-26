@@ -44,7 +44,16 @@ export class PoolRunError extends Error {
 }
 
 /** Per-run options. `owner` is the user the run works for: their screenshots and traces go under their own folder. */
-export type PoolRunOptions = { timeoutMs?: number; owner?: string };
+export type PoolRunOptions = {
+  timeoutMs?: number;
+  owner?: string;
+  /**
+   * The person acts on this page in the live view (solves a captcha, signs in). It gets its own context with every
+   * resource loaded (a captcha needs its images), and nothing is recorded: no trace, no failure screenshot. The context,
+   * with any sign-in it holds, is closed when the run ends.
+   */
+  personal?: boolean;
+};
 
 export type BrowserPoolOptions = {
   /** Parallel pages. Clamped to 1..4; default 3. */
@@ -97,7 +106,7 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
   const spares: Promise<BrowserContext>[] = [];
 
   /** A fresh, never-used context with the polite user agent and the resource filter installed. */
-  async function newContext(browser: Browser): Promise<BrowserContext> {
+  async function newContext(browser: Browser, block = blockResources): Promise<BrowserContext> {
     if (!userAgent) {
       const probe = await browser.newContext();
       const p = await probe.newPage();
@@ -106,7 +115,7 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
       userAgent = real ? `${real} ${POLITE_UA_SUFFIX}` : POLITE_UA_SUFFIX;
     }
     const ctx = await browser.newContext({ viewport, userAgent });
-    if (blockResources) await ctx.route("**/*", blockHeavy);
+    if (block) await ctx.route("**/*", blockHeavy);
     return ctx;
   }
   function refillSpares(browser: Browser): void {
@@ -195,6 +204,7 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
     const artifacts: PoolArtifacts = {};
 
     const saveArtifacts = async (): Promise<void> => {
+      if (opts.personal) return;
       artifacts.screenshotPath ??= await takeScreenshot(page, dir, label, "failure");
       if (context && tracing) {
         tracing = false;
@@ -212,11 +222,13 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
 
     try {
       const browser = await ensureBrowser();
-      context = await takeContext(browser);
+      context = opts.personal ? await newContext(browser, false) : await takeContext(browser);
       try {
         // DOM snapshots, no screenshots: a trace that is cheap enough to record on every run.
-        await context.tracing.start({ screenshots: false, snapshots: true });
-        tracing = true;
+        if (!opts.personal) {
+          await context.tracing.start({ screenshots: false, snapshots: true });
+          tracing = true;
+        }
       } catch {
         tracing = false;
       }
@@ -226,7 +238,7 @@ export function createBrowserPool(options: BrowserPoolOptions = {}): BrowserPool
       const pg = page;
       const handle: RunHandle = {
         context: ctx,
-        keepArtifacts: () => { keep = true; },
+        keepArtifacts: () => { keep = !opts.personal; },
         screenshot: (tag) => takeScreenshot(pg, dir, label, tag),
       };
 
