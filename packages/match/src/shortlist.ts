@@ -12,7 +12,7 @@ import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitM
 import { checkGates } from "./gates.js";
 import { heuristicSpec } from "./heuristic-spec.js";
 import { engineJobSql } from "./engine.js";
-import { inlineLanesFitSql, laneFitsSql, locationFitsSql, matchingLanes } from "./lanes.js";
+import { inlineLanesFitSql, laneFitsSql, locationFits, locationFitsSql, matchingLanes, type JobLike, type LaneLike } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
 import { warnSwallowed } from "./log.js";
 import { applyOutcomeLearning } from "./outcome-learning.js";
@@ -464,8 +464,9 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
     }));
   };
   const maxRows = opts.limit ?? 20;
+  const fits = (c: JobLike) => fitsLanesExactly(profile.lanes, c, !!engine);
   let page = await vectorPage(0);
-  const candidates: CandidateJob[] = [...page, ...await lexicalCandidates(db, profile, fitsUser, opts, limit)];
+  const candidates: CandidateJob[] = [...page, ...await lexicalCandidates(db, profile, fitsUser, opts, limit)].filter(fits);
   const base = await scoreCandidates(db, profile, candidates, opts);
   // Many lane jobs but most of a full page rejected (a new grad among senior roles): read the next pages before widening.
   const mostlyRejected = (r: ScoreResult, n: number) => r.gated.length + r.belowMinFit >= n / 2;
@@ -474,10 +475,11 @@ export async function buildShortlist(db: Db, userId: string, opts: BuildShortlis
   for (let pages = 1; base.scored.length < maxRows && page.length === limit && mostlyRejected(last, lastN) && pages < LANE_PAGES; pages++) {
     page = await vectorPage(pages * limit);
     if (page.length === 0) break;
-    candidates.push(...page);
-    const more = await scoreCandidates(db, profile, page, opts);
+    const fitting = page.filter(fits);
+    candidates.push(...fitting);
+    const more = await scoreCandidates(db, profile, fitting, opts);
     last = more;
-    lastN = page.length;
+    lastN = fitting.length;
     base.scored = [...base.scored, ...more.scored].sort(byRank);
     base.gated.push(...more.gated);
     base.belowMinFitIds.push(...more.belowMinFitIds);
@@ -619,6 +621,14 @@ function widenCandidate(r: WidenRow): CandidateJob {
   };
 }
 
+/**
+ * The exact lane check on rows the SQL lane filter let through (that filter is broader on locations, see `locationFitsSql`):
+ * some lane fits the job by title and location, or, in the engine scope, by location alone.
+ */
+function fitsLanesExactly(lanesOfUser: readonly LaneLike[], job: JobLike, engine: boolean): boolean {
+  return engine ? lanesOfUser.some((l) => l.enabled !== false && locationFits(l, job)) : matchingLanes(lanesOfUser, job).length > 0;
+}
+
 /** Widened rows from an earlier run that this run did not choose again: the lanes may match by now, or the jobs are gone. */
 async function removeStaleWidened(db: Db, userId: string, keepJobIds: readonly string[]): Promise<void> {
   await db.delete(shortlist).where(and(
@@ -659,7 +669,7 @@ async function removeStaleRows(db: Db, profile: MatchProfile, laneFilter: SQL, e
     const fitLanes = matchingLanes(profile.lanes, job);
     const minFit = Math.min(...(fitLanes.length > 0 ? fitLanes : profile.lanes).map((l) => l.minFit), 1);
     const skipped = profile.skipCompanies ? isSkippedCompany(profile.skipCompanies, r.companyName) : false;
-    if (!r.fitsLanes || skipped || rawFitOf(r.fit, r.reasons) < minFit || (spec && !checkGates(spec, profile, job, { now }).ok)) stale.push(r.jobId);
+    if (!r.fitsLanes || !fitsLanesExactly(profile.lanes, job, !!engine) || skipped || rawFitOf(r.fit, r.reasons) < minFit || (spec && !checkGates(spec, profile, job, { now }).ok)) stale.push(r.jobId);
   }
   if (stale.length === 0) return;
   await db.delete(shortlist).where(and(eq(shortlist.userId, profile.userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, stale)));
@@ -764,10 +774,14 @@ export async function matchNewJobs(db: Db, jobIds: readonly string[], opts: Matc
 
   const minSimilarity = opts.minSimilarity ?? 0.2;
   const skills = opts.skills ?? DEFAULT_SKILL_MAP;
-  for (const [userId, userPairs] of byUser) {
+  const engine = !!engineJobSql(opts.engineAts);
+  for (const [userId, sqlPairs] of byUser) {
     const vec = await profileEmbedding(db, userId, opts.now);
     const profile = await loadMatchProfile(db, userId, opts.now, opts.skills);
     if (!vec && profile.points.length === 0) continue;
+    const userPairs = sqlPairs.filter((p) => fitsLanesExactly(profile.lanes, p, engine));
+    result.lanePairs -= sqlPairs.length - userPairs.length;
+    if (userPairs.length === 0) continue;
     result.usersEvaluated++;
 
     // Cosine similarity where both sides have an embedding.
