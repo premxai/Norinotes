@@ -133,6 +133,26 @@ const APPLY_SCRIPT = String.raw`function () {
   return best;
 }`;
 
+/**
+ * Make the embedded Greenhouse iframe clickable: some pages keep it in a collapsed section that their own "Apply" button
+ * opens (Riot Games), where text can be set but menus cannot be clicked. Clicks that button only when the iframe is not
+ * what sits on top of its own area, and only an in-page button, never a link to another page.
+ */
+export async function revealIframe(page: Page, frame: Frame): Promise<void> {
+  const el = await frame.frameElement();
+  const onTop = () => el.evaluate(String.raw`(e) => {
+    e.scrollIntoView({ block: "start" });
+    var r = e.getBoundingClientRect();
+    return document.elementFromPoint(r.left + Math.min(r.width / 2, 200), Math.max(r.top, 0) + 20) === e;
+  }`).catch(() => true);
+  if (await onTop()) return;
+  const apply = await runScript<{ text: string; href: string | null } | null>(page, APPLY_SCRIPT).catch(() => null);
+  if (!apply || apply.href) return;
+  await page.locator("[data-norinote-apply]").first().click({ timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await onTop();
+}
+
 /** What the current page is, without leaving it. */
 export async function classifyPage(page: Page, response: Response | null, opts: Pick<FollowOptions, "detect">): Promise<Omit<CareerSite, "hops">> {
   const url = page.url();

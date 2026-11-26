@@ -107,8 +107,8 @@ async function waitForHydration(page: Page): Promise<void> {
 }
 
 /** Decline a cookie banner when one covers the form: the privacy-preserving choice, never "accept". */
-async function declineCookies(page: Page): Promise<void> {
-  const deny = page.getByRole("button", { name: /^(deny|decline|reject( all)?|only (necessary|essential)( cookies)?|necessary only)$/i }).first();
+export async function declineCookies(page: Page): Promise<void> {
+  const deny = page.getByRole("button", { name: /^(deny|decline|reject)( all| non-essential| optional)?( cookies)?$|^(use )?only (necessary|essential)( cookies)?$|^necessary only$/i }).first();
   if (await deny.isVisible().catch(() => false)) await deny.click({ timeout: 2000 }).catch(() => {});
 }
 

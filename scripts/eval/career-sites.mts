@@ -82,7 +82,7 @@ async function main() {
           }
           const ctx: DriverContext = {
             applicationId: "career-" + key, applyUrl: job.url, profile: APPLICANT_PROFILE, resumePdfPath: resumePath, answers: {}, dryRun: true,
-            onEvent: () => {}, recordSubmitClick: async () => { throw new Error("dry runs never submit"); },
+            onEvent: (step, message) => { if (args.includes("--verbose")) console.log("  " + step + ": " + message.slice(0, 160)); }, recordSubmitClick: async () => { throw new Error("dry runs never submit"); },
           };
           if (submitAllowed(ctx)) throw new Error("refusing: submit would be allowed");
           const fill: FillResult = await greenhouseDriver.fill(page, ctx);

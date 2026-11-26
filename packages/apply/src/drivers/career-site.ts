@@ -7,10 +7,10 @@
  * turns that off.
  */
 import type { Page } from "playwright";
-import { followToForm, greenhouseIframe } from "../careers.js";
+import { followToForm, greenhouseIframe, revealIframe } from "../careers.js";
 import { fillFields } from "../fill.js";
 import { CONFIRMATION_SCRIPT, EMAIL_CODE_SCRIPT, runScript } from "../dom.js";
-import { BLOCKED_REASON, CAPTCHA_REASON, EMAIL_CODE_REASON, submitAllowed } from "../flow.js";
+import { BLOCKED_REASON, CAPTCHA_REASON, declineCookies, EMAIL_CODE_REASON, submitAllowed } from "../flow.js";
 import { detectCaptcha, discoverFields, findSubmitButton } from "../form.js";
 import { greenhouseFormIsOffsite, OFFSITE_FORM_REASON } from "../schema.js";
 import type { Driver, DriverContext, FillResult, NeedsUserKind, SubmitResult } from "../types.js";
@@ -47,7 +47,9 @@ export function withCareerSites(hosted: Driver, others: readonly Driver[]): Driv
       delegated.delete(page);
       if (!(await onCareerSite(ctx.applyUrl))) return hosted.fill(page, ctx);
       const started = Date.now();
-      const site = await followToForm(page, ctx.applyUrl, { detect, onEvent: ctx.onEvent });
+      let site = await followToForm(page, ctx.applyUrl, { detect, onEvent: ctx.onEvent });
+      // In a Finish session the person passes a bot check in the live view; then the walk starts again, once.
+      if (site.kind === "captcha" && ctx.handoff && (await ctx.handoff("captcha"))) site = await followToForm(page, ctx.applyUrl, { detect, onEvent: ctx.onEvent });
       ctx.onEvent("career_site", `Company careers site: ${site.kind}`, { kind: site.kind, driver: site.driver, system: site.system, hops: site.hops, fields: site.fields, url: site.url, status: site.status },
         site.kind === "known_ats" ? "info" : "warn");
       const park = (kind: NeedsUserKind, reason: string): FillResult =>
@@ -69,7 +71,16 @@ export function withCareerSites(hosted: Driver, others: readonly Driver[]): Driv
         case "robots": return park("unsupported", ROBOTS_REASON);
         case "other_ats": return park("unsupported", otherSystemReason(site.system ?? "another job system"));
         case "dead": return { status: "failed", formUrl: site.url, fields: [], files: [], pending: [], error: POSTING_GONE_REASON, durationMs: Date.now() - started };
-        default: return park("unsupported", OWN_FORM_REASON);
+        default: {
+          // A form of the company's own, or one only the shared flow's "Apply" reveal finds: fill it the way any form is
+          // filled. A "form" without a resume upload or with under 3 fields filled is a search box or a newsletter
+          // sign-up, never something to send.
+          const next = { ...ctx, applyUrl: site.kind === "custom_form" ? site.url : ctx.applyUrl };
+          const fill = await hosted.fill(page, next);
+          if (fill.status === "failed" || (fill.status === "filled" && (fill.files.length === 0 || fill.fields.length < 3))) return park("unsupported", OWN_FORM_REASON);
+          delegated.set(page, { driver: hosted, ctx: next });
+          return fill;
+        }
       }
     },
     async submit(page, ctx) {
@@ -85,7 +96,9 @@ async function fillEmbedded(page: Page, ctx: DriverContext, started: number): Pr
   const frame = await greenhouseIframe(page);
   if (!frame) return { status: "failed", formUrl: page.url(), fields: [], files: [], pending: [], error: "The embedded form went away", durationMs: Date.now() - started };
   const root = frame as unknown as Page;
-  await (await frame.frameElement()).scrollIntoViewIfNeeded().catch(() => {});
+  // A cookie banner over the bottom of the page covers the form's menus: decline it first, as on any form.
+  await declineCookies(page);
+  await revealIframe(page, frame);
   const fields = await discoverFields(root, GREENHOUSE_FORM_SELECTORS);
   ctx.onEvent("discovered", `Found ${fields.length} fields in the embedded form`, { fields: fields.map((f) => ({ label: f.label, kind: f.kind, required: f.required, widget: f.widget })) });
   if (!fields.length) return { status: "failed", formUrl: page.url(), fields: [], files: [], pending: [], error: "No application form fields found", durationMs: Date.now() - started };
