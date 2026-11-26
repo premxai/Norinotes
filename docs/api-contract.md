@@ -170,7 +170,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, skipCompanies, dailyLimit
   (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
   - `minFit` (0-1) is THE threshold: "Recommended" (`GET /api/jobs?view=best&minScore=<minFit>`), the "All strong"
-    shortcut and the roles. Until it is saved it reads as the lowest of the enabled roles' minFit (0.7 with none).
+    shortcut and the roles. Until it is saved it reads as the lowest of the enabled roles' minFit (0.6 with none;
+    onboarding creates the first role at 0.6).
     Saving it sets every role's minFit to it and re-runs matching.
   - `skipCompanies` (up to 1000 names) is THE skip list, the same as `profile.preferences.excludeCompanies`: saving
     either changes both. Matching leaves those companies out of the shortlist, Today hides them, batches skip them
