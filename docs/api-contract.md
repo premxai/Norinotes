@@ -258,7 +258,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   401 bad signature, 413 too large. See docs/inbox.md
 - POST `/api/inbound/email` (older webhook, shared secret, any shape; kept for compatibility)
 - GET `/api/channels/telegram` returning `{ configured, botUsername, linked, linkedAt, settings: { dailyTime, timezone, count,
-  summaryTime, quietHours: { enabled, start, end }, events: { digest, questions, submitted, needsUser, inbox, summary } } }`;
+  summaryTime, quietHours: { enabled, start, end }, events: { digest, questions, submitted, needsUser, inbox, summary, strongFit } } }` (`strongFit`, default on:
+  a strong fit as soon as Nori prepared it, with Apply and Skip; turning it off also stops Nori preparing strong fits ahead
+  unless the schedule is on);
   PUT `/api/channels/telegram` with any subset of `settings` (same response; 400 on a bad time or zone); DELETE
   `/api/channels/telegram` returning `{ ok, linked: false }`; POST `/api/channels/telegram/link` (optional `{ timezone }`, the
   browser's zone) returning `{ code, expiresAt, botUsername, link }` (`link` is `https://t.me/<bot>?start=<code>`, single use,

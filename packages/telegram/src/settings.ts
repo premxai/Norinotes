@@ -12,7 +12,8 @@ export type TelegramSettings = {
   /** Local time of the daily summary, HH:MM. */
   summaryTime: string;
   quietHours: { enabled: boolean; start: string; end: string };
-  events: { digest: boolean; questions: boolean; submitted: boolean; needsUser: boolean; inbox: boolean; summary: boolean };
+  /** `strongFit`: a new job that fits at 0.8 or more, as soon as Nori has prepared it, with Apply and Skip. */
+  events: { digest: boolean; questions: boolean; submitted: boolean; needsUser: boolean; inbox: boolean; summary: boolean; strongFit: boolean };
 };
 
 export const DEFAULT_SETTINGS: TelegramSettings = {
@@ -21,7 +22,7 @@ export const DEFAULT_SETTINGS: TelegramSettings = {
   count: 5,
   summaryTime: "20:00",
   quietHours: { enabled: true, start: "22:00", end: "08:00" },
-  events: { digest: true, questions: true, submitted: true, needsUser: true, inbox: true, summary: true },
+  events: { digest: true, questions: true, submitted: true, needsUser: true, inbox: true, summary: true, strongFit: true },
 };
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -47,7 +48,7 @@ export const SettingsPatch = z.object({
   quietHours: z.object({ enabled: z.boolean().optional(), start: time.optional(), end: time.optional() }).optional(),
   events: z.object({
     digest: z.boolean().optional(), questions: z.boolean().optional(), submitted: z.boolean().optional(),
-    needsUser: z.boolean().optional(), inbox: z.boolean().optional(), summary: z.boolean().optional(),
+    needsUser: z.boolean().optional(), inbox: z.boolean().optional(), summary: z.boolean().optional(), strongFit: z.boolean().optional(),
   }).optional(),
 }).strict();
 export type SettingsPatch = z.infer<typeof SettingsPatch>;
