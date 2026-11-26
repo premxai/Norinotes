@@ -45,6 +45,11 @@ export {
 } from "./widen.js";
 export type { SimpleLane, TemporaryLane, WidenedBy, WideningStep } from "./widen.js";
 export { inlineLanesFitSql } from "./lanes.js";
+export {
+  AGGRESSIVENESS, APPLY_GROUPS, APPLY_POLICIES, CENTRAL_MUST_HAVE, DEFAULT_AGGRESSIVENESS, EVIDENCED_COVERAGE, HARD_LEVEL_GAP, LACKING_COVERAGE, OWN_FUNCTION,
+  REASONABLE_TITLE, RECENT_COMPANY_DAYS, WORTH_A_SHOT_MAX_AGE_HOURS, assessJob, decideApplies, readAggressiveness,
+} from "./decision.js";
+export type { Aggressiveness, ApplyAction, ApplyDecision, ApplyDecisions, ApplyGroup, ApplyPolicy, DecideOptions, JobAssessment, JobForDecision } from "./decision.js";
 export { engineJobSql, readEngineAts } from "./engine.js";
 export {
   FIT_BANDS, NO_RESPONSE_DAYS, OUTCOME_KINDS, OUTCOME_REASON_PREFIX, SMALL_SAMPLE, addManualOutcome, boardSizeOf, fitBandOf, listOutcomes, loadOutcomeHistory,
