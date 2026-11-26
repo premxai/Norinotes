@@ -15,7 +15,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 ## Onboarding and profile
 - GET `/api/onboarding`; PUT `/api/onboarding` with body `{ step, data }`, steps: resume, contact, authorization,
   screening, preferences. Finishing creates a first lane from the preferences. The authorization step needs
-  `workAuth.status`; without it the PUT returns 400 "Choose your work status".
+  `workAuth.status`; without it the PUT returns 400 "Choose your work status". The status (citizen, permanent_resident,
+  visa, other) is what the matching gates and form answers read for citizenship and permanent residence; being
+  authorised to work says neither.
 - GET `/api/me`, PUT `/api/profile`. `autoApplyDailyCap` (0 to 100) is the daily limit: applications approved per UTC
   day, by any channel; 0 = no limit.
 - POST `/api/profile/resume` (pasted text), POST `/api/profile/resume-file` (upload)
@@ -80,6 +82,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   (a save is a bookmark: it does not add the job to the other lists, unlike a job added by link). GET
   `/api/jobs/locations` returns `{ locations: [{ name, count }] }`, the 30 most common open-job locations.
   `job.requirements.responsibilities` is the full list of what the job involves ("What you'll do").
+  `job.requirements.disqualifiers` says "Requires US citizenship" for a citizens-only job and "Requires US citizenship
+  or permanent residency" for a U.S.-person job (ITAR/EAR export control, "green card holders and citizens").
 
 ## Companies people ask for
 - POST `/api/companies` with `{ query }` (a company name, or a link: its board or its own careers page; 2 to 2000

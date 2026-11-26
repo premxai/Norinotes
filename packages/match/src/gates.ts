@@ -10,7 +10,7 @@ export type GateResult = { ok: boolean; reasons: string[] };
 /** Roughly how many years each seniority asks for when the posting gives no number. */
 const SENIORITY_YEARS: Record<string, number> = { senior: 4, staff: 7, principal: 9, manager: 4, director: 8, executive: 10 };
 
-const NO_INFO: CountryAuth = { authorized: null, needsSponsorship: null, citizen: null, clearance: null };
+const NO_INFO: CountryAuth = { authorized: null, needsSponsorship: null, citizen: null, permanentResident: null, clearance: null };
 
 /**
  * What the job asks for in years: the posting's own number, else what the seniority usually implies (the spec's, or the
@@ -52,7 +52,9 @@ export type GateOptions = {
 /**
  * Hard rules a job must pass for this user, in plain sentences. A rule only fails when the profile gives a reason to
  * fail it; missing information passes, except US citizenship and clearance, which fail unless the profile says the user
- * holds them (a form answer must never claim something the profile does not state).
+ * holds them (a form answer must never claim something the profile does not state). A citizens-only job needs a US citizen;
+ * a "U.S. person" job (`citizenshipScope: "us_person"`: ITAR/EAR, "green card holders and citizens") also takes a lawful
+ * permanent resident. Specs without a scope are citizens-only.
  *
  * Years are counted in the job's function (see `familyYears`) when the job title is known and the user has dated roles,
  * else over the whole career. Location: the lanes must accept the job (text match, or remote with a remote lane), and the
@@ -66,10 +68,15 @@ export function checkGates(spec: JobSpec, profile: MatchProfile, job?: Partial<J
   const us = profile.workAuth.countries.US ?? NO_INFO;
 
   // Citizenship and clearance. The detector is US specific, so this is checked against the user's US status.
-  if (spec.citizenshipRequired && us.citizen !== true) {
+  if (spec.citizenshipRequired && (spec.citizenshipScope ?? "citizen") === "citizen" && us.citizen !== true) {
     reasons.push(us.citizen === false
       ? "This role requires US citizenship and you are not a US citizen."
       : "This role requires US citizenship and your profile does not say you are a US citizen.");
+  }
+  if (spec.citizenshipRequired && spec.citizenshipScope === "us_person" && us.citizen !== true && us.permanentResident !== true) {
+    reasons.push(us.permanentResident === false
+      ? "This role is open only to US citizens and permanent residents, and you are neither."
+      : "This role is open only to US citizens and permanent residents, and your profile does not say you are either.");
   }
   if (spec.clearanceRequired && us.clearance !== true && us.citizen !== true) {
     reasons.push("This role requires a government security clearance and your profile does not show that you hold one or are eligible for one.");

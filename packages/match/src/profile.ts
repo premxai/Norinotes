@@ -63,7 +63,7 @@ function allowedCountriesUncached(profile: Pick<MatchProfile, "location" | "lane
   const out = new Set<string>();
   const home = homeCountryOf(profile);
   if (home) out.add(home);
-  for (const [c, a] of Object.entries(profile.workAuth.countries)) if (a.authorized === true || a.citizen === true) out.add(c);
+  for (const [c, a] of Object.entries(profile.workAuth.countries)) if (a.authorized === true || a.citizen === true || a.permanentResident === true) out.add(c);
   for (const l of profile.lanes) for (const loc of l.locations) for (const c of parseLocation(loc).countries) out.add(c);
   return out;
 }

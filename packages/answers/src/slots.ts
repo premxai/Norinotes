@@ -7,7 +7,7 @@
  * opportunity slots use the profile's choice, else the form's own "decline to self-identify" option.
  */
 import type { CareerPoint, PendingQuestion } from "@norinote/shared";
-import { countryCode, defaultAnswer, type Facts } from "./defaults.js";
+import { CITIZENSHIP_QUESTION, countryCode, defaultAnswer, type Facts } from "./defaults.js";
 import { isNo, isYes, matchOption, normalizeQuestion } from "./text.js";
 
 export const SLOTS = [
@@ -83,7 +83,7 @@ const LABEL_RULES: [RegExp, Slot, ((f: SlotField) => boolean)?][] = [
   [/^(resume|cv)\b.*\b(text|paste)|paste (your )?(resume|cv)/, "resume_text"],
   [/\bsponsor|sponorship|\bvisa\b|h-?1b/, "sponsorship"],
   [/authori[sz]ed to work|work authori[sz]ation|legally (authori[sz]ed|eligible|able|permitted)|eligible to work|right to work|work permit|employment eligibility|legal(ly)? (right|entitled) to work|work authori[sz]ed/, "work_auth"],
-  [/^(are|is) you (a |an )?[a-z .]{0,30}(citizen|permanent resident)\b/, "work_auth", isChoiceLike],
+  [/^(are|is) you (a |an )?[a-z .]{0,30}(citizen|permanent resident|green card holder|u\.? ?s\.? person)\b/, "work_auth", isChoiceLike],
   [/convicted|criminal|felony|misdemeanou?r|background check.*(pass|consent)|arrest/, "criminal"],
   [/salary|compensation|pay (expectation|range|requirement)|desired (pay|rate)|expected (pay|rate)|rate expectation|\bote\b/, "salary"],
   [/relocat/, "relocation", (f) => notProse(f) && !/address from which|where (do|will) you|plan on working from|currently based within|commuting distance/.test(lc(f.label))],
@@ -269,8 +269,9 @@ export function slotValue(slot: Slot, f: SlotField, facts: Facts, career: Career
     case "work_auth": case "sponsorship": case "salary": case "relocation": case "start_date": {
       // The slot may come from a model's reading of an unusual label; the profile rules key on wording, so add the word.
       const hint = { work_auth: "authorized to work", sponsorship: "sponsorship", salary: "salary", relocation: "relocate", start_date: "start date" }[slot];
+      // A citizenship question never falls back to the work authorisation answer: being authorised is not being a citizen.
       const v = defaultAnswer(toQuestion(f), facts, { jobCountry: ctx.jobCountry })
-        ?? defaultAnswer(toQuestion({ ...f, label: `${f.label} (${hint})` }), facts, { jobCountry: ctx.jobCountry });
+        ?? (CITIZENSHIP_QUESTION.test(lc(f.label)) ? null : defaultAnswer(toQuestion({ ...f, label: `${f.label} (${hint})` }), facts, { jobCountry: ctx.jobCountry }));
       // "Based in X or willing to relocate?": not willing does not make it No when the person may already live there.
       if (v && slot === "relocation" && /\b(based|located|live|living|reside)\b.{0,40}\bor\b|\bor\b.{0,40}\b(based|located|live|living|reside)\b|\blocal to\b/.test(lc(f.label)) && isNo(v)) {
         return f.required ? { status: "pending", reason: "It depends on where you live now" } : { status: "skip", reason: "depends on where the person lives" };

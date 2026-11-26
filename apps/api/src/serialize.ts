@@ -61,7 +61,7 @@ export function toJob(j: JobRow, company: { name: string | null; logoUrl: string
 /** What a job asks for, in the web's shape. */
 export function toRequirements(spec: JobSpec) {
   const disqualifiers: string[] = [];
-  if (spec.citizenshipRequired) disqualifiers.push("Requires US citizenship");
+  if (spec.citizenshipRequired) disqualifiers.push(spec.citizenshipScope === "us_person" ? "Requires US citizenship or permanent residency" : "Requires US citizenship");
   if (spec.clearanceRequired) disqualifiers.push("Requires a security clearance");
   if (spec.sponsorship === "no") disqualifiers.push("No visa sponsorship");
   return {

@@ -1,6 +1,8 @@
 /**
  * Does this posting restrict who can apply to US citizens or people who can hold a government clearance?
- * Visa holders (a core audience) cannot take these roles, so the shortlist hides them.
+ * Visa holders (a core audience) cannot take these roles, so the shortlist hides them. A citizenship restriction is either
+ * "citizens only" or "U.S. person" (citizens and lawful permanent residents: ITAR/EAR export-control wording, "green card
+ * holders and citizens"), so permanent residents are not turned away from the second kind.
  *
  * Ported from Nori (`packages/core/src/match/clearance.ts`). Works sentence by sentence: a sentence counts when it
  * states a restriction and does not negate it ("we do not require a clearance", "citizens of any country") or make it
@@ -41,7 +43,12 @@ const POSITIVE: Pattern[] = [
 
 const CUE_RE = new RegExp(String.raw`\b${CUE}\b`, "i");
 // "US person" is only restrictive in an export-control sense.
-const EXPORT_CONTEXT = /\b(?:export|itar|ear\b|22\s*cfr|defined\s+(?:by|in|under)|must|required|only|eligib\w+)/i;
+const EXPORT_CONTEXT = /\b(?:export|itar|ear\b|22\s*cfr|15\s*cfr|defined\s+(?:by|in|under)|must|required|only|eligib\w+)/i;
+
+// A citizenship sentence that also lets permanent residents in ("US citizen or permanent resident", "green card holders and US
+// citizens", "US person"), unless it shuts them out ("permanent residents are not eligible").
+const PERMANENT_RESIDENT_RE = /\b(?:(?:lawful\s+)?permanent\s+residen(?:t|ts|cy|ce)|green[\s-]?card(?:\s+holders?)?|LPRs?)\b/i;
+const PR_EXCLUDED_RE = /\b(?:permanent\s+residen\w*|green[\s-]?card(?:\s+holders?)?|LPRs?)\b(?:\W+\w+){0,3}?\W+(?:(?:are|is)\s+)?(?:(?:not|n'?t)\s+eligible|ineligible)|\b(?:not|no)\s+(?:\w+\s+){0,2}?(?:permanent\s+residen\w*|green[\s-]?cards?)/i;
 
 const TRIGGER = String.raw`(?:citizen\w*|clearances?|polygraph|itar|us\s+persons?)`;
 const NEGATIONS: RegExp[] = [
@@ -91,9 +98,26 @@ function sentenceKinds(s: string): Set<"citizenship" | "clearance"> {
   return kinds;
 }
 
+export type CitizenshipScope = "citizen" | "us_person";
+
+/**
+ * Who a citizenship sentence lets in. "us_person" when it names permanent residents or green card holders, or says "US
+ * person" or cites export control without naming citizenship; otherwise (and when it excludes permanent residents) "citizen".
+ */
+function sentenceScope(s: string): CitizenshipScope {
+  if (PR_EXCLUDED_RE.test(s)) return "citizen";
+  if (PERMANENT_RESIDENT_RE.test(s) || US_PERSON_RE.test(s)) return "us_person";
+  return CITIZEN_RE.test(s) ? "citizen" : "us_person";
+}
+
 export type Restrictions = {
   /** A sentence requires US citizenship or US-person status (export control). */
   citizenship: boolean;
+  /**
+   * Who meets the citizenship restriction: "us_person" when every sentence stating it also accepts lawful permanent
+   * residents, "citizen" when any sentence asks for citizens only. "citizen" when there is no restriction.
+   */
+  citizenshipScope: CitizenshipScope;
   /** A sentence requires, or requires being able to obtain, a government clearance. */
   clearance: boolean;
   /** A sentence says outright that citizenship is not needed ("citizens of any country", "regardless of citizenship"), and none requires it. */
@@ -109,18 +133,26 @@ const CITIZEN_WORDS = /citizen|nationalit|nationals+origin|itar|uss+persons?/i;
 export function detectRestrictions(job: ClearanceJob): Restrictions {
   const found = { citizenship: false, clearance: false };
   const negated = { citizenship: false, clearance: false };
+  const scopes = new Set<CitizenshipScope>();
   if (TITLE_RE.test(job.title)) found.clearance = true;
   const parts = [job.descriptionText ?? "", ...(job.extraText ?? [])];
   for (const part of parts) {
     if (!part) continue;
     for (const s of sentences(part)) {
-      for (const k of sentenceKinds(s)) found[k] = true;
+      const kinds = sentenceKinds(s);
+      for (const k of kinds) found[k] = true;
+      if (kinds.has("citizenship")) scopes.add(sentenceScope(s));
       if (!NEGATIONS.some((n) => n.test(s))) continue;
       if (CLEARANCE_WORDS.test(s)) negated.clearance = true;
       if (CITIZEN_WORDS.test(s)) negated.citizenship = true;
     }
   }
-  return { ...found, citizenshipNegated: negated.citizenship && !found.citizenship, clearanceNegated: negated.clearance && !found.clearance };
+  return {
+    ...found,
+    citizenshipScope: scopes.size > 0 && !scopes.has("citizen") ? "us_person" : "citizen",
+    citizenshipNegated: negated.citizenship && !found.citizenship,
+    clearanceNegated: negated.clearance && !found.clearance,
+  };
 }
 
 export function needsUsCitizenshipOrClearance(job: ClearanceJob): boolean {

@@ -2,13 +2,15 @@ import { z } from "zod";
 
 /**
  * What the user told us about working in one country. `null` means they did not say. This is the pinned shape of
- * `profiles.work_auth`: `{ US: { authorized, needsSponsorship, citizen, clearance } }`, one entry per ISO-like country
- * code. The US is the main case (most job gates are US ones).
+ * `profiles.work_auth`: `{ US: { authorized, needsSponsorship, citizen, permanentResident, clearance } }`, one entry per
+ * ISO-like country code. The US is the main case (most job gates are US ones). `permanentResident` is true for citizens
+ * too: it answers "may this person work here without any visa" (in the US, "U.S. person" under ITAR/EAR).
  */
 export const CountryAuth = z.object({
   authorized: z.boolean().nullable().default(null),
   needsSponsorship: z.boolean().nullable().default(null),
   citizen: z.boolean().nullable().default(null),
+  permanentResident: z.boolean().nullable().default(null),
   clearance: z.boolean().nullable().default(null),
 });
 export type CountryAuth = z.infer<typeof CountryAuth>;
@@ -16,7 +18,7 @@ export type CountryAuth = z.infer<typeof CountryAuth>;
 export const WorkAuthByCountry = z.record(z.string(), CountryAuth);
 export type WorkAuthByCountry = z.infer<typeof WorkAuthByCountry>;
 
-export const EMPTY_COUNTRY_AUTH: CountryAuth = { authorized: null, needsSponsorship: null, citizen: null, clearance: null };
+export const EMPTY_COUNTRY_AUTH: CountryAuth = { authorized: null, needsSponsorship: null, citizen: null, permanentResident: null, clearance: null };
 
 const COUNTRY_ALIASES: Record<string, string> = {
   us: "US", usa: "US", "u.s.": "US", "u.s.a.": "US", "united states": "US", "united states of america": "US", america: "US",
@@ -58,23 +60,47 @@ function clearanceOf(v: unknown): boolean | null {
   return bool(v);
 }
 
+/**
+ * The onboarding status ("citizen", "permanent_resident", "visa", "other") as citizen and permanent-resident flags.
+ * "other" (and anything unknown) says nothing about permanent residence.
+ */
+function statusFlags(v: unknown): { citizen: boolean | null; permanentResident: boolean | null } {
+  const s = typeof v === "string" ? v.trim().toLowerCase().replace(/[\s-]+/g, "_") : "";
+  if (s === "citizen") return { citizen: true, permanentResident: true };
+  if (s === "permanent_resident" || s === "green_card" || s === "lawful_permanent_resident") return { citizen: false, permanentResident: true };
+  if (s === "visa") return { citizen: false, permanentResident: false };
+  if (s === "other") return { citizen: false, permanentResident: null };
+  return { citizen: null, permanentResident: null };
+}
+
+/** The explicit flags win over the status; a citizen always counts as a permanent resident. */
+function residency(citizen: boolean | null, permanentResident: boolean | null, status: unknown): Pick<CountryAuth, "citizen" | "permanentResident"> {
+  const fromStatus = statusFlags(status);
+  const c = citizen ?? fromStatus.citizen;
+  return { citizen: c, permanentResident: c === true ? true : (permanentResident ?? fromStatus.permanentResident) };
+}
+
+const PERMANENT_RESIDENT_KEYS = ["permanentResident", "isPermanentResident", "lawfulPermanentResident", "greenCard", "hasGreenCard"];
+
 function readCountry(o: Rec, code: string): CountryAuth {
   const citizenship = pick(o, "citizen", "isCitizen", "citizenship");
+  // `citizenship: "US"` or `["US", "CA"]` also counts when it names this country.
+  const citizen = Array.isArray(citizenship) ? citizenship.some((c) => typeof c === "string" && normalizeCountry(c) === code)
+    : typeof citizenship === "string" && bool(citizenship) === null ? normalizeCountry(citizenship) === code
+    : bool(citizenship);
   return CountryAuth.parse({
     authorized: bool(pick(o, "authorized", "authorised", "workAuthorized", "authorizedToWork", "authorisedToWork")),
     needsSponsorship: bool(pick(o, "needsSponsorship", "requiresSponsorship", "sponsorshipRequired", "needs_sponsorship", "sponsorship")),
-    // `citizenship: "US"` or `["US", "CA"]` also counts when it names this country.
-    citizen: Array.isArray(citizenship) ? citizenship.some((c) => typeof c === "string" && normalizeCountry(c) === code)
-      : typeof citizenship === "string" && bool(citizenship) === null ? normalizeCountry(citizenship) === code
-      : bool(citizenship),
+    ...residency(citizen, bool(pick(o, ...PERMANENT_RESIDENT_KEYS)), pick(o, "status", "workStatus")),
     clearance: clearanceOf(pick(o, "clearance", "hasClearance", "securityClearance")),
   });
 }
 
 /**
  * Reads `profiles.work_auth` into the pinned per-country shape. Accepts the per-country form
- * (`{ US: { authorized, needsSponsorship, citizen, clearance } }`, country names or codes as keys, "yes"/"no" strings
- * allowed) and the legacy flat form Nori used (`{ authorizedUS, needsSponsorship, usCitizen, clearance }`), which
+ * (`{ US: { authorized, needsSponsorship, citizen, permanentResident, clearance, status } }`, country names or codes as keys,
+ * "yes"/"no" strings allowed; `status` is the onboarding choice: citizen, permanent_resident, visa or other) and the legacy
+ * flat form (`{ authorizedUS, needsSponsorship, usCitizen, status, clearance }`), which
  * describes the home country (`flat.country` if present, else `homeCountry`, default the US). Never throws: unreadable values become `null`.
  */
 export function parseWorkAuthMap(raw: unknown, homeCountry = "US"): WorkAuthByCountry {
@@ -90,10 +116,13 @@ export function parseWorkAuthMap(raw: unknown, homeCountry = "US"): WorkAuthByCo
   if (Object.keys(flat).length > 0) {
     const home = typeof flat.country === "string" && flat.country.trim() ? normalizeCountry(flat.country) : normalizeCountry(homeCountry);
     const us = countries[home] ?? EMPTY_COUNTRY_AUTH;
+    const flatResidency = residency(bool(pick(flat, "usCitizen", "isUsCitizen", "citizen", "isCitizen")), bool(pick(flat, ...PERMANENT_RESIDENT_KEYS)), pick(flat, "status", "workStatus"));
+    const citizen = us.citizen ?? flatResidency.citizen;
     countries[home] = {
       authorized: us.authorized ?? bool(pick(flat, "authorizedUS", "authorisedUS", "usAuthorized", "authorized", "authorised")),
       needsSponsorship: us.needsSponsorship ?? bool(pick(flat, "needsSponsorship", "requiresSponsorship", "sponsorshipRequired", "sponsorship")),
-      citizen: us.citizen ?? bool(pick(flat, "usCitizen", "isUsCitizen", "citizen", "isCitizen")),
+      citizen,
+      permanentResident: citizen === true ? true : (us.permanentResident ?? flatResidency.permanentResident),
       clearance: us.clearance ?? clearanceOf(pick(flat, "clearance", "hasClearance", "securityClearance")),
     };
   }

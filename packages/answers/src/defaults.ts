@@ -1,4 +1,4 @@
-import type { PendingQuestion } from "@norinote/shared";
+import { parseWorkAuthMap, type PendingQuestion } from "@norinote/shared";
 import { isNo, isYes, matchOption, normalizeQuestion } from "./text.js";
 
 /** What the profile row says, read tolerantly (the profile is jsonb, so keys may be spelled a few ways). */
@@ -181,6 +181,8 @@ const HEAR = /(hear|heard|learn(ed)?|find|found) (out )?about (us|this|the|our)|
 const SALARY = /salary|compensation|pay (expectation|range|requirement)|desired (pay|rate)|expected (pay|rate)|rate expectation/;
 const START = /start date|when (can|could|would) you (start|begin|join)|earliest (possible )?(start|date|availab)|available to start|availability (to start|date)/;
 const AUTH = /(authori[sz]ed|eligible|legally|right|permitted|legal right) to work|work authori[sz]ation|work permit|employment eligibility/;
+/** A question about citizenship or permanent residence ("Are you a US citizen?", "... or green card holder?", "a U.S. person?"). */
+export const CITIZENSHIP_QUESTION = /\bcitizen|permanent resident|green card|\bu\.? ?s\.? persons?\b/;
 const EEO = /\b(gender|sex|race|racial|ethnicity|ethnic|hispanic|latino|latina|latinx|veteran|disability|disabled|sexual orientation|lgbtq|transgender)\b/;
 
 /**
@@ -215,6 +217,17 @@ export function defaultAnswer(q: PendingQuestion, facts: Facts, ctx: { jobCountr
   }
 
   const target = countryIn(q.text) ?? ctx.jobCountry ?? countryCode(facts.country) ?? countryCode(str(facts.workAuth.country));
+  if (CITIZENSHIP_QUESTION.test(label) && !AUTH.test(label) && !/sponsor/.test(label)) {
+    // Only the citizenship and permanent residence the profile states; being authorised to work says neither.
+    const a = target ? parseWorkAuthMap(facts.workAuth, countryCode(facts.country) ?? "US")[target] : undefined;
+    if (!a) return null;
+    const citizenAsked = /citizen/.test(label);
+    const residentAsked = /permanent resident|green card|\bu\.? ?s\.? persons?\b/.test(label);
+    // "Are you a permanent resident?" alone: a citizen is not one, so that answer is left to the person.
+    if (residentAsked && !citizenAsked && !/person/.test(label) && a.citizen === true) return null;
+    const holds = residentAsked ? a.permanentResident : a.citizen;
+    return holds === null ? null : yesNo(q, holds);
+  }
   if (/sponsor/.test(label)) {
     const a = authFor(facts, target);
     if (!a) return null;
