@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { createComposioGmail } from "@norinote/inbox";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
-import { addJobByUrl } from "@norinote/ingest";
+import { addJobByUrl, discoverCompany } from "@norinote/ingest";
 import { fileStoreFromEnv } from "@norinote/shared/files";
 import { sharedMemoryInputBus } from "@norinote/apply";
 import { createMailer } from "./mailer.js";
@@ -14,6 +14,7 @@ import { applicationRoutes } from "./routes/applications.js";
 import { noriRoutes } from "./routes/nori.js";
 import { authRoutes } from "./routes/auth.js";
 import { channelRoutes } from "./routes/channels.js";
+import { companyRoutes } from "./routes/companies.js";
 import { artifactRoutes, resumeRoutes } from "./routes/files.js";
 import { graphRoutes } from "./routes/graph.js";
 import { healthRoutes } from "./routes/health.js";
@@ -45,6 +46,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
     mailer: deps.mailer ?? createMailer(config, deps.log),
     now: deps.now ?? (() => new Date()),
     addJob: deps.addJob ?? addJobByUrl,
+    discoverCompany: deps.discoverCompany ?? discoverCompany,
     log: deps.log ?? ((line) => console.log(line)),
     limiter: deps.limiter ?? new RateLimiter(),
     files: deps.files === undefined ? fileStoreFromEnv() : deps.files,
@@ -70,6 +72,7 @@ export function createApp(deps: ApiDeps): Hono<AppEnv> {
   app.route("/api/graph", graphRoutes(ctx));
   app.route("/api/lanes", laneRoutes(ctx));
   app.route("/api/jobs", jobRoutes(ctx));
+  app.route("/api/companies", companyRoutes(ctx));
   app.route("/api/shortlist", shortlistRoutes(ctx));
   app.route("/api/applications", applicationRoutes(ctx));
   app.route("/api/applications", applicationOutcomeRoutes(ctx));
