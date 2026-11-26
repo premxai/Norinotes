@@ -8,9 +8,9 @@ export { heuristicSpec, roleFamilyFromTitle, seniorityFromTitle, yearsFromText }
 export type { HeuristicJob } from "./heuristic-spec.js";
 export { HARD_YEARS_GAP, SENIOR_MIN_YEARS, checkGates, jobPlace, requiredYears } from "./gates.js";
 export type { GateOptions, GateResult } from "./gates.js";
-export { buildShortlist, byRank, clearRequirementVectorCache, matchNewJobs, openAndFreshSql, rankScore, saveShortlistRows } from "./shortlist.js";
+export { buildShortlist, byRank, clearRequirementVectorCache, matchNewJobs, openAndFreshSql, rankScore, saveShortlistRows, shortlistReading } from "./shortlist.js";
 export type {
-  BuildShortlistOptions, EmbedFn, ExplainOptions, MatchNewJobsOptions, MatchNewJobsResult, MatchOptions, MatchStats, ShortlistCandidate, ShortlistRow,
+  BuildShortlistOptions, EmbedFn, ExplainOptions, MatchNewJobsOptions, MatchNewJobsResult, MatchOptions, MatchStats, ShortlistCandidate, ShortlistReading, ShortlistRow,
 } from "./shortlist.js";
 export { DEFAULT_MIN_FIT, RESUME_POINT_ID, buildRequirements, coverageOf, qualityOf, relevantYears, scoreFit, scoreRequirement, similarityToRelevance } from "./fit.js";
 export type { FitComponents, FitEvidence, FitMapItem, FitResult, QualityLevel, Requirement, ScoreFitArgs, SpecQuality } from "./fit.js";

@@ -1,5 +1,5 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { AiUnavailableError, createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
 import { MAX_JOB_AGE_HOURS, and, applications, eq, shortlist, sql } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { profileEmbedding } from "@norinote/graph";
@@ -319,6 +319,28 @@ describe("buildShortlist: detailed fit, gates and saving", () => {
     const stats = await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript"), now: NOW, explain: {} });
     expect(stats.saved).toBe(1);
     expect(stats.items[0]!.reasons[0]).toMatch(/^Strong evidence for TypeScript/);
+  });
+  it("logs one warn line when the explanation fails unexpectedly, and none when the AI service is unavailable", async () => {
+    const { userId, job } = await setup();
+    await job("Lambda Engineer", baseSpec({ mustHaves: ["TypeScript"] }));
+    await job("Lambda Engineer, Two", baseSpec({ mustHaves: ["TypeScript"] }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const events = () => warn.mock.calls.map((c) => String(c[0])).filter((l) => l.includes("match.explain_failed"));
+    const embedOk = async (r: { texts: string[] }) => ({ vectors: r.texts.map((x) => fakeEmbedding(x)), promptTokens: 1 });
+    try {
+      setProvider({ name: "buggy", chat: () => Promise.reject(new TypeError("x is undefined")), embed: embedOk });
+      const stats = await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript"), now: NOW, explain: { top: 2 } });
+      expect(stats.saved).toBe(2);
+      expect(events()).toHaveLength(1);
+      expect(JSON.parse(events()[0]!)).toMatchObject({ level: "warn", event: "match.explain_failed", error: "TypeError" });
+
+      warn.mockClear();
+      setProvider({ name: "down", chat: () => Promise.reject(new AiUnavailableError("server", 503)), embed: embedOk });
+      expect((await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript"), now: NOW, explain: { top: 2 } })).saved).toBe(2);
+      expect(events()).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { SQL } from "drizzle-orm";
 import { AiUnavailableError, complete, embed } from "@norinote/ai";
 import {
-  and, applications, asc, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
+  and, applications, asc, careerPointEmbeddings, careerPoints, companies, cosineDistance, desc, eq, freshJobSql, inArray, isNotNull, isNull, jobEmbeddings, jobSpecs, jobs, lanes,
   MAX_JOB_AGE_HOURS, notInArray, or, shortlist, sql, type Db,
 } from "@norinote/db";
 import { profileEmbedding } from "@norinote/graph";
@@ -14,6 +14,7 @@ import { heuristicSpec } from "./heuristic-spec.js";
 import { engineJobSql } from "./engine.js";
 import { inlineLanesFitSql, laneFitsSql, locationFitsSql, matchingLanes } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
+import { warnSwallowed } from "./log.js";
 import { applyOutcomeLearning } from "./outcome-learning.js";
 import { rawFitOf } from "./outcomes.js";
 import { placeFactor } from "./location.js";
@@ -203,6 +204,24 @@ async function loadSpecs(db: Db, jobIds: readonly string[]): Promise<Map<string,
   return out;
 }
 
+/** Whether a person's listed jobs were read with the AI (`full`) or mostly without it (`basic`). */
+export type ShortlistReading = "full" | "basic";
+
+/**
+ * How the listed jobs were read, from stored data: a job counts as read without the AI when its newest spec is heuristic
+ * (or it has none), or it has no embedding, or the person has no embedded career points (both rank by skill overlap
+ * then). `basic` when more than half of the jobs were read that way; an empty list is `full`.
+ */
+export async function shortlistReading(db: Db, userId: string, jobIds: readonly string[]): Promise<ShortlistReading> {
+  if (jobIds.length === 0) return "full";
+  const [embedded] = await db.select({ id: careerPointEmbeddings.careerPointId }).from(careerPointEmbeddings).where(eq(careerPointEmbeddings.userId, userId)).limit(1);
+  if (!embedded) return "basic";
+  const specs = await loadSpecs(db, jobIds);
+  const withEmbedding = new Set((await db.select({ jobId: jobEmbeddings.jobId }).from(jobEmbeddings).where(inArray(jobEmbeddings.jobId, [...jobIds]))).map((r) => r.jobId));
+  const basic = jobIds.filter((id) => !withEmbedding.has(id) || (specs.get(id)?.heuristic ?? true)).length;
+  return basic * 2 > jobIds.length ? "basic" : "full";
+}
+
 // ---- ranking ----------------------------------------------------------------------------------------------------------
 
 /** At most this much is added to the ranking key of a job posted just now, nothing at the 7-day limit (`MAX_JOB_AGE_HOURS`), so newer jobs rank a little higher. */
@@ -238,8 +257,9 @@ async function explainTop(db: Db, profile: MatchProfile, items: Array<ShortlistC
       const res = await complete({ tier: "small", system: WHY_SYSTEM, prefix, input, schema: Why, schemaName: "why_fits", strict: true, userId: profile.userId, db, maxOutputTokens: 80 });
       const line = res.output.line.replace(/\s+/g, " ").trim().slice(0, 240);
       if (line && line !== "fake") item.reasons = [line, ...item.reasons].slice(0, 3);
-    } catch {
+    } catch (err) {
       // Over budget or a model error: the deterministic reasons stand.
+      warnSwallowed("match.explain_failed", err);
       return;
     }
   }

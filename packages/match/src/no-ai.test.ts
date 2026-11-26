@@ -5,7 +5,7 @@ import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { JobSpec } from "@norinote/shared";
 import { heuristicSpec, roleFamilyFromTitle, seniorityFromTitle, yearsFromText } from "./heuristic-spec.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
-import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs } from "./shortlist.js";
+import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, shortlistReading } from "./shortlist.js";
 import { HEURISTIC_SPEC_VERSION, SPEC_VERSION, loadCurrentSpec, understandJob, type JobSpecModelOutput } from "./understand.js";
 import { NOW, baseSpec, profileOf, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 
@@ -317,5 +317,33 @@ describe("matching with no AI at all", () => {
     const bare = await seedJob(t.db, { companyId, title: "Xi Engineer", location: "Remote - US", remote: true });
     expect((await matchNewJobs(t.db, [bare], { now: NOW })).lanePairs).toBe(0);
     expect(await t.db.select().from(shortlist).where(eq(shortlist.userId, userId))).toEqual([]);
+  });
+});
+
+describe("shortlistReading", () => {
+  it("is basic when most listed jobs were read without the AI, from stored specs and embeddings", async () => {
+    const userId = await seedUser(t.db);
+    await seedPoint(t.db, userId, { title: "Backend Engineer", start: "2021-01", skills: ["Python"], text: "python services" });
+    const full = () => seedJob(t.db, { companyId, title: "Xi Engineer", spec: baseSpec(), embedText: "xi engineer python" });
+    const heuristic = async () => {
+      const id = await seedJob(t.db, { companyId, title: "Xi Engineer", embedText: "xi engineer python" });
+      await t.db.insert(jobSpecs).values({ jobId: id, version: HEURISTIC_SPEC_VERSION, spec: baseSpec(), model: "heuristic" });
+      return id;
+    };
+    const unembedded = () => seedJob(t.db, { companyId, title: "Xi Engineer", spec: baseSpec() });
+    const [a, b, h, u] = [await full(), await full(), await heuristic(), await unembedded()];
+
+    expect(await shortlistReading(t.db, userId, [])).toBe("full");
+    expect(await shortlistReading(t.db, userId, [a, b, h])).toBe("full");
+    expect(await shortlistReading(t.db, userId, [a, b, h, u])).toBe("full");
+    expect(await shortlistReading(t.db, userId, [a, h, u])).toBe("basic");
+    // A model-read spec stored later wins over the heuristic one.
+    await t.db.insert(jobSpecs).values({ jobId: h, version: SPEC_VERSION, spec: baseSpec(), model: "test" });
+    expect(await shortlistReading(t.db, userId, [a, h, u])).toBe("full");
+
+    // A person whose career points were never embedded is ranked by skill overlap on every job.
+    const unread = await seedUser(t.db);
+    await seedPoint(t.db, unread, { title: "Backend Engineer", start: "2021-01", text: "python services", embed: false });
+    expect(await shortlistReading(t.db, unread, [a, b])).toBe("basic");
   });
 });
