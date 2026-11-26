@@ -96,21 +96,21 @@ describe("the Jobs page: saving, location filters, what you'll do", () => {
     expect(res.job.requirements.summary).toBe("Build APIs Own the data model");
   });
 
-  it("shows only hosted Greenhouse jobs when the engine scope is Greenhouse", async () => {
+  it("shows Greenhouse jobs, hosted or on the company's careers site, when the engine scope is Greenhouse", async () => {
     const scoped = await makeApi({ config: { engineAts: ["greenhouse"] } });
     try {
       const { cookie } = await scoped.signup("engine-list@example.com");
       const hostedJob = await seedJob(scoped.db, { title: "Scoped Engineer" });
       await scoped.db.update(jobs).set({ applyUrl: "https://job-boards.greenhouse.io/x/jobs/1" }).where(eq(jobs.id, hostedJob.job.id));
-      const embedded = await seedJob(scoped.db, { title: "Embedded Engineer" });
-      await scoped.db.update(jobs).set({ applyUrl: "https://company.example/careers?gh_jid=2" }).where(eq(jobs.id, embedded.job.id));
+      const careersSite = await seedJob(scoped.db, { title: "Careers Site Engineer" });
+      await scoped.db.update(jobs).set({ applyUrl: "https://company.example/careers?gh_jid=2" }).where(eq(jobs.id, careersSite.job.id));
       const other = await seedJob(scoped.db, { title: "Ashby Engineer" });
       await scoped.db.update(jobs).set({ atsType: "ashby", applyUrl: "https://jobs.ashbyhq.com/x/3" }).where(eq(jobs.id, other.job.id));
       const listed = ids((await scoped.call("GET", "/api/jobs?view=new&lanes=false&group=false&limit=200", { cookie })).json);
       expect(listed).toContain(hostedJob.job.id);
-      expect(listed).not.toContain(embedded.job.id);
+      expect(listed).toContain(careersSite.job.id);
       expect(listed).not.toContain(other.job.id);
-      expect((await scoped.call("GET", "/api/jobs/summary", { cookie })).json.open).toBe(1);
+      expect((await scoped.call("GET", "/api/jobs/summary", { cookie })).json.open).toBe(2);
     } finally {
       await scoped.close();
     }

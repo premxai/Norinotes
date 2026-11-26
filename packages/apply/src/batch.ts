@@ -5,7 +5,7 @@
  * whatever has not started. The batch counts as the person's approval for each of its applications.
  */
 import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql, gte, inArray, isNull, jobs, lanes, profiles, shortlist, sql, type Db } from "@norinote/db";
-import { isHostedForm, readSkipCompanies } from "@norinote/shared";
+import { readSkipCompanies } from "@norinote/shared";
 import { approveAndSubmit, createApplication, dailyCapUse, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
 
 /** The batch error an application carries when Stop cancelled it (the same words as a single cancel). */
@@ -74,7 +74,7 @@ export async function saveNoriSettings(db: Db, userId: string, patch: Partial<No
 
 // ---- starting a batch ---------------------------------------------------------------------------------------------
 
-export type BatchSkip = { jobId: string; reason: "not_found" | "not_supported" | "embedded_form" | "applied_recently" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" };
+export type BatchSkip = { jobId: string; reason: "not_found" | "not_supported" | "applied_recently" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" };
 
 /** A company the person applied to within this many days is not sent another application by a batch. */
 export const RECENT_COMPANY_DAYS = 60;
@@ -116,8 +116,6 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
     if (!job) { skipped.push({ jobId: id, reason: "not_found" }); continue; }
     // Job systems Nori sends batches through (BATCH_ATS); others stay for the person to apply to one at a time.
     if (opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType)) { skipped.push({ jobId: id, reason: "not_supported" }); continue; }
-    // A Greenhouse posting kept on the company's own site is an embedded form: Nori never fills those.
-    if (!isHostedForm(job.atsType, job.applyUrl)) { skipped.push({ jobId: id, reason: "embedded_form" }); continue; }
     if (recent.blocks(job.companyId, job.id)) { skipped.push({ jobId: id, reason: "applied_recently" }); continue; }
     if (skipSet.has(normalizeCompany(job.companyName))) { skipped.push({ jobId: id, reason: "skipped_company" }); continue; }
     if (companiesSeen.has(job.companyId)) { skipped.push({ jobId: id, reason: "same_company" }); continue; }
@@ -295,7 +293,7 @@ export async function recommendedJobIds(db: Db, userId: string, opts: { now?: Da
   for (const r of rows) {
     if (out.length >= Math.min(opts.limit ?? 10, MAX_BATCH)) break;
     if (opts.atsTypes?.length && !opts.atsTypes.includes(r.atsType)) continue;
-    if (!isHostedForm(r.atsType, r.applyUrl) || recent.blocks(r.companyId, r.jobId)) continue;
+    if (recent.blocks(r.companyId, r.jobId)) continue;
     if (skip.has(normalizeCompany(r.companyName)) || seen.has(r.companyId)) continue;
     seen.add(r.companyId);
     out.push(r.jobId);

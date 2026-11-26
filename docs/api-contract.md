@@ -52,8 +52,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   (`/api/nori/settings` minFit), which is where the threshold is set for every role.
 
 ## Jobs
-- Engine scope (`ENGINE_ATS`, now `greenhouse`): every job list and count shows only Greenhouse jobs whose form is on
-  Greenhouse's own board (embedded forms on a company site are left out). Saved and Applied keep everything. Every fresh
+- Engine scope (`ENGINE_ATS`, now `greenhouse`): every job list and count shows only Greenhouse jobs, whether the posting
+  is on Greenhouse's own board or on the company's careers site (Nori follows it to the form). Saved and Applied keep
+  everything. Every fresh
   Greenhouse job is read and embedded, and Recommended is scored from all of them in the person's places (closeness to
   their graph, then evidence), not only titles that fit a role.
 - GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeHours` (1 to 168, default 168, the 7-day window; `view=today` is the last 24 hours),
@@ -182,7 +183,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   and returns that batch: 200 `{ batch, added: <its total>, skipped: [], reused: true }`.
 - POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once. At most one job per company,
   never a skipped company; an unsent application of theirs is taken over, a sent one is skipped. 201 `{ batch, added,
-  skipped: [{ jobId, reason }] }` (reasons: not_found, not_supported, embedded_form, applied_recently (another job at a company applied to in the last 60
+  skipped: [{ jobId, reason }] }` (reasons: not_found, not_supported, applied_recently (another job at a company applied to in the last 60
   days), skipped_company, same_company, already_applied,
   duplicate_recent); 409 when nothing could be added. Applications are prepared now. `BATCH_ATS` on the API (e.g.
   `greenhouse`) limits batches to those job systems; others are skipped as not_supported. Shortlist jobs carry
