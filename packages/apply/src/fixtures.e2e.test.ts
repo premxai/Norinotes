@@ -87,6 +87,32 @@ describe.skipIf(!run)("saved real forms, replayed locally", () => {
     expect(fill.files).toHaveLength(1);
   }, TIMEOUT);
 
+  it("Lever custom cards: questions titled by div.application-label are read by their title, not the placeholder", async () => {
+    const card = (n: number) => `field:cards[00000000-0000-4000-8000-000000000001][field${n}]`;
+    const { ctx, events } = ctxFor("lever-cards-synthetic", {
+      "field:org": "Acme Analytics", "field:resume": "@resume", [card(1)]: "San Francisco", [card(2)]: "California", [card(3)]: "94105",
+      [card(4)]: "Bachelor's Degree", [card(5)]: "No",
+    });
+    const fill = (await pool.run("lever-cards", (page) => leverDriver.fill(page, ctx))).value;
+    const labels = (events.find((e) => e.step === "discovered")?.data?.fields as { label: string }[]).map((f) => f.label);
+    expect(labels).toEqual(expect.arrayContaining(["Street Address", "City", "State", "Zip Code", "Highest Level of Education Completed", "Have you ever interviewed with us before?"]));
+    expect(labels).not.toContain("Type your response");
+    const by = (re: RegExp) => fill.fields.find((f) => re.test(f.label));
+    expect(by(/^city$/i)?.value).toBe("San Francisco");
+    expect(by(/^zip code$/i)?.value).toBe("94105");
+    expect(by(/^highest level of education/i)?.value).toBe("Bachelor's Degree");
+    expect(by(/petition/i)?.value).toBe("No");
+    expect(fill.status).toBe("needs_user");
+    expect(fill.pending.map((p) => p.text)).toEqual(expect.arrayContaining(["Street Address", "Have you ever interviewed with us before?"]));
+    // The profile never answers a question its words only brush against: a job location, an "allocation" product, an
+    // acknowledgement that mentions email.
+    expect(by(/applying for/i)).toBeUndefined();
+    expect(by(/allocation/i)).toBeUndefined();
+    expect(by(/next steps/i)).toBeUndefined();
+    expect(fill.pending.map((p) => p.text)).toEqual(expect.arrayContaining(["Which location are you applying for?", "I understand that next steps will be sent via email"]));
+    expect(server.submits).toBe(0);
+  }, TIMEOUT);
+
   it("Ashby: yes/no buttons, location autocomplete, required questions without an answer stay pending", async () => {
     const { ctx, events } = ctxFor("ashby-notion-1fc309c8", {
       "field:790b5934-74f5-46f5-897a-675b7f37f2f3": "No", "field:e01a85db-feaa-42b3-a9ad-69b1dcbbab3f": "Yes", "field:_systemfield_resume": "@resume",

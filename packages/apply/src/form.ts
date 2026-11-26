@@ -69,10 +69,16 @@ export async function discoverFields(page: Page, preferred: string[] = PREFERRED
 }
 
 export function classifyField(field: Pick<FormField, "label" | "kind">): FieldClass {
-  const l = field.label.toLowerCase().replace(/\s+/g, " ").trim();
+  const l = field.label.toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, " ").trim();
   const has = (re: RegExp) => re.test(l);
   if (has(/cover letter/)) return "cover_letter";
   if (has(/\bresume\b|\bcv\b|résumé|curriculum vitae/)) return "resume";
+  // A follow-up ("If yes, what type of sponsorship?"), an agreement or acknowledgement ("By providing your phone number
+  // you agree…", "I understand that next steps will be sent via email") and a question asked the other way round ("authorized
+  // to work without sponsorship?") are not the profile field their words mention: the plan answers them or the person does.
+  if (has(/^(if (yes|no|so|not|other|applicable|you (answered|selected|chose|checked))|please (explain|elaborate|specify|list|provide))\b/)) return "custom";
+  if (has(/\b(i (understand|agree|acknowledge|consent|certify|confirm|attest)|by (providing|submitting|checking|clicking|applying)|you (agree|consent)|consent to)\b/)) return "custom";
+  if (has(/without (any )?(future |visa |employer |company )*sponsorship/)) return "custom";
   if (has(/sponsor|\bvisa\b|h-?1b/)) return "sponsorship";
   if (has(/authori[sz]ed to work|work authori[sz]ation|legally (authori[sz]ed|eligible|able)|eligible to work|right to work|work permit/)) return "work_auth";
   if (has(/hispanic|latino|latina|latinx/)) return "hispanic";
@@ -90,7 +96,10 @@ export function classifyField(field: Pick<FormField, "label" | "kind">): FieldCl
   if (has(/phone|mobile|telephone|cell/)) return "phone";
   if (has(/website|portfolio|personal (site|url|page)|^url$|blog/)) return "website";
   if (/^country\b/.test(l) || has(/country of residence|which country/)) return "country";
-  if (has(/location|city|where are you (based|located)|current address/)) return "location";
+  // Where the person lives, never a street address, the job's location or an office ("Which location are you applying
+  // for?"), and never a word that only contains "location" or "city" ("allocation", "ethnicity").
+  if (has(/street|\bzip\b|postal|apply|applying|interested in|work location|office|relocat/)) return "custom";
+  if (has(/\blocation\b|\bcity\b|where are you (currently )?(based|located)|current address/)) return "location";
   return "custom";
 }
 

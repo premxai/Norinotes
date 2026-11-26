@@ -45,6 +45,15 @@ describe("classifySlot: deterministic, from name, id, autocomplete and label", (
     expect(classifySlot(f("q", "Are you a Singapore citizen?", "select", ["Yes", "No"]))).toBe("work_auth");
     expect(classifySlot(f("q", "Please indicate whether you are a citizen or resident of any of the following countries", "select", ["Yes", "No"]))).toBe("custom");
   });
+
+  it("reads sponsorship asked as an immigration petition, and education asked as the most recent or highest level", () => {
+    const petition = "Will you now or in the future require our company to file a petition or application for employment - based immigration status on your behalf?";
+    expect(classifySlot(f("q", petition, "select", ["Yes", "No"]))).toBe("sponsorship");
+    expect(classifySlot(f("q", "Most recent formal education:", "radio", ["High school diploma or equivalent earned", "Bachelor's degree earned"]))).toBe("degree");
+    expect(classifySlot(f("q", "Highest Level of Education Completed", "select", ["Associate's Degree", "Bachelor's Degree"]))).toBe("degree");
+    expect(classifySlot(f("q", "When would you be available to begin work?"))).toBe("start_date");
+    expect(classifySlot(f("q", "What is your country?", "select", ["United States", "Canada"]))).toBe("country");
+  });
 });
 
 describe("slotValue: profile only, never a guess", () => {
@@ -97,6 +106,21 @@ describe("slotValue: profile only, never a guess", () => {
     expect(slotValue("criminal", f("q", "Have you been convicted of a felony?", "select", ["Yes", "No"], false), facts, career, ctx)).toMatchObject({ status: "skip" });
     expect(slotValue("eeo_gender", f("q", "Gender", "select", ["Male", "Female", "I don't wish to answer"]), facts, career, ctx))
       .toEqual({ status: "ready", value: "I don't wish to answer", source: "decline" });
+  });
+
+  it("answers an immigration-petition question from the sponsorship answer", () => {
+    const petition = "Will you now or in the future require our company to file a petition or application for employment - based immigration status on your behalf?";
+    expect(slotValue("sponsorship", f("q", petition, "select", ["Yes", "No"]), facts, career, ctx)).toMatchObject({ status: "ready", value: "No" });
+  });
+
+  it("picks the level of a finished degree from the options, never one still in progress", () => {
+    const edu = (endDate: string | null) => careerFacts([{ id: "2", kind: "education", title: "B.S. Computer Science", org: "State University", startDate: "2015", endDate, text: "", skills: [], scope: {}, metrics: {}, sourceQuote: null }]);
+    const level = f("q", "Highest Level of Education Completed", "select", ["High School / Equivalent", "Associate's Degree", "Bachelor's Degree", "Master's Degree"]);
+    expect(slotValue("degree", level, facts, edu("2019"), ctx)).toMatchObject({ status: "ready", value: "Bachelor's Degree" });
+    const earned = f("q", "Most recent formal education:", "radio", ["Bachelor's degree earned", "Graduate degree earned", "Currently pursuing an undergraduate degree"]);
+    expect(slotValue("degree", earned, facts, edu("2019"), ctx)).toMatchObject({ status: "ready", value: "Bachelor's degree earned" });
+    expect(slotValue("degree", level, facts, edu("2099"), ctx)).toMatchObject({ status: "pending" });
+    expect(slotValue("degree", level, facts, edu(null), ctx)).toMatchObject({ status: "pending" });
   });
 });
 

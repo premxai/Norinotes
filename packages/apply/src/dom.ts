@@ -104,12 +104,13 @@ export const DISCOVER_SCRIPT = String.raw`function (preferred) {
   function byIds(ids) {
     return clean(ids.split(/\s+/).map(function (id) { var n = document.getElementById(id); return n ? textOf(n) : ''; }).join(' '));
   }
-  // A for-less <label>/<legend> heading the field block that holds only this field (Greenhouse file uploads).
+  // A for-less <label>/<legend> heading the field block that holds only this field (Greenhouse file uploads, the
+  // questions of a Lever custom card, whose title is a div.application-label over an input with only a placeholder).
   function blockLabel(el) {
     var block = el.closest('.field, .form-group, .form-field, fieldset, li');
     if (!block || block === root || !root.contains(block)) return '';
     if (block.querySelectorAll(FIELD_SEL).length !== 1) return '';
-    var head = block.querySelector('label:not([for]), legend, .label, .field-label');
+    var head = block.querySelector('label:not([for]), legend, .label, .field-label, .application-label');
     return head && !head.contains(el) ? textOf(head) : '';
   }
   function labelFor(el) {

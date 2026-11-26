@@ -74,6 +74,18 @@ describe("field classification and labels", () => {
     expect(c("Why do you want to work here?")).toBe("custom");
   });
 
+  it("leaves follow-ups, agreements, inverted questions and job locations to the plan or the person", () => {
+    expect(c("If yes, what type of sponsorship will you require? If no, please type \"NA\".")).toBe("custom");
+    expect(c("By providing your phone number you agree to receive text messages.")).toBe("custom");
+    expect(c("I understand that next steps will be sent via email and I have marked the sender addresses above as safe.")).toBe("custom");
+    expect(c("Are you legally authorized to work in the United States without future sponsorship?")).toBe("custom");
+    expect(c("Have you owned a time and resource allocation product, such as workforce scheduling?")).toBe("custom");
+    expect(c("Street address, City, and Zip code, if an offer is extended:")).toBe("custom");
+    expect(c("Which location are you applying for?")).toBe("custom");
+    expect(c("What is your city of residence?")).toBe("location");
+    expect(c("Where are you currently located?")).toBe("location");
+  });
+
   it("cleans decorated labels", () => {
     expect(cleanLabel("Full name✱")).toBe("Full name");
     expect(cleanLabel("Email address *")).toBe("Email address");

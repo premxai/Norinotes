@@ -234,7 +234,7 @@ export function defaultAnswer(q: PendingQuestion, facts: Facts, ctx: { jobCountr
     const needs = a.needsSponsorship ?? (a.authorized === true ? false : null);
     if (needs === null) return null;
     // "Are you able to work without sponsorship?" asks the opposite way round.
-    const inverted = /without (visa |employer )?sponsorship|not (require|need) (visa |employer )?sponsorship|able to work (in|without)/.test(label);
+    const inverted = /without (any )?(future |visa |employer |company )*sponsorship|not (require|need) (visa |employer )?sponsorship|able to work (in|without)/.test(label);
     return yesNo(q, inverted ? !needs : needs);
   }
   if (AUTH.test(label)) {

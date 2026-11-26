@@ -80,6 +80,9 @@ function valueLookup(answers: Record<string, string>): (f: DiscoveredField) => s
 
 type Resolved = { field: DiscoveredField; value: string; source: string; cls: string };
 
+const TEXT_KINDS = new Set<DiscoveredField["kind"]>(["text", "email", "tel", "textarea"]);
+const TEXT_VALUED = new Set<string>(["first_name", "last_name", "full_name", "email", "phone", "linkedin", "website", "github", "location"]);
+
 /** Decide every field's value before touching the page. */
 function resolve(ctx: DriverContext, fields: DiscoveredField[]): { todo: Resolved[]; pending: PendingQuestion[]; skipped: DiscoveredField[] } {
   const lookup = valueLookup(ctx.answers);
@@ -100,7 +103,10 @@ function resolve(ctx: DriverContext, fields: DiscoveredField[]): { todo: Resolve
     if (value === undefined && (field.group === "phone_country" || field.widget === "phone-country")) { value = phoneCountryValue(ctx.profile); source = "profile"; }
     if (value === undefined) {
       const foreign = (cls === "work_auth" || cls === "sponsorship") && foreignWorkCountry(field.label);
-      value = foreign ? undefined : profileValue(cls, ctx.profile, ctx.resumePdfPath);
+      // A name, contact, link or place only goes in a box that takes text (or a place autocomplete), never a checkbox or a
+      // menu of other answers.
+      const fits = !TEXT_VALUED.has(cls) || TEXT_KINDS.has(field.kind) || field.widget === "location";
+      value = foreign || !fits ? undefined : profileValue(cls, ctx.profile, ctx.resumePdfPath);
       source = "profile";
     }
     if (value === undefined) { value = eeoValue(cls, ctx.profile, field.options); source = "eeo"; }
@@ -415,7 +421,6 @@ async function fillOne(page: Page, f: DiscoveredField, value: string, hint?: Wid
   }
 }
 
-const TEXT_KINDS = new Set<DiscoveredField["kind"]>(["text", "email", "tel", "textarea"]);
 
 /**
  * Fill every discovered field from ctx.answers (the prepared plan), then the profile. `hints` are recipe strategies by
