@@ -55,10 +55,10 @@ const BIG_GRAPH = [...GRAPH, ...Array.from({ length: 9 }, (_, i) => node(`m${i}`
 const PROFILE = {
   fullName: null, email: "qa@example.test", phone: null, linkedin: null, website: null, github: null, city: null, state: null, country: null, pronouns: null,
   workAuth: {}, willingToRelocate: null, remotePreference: null, heardAbout: null, salaryExpectation: null, earliestStartDate: null, noticePeriodWeeks: null,
-  eeo: {}, securityClearance: null, over18: null, preferences: {}, rawResumeText: null,
+  eeo: {}, securityClearance: null, over18: null, attestations: {}, preferences: {}, rawResumeText: null,
 };
 const INGEST = { note: null, profilePatch: { fullName: "Alex Rivera", phone: "(555) 014-2290", location: "Brooklyn, NY" }, nodes: GRAPH };
-const STEP_API = ["resume", "contact", "authorization", "screening", "preferences"];
+const STEP_API = ["resume", "contact", "authorization", "screening", "attestations", "preferences"];
 
 /**
  * Answers the API from `o`: the saved progress, the profile, the graph, and per-route overrides
@@ -165,6 +165,7 @@ async function matrix(name, browser) {
     { path: "/onboarding/contact", sizes: ALL_SIZES, o: { progress: "contact" } },
     { path: "/onboarding/work", sizes: [[390, 844], [1440, 900]], o: { progress: "authorization" } },
     { path: "/onboarding/questions", sizes: [[390, 844], [1440, 900]], o: { progress: "screening" } },
+    { path: "/onboarding/agreements", sizes: [[390, 844], [1440, 900]], o: { progress: "attestations" } },
     { path: "/onboarding/preferences", sizes: [[390, 844], [1440, 900]], o: { progress: "preferences" } },
     { path: "/onboarding/done", sizes: [[390, 844], [1440, 900]], o: { progress: "done", inbox: true } },
   ];
@@ -337,10 +338,25 @@ async function flows(browser) {
       await page.selectOption("#questions-veteran", "I am not a protected veteran");
     }
     await clickText(page, "Continue");
-    await landsOn(page, "/onboarding/preferences");
+    await landsOn(page, "/onboarding/agreements");
     const sent = lastBody(calls, "PUT /onboarding")?.data;
     check(W, `questions: self-ID ${touched ? "sent when answered" : "left out when untouched"}`, touched ? sent?.eeo?.veteran === "I am not a protected veteran" : !("eeo" in (sent ?? {})), sent);
     if (!touched) check(W, "questions: salary as a number a year", sent?.salaryExpectation?.amount === 120000 && sent.salaryExpectation.period === "year", sent?.salaryExpectation);
+    await context.close();
+  }
+  // Agreements: nothing is chosen at first, nothing is required; each kind is sent as yes, no or null.
+  {
+    const { context, page, calls } = await open(browser, "/onboarding/agreements", { progress: "attestations" });
+    check(W, "agreements: nothing is chosen at first", (await page.locator('main input[type="radio"]:checked').count()) === 0, null);
+    await page.check('input[name="agree-privacy"][value="yes"]');
+    await page.check('input[name="agree-arbitration"][value="no"]');
+    await page.check('input[name="agree-recording"][value="yes"]');
+    await page.locator('main div:has(> fieldset input[name="agree-recording"]) > button', { hasText: "Ask me each time" }).click();
+    await clickText(page, "Continue");
+    await landsOn(page, "/onboarding/preferences");
+    const sent = lastBody(calls, "PUT /onboarding");
+    const a = sent?.data?.attestations ?? {};
+    check(W, "agreements: each kind as yes, no or null", sent?.step === "attestations" && a.privacy === true && a.arbitration === false && a.recording === null && a.terms === null && Object.keys(a).length === 10, sent);
     await context.close();
   }
   // Preferences: a title is required; chips add with Enter and come off with Backspace; Finish opens done.
@@ -549,6 +565,9 @@ async function endToEnd(browser) {
   check(W, "questions", await landsOn(page, "/onboarding/questions"), page.url());
   await wait(500);
   await page.check('input[name="questions-18"][value="yes"]');
+  await clickText(page, "Continue");
+  check(W, "agreements", await landsOn(page, "/onboarding/agreements"), page.url());
+  await wait(500);
   await clickText(page, "Continue");
   check(W, "preferences", await landsOn(page, "/onboarding/preferences"), page.url());
   await wait(500);

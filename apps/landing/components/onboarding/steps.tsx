@@ -8,9 +8,9 @@ import { Field } from "@/components/auth/fields";
 import { api, type Lane, type Profile } from "@/lib/api";
 import { checkEmail, noriReact } from "@/lib/auth-flow";
 import { DONE_PATH, STEPS, draftOf, loadOnboarding, progressIndex, saveStep, setDraft, setNodes, useOnboarding, useStepGuard } from "@/lib/onboarding";
-import { ChipsInput, ChoiceGroup, Label, SelectField, StepFooter, StepLoading, StepShell } from "./controls";
+import { AttestationChoices, ChipsInput, ChoiceGroup, Label, SelectField, StepFooter, StepLoading, StepShell, attestationAnswers, attestationPatch, type AttestationAnswers } from "./controls";
 
-/* Steps 2 to 5, the done page and the /onboarding redirect (onboarding spec sections 8, 9 and 11). */
+/* Steps 2 to 6, the done page and the /onboarding redirect (onboarding spec sections 8, 9 and 11). */
 
 /** A step's values, kept as a draft for the visit so Back and forward again never lose them. */
 function useDraft<T extends object>(key: string, init: () => T) {
@@ -346,7 +346,39 @@ export function QuestionsStep() {
   return <QuestionsForm profile={s.profile} />;
 }
 
-// ---- 5 · Preferences --------------------------------------------------------------------------------------------------
+// ---- 5 · Agreements ---------------------------------------------------------------------------------------------------
+
+const AGREE_TITLE = "What you agree to";
+const AGREE_LEAD = "Forms ask you to agree to things like these. Answer each once and Nori uses it on every form. Leave any blank and Nori asks you when a form needs it.";
+
+function AgreementsForm({ profile }: { profile: Profile }) {
+  const [v, update] = useDraft<AttestationAnswers>("agreements", () => attestationAnswers(profile.attestations));
+  const { busy, failure, save } = useSave();
+  return (
+    <StepShell
+      index={4}
+      title={AGREE_TITLE}
+      lead={AGREE_LEAD}
+      failure={failure}
+      footer={<StepFooter back={STEPS[3].path} onContinue={() => void save("attestations", { attestations: attestationPatch(v) }, STEPS[5].path)} busy={busy} />}
+    >
+      <AttestationChoices name="agree" value={v} onChange={(k, x) => update({ [k]: x })} />
+    </StepShell>
+  );
+}
+
+export function AgreementsStep() {
+  const s = useStepGuard(4);
+  if (s.status !== "ready" || !s.profile)
+    return (
+      <StepShell index={4} title={AGREE_TITLE} lead={AGREE_LEAD}>
+        <StepLoading />
+      </StepShell>
+    );
+  return <AgreementsForm profile={s.profile} />;
+}
+
+// ---- 6 · Preferences --------------------------------------------------------------------------------------------------
 
 type Prefs = { titles: string[]; locations: string[]; remote: "only" | "ok" | "no"; salaryMin: string; skip: string[] };
 
@@ -381,7 +413,7 @@ function PreferencesForm({ profile }: { profile: Profile }) {
   }
 
   return (
-    <StepShell index={4} title="What are you looking for?" lead="Nori builds your first search from this. You can change it any time." failure={failure} footer={<StepFooter back={STEPS[3].path} onContinue={finish} label="Finish" busy={busy} />}>
+    <StepShell index={5} title="What are you looking for?" lead="Nori builds your first search from this. You can change it any time." failure={failure} footer={<StepFooter back={STEPS[4].path} onContinue={finish} label="Finish" busy={busy} />}>
       <div className="flex flex-col gap-[18px]">
         <ChipsInput
           id="prefs-titles"
@@ -427,7 +459,7 @@ function PreferencesForm({ profile }: { profile: Profile }) {
 }
 
 export function PreferencesStep() {
-  const s = useStepGuard(4);
+  const s = useStepGuard(5);
   // The role titles for suggestions come from the graph; read it if this visit hasn't.
   const needsGraph = s.status === "ready" && !s.nodes;
   useEffect(() => {
@@ -435,7 +467,7 @@ export function PreferencesStep() {
   }, [needsGraph]);
   if (s.status !== "ready" || !s.profile)
     return (
-      <StepShell index={4} title="What are you looking for?" lead="Nori builds your first search from this. You can change it any time.">
+      <StepShell index={5} title="What are you looking for?" lead="Nori builds your first search from this. You can change it any time.">
         <StepLoading />
       </StepShell>
     );

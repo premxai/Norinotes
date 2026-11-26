@@ -14,7 +14,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 
 ## Onboarding and profile
 - GET `/api/onboarding`; PUT `/api/onboarding` with body `{ step, data }`, steps: resume, contact, authorization,
-  screening, preferences. Finishing creates a first lane from the preferences. The authorization step needs
+  screening, attestations (`{ attestations }`, as on `PUT /api/profile`), preferences. Finishing creates a first lane from the preferences. The authorization step needs
   `workAuth.status`; without it the PUT returns 400 "Choose your work status". The status (citizen, permanent_resident,
   visa, other) is what the matching gates and form answers read for citizenship and permanent residence; being
   authorised to work says neither.

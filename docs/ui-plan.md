@@ -328,7 +328,8 @@ One route per step, so the browser's Back works and a link can reopen a step.
 | 2 | `/onboarding/contact` | `contact` | Full name, email (the account's by default), phone, city, state, country, LinkedIn, GitHub, website, pronouns (optional). Filled from the resume where it could be |
 | 3 | `/onboarding/work` | `authorization` | Authorized to work in the US? Need sponsorship? Status (citizen, permanent resident, visa, other) and visa type. Open to relocating? Remote, hybrid or on-site |
 | 4 | `/onboarding/questions` | `screening` | What applications ask: salary expectation, earliest start date, notice period, security clearance, over 18, how you heard about the job. Folded away: voluntary self-identification |
-| 5 | `/onboarding/preferences` | `preferences` | Job titles, locations, remote, minimum salary, companies to skip |
+| 5 | `/onboarding/agreements` | `attestations` | What forms ask you to agree to, one answer per kind (privacy, demographic data, keeping your details, accuracy, background check, AI policy, recording, arbitration, being contacted, terms). Nothing chosen at first; any left blank, Nori asks about on the form |
+| 6 | `/onboarding/preferences` | `preferences` | Job titles, locations, remote, minimum salary, companies to skip |
 | | `/onboarding/done` | | What happens now: the lane Nori made, the inbox address, the first shortlist on its way. **Open my dashboard** |
 
 - `/onboarding` alone opens the step to resume at. Signed out: `/signin?next=/onboarding`. Already finished:

@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/Button";
 import { Field } from "@/components/auth/fields";
-import { ChoiceGroup, Label, SelectField } from "@/components/onboarding/controls";
+import { AttestationChoices, ChoiceGroup, Label, SelectField, attestationAnswers, attestationPatch } from "@/components/onboarding/controls";
 import { api, type BankAnswer, type Profile, type TelegramEvents, type TelegramSettings, type TelegramState } from "@/lib/api";
 import { checkEmail, noriReact } from "@/lib/auth-flow";
 import { shortDate } from "@/lib/app-state";
 import { CARD, DANGER_BUTTON, DANGER_FILL, H2, HINT, Status, TEXT_BUTTON } from "./YouTabs";
 
-/* /settings/profile (dashboard v2 plan section 8): contact, work authorization, the standard questions and the answers
-   from past forms. The daily limit moved to the Nori chat; Telegram moved to Connections (Telegram is exported for it). */
+/* /settings/profile (dashboard v2 plan section 8): contact, work authorization, the standard questions, what the person
+   agrees to on forms and the answers from past forms. The daily limit moved to the Nori chat; Telegram moved to Connections (Telegram is exported for it). */
 
 type Loaded = { profile: Profile; answers: BankAnswer[] | string };
 
@@ -111,6 +111,9 @@ function FormGroups({ profile, onSaved }: { profile: Profile; onSaved: (p: Profi
     clearance: profile.securityClearance ?? "None", over18: yesNo(profile.over18),
     eeo: { gender: profile.eeo.gender ?? DECLINE, race: profile.eeo.race ?? DECLINE, veteran: profile.eeo.veteran ?? DECLINE, disability: profile.eeo.disability ?? DECLINE },
   });
+
+  const [a, setA] = useState(() => attestationAnswers(profile.attestations));
+  const answered = Object.values(a).filter(Boolean).length;
 
   async function save(group: string, patch: Record<string, unknown>) {
     if (busy) return;
@@ -267,6 +270,19 @@ function FormGroups({ profile, onSaved }: { profile: Profile; onSaved: (p: Profi
             ))}
           </div>
         </fieldset>
+      </Group>
+
+      <Group
+        title="What you agree to"
+        summary={answered ? `${answered} of ${Object.keys(a).length} answered` : "Nori asks you each time"}
+        open={!!open.agree}
+        onToggle={toggle("agree")}
+        busy={busy === "agree"}
+        said={said.agree ?? null}
+        onSave={() => void save("agree", { attestations: attestationPatch(a) })}
+      >
+        <p className={HINT}>Forms ask you to agree to things like these. Nori ticks one only when you agreed to that kind here. Leave any blank and Nori asks you when a form needs it.</p>
+        <AttestationChoices name="form-agree" value={a} onChange={(k, x) => (setA((v) => ({ ...v, [k]: x })), edited("agree"))} />
       </Group>
     </section>
   );

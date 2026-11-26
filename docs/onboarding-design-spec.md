@@ -17,7 +17,7 @@ Status: decided, except the items under [Still open](#14-still-open).
 |---|---|
 | Where | `apps/landing`, route group `(onboarding)`, one route per step, so Nori walks in from sign-up and the browser's Back works |
 | Shell | The auth shell (scene 5/12 from 1024 px, a band below), with a 560 px form column and a progress header |
-| Steps | The API's five (`ONBOARDING_STEPS`), each saved with `PUT /api/onboarding` when you press **Continue** |
+| Steps | The API's six (`ONBOARDING_STEPS`), each saved with `PUT /api/onboarding` when you press **Continue** |
 | Resume | Upload (PDF, DOCX, up to 10 MB) or paste; then the career graph is revealed card by card |
 | Self-identification | In the questions step, folded away, "I don't wish to answer" by default |
 | Scene | The workshop (take `workshop-1`): one column crop and one band crop for every step |
@@ -32,7 +32,7 @@ Status: decided, except the items under [Still open](#14-still-open).
 | Below 768 | The logo bar, the band (200 to 260 px), then the step content with the 16 px page margin. **Back** and **Continue** sit in a bar fixed to the bottom of the screen (76 px, `bg`, a `line` top border); the page leaves 76 px clear beneath its last field |
 
 - **Top bar:** the logo (no prefetch, as on the auth pages) on the left; "Saved as you go" on the right, `ink-2`, small.
-- **Progress header,** above the headline: "Step 2 of 5 · Contact" in Geist 13 px `ink-2`, then a five-part bar
+- **Progress header,** above the headline: "Step 2 of 6 · Contact" in Geist 13 px `ink-2`, then a six-part bar
   (6 px tall, 6 px gaps, pill ends): done and current parts `accent`, the rest `line`. It's a `progressbar` with
   `aria-valuenow` 1 to 5. The done page has no header.
 - **Field grid:** one column, except pairs of short fields side by side from 390 px (city and state, start date and
@@ -125,6 +125,7 @@ from the resume's `profilePatch`, then from the account email. **Continue** send
 | Contact | `fullName, email, phone, city, state, country, linkedin, github, website, pronouns` | Full name, email | Fields filled from the resume get the "From your resume" tag until edited. Country defaults to "United States" |
 | Work | `workAuth { authorizedUS, needsSponsorship, status, visaType }, willingToRelocate, remotePreference` | Authorized, sponsorship, status (starts empty) | Visa type shows only for "On a visa". Work setup: Remote, Hybrid, On-site, Any (`remotePreference`) |
 | Questions | `salaryExpectation { amount, currency: "USD", period }, earliestStartDate, noticePeriodWeeks, securityClearance, over18, heardAbout, eeo { gender, race, veteran, disability }` | Over 18 | Salary: a number and a period (a year, a month, an hour). `eeo` is sent only if the fold was opened and a value changed |
+| Agreements | `attestations { privacy, demographic_data, retention, accuracy, background_check, ai_policy, recording, arbitration, contact, terms }`, each `true`, `false` or `null` | Nothing | One "I agree" / "I don't agree" per kind, nothing chosen at first; "Ask me each time" takes an answer back. Unanswered kinds are sent as `null`: Nori asks when a form needs them. Also in Settings → Profile → What you agree to |
 | Preferences | `preferences { titles, locations, remote, salaryMin, excludeCompanies }` | At least one title | Remote: Only remote, Remote is fine, No remote (`only`, `ok`, `no`). **Finish** saves and goes to done |
 
 - Checks run on **Continue**, as on the auth forms: errors under their fields, focus to the first.
@@ -177,7 +178,7 @@ settles, the resume step's first.
 ## 12. Accessibility
 
 On top of the landing and auth rules:
-- One `h1` per step; the progress bar is named "Onboarding progress"; each step's `<title>` is "Step 2 of 5: Contact ·
+- One `h1` per step; the progress bar is named "Onboarding progress"; each step's `<title>` is "Step 2 of 6: Contact ·
   Norinote".
 - Choice groups are `fieldset` and `legend`; chips inputs announce additions and removals; the drop zone works by
   keyboard (it's a label for a real file input) and by drag and drop.

@@ -18,8 +18,12 @@ export const UNREACHABLE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(API
 export type User = { id: string; email: string; name: string | null; emailVerifiedAt: string | null; createdAt: string };
 
 /** The onboarding steps, in order (`ONBOARDING_STEPS` in apps/api). */
-export type StepId = "resume" | "contact" | "authorization" | "screening" | "preferences";
+export type StepId = "resume" | "contact" | "authorization" | "screening" | "attestations" | "preferences";
 export type Progress = StepId | "done";
+
+/** The kinds of attestation a form asks for (`ATTESTATIONS` in packages/answers). */
+export const ATTESTATIONS = ["privacy", "demographic_data", "retention", "accuracy", "background_check", "ai_policy", "recording", "arbitration", "contact", "terms"] as const;
+export type Attestation = (typeof ATTESTATIONS)[number];
 
 /** The parts of the API's `toProfile` that onboarding reads. */
 export type Profile = {
@@ -43,6 +47,8 @@ export type Profile = {
   eeo: Record<string, string>;
   securityClearance: string | null;
   over18: boolean | null;
+  /** The person's answer per kind of form attestation; null is not answered (Nori asks). */
+  attestations: Record<Attestation, boolean | null>;
   preferences: { titles?: string[]; locations?: string[]; remote?: "only" | "ok" | "no"; salaryMin?: number; excludeCompanies?: string[] };
   rawResumeText: string | null;
   location: string | null;
