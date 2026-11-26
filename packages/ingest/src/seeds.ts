@@ -3,9 +3,8 @@
  * function, `importSeeds`. Nothing here touches the network; `scripts/import-seeds.mts` downloads the files.
  *
  * Sources and licences (also in docs/job-collection.md):
- * - `kalil0321/ats-scrapers`, `ats-companies/{system}.csv` (columns `name,slug,url`): code is MIT; the tenant lists are
- *   facts about public career pages, but the data licence is unconfirmed, so rows are only used as candidates that are
- *   verified against the live feed, never redistributed.
+ * - `kalil0321/ats-scrapers`, `ats-companies/{system}.csv` (columns `name,slug,url`): MIT, the repository
+ *   licence, which covers the CSVs. Rows are only used as candidates that are verified against the live feed.
  * - `veresk06/open-ats-feed`, `actor/data/companies.json` (verified live boards of Greenhouse, Lever, Ashby, Breezy,
  *   Recruitee, Teamtailor): MIT code, the measurements are public domain.
  * - NOT used: `Riley-Dorrington/job-board-aggregator` (CC BY-NC, non-commercial only).
@@ -26,7 +25,7 @@ export type SeedSource = "seed:ats-scrapers" | "seed:open-ats-feed";
 export const SEED_SOURCES: readonly SeedSource[] = ["seed:ats-scrapers", "seed:open-ats-feed"];
 
 export const SEED_LICENCES: Record<SeedSource, string> = {
-  "seed:ats-scrapers": "kalil0321/ats-scrapers: code MIT, data licence to confirm before redistributing (candidates only)",
+  "seed:ats-scrapers": "kalil0321/ats-scrapers: MIT (the repository licence covers the CSVs)",
   "seed:open-ats-feed": "veresk06/open-ats-feed: code MIT, data public domain",
 };
 

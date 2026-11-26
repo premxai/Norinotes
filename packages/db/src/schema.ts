@@ -80,6 +80,49 @@ export const companies = pgTable("companies", {
   index("companies_ats_status_idx").on(t.atsType, t.status),
 ]);
 
+/**
+ * Where a discovered board stands (docs/state-machines.md). `new` waits for its first verification; `promoted` is in
+ * `companies`; `low_value` and `empty` answered but fall short of the bar; `dead` does not exist; `disallowed` is
+ * refused by robots.txt or its host; `failing` keeps erroring. Every status but `promoted` is verified again later.
+ */
+export const BOARD_CANDIDATE_STATUSES = ["new", "promoted", "low_value", "empty", "dead", "disallowed", "failing"] as const;
+export type BoardCandidateStatus = (typeof BOARD_CANDIDATE_STATUSES)[number];
+
+/**
+ * Boards found by discovery (public tenant lists, people's additions, a paid source when one is switched on), kept apart
+ * from `companies` until verification promotes them, so the poller never reads an unverified or low-value board.
+ */
+export const boardCandidates = pgTable("board_candidates", {
+  id: id(),
+  atsType: text("ats_type").$type<AtsType>().notNull(),
+  atsToken: text("ats_token").notNull(),
+  name: text("name").notNull(),
+  /** Every candidate source that listed this board ("seed:open-jobs", "user", ...), first one first. */
+  sources: textArray("sources").notNull().default(sql`'{}'::text[]`),
+  status: text("status").$type<BoardCandidateStatus>().notNull().default("new"),
+  /** Why it is not promoted, in plain words. Null when promoted or new. */
+  statusReason: text("status_reason"),
+  /** Open jobs at the last verification. */
+  openJobs: integer("open_jobs"),
+  /** Open US jobs posted in the last 7 days. */
+  freshUsJobs: integer("fresh_us_jobs"),
+  /** Fresh US jobs per target role family (ai_ml, data, product, software, design) at the last verification. */
+  targetJobs: jsonb("target_jobs").$type<Record<string, number>>(),
+  /** Fresh US jobs in the target role families: what promotion compares with the bar. */
+  score: integer("score").notNull().default(0),
+  verifiedAt: ts("verified_at"),
+  /** When to verify it again. Null = as soon as possible. */
+  nextVerifyAt: ts("next_verify_at"),
+  /** Failed verifications in a row. */
+  errorStreak: integer("error_streak").notNull().default(0),
+  /** The registry row, once promoted (or when the board was already there). */
+  companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex("board_candidates_ats_token_uq").on(t.atsType, t.atsToken),
+  index("board_candidates_status_next_idx").on(t.status, t.nextVerifyAt),
+]);
+
 export const jobs = pgTable("jobs", {
   id: id(),
   companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
