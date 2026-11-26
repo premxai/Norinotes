@@ -205,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     void api.session().then(async (r) => {
       if (!live) return;
       if (!r.ok) {
-        // With the query, so a Telegram link (/today?job=…) still opens its job after signing in.
+        // With the query, so a Telegram link (/jobs?job=…) still opens its job after signing in.
         if (r.status === 401) router.replace(`/signin?next=${encodeURIComponent(path + location.search)}`);
         else setGate("in"); // offline: Today shows its own error state
         return;

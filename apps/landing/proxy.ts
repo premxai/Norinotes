@@ -22,4 +22,4 @@ export function proxy(request: NextRequest) {
   return missing(path) ? NextResponse.rewrite(request.nextUrl, { status: 404 }) : NextResponse.next();
 }
 
-export const config = { matcher: ["/overview/:path+", "/today/:path+", "/jobs/:path+", "/tracker/:path+", "/graph/:path+", "/settings/:path+", "/you/:path+", "/applications/:id/:path+", "/inbox/:id/:path+"] };
+export const config = { matcher: ["/overview/:path+", "/jobs/:path+", "/tracker/:path+", "/graph/:path+", "/settings/:path+", "/you/:path+", "/applications/:id/:path+", "/inbox/:id/:path+"] };

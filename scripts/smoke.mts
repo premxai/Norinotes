@@ -44,7 +44,9 @@ async function site(): Promise<void> {
   check("site CSP allows Brandfetch logos", /img-src[^;]*https:\/\/cdn\.brandfetch\.io/.test(csp));
   check("site CSP upgrades insecure requests", SITE.startsWith("http://") || csp.includes("upgrade-insecure-requests"));
   const dash = await get(`${SITE}/dashboard`);
-  check("site /dashboard redirects to /today", dash.status >= 300 && dash.status < 400 && (dash.headers.get("location") ?? "").endsWith("/today"), `${dash.status} ${dash.headers.get("location") ?? ""}`);
+  check("site /dashboard redirects to /overview", dash.status >= 300 && dash.status < 400 && (dash.headers.get("location") ?? "").endsWith("/overview"), `${dash.status} ${dash.headers.get("location") ?? ""}`);
+  const today = await get(`${SITE}/today`);
+  check("site /today redirects to /overview", today.status >= 300 && today.status < 400 && (today.headers.get("location") ?? "").endsWith("/overview"), `${today.status} ${today.headers.get("location") ?? ""}`);
   const missing = await get(`${SITE}/no-such-page-${Date.now()}`);
   check("site unknown page answers 404", missing.status === 404, String(missing.status));
 }
