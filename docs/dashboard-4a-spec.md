@@ -1,5 +1,9 @@
 # Dashboard 4a design spec: the shell and Today
 
+> **Superseded by [dashboard-v2-plan.md](dashboard-v2-plan.md).** The dashboard was rebuilt as Overview, Jobs,
+> Applications, Tracker, Inbox, Nori, Career graph and Settings; Today became Overview (`/today` redirects to it). This
+> file is kept for the shell, theme and motion rules it decided, which still hold; its pages and sections do not.
+
 The rules to build part 4a from: the dashboard's shell (rail, tabs, light and dark) and `/today`. [ui-plan.md](ui-plan.md)
 (part 4) says what the dashboard is and why it's split in three. This file says how 4a looks, moves and behaves, then
 gives the build checklist. The wireframe (the "Dashboard 4a: Today" page of the design canvas) follows these rules.

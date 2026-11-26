@@ -361,7 +361,7 @@ onboarding and the dashboard later. Versions match what the repo already runs.
 | Sign-up and sign-in (part 2) | Calls the existing `apps/api` auth endpoints directly, with response types in the app (`@norinote/shared` has no auth contracts). Full rules: [auth-design-spec.md](auth-design-spec.md) | The backend is the product; only the UI is new |
 | Tests | Vitest for small logic (the cover maths, the seat controller); Playwright for page checks and screenshots at the QA widths; `@axe-core/playwright` for accessibility; Lighthouse CI for the budgets in section 13 | Every item in the QA phase can be checked by a script |
 | Lint and types | Its own `eslint.config.mjs` (Next's rules) and `tsconfig.json`. The repo's root lint and type check skip `apps/landing` | Keeps the backend's `npm run gate` unaffected |
-| Hosting | To be decided (Vercel fits Next.js and Geist best). Nothing is deployed without an explicit go | |
+| Hosting | Vercel, at `norinote.xyz`; the API and the worker run on Fly (docs/deploy.md). Deploys are the maintainer's, and nothing is deployed without an explicit go | One project, root directory `apps/landing` |
 
 App layout:
 
@@ -386,7 +386,8 @@ apps/landing/
 - Final headline and section copy.
 - The Free tier's limits.
 - Analytics: none, or a cookieless one. Without tracking cookies there's no consent banner.
-- Domain and where it's hosted. Nothing gets deployed without an explicit go.
+- ~~Domain and where it's hosted.~~ Decided: `norinote.xyz` on Vercel (docs/deploy.md). Nothing gets deployed without
+  an explicit go.
 
 ## 18. Build checklist
 

@@ -1,5 +1,10 @@
 # Norinote UI plan
 
+> **Superseded for the dashboard.** Parts 1 to 3 (landing, sign-in, onboarding) and 6 (legal) still say what was
+> built. Part 4 (the dashboard, 4a to 4c) was replaced by [dashboard-v2-plan.md](dashboard-v2-plan.md): the rail is
+> Overview, Jobs, Applications, Tracker, Inbox, Nori, Career graph and Settings, and `/today` and `/you` redirect. Read the
+> decision rules below as history; the built dashboard follows the v2 plan.
+
 Status: the landing page is built and passed QA (`apps/landing`). Sign-in and sign-up are built and passed QA too.
 Onboarding is built and passed QA as well.
 The dashboard is planned, and parts 4a (the shell and Today) and 4b (Applications and Inbox) are built. Part 4c (You)
