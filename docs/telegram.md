@@ -24,7 +24,7 @@ Only private chats that are linked get anything. Any other chat gets one line: c
 
 | Message | When | Buttons |
 |---|---|---|
-| Strong fit | a new job that fits at 0.8 or more, as soon as Nori has prepared it ahead (`strong_fit` run event; see docs/applying.md), while it still waits for the person's OK | Apply, Skip, Details |
+| Strong fit | a new job that fits at 0.8 or more, as soon as Nori has prepared it ahead (`strong_fit` run event; see docs/applying.md), while it still waits for the person's OK. When autopilot's apply decision left it to the person (`apply_decision` event, action `ask`) it reads "Your call" with the decision's reason; a hard no (`skip`) gets no message | Apply, Skip, Details |
 | Daily shortlist | once per local day from `dailyTime` (default 09:00) in `timezone` (default UTC, or the browser's zone at link time); nothing on a day with nothing new | per job: Apply n, Skip n, Details n (link to `/jobs?job=<id>`) |
 | Questions | unanswered pending questions on the user's parked applications that no earlier message asked (30 days) | choice: one button per option; text: Type answer n (or reply to the message); files, multi-select, over 10 options: Answer in the app |
 | Submitted | an application reached `submitted` | Receipt (link to `/applications/<id>`) |

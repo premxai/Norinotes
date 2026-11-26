@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, applyBatches, eq } from "@norinote/db";
+import { applications, applyBatches, eq, profiles } from "@norinote/db";
+import { placeInGroup } from "@norinote/match/testing";
 import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
 
 describe("the Nori page API", () => {
@@ -15,9 +16,17 @@ describe("the Nori page API", () => {
   afterAll(() => api.close());
 
   it("reads and saves how Nori works for the person", async () => {
-    expect((await api.call("GET", "/api/nori/settings", { cookie })).json).toEqual({ settings: { spacingMinutes: 4, minFit: 0.6, skipCompanies: [], dailyLimit: 20 } });
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json).toEqual({ settings: { spacingMinutes: 4, minFit: 0.6, aggressiveness: "balanced", skipCompanies: [], dailyLimit: 20 } });
     const put = await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 6, skipCompanies: ["Acme"], dailyLimit: 12 } });
-    expect(put.json).toEqual({ settings: { spacingMinutes: 6, minFit: 0.6, skipCompanies: ["Acme"], dailyLimit: 12 } });
+    expect(put.json).toEqual({ settings: { spacingMinutes: 6, minFit: 0.6, aggressiveness: "balanced", skipCompanies: ["Acme"], dailyLimit: 12 } });
+    const cautious = await api.call("PUT", "/api/nori/settings", { cookie, body: { aggressiveness: "cautious" } });
+    expect(cautious.json.settings).toMatchObject({ aggressiveness: "cautious", spacingMinutes: 6, dailyLimit: 12 });
+    const [row] = await api.db.select({ preferences: profiles.preferences }).from(profiles).where(eq(profiles.userId, userId));
+    expect(row!.preferences).toMatchObject({ nori: { aggressiveness: "cautious" } });
+    // Saving something else keeps it.
+    await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 5 } });
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json.settings.aggressiveness).toBe("cautious");
+    expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { aggressiveness: "reckless" } })).status).toBe(400);
     expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 0 } })).status).toBe(400);
     expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { surprise: true } })).status).toBe(400);
   });
@@ -47,7 +56,11 @@ describe("the Nori page API", () => {
 
   it("a second Apply now within a minute returns the batch it just started instead of starting another", async () => {
     const u = await api.signup("nori-double@example.com");
-    for (const company of ["Double A", "Double B", "Double C", "Double D"]) await seedShortlist(api.db, u.user.id, (await seedJob(api.db, { company })).job.id, 0.9);
+    for (const company of ["Double A", "Double B", "Double C", "Double D"]) {
+      const { job } = await seedJob(api.db, { company });
+      await seedShortlist(api.db, u.user.id, job.id, 0.9);
+      await placeInGroup(api.db, u.user.id, job.id, "strong");
+    }
     const first = await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { recommended: true, limit: 2 } });
     expect(first.status).toBe(201);
     expect(first.json).toMatchObject({ added: 2, batch: { counts: { total: 2 } } });
@@ -62,7 +75,11 @@ describe("the Nori page API", () => {
     const u = await api.signup("nori-limit@example.com");
     await api.call("PUT", "/api/nori/settings", { cookie: u.cookie, body: { dailyLimit: 3 } });
     for (const company of ["Sent One", "Sent Two"]) await seedApplication(api.db, u.user.id, (await seedJob(api.db, { company })).job.id, { status: "submitted", approvedAt: new Date(), resumeId: null });
-    for (const company of ["Room A", "Room B", "Room C"]) await seedShortlist(api.db, u.user.id, (await seedJob(api.db, { company })).job.id, 0.9);
+    for (const company of ["Room A", "Room B", "Room C"]) {
+      const { job } = await seedJob(api.db, { company });
+      await seedShortlist(api.db, u.user.id, job.id, 0.9);
+      await placeInGroup(api.db, u.user.id, job.id, "strong");
+    }
     const res = await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { recommended: true, limit: 10 } });
     expect(res.status).toBe(201);
     expect(res.json).toMatchObject({ added: 1, batch: { counts: { total: 1 } } });
@@ -70,6 +87,42 @@ describe("the Nori page API", () => {
     await seedApplication(api.db, u.user.id, (await seedJob(api.db, { company: "Sent Three" })).job.id, { status: "submitted", approvedAt: new Date(), resumeId: null });
     await api.db.update(applyBatches).set({ createdAt: new Date(Date.now() - 5 * 60_000) }).where(eq(applyBatches.userId, u.user.id));
     expect((await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { recommended: true } })).status).toBe(429);
+  });
+
+  it("refuses a hard no in a batch the person picked, with a plain reason, and sends the rest whatever their group", async () => {
+    const u = await api.signup("nori-hardno@example.com");
+    const add = async (company: string, group: "strong" | "stretch" | "hard_no") => {
+      const { job } = await seedJob(api.db, { company });
+      await seedShortlist(api.db, u.user.id, job.id, 0.85);
+      await placeInGroup(api.db, u.user.id, job.id, group);
+      return job.id;
+    };
+    const [strong, stretch, no] = [await add("Picked Strong", "strong"), await add("Picked Stretch", "stretch"), await add("Picked No", "hard_no")];
+    const res = await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { jobIds: [strong, stretch, no] } });
+    expect(res.status).toBe(201);
+    expect(res.json).toMatchObject({ added: 2, skipped: [{ jobId: no, reason: "not_a_fit", detail: "Missing a must-have: Kubernetes" }] });
+  });
+
+  it("lists the apply decisions: what Nori sends, asks about and skips", async () => {
+    const u = await api.signup("nori-decisions@example.com");
+    const add = async (company: string, title: string, group: "strong" | "stretch" | "hard_no") => {
+      const { job } = await seedJob(api.db, { company, title });
+      await seedShortlist(api.db, u.user.id, job.id, 0.8);
+      await placeInGroup(api.db, u.user.id, job.id, group);
+      return job.id;
+    };
+    const strong = await add("Decide Strong", "Backend Engineer", "strong");
+    const ask = await add("Decide Ask", "Platform Engineer", "stretch");
+    const no = await add("Decide No", "Data Engineer", "hard_no");
+    const res = await api.call("GET", "/api/nori/decisions", { cookie: u.cookie });
+    expect(res.status).toBe(200);
+    expect(res.json).toMatchObject({ aggressiveness: "balanced", weekUsed: 0, weekLeft: 20 });
+    expect(res.json.decisions).toEqual([
+      { jobId: strong, title: "Backend Engineer", company: "Decide Strong", group: "strong", action: "send", reasons: expect.any(Array), fit: 0.8 },
+      { jobId: ask, title: "Platform Engineer", company: "Decide Ask", group: "stretch", action: "ask", reasons: [expect.any(String)], fit: 0.8 },
+      { jobId: no, title: "Data Engineer", company: "Decide No", group: null, action: "skip", reasons: ["Missing a must-have: Kubernetes"], fit: 0.8 },
+    ]);
+    expect((await api.call("GET", "/api/nori/decisions", {})).status).toBe(401);
   });
 
   it("refuses a batch nothing can go into, and bad input", async () => {

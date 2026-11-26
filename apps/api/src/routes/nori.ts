@@ -5,6 +5,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, applications, applyBatches, companies, desc, eq, gte, inArray, jobs } from "@norinote/db";
+import { AGGRESSIVENESS, decideApplies } from "@norinote/match";
 import { MAX_BATCH, WEEKDAYS, batchView, dailyCapUse, getNoriSettings, getSchedule, nextRunOn, recentBatches, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -23,6 +24,7 @@ const Start = z.union([
 const Settings = z.object({
   spacingMinutes: z.number().int().min(1).max(60).optional(),
   minFit: z.number().min(0).max(1).optional(),
+  aggressiveness: z.enum(AGGRESSIVENESS).optional(),
   skipCompanies: z.array(z.string().trim().min(1).max(200)).max(1000).optional(),
   dailyLimit: z.number().int().min(1).max(100).optional(),
 }).strict();
@@ -75,12 +77,32 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
       if (room <= 0) throw new HttpError(429, `Today's limit of ${settings.dailyLimit} applications is used up`, "Raise the daily limit in Nori's settings, or try again tomorrow.");
       jobIds = await recommendedJobIds(db, user.id, { now, limit: Math.min(body.limit ?? 10, room), atsTypes: ctx.config.batchAts });
     }
-    if (jobIds.length === 0) throw new HttpError(409, "No Recommended jobs to send right now", "Nori sends new matches at or above your threshold that you haven't applied to.");
+    if (jobIds.length === 0) throw new HttpError(409, "No jobs for Nori to send right now", "Nori sends new matches it would apply to on its own, within this week's pace. Pick jobs yourself to send others.");
     const res = await startBatch(db, user.id, jobIds, { now: ctx.now(), atsTypes: ctx.config.batchAts });
     for (const a of res.added) if (a.created) await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: a.applicationId });
     if (!res.batchId) throw new HttpError(409, "None of these jobs can be added to a batch", JSON.stringify(res.skipped.map((s) => s.reason)));
     const [batch] = await db.select().from(applyBatches).where(eq(applyBatches.id, res.batchId)).limit(1);
     return c.json({ batch: await batchView(db, batch!, ctx.now()), added: res.added.length, skipped: res.skipped }, 201);
+  });
+
+  /**
+   * The apply decision for the person's new matches (docs/api-contract.md, "Apply decisions"): what Nori would send now
+   * (within what is left of today's limit and this week's pace), hold for later, ask about (one-tap Apply/Skip) or skip.
+   */
+  r.get("/decisions", auth, async (c) => {
+    const userId = c.get("user").id;
+    const now = ctx.now();
+    const [settings, use] = await Promise.all([getNoriSettings(db, userId), dailyCapUse(db, userId, now)]);
+    const r = await decideApplies(db, userId, { now, maxSends: Math.max(0, settings.dailyLimit - use.used) });
+    const ids = r.decisions.map((d) => d.jobId);
+    const rows = ids.length
+      ? await db.select({ id: jobs.id, title: jobs.title, company: companies.name }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(inArray(jobs.id, ids))
+      : [];
+    const byId = new Map(rows.map((j) => [j.id, j]));
+    return c.json({
+      aggressiveness: r.aggressiveness, weekUsed: r.weekUsed, weekLeft: r.weekLeft,
+      decisions: r.decisions.map((d) => ({ jobId: d.jobId, title: byId.get(d.jobId)?.title ?? "", company: byId.get(d.jobId)?.company ?? "", group: d.group, action: d.action, reasons: d.reasons, fit: d.fit })),
+    });
   });
 
   r.get("/batches", auth, async (c) => c.json({ batches: await recentBatches(db, c.get("user").id, ctx.now()) }));

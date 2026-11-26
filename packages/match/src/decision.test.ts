@@ -93,4 +93,18 @@ describe("decideApplies", () => {
     expect(by[skipped.jobId]).toMatchObject({ action: "skip", reasons: ["A company you skip"] });
     expect(by[recent.jobId]).toMatchObject({ action: "skip", reasons: ["You applied to this company in the last 60 days"] });
   });
+
+  it("decides a job already applied to when asked by id: its own application does not count against its company", async () => {
+    const userId = await seedUser(t.db);
+    const companyId = await seedCompany(t.db, { name: "Prepared Co" });
+    const jobId = await seedJob(t.db, { companyId, title: "Software Engineer", spec: baseSpec({ seniority: "mid" }), location: null, postedAt: hoursAgo(5) });
+    await t.db.insert(shortlist).values({ userId, jobId, fit: 0.9, fitMap: [must("Python", 0.8)], reasons: [], status: "applied" });
+    await t.db.insert(applications).values({ userId, jobId, canonicalUrl: "https://example.test/prepared", status: "prepared", createdAt: hoursAgo(1) });
+    expect((await decideApplies(t.db, userId, { now: NOW })).decisions).toEqual([]);
+    expect((await decideApplies(t.db, userId, { now: NOW, jobIds: [jobId] })).decisions).toMatchObject([{ jobId, group: "strong", action: "send" }]);
+    // Another job at the same company is still held back by it.
+    const other = await seedJob(t.db, { companyId, title: "Software Engineer II", spec: baseSpec({ seniority: "mid" }), location: null, postedAt: hoursAgo(5) });
+    await t.db.insert(shortlist).values({ userId, jobId: other, fit: 0.9, fitMap: [must("Python", 0.8)], reasons: [] });
+    expect((await decideApplies(t.db, userId, { now: NOW, jobIds: [other] })).decisions).toMatchObject([{ jobId: other, action: "skip", reasons: ["You applied to this company in the last 60 days"] }]);
+  });
 });

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applyBatches, companies, eq, jobs, shortlist, users } from "@norinote/db";
+import { applications, applyBatches, companies, eq, jobs, shortlist, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
+import { placeInGroup, type DECISION_FIT_MAPS } from "@norinote/match/testing";
 import { DEFAULT_SCHEDULE, isDue, localClock, nextRunOn, readSchedule, runSchedules, saveSchedule } from "./schedule.js";
 import { saveNoriSettings } from "./batch.js";
 
@@ -47,6 +48,7 @@ describe("running the schedules", () => {
       const [c] = await t.db.insert(companies).values({ name: `Sched ${i}`, atsType: "greenhouse", atsToken: `sched-${i}` }).returning();
       const [j] = await t.db.insert(jobs).values({ companyId: c!.id, atsType: "greenhouse", externalId: `s${i}`, title: "Engineer", applyUrl: `https://job-boards.greenhouse.io/sched-${i}/jobs/${i}`, dedupeKey: `sched${i}`, postedAt: new Date(MON_0910.getTime() - 3_600_000), firstSeenAt: new Date(MON_0910.getTime() - 3_600_000) }).returning();
       await t.db.insert(shortlist).values({ userId: u!.id, jobId: j!.id, fit, fitMap: [], reasons: [], status: "new" });
+      await placeInGroup(t.db, u!.id, j!.id, fit >= 0.8 ? "strong" : "stretch");
     }
     // Off: nothing happens.
     expect((await runSchedules(t.db, { now: MON_0910 })).filter((r) => r.userId === u!.id)).toEqual([]);
@@ -59,5 +61,51 @@ describe("running the schedules", () => {
     expect(batches).toHaveLength(1);
     // Once a day.
     expect((await runSchedules(t.db, { now: new Date(MON_0910.getTime() + 60_000) })).filter((r) => r.userId === u!.id)).toEqual([]);
+  });
+
+  /** A person with the schedule on and these new matches, each placed in its apply decision group; returns the job ids. */
+  async function scheduled(name: string, jobsIn: Array<{ group: keyof typeof DECISION_FIT_MAPS; hoursOld: number }>) {
+    const [u] = await t.db.insert(users).values({ email: `${name}@example.test`, passwordHash: "x" }).returning();
+    const ids: string[] = [];
+    for (const [i, j] of jobsIn.entries()) {
+      const at = new Date(MON_0910.getTime() - j.hoursOld * 3_600_000);
+      const [c] = await t.db.insert(companies).values({ name: `${name} ${i}`, atsType: "greenhouse", atsToken: `${name}-${i}` }).returning();
+      const [row] = await t.db.insert(jobs).values({ companyId: c!.id, atsType: "greenhouse", externalId: `${name}${i}`, title: "Backend Engineer", applyUrl: `https://job-boards.greenhouse.io/${name}-${i}/jobs/${i}`, dedupeKey: `${name}${i}`, postedAt: at, firstSeenAt: at }).returning();
+      await t.db.insert(shortlist).values({ userId: u!.id, jobId: row!.id, fit: 0.8, fitMap: [], reasons: [], status: "new" });
+      await placeInGroup(t.db, u!.id, row!.id, j.group);
+      ids.push(row!.id);
+    }
+    await saveSchedule(t.db, u!.id, { enabled: true });
+    return { userId: u!.id, ids };
+  }
+  const sentJobs = async (userId: string, now = MON_0910) => {
+    const run = (await runSchedules(t.db, { now })).find((r) => r.userId === userId);
+    if (!run?.created.length) return [];
+    return (await t.db.select({ jobId: applications.jobId }).from(applications).where(eq(applications.userId, userId))).map((a) => a.jobId).sort();
+  };
+  const mix = [{ group: "strong", hoursOld: 3 }, { group: "worth_a_shot", hoursOld: 3 }, { group: "worth_a_shot", hoursOld: 72 }, { group: "stretch", hoursOld: 3 }, { group: "hard_no", hoursOld: 3 }] as const;
+
+  it("on cautious sends only strong jobs", async () => {
+    const p = await scheduled("cautious", [...mix]);
+    await saveNoriSettings(t.db, p.userId, { aggressiveness: "cautious" });
+    expect(await sentJobs(p.userId)).toEqual([p.ids[0]]);
+  });
+
+  it("on balanced also sends worth-a-shot jobs posted in the last 2 days, never a stretch or a hard no", async () => {
+    const p = await scheduled("balanced", [...mix]);
+    expect(await sentJobs(p.userId)).toEqual([p.ids[0], p.ids[1]].sort());
+  });
+
+  it("stops when the weekly pace is used up", async () => {
+    const p = await scheduled("paced", [{ group: "strong", hoursOld: 3 }, { group: "strong", hoursOld: 3 }, { group: "strong", hoursOld: 3 }]);
+    // Cautious: 10 a week; 9 approved in the last 7 days leave room for one.
+    await saveNoriSettings(t.db, p.userId, { aggressiveness: "cautious" });
+    const [c] = await t.db.insert(companies).values({ name: "Paced past", atsType: "greenhouse", atsToken: "paced-past" }).returning();
+    for (let i = 0; i < 9; i++) {
+      const [old] = await t.db.insert(jobs).values({ companyId: c!.id, atsType: "greenhouse", externalId: `pp${i}`, title: `Old ${i}`, applyUrl: `https://job-boards.greenhouse.io/pp/jobs/${i}`, dedupeKey: `pp${i}` }).returning();
+      await t.db.insert(applications).values({ userId: p.userId, jobId: old!.id, status: "submitted", approvedAt: new Date(MON_0910.getTime() - (i + 2) * 86_400_000 / 2) , createdAt: new Date(MON_0910.getTime() - 90 * 86_400_000) });
+    }
+    const run = (await runSchedules(t.db, { now: MON_0910 })).find((r) => r.userId === p.userId);
+    expect(run!.created).toHaveLength(1);
   });
 });

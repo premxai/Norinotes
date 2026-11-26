@@ -3,17 +3,21 @@
  * it is matched, so it can be sent within hours of posting instead of waiting for the next scheduled run or a click.
  * Only for people who asked Nori to act for them (the caller decides who: the schedule, or a linked Telegram).
  * Preparing is not sending: an application prepared ahead waits for the person's OK, unless the person turned on the
- * schedule (autopilot): then it is sent as soon as it is prepared (`autopilotStrongFit`).
+ * schedule (autopilot) and the apply decision says to send it: then it is sent as soon as it is prepared
+ * (`autopilotStrongFit`).
  */
-import { and, applications, companies, eq, gte, inArray, jobs, ne, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { getNoriSettings, RECENT_COMPANY_DAYS, recentlyAppliedCompanies } from "./batch.js";
+import { and, applications, companies, eq, gte, inArray, jobs, runEvents, shortlist, sql, type Db } from "@norinote/db";
+import { decideApplies, type ApplyAction, type ApplyGroup } from "@norinote/match";
+import { getNoriSettings, recentlyAppliedCompanies } from "./batch.js";
 import { getSchedule, type NoriSchedule } from "./schedule.js";
-import { approveAndSubmit, capDayStart, createApplication, loadApplication, logEvent, normalizeCompany } from "./store.js";
+import { approveAndSubmit, capDayStart, createApplication, dailyCapUse, loadApplication, logEvent, normalizeCompany } from "./store.js";
 
 /** The fit at which a job counts as a strong fit (the "Strong fit" band). */
 export const STRONG_FIT = 0.8;
 /** The run-log step that marks an application Nori prepared ahead for a strong fit. */
 export const STRONG_FIT_STEP = "strong_fit";
+/** The run-log step with autopilot's apply decision for a prepared strong fit (`data`: group, action, reasons). */
+export const APPLY_DECISION_STEP = "apply_decision";
 
 export type StrongFit = { userId: string; jobId: string; fit: number };
 
@@ -29,8 +33,9 @@ export type PrepareAheadResult = { created: Array<{ jobId: string; applicationId
 
 /**
  * Creates an application for each of the person's strong fits so the worker can prepare it now. The same rules as an
- * "Apply for me" batch: never a company on the skip list or one applied to in the last 60 days, one job per company, only
- * the job systems Nori sends through (`atsTypes`, empty = all). At most the person's daily limit of strong fits a day
+ * "Apply for me" batch: never a company on the skip list or one applied to in the last 60 days, never a hard no of the
+ * apply decision (`not_a_fit`), one job per company, only the job systems Nori sends through (`atsTypes`, empty = all).
+ * At most the person's daily limit of strong fits a day
  * is prepared ahead, so a burst of postings cannot run up the AI spend. Returns the applications to queue
  * `prepare.application` for.
  */
@@ -44,6 +49,7 @@ export async function prepareStrongFitsAhead(db: Db, userId: string, fits: reado
   let room = settings.dailyLimit - Number(today?.n ?? 0);
   const skip = new Set(settings.skipCompanies.map(normalizeCompany));
   const recent = await recentlyAppliedCompanies(db, userId, opts.now);
+  const hardNo = new Set((await decideApplies(db, userId, { now: opts.now, jobIds: mine.map((f) => f.jobId) })).decisions.filter((d) => d.action === "skip").map((d) => d.jobId));
   const rows = await db.select({ id: jobs.id, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType }).from(jobs)
     .innerJoin(companies, eq(companies.id, jobs.companyId)).where(inArray(jobs.id, mine.map((f) => f.jobId)));
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -54,6 +60,7 @@ export async function prepareStrongFitsAhead(db: Db, userId: string, fits: reado
       : opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType) ? "not_supported"
       : skip.has(normalizeCompany(job.companyName)) ? "skipped_company"
       : recent.blocks(job.companyId, job.id) ? "applied_recently"
+      : hardNo.has(f.jobId) ? "not_a_fit"
       : seen.has(job.companyId) ? "same_company"
       : room <= 0 ? "daily_limit"
       : null;
@@ -68,23 +75,26 @@ export async function prepareStrongFitsAhead(db: Db, userId: string, fits: reado
   return out;
 }
 
-/**
- * Whether autopilot sends a prepared strong fit on its own: only when the person turned the schedule on and has not
- * paused it. The one place this is decided, so the apply decision policy (PRE-31) can replace it.
- */
-export function autopilotSendsStrongFit(s: { schedule: NoriSchedule; fit: number | null }): boolean {
-  return s.schedule.enabled && !s.schedule.paused && s.fit !== null && s.fit >= STRONG_FIT;
+/** Whether autopilot acts on its own at all: the person turned the schedule on and has not paused it. */
+export function autopilotOn(schedule: NoriSchedule): boolean {
+  return schedule.enabled && !schedule.paused;
 }
 
-export type AutopilotResult = { started: boolean; reason?: string };
+/**
+ * `reason` when nothing was started: not_waiting, not_strong_fit, autopilot_off, not_found, not_supported, or the apply
+ * decision's answer: ask (the person decides: the Telegram strong-fit alert and the dashboard offer Apply/Skip),
+ * not_a_fit (a hard no; `detail` says why), daily_limit, weekly_pace or later (held for variety or one per company).
+ */
+export type AutopilotResult = { started: boolean; reason?: string; detail?: string; group?: ApplyGroup | null };
 
 /**
  * Autopilot for strong fits: a strong fit Nori prepared ahead goes to the employer's form as soon as it is prepared,
- * instead of waiting for the next scheduled run, when `autopilotSendsStrongFit` says so. Within the same limits as a
- * scheduled batch: the daily limit (counted and stamped atomically by `approveAndSubmit` under the person's lock), no
- * company on the skip list or applied to in the last 60 days, only the job systems Nori sends through. When it does not
- * send, the application stays prepared for the person (and the Telegram alert offers Apply). `started` means the caller
- * must queue `apply.run` (trigger autopilot).
+ * instead of waiting for the next scheduled run, when the schedule is on and the apply decision (`decideApplies`, with
+ * what is left of today's limit as `maxSends`) says `send`: its group is sent without asking at the person's
+ * aggressiveness, within the weekly pace, not a hard no (skip list and the 60-day company rule included). Only the job
+ * systems Nori sends through. The decision is logged (`apply_decision` run event). When it does not send, the
+ * application stays prepared for the person (the Telegram alert offers Apply and Skip, except for a hard no).
+ * `started` means the caller must queue `apply.run` (trigger autopilot).
  */
 export async function autopilotStrongFit(db: Db, applicationId: string, opts: { now: Date; atsTypes?: readonly string[] | null }): Promise<AutopilotResult> {
   const app = await loadApplication(db, applicationId);
@@ -92,23 +102,25 @@ export async function autopilotStrongFit(db: Db, applicationId: string, opts: { 
   const [marked] = await db.select({ data: runEvents.data }).from(runEvents)
     .where(and(eq(runEvents.applicationId, app.id), eq(runEvents.step, STRONG_FIT_STEP))).limit(1);
   if (!marked) return { started: false, reason: "not_strong_fit" };
-  const [row] = await db.select({ fit: shortlist.fit }).from(shortlist).where(and(eq(shortlist.userId, app.userId), eq(shortlist.jobId, app.jobId))).limit(1);
-  if (!autopilotSendsStrongFit({ schedule: await getSchedule(db, app.userId), fit: row?.fit ?? null })) return { started: false, reason: "autopilot_off" };
+  if (!autopilotOn(await getSchedule(db, app.userId))) return { started: false, reason: "autopilot_off" };
 
-  const [job] = await db.select({ companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType }).from(jobs)
-    .innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, app.jobId)).limit(1);
+  const [job] = await db.select({ atsType: jobs.atsType }).from(jobs).where(eq(jobs.id, app.jobId)).limit(1);
   if (!job) return { started: false, reason: "not_found" };
   if (opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType)) return { started: false, reason: "not_supported" };
+
   const settings = await getNoriSettings(db, app.userId);
-  if (settings.skipCompanies.map(normalizeCompany).includes(normalizeCompany(job.companyName))) return { started: false, reason: "skipped_company" };
-  // Another application at this company in the cooldown window (this one counts itself, so it is left out).
-  const since = new Date(opts.now.getTime() - RECENT_COMPANY_DAYS * 86_400_000);
-  const [other] = await db.select({ id: applications.id }).from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
-    .where(and(eq(applications.userId, app.userId), eq(jobs.companyId, job.companyId), ne(applications.id, app.id), gte(applications.createdAt, since), ne(applications.status, "failed"))).limit(1);
-  if (other) return { started: false, reason: "applied_recently" };
+  const room = Math.max(0, settings.dailyLimit - (await dailyCapUse(db, app.userId, opts.now)).used);
+  const decided = await decideApplies(db, app.userId, { now: opts.now, jobIds: [app.jobId], maxSends: room });
+  const d = decided.decisions[0];
+  const action: ApplyAction = d?.action ?? "ask";
+  const reasons = d?.reasons ?? ["Not on your list any more"];
+  await logEvent(db, app.id, APPLY_DECISION_STEP, `Apply decision: ${action}${d?.group ? ` (${d.group.replace(/_/g, " ")})` : ""}`, { data: { group: d?.group ?? null, action, reasons } });
+  if (action === "skip") return { started: false, reason: "not_a_fit", detail: reasons[0], group: null };
+  if (action === "ask") return { started: false, reason: "ask", group: d?.group ?? null };
+  if (action === "later") return { started: false, reason: room === 0 ? "daily_limit" : decided.weekLeft === 0 ? "weekly_pace" : "later", group: d!.group };
 
   const res = await approveAndSubmit(db, app.id, { now: opts.now, limit: settings.dailyLimit });
   if (!res.ok) return { started: false, reason: res.cap ? "daily_limit" : res.reason };
-  if (res.started) await logEvent(db, app.id, "autopilot", "Autopilot sent this strong fit as soon as it was prepared", { data: { fit: row?.fit ?? null } });
-  return { started: res.started };
+  if (res.started) await logEvent(db, app.id, "autopilot", "Autopilot sent this strong fit as soon as it was prepared", { data: { fit: d!.fit, group: d!.group } });
+  return { started: res.started, group: d!.group };
 }

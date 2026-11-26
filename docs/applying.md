@@ -16,13 +16,15 @@ read without a key is read before the click.
 new job that fits a person at 0.8 or more is prepared right after `match.new-jobs` saves it, before anyone asks. Only for
 people who asked Nori to act for them: the schedule on (not paused), or Telegram linked with its strong-fit alert on
 (docs/telegram.md), which announces the job with Apply and Skip as soon as it is prepared. The batch rules apply (skip list,
-no company applied to in the last 60 days, one job per company, `BATCH_ATS`), and at most the person's daily limit of
+no company applied to in the last 60 days, one job per company, `BATCH_ATS`, never a hard no of the apply decision), and at most the person's daily limit of
 strong fits is prepared ahead a day. The application is marked with a `strong_fit` run event, goes to the front of the
 prepare queue, and waits for the person's OK, except with **autopilot**: when the person's schedule is on and not
-paused, the prepare consumer sends it as soon as it is prepared (`autopilotStrongFit`, `apply.run` trigger `autopilot`),
-within the daily limit (counted under the person's lock by `approveAndSubmit`), no company applied to in the last 60 days,
-not a skipped company, only `BATCH_ATS`. When it cannot be sent now, it stays prepared for the person. Whether autopilot
-sends is decided in one predicate, `autopilotSendsStrongFit`, so the apply decision policy can take it over. `scripts/measure-fast-path.mts` times first_seen_at to the
+paused, the prepare consumer sends it as soon as it is prepared (`autopilotStrongFit`, `apply.run` trigger `autopilot`)
+when the apply decision (`decideApplies`, with what is left of today's limit as `maxSends`) says `send`: a group the
+person's aggressiveness sends on its own, within the weekly pace, not a hard no (skip list and the 60-day company rule
+included), only `BATCH_ATS`; the daily limit is counted under the person's lock by `approveAndSubmit`. The decision is
+logged as an `apply_decision` run event. Otherwise it stays prepared for the person: on `ask` the Telegram alert reads
+"Your call" with the decision's reason; a hard no gets no alert. `scripts/measure-fast-path.mts` times first_seen_at to the
 shortlist and to prepared.
 
 `createPreparer` (apps/worker) tailors the resume (packages/tailor), answers the standard questions, then calls
