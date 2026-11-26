@@ -83,6 +83,29 @@ export function questionSlug(label: string): string {
 }
 
 const CHOICE_TYPES = new Set<SlotField["type"]>(["select", "multiselect", "radio", "checkbox", "boolean"]);
+/** A years or experience question: it answers for one named skill (\"How many years of experience with Kubernetes?\"). */
+const SKILL_ASKED = /\b(?:years?|experience|proficien\w*|familiar\w*|knowledge|worked|work with|used to|use|using|know)\b[^?]{0,40}\b(?:with|in|using|of)\s+([^?]{2,60}?)[?.\s]*$/i;
+
+/** The skill a years or experience question names, lowercased, or null when it names none. */
+function skillAsked(label: string): string | null {
+  const raw = (SKILL_ASKED.exec(label.trim())?.[1] ?? "").trim().replace(/[?.]+$/, "").trim();
+  return raw ? raw.toLowerCase() : null;
+}
+
+/**
+ * Why a model's pick on a choice question cannot be used, or null when it can. A pick has no answer text to check, so
+ * the evidence it names must be a real quote from the career points, and a question that asks about one named skill
+ * needs that skill in the points. Otherwise the person answers.
+ */
+export function pickProblem(f: SlotField, evidence: string | null | undefined, facts: string): string | null {
+  const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}+#.]+/gu, " ").trim();
+  const quote = norm(evidence ?? "");
+  if (quote.length < 8 || !norm(facts).includes(quote)) return "Norinote could not point to a fact that answers this";
+  const skill = skillAsked(f.label);
+  if (skill && !norm(facts).includes(norm(skill))) return `Your profile does not mention ${skill}`;
+  return null;
+}
+
 const isChoice = (f: SlotField) => f.options.length > 0 || CHOICE_TYPES.has(f.type);
 const isMulti = (f: SlotField) => f.type === "multiselect" || (f.type === "checkbox" && f.options.length > 1);
 /** Free text that asks for prose, not a short fact. */
@@ -413,6 +436,9 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
         if (isChoice(f) && f.options.length) {
           const picked = r.options.map((o) => matchOption(o, f.options)).filter((o): o is string => o !== null);
           if (!picked.length || (!isMulti(f) && picked.length > 1)) { unresolved(f, slot, "No offered option fits what Norinote knows"); continue; }
+          // A choice is the model's word alone: only a fact it quotes, and the skill the question names, can carry it.
+          const why = pickProblem(f, r.evidence, facts);
+          if (why) { unresolved(f, slot, why); continue; }
           set(f, slot, { status: "ready", value: isMulti(f) ? [...new Set(picked)].join(MULTI_SEPARATOR) : picked[0]!, source: "model" });
           continue;
         }

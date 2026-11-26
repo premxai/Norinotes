@@ -368,6 +368,46 @@ describe("near-copies of earlier drafts", () => {
     expect(plan2.entries.map((e) => e.status)).toEqual(["ready", "pending"]);  });
 });
 
+describe("model picks need a fact behind them", () => {
+  const f = (key: string, label: string, options: string[]) => ({ key, label, type: "select" as const, options, required: true });
+  const reply = (fields: { key: string; options: string[]; evidence: string | null }[]) => ({
+    chat: () => ({ fields: fields.map((x) => ({ slot: "custom", decision: "answer", text: null, ...x })) }),
+  });
+
+  it("takes a pick the evidence quotes, and one whose skill the points name", async () => {
+    const { userId } = await seedUser(t.db, "pick-ok");
+    const { jobId } = await seedJob(t.db, "pick-ok");
+    setProvider(createFakeProvider(reply([
+      { key: "c1", options: ["Yes"], evidence: "Built a Rust load balancer that handled 10000 connections" },
+      { key: "c2", options: ["Yes"], evidence: "Built payment APIs in TypeScript serving 2 million requests per day" },
+    ])));
+    const plan = await planForm(t.db, { userId, jobId, fields: [
+      f("c1", "Do you have experience with Rust?", ["Yes", "No"]),
+      f("c2", "Do you have experience with TypeScript?", ["Yes", "No"]),
+    ] });
+    expect(plan.entries.map((e) => [e.status, e.value])).toEqual([["ready", "Yes"], ["ready", "Yes"]]);
+  });
+
+  it("sends a pick to the person when the evidence is no quote, the fact is missing, or the skill is not in the points", async () => {
+    const { userId } = await seedUser(t.db, "pick-no");
+    const { jobId } = await seedJob(t.db, "pick-no");
+    setProvider(createFakeProvider(reply([
+      { key: "c1", options: ["Yes"], evidence: null },
+      { key: "c2", options: ["3-5"], evidence: "Five years of Kubernetes in production" },
+      { key: "c3", options: ["3-5"], evidence: "Built a Rust load balancer that handled 10000 connections" },
+    ])));
+    const plan = await planForm(t.db, { userId, jobId, fields: [
+      f("c1", "Do you have experience with Rust?", ["Yes", "No"]),
+      f("c2", "How many years of experience do you have with Kubernetes?", ["0-1", "1-3", "3-5", "5+"]),
+      f("c3", "How many years of experience do you have with Go?", ["0-1", "1-3", "3-5", "5+"]),
+    ] });
+    const by = Object.fromEntries(plan.entries.map((e) => [e.key, e]));
+    expect(by.c1).toMatchObject({ status: "pending", reason: expect.stringMatching(/could not point to a fact/) });
+    expect(by.c2).toMatchObject({ status: "pending", reason: expect.stringMatching(/could not point to a fact/) });
+    expect(by.c3).toMatchObject({ status: "pending", reason: "Your profile does not mention go" });
+  });
+});
+
 describe("attestations: one kind, one answer", () => {
   const cb = (key: string, label: string, required = true) => f(key, label, "checkbox", [], required);
 

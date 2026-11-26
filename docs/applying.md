@@ -71,6 +71,9 @@ shortlist and to prepared.
    - **Legal questions** (work authorisation, sponsorship, criminal history, salary, relocation, start date, age,
      consent) come only from the profile, even when the model classified them; otherwise pending. The model never
      supplies their value.
+   - **Model picks on choice questions** are the model's word alone, so one is accepted only when its `evidence` is a
+     quote from the career points and, for a years or experience question, the skill the question names appears in them
+     (`pickProblem`). Otherwise the question goes to the person.
    - **Attestations** (the `consent` slot): each consent, acknowledgement or certification is one of ten kinds
      (`attestationType`: privacy, demographic data, retention for future roles, accuracy, background check, AI policy,
      interview recording, arbitration, being contacted, terms), from Greenhouse's `gdpr_*` keys or the label. It is
