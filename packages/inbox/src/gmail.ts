@@ -9,11 +9,11 @@
  *
  * Composio is called over its REST API (v3.1) with `fetch`, so there is no SDK dependency.
  */
-import { applications, eq, inboxMessages, profiles, sql, type Db } from "@norinote/db";
+import { applications, eq, jobs, profiles, sql, type Db } from "@norinote/db";
 import { classifyMessage } from "./classify.js";
 import { atsOfSender } from "./link.js";
 import { fromGeneric } from "./parse.js";
-import { storeInbound } from "./receive.js";
+import { storeInbound, type KeepCheck } from "./receive.js";
 import { awaitVerification, type AwaitVerificationArgs, type VerificationResult } from "./waiter.js";
 
 const COMPOSIO_URL = "https://backend.composio.dev";
@@ -163,6 +163,8 @@ export type WatchGmailArgs = {
   db: Db;
   gmail: ComposioGmail;
   userId: string;
+  /** The application waiting for the code. Only its code is kept. */
+  applicationId: string;
   since: Date;
   signal: AbortSignal;
   /** Poll interval. Default 5 s. */
@@ -172,15 +174,20 @@ export type WatchGmailArgs = {
 };
 
 /**
- * Polls the person's Gmail for code mail until `signal` aborts, storing each verification-code message once through
- * `storeInbound` (with the person as recipient), which links it to the waiting application and wakes the run. Any other
- * mail it sees is dropped without being stored. Errors are logged and polling goes on; a waiting run also accepts a code
- * typed in Norinote, so a Gmail hiccup never blocks it.
+ * Polls the person's Gmail for code mail until `signal` aborts, storing a verification-code message through
+ * `storeInbound` (with the person as recipient) only when it belongs to the waiting application: linked to it, or unlinked
+ * and sent by that job's own job system (the waiter's own rule for unlinked mail). That wakes the run. Every other message,
+ * a bank's or a login code included, is never written. Errors are logged and polling goes on; a waiting run also accepts a
+ * code typed in Norinote, so a Gmail hiccup never blocks it.
  */
 export async function watchGmailForCodes(args: WatchGmailArgs): Promise<{ stored: number }> {
   const seen = new Set<string>();
   const now = args.now ?? (() => new Date());
   const interval = Math.max(500, args.intervalMs ?? 5000);
+  const [job] = await args.db.select({ atsType: jobs.atsType }).from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
+    .where(eq(applications.id, args.applicationId)).limit(1);
+  const keep = (c: KeepCheck) => c.kind === "verification_code" && !c.spam
+    && (c.applicationId === args.applicationId || (c.applicationId === null && !!job && atsOfSender(c.from) === job.atsType));
   let stored = 0;
   while (!args.signal.aborted) {
     try {
@@ -189,14 +196,8 @@ export async function watchGmailForCodes(args: WatchGmailArgs): Promise<{ stored
         seen.add(m.id);
         if (classifyMessage({ from: m.from, subject: m.subject, text: m.text }).kind !== "verification_code") continue;
         const email = fromGeneric({ from: m.from, subject: m.subject, text: m.text, messageId: `gmail:${m.id}`, date: m.receivedAt?.toISOString() });
-        const r = await storeInbound(args.db, { ...email, provider: "generic" }, { now: now(), userId: args.userId });
+        const r = await storeInbound(args.db, { ...email, provider: "generic" }, { now: now(), userId: args.userId, keep });
         if (!r.stored || r.duplicate) continue;
-        // Keep only a code that can belong to the waiting application: linked to it, or sent by a job system (the
-        // waiter's own check). A code from anything else (a bank, a login alert) is the person's business: drop it.
-        if (!r.applicationId && !atsOfSender(m.from)) {
-          await args.db.delete(inboxMessages).where(eq(inboxMessages.id, r.messageId));
-          continue;
-        }
         stored++;
         args.log?.("gmail.code", { userId: args.userId, linked: !!r.applicationId });
       }
@@ -214,7 +215,8 @@ export async function watchGmailForCodes(args: WatchGmailArgs): Promise<{ stored
 
 /**
  * `awaitVerification` that also reads the person's connected Gmail while it waits: the waiter takes whichever code comes
- * first (Gmail, their mail filter, or typed in Norinote). Without a Composio client or a connection it is the plain waiter.
+ * first (Gmail, their mail filter, or typed in Norinote). Without a Composio client, a connection, or a connection Composio
+ * reports ACTIVE (a revoked or unfinished one is never polled), it is the plain waiter.
  */
 export async function awaitVerificationWithGmail(
   args: AwaitVerificationArgs & { db: Db; gmail: ComposioGmail | null; intervalMs?: number; log?: WatchGmailArgs["log"] },
@@ -223,8 +225,13 @@ export async function awaitVerificationWithGmail(
   const [app] = gmail ? await args.db.select({ userId: applications.userId }).from(applications).where(eq(applications.id, args.applicationId)).limit(1) : [];
   const conn = app ? await getGmailConnection(args.db, app.userId) : null;
   if (!gmail || !app || !conn) return awaitVerification(wait);
+  const status = await gmail.status(conn.connectedAccountId).catch(() => "UNKNOWN" as const);
+  if (status !== "ACTIVE") {
+    log?.("gmail.not_active", { userId: app.userId, status });
+    return awaitVerification(wait);
+  }
   const stop = new AbortController();
-  const watching = watchGmailForCodes({ db: args.db, gmail, userId: app.userId, since: args.since, signal: stop.signal, ...(intervalMs ? { intervalMs } : {}), ...(log ? { log } : {}), ...(args.now ? { now: args.now } : {}) });
+  const watching = watchGmailForCodes({ db: args.db, gmail, userId: app.userId, applicationId: args.applicationId, since: args.since, signal: stop.signal, ...(intervalMs ? { intervalMs } : {}), ...(log ? { log } : {}), ...(args.now ? { now: args.now } : {}) });
   try {
     return await awaitVerification(wait);
   } finally {

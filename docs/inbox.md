@@ -15,10 +15,13 @@ returns a link to approve, `GET /api/inbox/gmail` reports `{ available, connecte
 disconnects. Without the dashboard, `npx tsx scripts/gmail-connect.mts --email <account>` prints the link and waits.
 The connection id is kept in `profiles.preferences.gmail`; the Composio user id is the Norinote user id.
 
-Gmail is read only while an application run waits for a code (`awaitVerificationWithGmail`, packages/inbox/src/gmail.ts):
-every 5 s it asks `GMAIL_FETCH_EMAILS` for mail since the wait began that mentions a code, and stores a message only when
-the rules classify it as a verification code, through `storeInbound` with the person as owner, so it is linked to the
-application by its sender and wakes the waiting run. Any other mail it sees is dropped without being stored. Composio is
+Gmail is read for codes only while an application run waits for one (`awaitVerificationWithGmail`,
+packages/inbox/src/gmail.ts), and only when Composio reports the connection ACTIVE (a revoked, expired or unfinished one
+is never polled). Every 5 s it asks `GMAIL_FETCH_EMAILS` for mail since the wait began that mentions a code, and stores a
+message only when it is a verification code for the waiting application: linked to it, or unlinked and sent by that job's
+own job system. It goes through `storeInbound` with the person as owner and a `keep` rule that is checked before
+anything is written, so it wakes the waiting run. Any other mail, a bank's or a login code linked to an older
+application included, is never written. Composio is
 called over its REST API (v3.1, `x-api-key`), with `COMPOSIO_API_KEY` on the API and the worker. The approval screen says
 Composio, not Norinote; for a public launch this becomes Norinote's own Google app, which needs Google's verification of
 the restricted Gmail scope.

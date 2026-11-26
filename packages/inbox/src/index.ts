@@ -26,7 +26,7 @@ export type { InboxJobResult } from "./process.js";
 export {
   INBOX_BODY_MAX, INBOX_SUBJECT_MAX, RECLASSIFY_DAYS, RECLASSIFY_LIMIT, receiveInbound, reclassifyFallbackMessages, reprocessMessage, storeInbound, waitingApplications,
 } from "./receive.js";
-export type { InboxMeta, ReceiveResult, ReprocessOptions, StoredInbound, Wake } from "./receive.js";
+export type { InboxMeta, KeepCheck, ReceiveResult, ReprocessOptions, StoredInbound, Wake } from "./receive.js";
 export { purgeExpiredInbox, retentionDaysFromEnv, startInboxRetention } from "./retention.js";
 export { verifyInboundSecret } from "./secret.js";
 export {

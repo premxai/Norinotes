@@ -67,7 +67,6 @@ Scored as how often (1–10) × how bad (1–10). Below 5: written down, code le
 |---|---|---|
 | 4 | A drain pass between `startBatch` inserting the batch and linking its applications can mark it done and send a "0 sent" Telegram summary; the next pass reopens it. | `packages/apply/src/batch.ts` startBatch / drainBatches |
 | 4 | Deleting a graph source while it is being read leaves the read's facts without a source. | `apps/api/src/routes/graph.ts`, `apps/worker/src/graph-sources.ts` |
-| 4 | A revoked Gmail connection makes a code wait call Composio every 5 s and fail. | `packages/inbox/src/gmail.ts` |
 | 4 | "Show earlier messages" double-click duplicates chat messages. | `apps/landing/components/app/NoriV2.tsx` |
 | 4 | A Telegram Apply on a job that has since closed still creates the application. | `apps/api/src/routes/applications.ts` |
 | 3 | Changing the schedule while the scheduler writes `lastRunOn` can run a second batch that day. | `packages/apply/src/schedule.ts` |

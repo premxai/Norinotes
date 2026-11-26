@@ -61,7 +61,10 @@ export type StoredInbound = {
   wake: Wake | null;
 };
 
-export type ReceiveResult = StoredInbound | { stored: false; reason: "unknown_recipient" | "unreadable" | "too_large" };
+export type ReceiveResult = StoredInbound | { stored: false; reason: "unknown_recipient" | "unreadable" | "too_large" | "not_kept" };
+
+/** What `storeInbound`'s `keep` sees before anything is written: the classification and the link. */
+export type KeepCheck = { kind: InboxKind; applicationId: string | null; applicationStatus: AppCandidate["status"] | null; trusted: boolean; spam: boolean; from: string };
 
 const OUTCOME_KIND: Record<(typeof INBOX_OUTCOME_KINDS)[number], "reply" | "interview" | "rejection" | "offer"> = {
   recruiter_reply: "reply", interview: "interview", rejection: "rejection", offer: "offer",
@@ -150,13 +153,19 @@ function metaOf(a: Analysis, email: { attachments?: AttachmentMeta[]; provider?:
  * stores it in `inbox_messages` (a repeated Message-ID is stored once), records an outcome, wakes in-process waiters and
  * says what to wake. Fast: no model call; ambiguous results are settled by the `inbox.receive` worker job.
  */
-export async function storeInbound(db: Db, email: InboundEmail, opts: { now?: Date; userId?: string } = {}): Promise<ReceiveResult> {
+export async function storeInbound(
+  db: Db, email: InboundEmail, opts: { now?: Date; userId?: string; keep?: (c: KeepCheck) => boolean } = {},
+): Promise<ReceiveResult> {
   const now = opts.now ?? new Date();
   // Mail read from the person's own mailbox (connected Gmail) names its owner; mail to an inbox address is resolved.
   const userId = opts.userId ?? await resolveUser(db, email.to);
   if (!userId) return { stored: false, reason: "unknown_recipient" };
 
   const a = analyse(email, await loadCandidates(db, userId, now), email.spam.spam);
+  // Mail read from someone's own mailbox is written only when the caller's rule keeps it; nothing else is stored.
+  if (opts.keep && !opts.keep({ kind: a.kind, applicationId: a.app?.id ?? null, applicationStatus: a.app?.status ?? null, trusted: a.trusted, spam: email.spam.spam, from: email.from })) {
+    return { stored: false, reason: "not_kept" };
+  }
   const meta: InboxMeta = { ...metaOf(a, email, "rules"), ...(email.fromName ? { fromName: email.fromName.slice(0, 200) } : {}) };
   // Arrival time, not the Date header: a code is "fresh" by when it reached us, and headers can be hours off.
   const inserted = await db.insert(inboxMessages).values({
