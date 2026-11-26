@@ -169,8 +169,16 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - An application whose job closed before it was sent becomes `failed` with error `"This job is no longer open: the
   company took the posting down."` (checked before preparing and before sending). Retry checks again.
 - POST `/api/applications/:id/cancel`: the person drops the application. It becomes `failed` with error `"Cancelled by
-  you"` (Retry brings it back). 409 while Nori is on the employer's page (`applying`, `awaiting_code`) or once it was
-  `submitted`; cancelling a failed one is a no-op 200.
+  you"` (Retry brings it back). 409 once it was `submitted`, while a live run holds it (`applying`, `awaiting_code` and
+  either a browser step of this process or a row touched within 25 minutes), and while a submit click is marked: that is
+  the person's to settle first (below). Cancelling a failed one is a no-op 200.
+- A submit click Nori could not confirm (`receipt.submitClicked: true` on a `needs_user` or `failed` application) is the
+  one case the worker will not resolve: only the person knows whether the employer has it, and both answers are final.
+  - POST `/api/applications/:id/marked-sent`: `needs_user` or `failed` → `submitted`, as if Nori had seen the
+    confirmation (`submittedAt` now, receipt `markedSent: true`). 409 when it cannot move.
+  - POST `/api/applications/:id/not-sent`: clears the submit mark of a parked application (`clickClearedAt` in the
+    receipt), so Retry may send it again and Cancel is allowed. 409 when there is no marked click.
+  - Both are the person's own word: the worker never calls them, and Retry and Approve stay refused until one is used.
 - Receipt fields (`receipt.sections[].fields[]`) Nori drafted carry `noriWrote: true`: show "Nori wrote this" next to
   them. `receipt.prepared.drafted` lists those answers as `{ key, label, value }` (docs/applying.md).
 - Retry after a code that never came is allowed: the receipt carries `codeMissing: true` (the site holds an application
@@ -245,7 +253,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   no (`group` null), never sent. `reasons`
   are plain sentences for the person. No model call.
 - GET `/api/nori/needs-you`: `{ items: [{ applicationId, jobId, title, company, applyUrl, status, needs: questions|code|captcha|
-  account|offsite|other, reason, questions, batchId, updatedAt }] }`, newest first. `status` is `needs_user` or
+  account|offsite|unsupported|other, reason, questions, batchId, updatedAt }] }`, newest first. `unsupported` is a form
+  Nori cannot fill at all (Workday, SmartRecruiters, an unknown system, a posting that sends people to the company's own
+  site): the person applies there themselves. `status` is `needs_user` or
   `ready_to_finish` (one step left: `needs` is captcha or account). Batch counts' `needsYou` include both.
 
 ## Nori chat

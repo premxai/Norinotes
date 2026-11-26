@@ -291,6 +291,8 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
   const wall = a.status === "needs_user" && a.pendingQuestions.length === 0;
   // The wait for a typed code ran out (the receipt says codeMissing): unlike a captcha, Try again can get past it.
   const codeLate = wall && a.receipt?.codeMissing === true;
+  // Nori clicked submit and the employer's answer never arrived: only the person knows whether it has the application.
+  const clickMarked = a.receipt?.submitClicked === true && (a.status === "needs_user" || a.status === "failed");
   const cancelled = isCancelled(a);
   // Newest first, so the field-by-field lines read live at the top.
   const lines = detail.events
@@ -361,6 +363,23 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </>
       )}
 
+      {clickMarked && (
+        <div className={`${box} flex flex-col items-start gap-2 border-2 border-warning text-ink`}>
+          <p>
+            Nori clicked submit, then lost the page before the employer answered. It may already have this application.
+            Tell Nori which it is, and it stops asking.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => void act(() => api.markedSent(a.id))} aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11")}>
+              Marked as sent
+            </button>
+            <button type="button" onClick={() => void act(() => api.notSent(a.id))} aria-disabled={busy || undefined} className={buttonClass("outline", "min-h-11")}>
+              It didn&rsquo;t go through
+            </button>
+          </div>
+        </div>
+      )}
+
       {a.status === "needs_user" && !wall && <Answers questions={a.pendingQuestions} busy={busy} onSend={(answers) => void act(() => api.answer(a.id, answers))} />}
 
       {a.status === "ready_to_finish" && (
@@ -411,7 +430,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </div>
       )}
 
-      {a.status === "failed" && !cancelled && (
+      {a.status === "failed" && !cancelled && !clickMarked && (
         <div className={`${box} border-2 border-danger text-ink`}>
           <p className="mb-2">
             {a.error ?? "Something went wrong."} {a.submittedAt ? "" : "Nothing was sent."}
@@ -435,7 +454,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </>
       )}
       {failure && <FormError>{failure}</FormError>}
-      {CANCELLABLE.includes(a.status) && <CancelAction busy={busy} onCancel={() => void act(() => api.cancel(a.id))} />}
+      {CANCELLABLE.includes(a.status) && !clickMarked && <CancelAction busy={busy} onCancel={() => void act(() => api.cancel(a.id))} />}
     </div>
   );
 }

@@ -138,9 +138,12 @@ describe("the Nori page API", () => {
     await seedApplication(api.db, userId, q.job.id, { status: "needs_user", resumeId: null, pendingQuestions: [{ id: "q1", text: "Why us?", type: "text", options: [], required: true }] });
     await seedApplication(api.db, userId, c.job.id, { status: "needs_user", resumeId: null, error: "The site showed a captcha. Norinote never solves or bypasses captchas" });
     const coded = await seedApplication(api.db, userId, k.job.id, { status: "needs_user", resumeId: null, receipt: { submitClicked: true, codeMissing: true } });
+    const w = await seedJob(api.db, { company: "Workday Co" });
+    await seedApplication(api.db, userId, w.job.id, { status: "needs_user", resumeId: null, error: "This form type is not supported yet: open the posting and apply yourself." });
     const res = await api.call("GET", "/api/nori/needs-you", { cookie });
     const byCompany = Object.fromEntries(res.json.items.map((i: { company: string; needs: string }) => [i.company, i.needs]));
-    expect(byCompany).toMatchObject({ "Question Co": "questions", "Captcha Co": "captcha", "Code Co": "code" });
+    // A form Nori cannot fill at all has its own kind, so the page can say "apply on their site" instead of asking a question.
+    expect(byCompany).toMatchObject({ "Question Co": "questions", "Captcha Co": "captcha", "Code Co": "code", "Workday Co": "unsupported" });
     const [row] = await api.db.select().from(applications).where(eq(applications.id, coded.id));
     expect(row!.status).toBe("needs_user");
   });

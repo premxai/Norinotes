@@ -291,7 +291,7 @@ export const SKIP_REASON_LABELS = {
 export type SkipReason = keyof typeof SKIP_REASON_LABELS;
 export type BatchCounts = { total: number; sent: number; working: number; preparing: number; ready: number; needsYou: number; cancelled: number; failed: number };
 export type Batch = { id: string; status: "running" | "stopped" | "done"; createdAt: string; finishedAt: string | null; lastStartedAt: string | null; counts: BatchCounts; waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | null; nextAt: string | null };
-export type Needs = "questions" | "code" | "captcha" | "account" | "other";
+export type Needs = "questions" | "code" | "captcha" | "account" | "offsite" | "unsupported" | "other";
 export type BatchApplication = { id: string; jobId: string; title: string; company: string; status: AppStatus; error: string | null; submittedAt: string | null; needs?: Needs };
 export type BatchSkip = { jobId: string; reason: "not_found" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" | string };
 /** `questions` is how many; the questions themselves come with the application (GET /applications/:id). */
@@ -398,6 +398,10 @@ export const api = {
   },
   /** Drops an application before Nori is on the employer's page: it becomes failed, "Cancelled by you". 409 once it's there or sent. */
   cancel: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/cancel`, { json: {} }),
+  /** The person says a parked application did reach the employer (a click Nori could not confirm, or finished by hand). */
+  markedSent: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/marked-sent`, { json: {} }),
+  /** The person says it did not: the submit mark is cleared, so Try again and Cancel are allowed. */
+  notSent: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/not-sent`, { json: {} }),
   /** The code an employer emailed the person, typed while the run waits for it (status awaiting_code). 409: not waiting any more. */
   code: (id: string, code: string) => call<{ ok: true }>(`/applications/${encodeURIComponent(id)}/code`, { json: { code } }),
   /** Starts one Finish session for these (or the oldest 5 with one step left); the ids come back in the order Nori takes them. 409: none to finish. */

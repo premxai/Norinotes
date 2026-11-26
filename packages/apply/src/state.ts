@@ -8,7 +8,12 @@
  * Also legal: awaiting_code -> applying (the code arrived, or the waiting page was lost), needs_user -> applying (the
  * person answered), applying -> prepared (a dry run filled the form and stopped before submit), failed -> queued (the
  * person asked to retry), ready_to_finish -> applying (the person pressed Finish: Nori fills the form again and hands
- * the captcha or sign-in to them in the live view).
+ * the captcha or sign-in to them in the live view), and needs_user | failed -> submitted: the person says it reached
+ * the employer after all ("Marked as sent by you").
+ *
+ * An application whose submit click may have gone through is the one case the worker cannot resolve: someone has to say
+ * whether the employer has it. `clearSubmitClick` (store.ts) is the other answer, "it didn't go through": it clears the
+ * mark so Retry may send it again.
  */
 import type { ApplicationStatus } from "@norinote/shared";
 import { TERMINAL_APPLICATION_STATUSES } from "@norinote/shared";
@@ -22,10 +27,10 @@ export const TRANSITIONS: Readonly<Record<ApplicationStatus, readonly Applicatio
   prepared: ["applying", "failed"],
   applying: ["awaiting_code", "submitted", "needs_user", "ready_to_finish", "failed", "prepared"],
   awaiting_code: ["applying", "submitted", "needs_user", "failed"],
-  needs_user: ["preparing", "applying", "failed"],
+  needs_user: ["preparing", "applying", "failed", "submitted"],
   ready_to_finish: ["applying", "failed"],
   submitted: [],
-  failed: ["queued"],
+  failed: ["queued", "submitted"],
 };
 
 /** The part of an application row the state machine looks at. */
@@ -105,6 +110,10 @@ export function checkTransition(app: AppSnapshot, to: ApplicationStatus, opts: T
       // The person's own answers (or Retry) start a fresh set of attempts; only the worker's own resumes are bounded.
       if (from !== "awaiting_code" && from !== "ready_to_finish" && !(from === "needs_user" && opts.by === "user") && app.attempts >= MAX_ATTEMPTS) return no(`attempt limit of ${MAX_ATTEMPTS} reached`);
       if (submitMayHaveHappened(app)) return no("submit was already clicked; sending it again could create a duplicate");
+      return { ok: true };
+    case "submitted":
+      // A parked application moves here on the person's own word only: Nori never decides the employer has it.
+      if ((from === "needs_user" || from === "failed") && opts.by !== "user") return no("only the user can mark an application as sent");
       return { ok: true };
     case "queued":
       if (opts.by !== "user") return no("only the user can retry a failed application");

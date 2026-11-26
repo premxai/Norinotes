@@ -429,6 +429,43 @@ describe("applications", () => {
     expect(detail.json.application).toMatchObject({ batchId: batch!.id, sendsOnItsOwn: true });
   });
 
+  it("settles an application Nori clicked submit on: marked as sent, or it did not go through", async () => {
+    const { job } = await seedJob(api.db, { company: "Click Co" });
+    const parked = await seedApplication(api.db, userId, job.id, {
+      status: "needs_user", approvedAt: new Date(), receipt: { submitClicked: true }, error: "Submit was already clicked on an earlier run",
+    });
+    // Until the person answers it, none of the usual ways out work.
+    expect((await api.call("POST", `/api/applications/${parked.id}/approve`, { cookie, body: {} })).status).toBe(409);
+    expect((await api.call("POST", `/api/applications/${parked.id}/retry`, { cookie })).status).toBe(409);
+    const refused = await api.call("POST", `/api/applications/${parked.id}/cancel`, { cookie });
+    expect(refused.status).toBe(409);
+    expect(refused.json.error).toMatch(/clicked submit/i);
+
+    // "It didn't go through": the mark goes, so Try again is allowed (and Cancel with it).
+    expect((await api.call("POST", `/api/applications/${parked.id}/not-sent`, { cookie })).json).toMatchObject({ ok: true });
+    const [cleared] = await api.db.select().from(applications).where(eq(applications.id, parked.id));
+    expect(cleared!.receipt?.submitClicked).toBeUndefined();
+    expect(cleared!.receipt).toMatchObject({ clickClearedAt: expect.any(String) });
+    expect((await api.call("POST", `/api/applications/${parked.id}/not-sent`, { cookie })).status).toBe(409);
+    expect((await api.call("POST", `/api/applications/${parked.id}/retry`, { cookie })).status).toBe(200);
+
+    // "Marked as sent": the employer has it, and the application says so.
+    const { job: other } = await seedJob(api.db, { company: "Marked Co" });
+    const clicked = await seedApplication(api.db, userId, other.id, {
+      status: "failed", approvedAt: new Date(), receipt: { submitClicked: true }, error: "The run broke after submit was clicked",
+    });
+    expect((await api.call("POST", `/api/applications/${clicked.id}/marked-sent`, { cookie })).json).toMatchObject({ ok: true, status: "submitted" });
+    const [row] = await api.db.select().from(applications).where(eq(applications.id, clicked.id));
+    expect(row).toMatchObject({ status: "submitted", error: null });
+    expect(row!.submittedAt).toBeInstanceOf(Date);
+    expect(row!.receipt).toMatchObject({ submitClicked: true, markedSent: true });
+    expect((await api.call("GET", `/api/applications/${clicked.id}`, { cookie })).json.application.status).toBe("submitted");
+    // Nothing is answerable on it any more, and it is not in the needs-you list.
+    expect((await api.call("POST", `/api/applications/${clicked.id}/not-sent`, { cookie })).status).toBe(409);
+    const needs = await api.call("GET", "/api/nori/needs-you", { cookie });
+    expect((needs.json.items as { applicationId: string }[]).some((i) => i.applicationId === clicked.id)).toBe(false);
+  });
+
   it("retries a failed application back into the queue", async () => {
     const { job } = await seedJob(api.db, { company: "Retry Co" });
     const app = await seedApplication(api.db, userId, job.id, { status: "failed", error: "Browser step failed" });
