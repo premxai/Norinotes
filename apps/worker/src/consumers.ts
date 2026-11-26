@@ -3,7 +3,8 @@ import { companies, eq, type Db } from "@norinote/db";
 import { PendingQuestion } from "@norinote/shared";
 import { planForm } from "@norinote/answers";
 import {
-  approveAndSubmit, createApplyHandler, createFinishHandler, createPrepareHandler, loadApplication, saveAnswers, sharedMemoryInputBus, staleRuns, STALE_RUN_MS,
+  approveAndSubmit, createApplyHandler, createFinishHandler, createPrepareHandler, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
+  staleRuns, STALE_RUN_MS,
   type ApplyDeps, type LiveInputBus,
 } from "@norinote/apply";
 import { AiUnavailableError } from "@norinote/ai";
@@ -19,6 +20,7 @@ import { catchUp } from "./catch-up.js";
 import { readGraphSource } from "./graph-sources.js";
 import type { WorkerConfig } from "./config.js";
 import { createDemandCounter } from "./demand.js";
+import { actsForPerson } from "./fast-path.js";
 import type { LogFields, Logger } from "./log.js";
 
 export type ConsumerDeps = {
@@ -93,7 +95,9 @@ class KeyedLimiter {
 }
 
 const MATCH_CHUNK = 200;
-const MATCH_MAX_WAIT_MS = 30_000;
+const MATCH_MAX_WAIT_MS = 5_000;
+/** Strong fits prepared ahead go before other preparations. */
+const STRONG_FIT_PRIORITY = 10;
 
 /**
  * Collects the ids of jobs that were just understood and hands them to `match.new-jobs` in batches: a burst of understood
@@ -308,10 +312,19 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return { described, skippedModel: r.skipped, embedded: r.embedded, heuristic: r.heuristic, embeddingPending: r.embeddingPending };
   }), { concurrency: config.understandConcurrency });
 
-  // match.new-jobs: which users the new jobs fit.
+  // match.new-jobs: which users the new jobs fit. A strong fit (0.8 or more) for someone who asked Nori to act for them
+  // (the schedule, or a linked Telegram) is prepared right away, so it can go out within hours of posting.
   await queue.work(JOBS.matchNewJobs, instrument(log, JOBS.matchNewJobs, async ({ jobIds }) => {
     const r = await matchNewJobs(db, jobIds, { now: now(), engineAts: config.engineAts, limit: config.shortlistSize });
-    return { usersEvaluated: r.usersEvaluated, lanePairs: r.lanePairs, fitted: r.pairsFitted, saved: r.saved };
+    const fits = await newStrongFits(db, jobIds);
+    let preparedAhead = 0;
+    for (const userId of new Set(fits.map((f) => f.userId))) {
+      if (!(await actsForPerson(db, userId))) continue;
+      const ahead = await prepareStrongFitsAhead(db, userId, fits, { now: now(), atsTypes: config.batchAts });
+      for (const a of ahead.created) await queue.enqueue(JOBS.prepareApplication, { applicationId: a.applicationId }, { priority: STRONG_FIT_PRIORITY });
+      preparedAhead += ahead.created.length;
+    }
+    return { usersEvaluated: r.usersEvaluated, lanePairs: r.lanePairs, fitted: r.pairsFitted, saved: r.saved, strongFits: fits.length, preparedAhead };
   }));
 
   // match.user: a profile, graph or lanes change: rebuild one user's shortlist. First the jobs that fit the user's lanes and

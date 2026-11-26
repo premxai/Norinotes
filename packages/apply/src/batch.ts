@@ -84,7 +84,7 @@ export const RECENT_COMPANY_DAYS = 60;
  * those applications are for. Another job at such a company is skipped; the same job is not (an unsent application of
  * it is taken over, a sent one is reported as already applied).
  */
-async function recentlyAppliedCompanies(db: Db, userId: string, now: Date): Promise<{ blocks: (companyId: string, jobId: string) => boolean }> {
+export async function recentlyAppliedCompanies(db: Db, userId: string, now: Date): Promise<{ blocks: (companyId: string, jobId: string) => boolean }> {
   const since = new Date(now.getTime() - RECENT_COMPANY_DAYS * 86_400_000);
   const rows = await db.select({ companyId: jobs.companyId, jobId: jobs.id }).from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
     .where(and(eq(applications.userId, userId), gte(applications.createdAt, since), sql`${applications.status} <> 'failed'`));

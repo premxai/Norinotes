@@ -82,9 +82,9 @@ Per user:
 |---|---|---|
 | `ingest.poll-board` | schedule, per board every 3 h, oldest first | fetch one board, upsert jobs, close missing ones, enqueue `understand` only for new jobs that fit an enabled lane of some user |
 | `understand.job` | new job that fits a lane, or an unspecced job that fits a user's new lane (`match.user`) | extract `job_specs` with the small model, write `job_embeddings`; at most 4 at once (`UNDERSTAND_CONCURRENCY`). Without the AI service: a heuristic spec (version 0, `model: heuristic`), upgraded later |
-| `match.new-jobs` | after `understand` batches | find users whose lanes and embeddings fit the new jobs; detailed fit; upsert `shortlist` |
+| `match.new-jobs` | after `understand` batches (0.5 s quiet, at most 5 s) | find users whose lanes and embeddings fit the new jobs; detailed fit; upsert `shortlist`; a strong fit (0.8+) for someone with the schedule or Telegram on gets an application and `prepare.application` at once |
 | `match.user` | profile, graph or lanes change | queue `understand` for the user's unspecced lane-fitting jobs, then rebuild the shortlist from the stored index (jobs without an embedding are ranked by skill overlap) |
-| `prepare.application` | job reaches the top of a shortlist, or user queues it | tailor resume, draft answers from the answer bank, mark prepared |
+| `prepare.application` | a new strong fit (see `match.new-jobs`; first in line), a schedule batch, or user queues it | tailor resume, draft answers from the answer bank, mark prepared |
 | `apply.run` | user click (counts as approval) or autopilot within the daily cap | fill and submit with the warm browser pool |
 | `apply.finish` | the person's Finish on applications with one step left (`ready_to_finish`) | one live-view session: fill again, hand the captcha or sign-in to the person, then submit |
 | `inbox.receive` | inbound email webhook (`/api/inbox/webhook/:provider` stores first) | settle ambiguous mail with the small model, relink, record outcomes, wake `awaitVerification`, forward if enabled; a 6-hourly retention sweep deletes mail older than `INBOX_RETENTION_DAYS` (90) |
