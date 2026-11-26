@@ -218,8 +218,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   for me" batch of new Recommended jobs (as many as today's limit still allows, Greenhouse only for now) and marks the
   day as run; the batch summary goes out like any batch's. The chat can turn it on (`schedule_on`) and pause it
   (`schedule_off`), each undoable.
-- A Greenhouse job whose form lives on the company's own site (Greenhouse's page redirects there) is parked at
-  preparation with `needs: "offsite"` in GET `/api/nori/needs-you` ("apply on their site"); Nori never fills embedded forms.
+- A Greenhouse job whose form lives on the company's own site (Greenhouse's page redirects there) is prepared as usual;
+  at the click Nori follows the posting to the form (docs/applying.md). When it leads to a form of the company's own
+  or another job system Nori doesn't fill, the application shows with
+  `needs: "offsite"` in GET `/api/nori/needs-you` ("apply on their site").
 
 ## Connected Gmail
 - GET `/api/inbox/gmail` returning `{ available, connected, status }`: `available` is false when the server has no
