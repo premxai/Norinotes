@@ -1,4 +1,4 @@
-import { and, asc, careerPointEmbeddings, careerPoints, desc, eq, lanes, profiles, sql, type Db } from "@norinote/db";
+import { and, asc, careerPointEmbeddings, careerPoints, eq, lanes, profiles, type Db } from "@norinote/db";
 import { companyKey, normalizeCountry, parseWorkAuthMap, readSkipCompanies, type CountryAuth } from "@norinote/shared";
 import { canonicalSkills, type SkillMap, DEFAULT_SKILL_MAP } from "./skills.js";
 import type { LaneLike } from "./lanes.js";
@@ -176,19 +176,4 @@ export function meanVector(vectors: readonly number[][]): number[] | null {
   for (const v of vectors) for (let i = 0; i < sum.length; i++) sum[i]! += v[i] ?? 0;
   const norm = Math.hypot(...sum);
   return norm === 0 ? null : sum.map((x) => x / norm);
-}
-
-/**
- * Mean of a user's most recent career point embeddings (current roles first). Used by matchNewJobs, which has no profile
- * embedding passed in; buildShortlist takes the caller's instead (the graph package exports `profileEmbedding`).
- */
-export async function meanProfileEmbedding(db: Db, userId: string, top = 30): Promise<number[] | null> {
-  const rows = await db
-    .select({ embedding: careerPointEmbeddings.embedding })
-    .from(careerPointEmbeddings)
-    .innerJoin(careerPoints, eq(careerPoints.id, careerPointEmbeddings.careerPointId))
-    .where(eq(careerPointEmbeddings.userId, userId))
-    .orderBy(sql`(${careerPoints.endDate} IS NULL) DESC`, sql`${careerPoints.endDate} DESC NULLS LAST`, desc(careerPoints.createdAt))
-    .limit(top);
-  return meanVector(rows.map((r) => r.embedding));
 }

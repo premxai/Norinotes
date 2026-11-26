@@ -202,6 +202,11 @@ export function outcomeNudgeOf(reasons: readonly string[] | null | undefined): n
   return 0;
 }
 
+/** A shortlist row's fit without its outcome nudge, as the gates and the lane minimum saw it. */
+export function rawFitOf(fit: number, reasons: readonly string[] | null | undefined): number {
+  return Math.round((fit - outcomeNudgeOf(reasons)) * 1000) / 1000;
+}
+
 // ---- history ------------------------------------------------------------------------------------------------------------
 
 export const FIT_BANDS = ["0.8+", "0.6-0.8", "widened", "under 0.6", "unranked"] as const;
@@ -288,7 +293,7 @@ export async function loadOutcomeHistory(db: Db, opts: { userId?: string; since?
     const role = roleFamilyOf(b.title);
     const specSeniority = seniority.get(b.jobId);
     const widened = (b.reasons ?? []).some((r) => r.startsWith("widened:"));
-    const fit = b.fit == null ? null : Math.round((Number(b.fit) - outcomeNudgeOf(b.reasons)) * 1000) / 1000;
+    const fit = b.fit == null ? null : rawFitOf(Number(b.fit), b.reasons);
     return {
       applicationId: b.applicationId, userId: b.userId, jobId: b.jobId, title: b.title, companyName: b.companyName, system: b.system,
       roleFamily: role.family, seniority: specSeniority && specSeniority !== "unknown" ? specSeniority : role.seniority,

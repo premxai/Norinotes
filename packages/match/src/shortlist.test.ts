@@ -2,8 +2,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
 import { MAX_JOB_AGE_HOURS, and, applications, eq, shortlist, sql } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
+import { profileEmbedding } from "@norinote/graph";
 import { FitMapEntry, isUsPlace } from "@norinote/shared";
 import { laneFitsJob } from "./lanes.js";
+import { OUTCOME_REASON_PREFIX } from "./outcomes.js";
 import { buildShortlist as buildWidened, clearRequirementVectorCache, matchNewJobs, saveShortlistRows } from "./shortlist.js";
 import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedPoint, seedUser } from "./test-helpers.js";
 
@@ -254,6 +256,23 @@ describe("buildShortlist: detailed fit, gates and saving", () => {
     expect(citizens && lowFit).toBeTruthy();
   });
 
+  it("re-checks old rows against the lane minimum with the raw fit, so an outcome nudge never removes a row", async () => {
+    const { userId, laneId, job } = await setup();
+    await t.db.execute(sql`UPDATE lanes SET min_fit = 0.6 WHERE id = ${laneId}`);
+    const best = await job("Lambda Engineer", baseSpec({ mustHaves: ["TypeScript"] }));
+    // Neither is a candidate this run (no spec, no embedding), so both fall outside its rows and are re-checked.
+    const nudged = await job("Lambda Engineer, Tools", baseSpec(), { spec: undefined, embedText: undefined });
+    const plain = await job("Lambda Engineer, Infra", baseSpec(), { spec: undefined, embedText: undefined });
+    await saveShortlistRows(t.db, userId, [
+      { jobId: nudged, fit: 0.58, fitMap: [], reasons: ["Fits", `${OUTCOME_REASON_PREFIX}0 of 4 data analysis applications led to a reply or interview, against 5 of 12 overall (-0.03 fit)`] },
+      { jobId: plain, fit: 0.58, fitMap: [], reasons: ["Fits"] },
+    ]);
+
+    await buildShortlist(t.db, userId, { profileEmbedding: profileVec("typescript postgresql backend services"), now: NOW });
+    const left = (await rowsOf(userId)).map((r) => r.jobId);
+    expect(left.sort()).toEqual([best, nudged].sort());
+  });
+
   it("saveShortlistRows itself leaves dismissed and applied rows alone even when asked to overwrite them", async () => {
     const userId = await seedUser(t.db);
     const mk = () => seedJob(t.db, { companyId, title: "Rho Engineer" });
@@ -361,6 +380,24 @@ describe("matchNewJobs", () => {
     expect(r.lanePairs).toBe(2);
     expect(r.perUser[userId]!.gated.map((g) => g.jobId)).toEqual([noSponsor]);
     expect((await rowsOf(userId)).map((x) => [x.jobId, x.status]).sort()).toEqual([[dismissed, "dismissed"], [ok, "new"]].sort());
+  });
+
+  it("compares with graph's weighted profile vector, the one buildShortlist gets", async () => {
+    const userId = await seedUser(t.db);
+    await seedLane(t.db, userId, { titles: ["Kappa Engineer"], locations: [], minFit: 0.1 });
+    const role = { title: "Backend Engineer", start: "2022-01", skills: ["TypeScript"], text: "built typescript services and apis for payments, owned the on-call rotation and the release process" };
+    await seedPoint(t.db, userId, role);
+    // Old, short and of a light kind: the weighted vector barely counts it, a plain mean would count it as much as the role.
+    await seedPoint(t.db, userId, { kind: "education", title: "Marine Biology", start: "2004-09", end: "2008-06", text: "coral reef fieldwork" });
+    const jobText = `${role.title} ${role.text} ${role.skills.join(" ")}`;
+    const jobId = await seedJob(t.db, { companyId, title: "Kappa Engineer", spec: baseSpec({ mustHaves: ["TypeScript"] }), embedText: jobText });
+
+    const weighted = (await profileEmbedding(t.db, userId, NOW))!;
+    const expected = weighted.reduce((s, x, i) => s + x * fakeEmbedding(jobText)[i]!, 0);
+    expect(expected).toBeGreaterThan(0.95);
+    const result = await matchNewJobs(t.db, [jobId], { now: NOW, minSimilarity: 0.9 });
+    expect(result.pairsFitted).toBe(1);
+    expect(result.perUser[userId]!.items[0]!.similarity).toBeCloseTo(expected, 3);
   });
 
   it("does nothing for an empty batch", async () => {
