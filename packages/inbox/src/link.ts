@@ -81,6 +81,14 @@ export type AppCandidate = {
   title: string; applyUrl: string; externalId: string; updatedAt: Date;
 };
 
+/**
+ * The one trust rule for mail linked to an application: the sender is the company (`senderSpeaksFor`) or the job's own
+ * job system. A code is only typed, and an outcome only recorded, when this holds.
+ */
+export function speaksForApplication(from: { address: string; name: string }, app: Pick<AppCandidate, "companyName" | "companyDomain" | "atsType">): boolean {
+  return senderSpeaksFor(from, app.companyName, app.companyDomain) || atsOfSender(from.address) === app.atsType;
+}
+
 const WAITING: ApplicationStatus[] = ["awaiting_code", "applying"];
 const LINK_WINDOW_DAYS = 120;
 

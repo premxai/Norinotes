@@ -93,7 +93,8 @@ when exactly one application on that ATS is waiting. An unbroken tie on a verifi
 (`meta.link.ambiguous`): a code typed into the wrong form is worse than none.
 
 `meta.trusted` is true only when the sender is the company's own domain (strict: `acme.com`, `acmecareers.com`, not
-`acme-careers-example.net`) or the job's ATS. Untrusted codes are stored and shown but never handed to apply.
+`acme-careers-example.net`) or the job's ATS (`speaksForApplication`). Untrusted codes are stored and shown but never handed
+to apply, and untrusted mail never records an outcome (the same rule decides both).
 
 ## awaitVerification (for packages/apply)
 

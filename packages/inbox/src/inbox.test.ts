@@ -152,6 +152,18 @@ describe("receiveInbound: raw MIME", () => {
     expect((await t.db.select().from(outcomes).where(eq(outcomes.applicationId, initech))).map((o) => o.kind)).toEqual(["reply"]);
   });
 
+  it("records an outcome the job's own job system sent, with its message id, by the same trust rule as codes", async () => {
+    const { userId, address } = await seedUser(t.db);
+    const acme = await seedApplication(t.db, userId, "Acme Robotics");
+    const r = await receiveInbound(t.db, {
+      from: "Greenhouse <no-reply@us.greenhouse-mail.io>", to: address, messageId: "<ats-rejection-1@greenhouse-mail.io>",
+      subject: "Your application to Acme Robotics", text: "Thank you for your time. Unfortunately we will not be moving forward with your application.",
+    });
+    expect(r).toMatchObject({ stored: true, kind: "rejection", applicationId: acme, outcome: "rejection", wake: { applicationId: acme, reason: "outcome" } });
+    if (!r.stored) throw new Error("not stored");
+    expect(await t.db.select().from(outcomes).where(eq(outcomes.applicationId, acme))).toEqual([expect.objectContaining({ kind: "rejection", messageId: r.messageId })]);
+  });
+
   it("drops mail for an unknown recipient and stores a retried Message-ID once", async () => {
     const { userId, address } = await seedUser(t.db);
     expect(await receiveInbound(t.db, withTo(LEVER_CODE, "nobody@inbox.example.test"))).toEqual({ stored: false, reason: "unknown_recipient" });

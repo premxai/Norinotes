@@ -2,7 +2,7 @@ import { aiAvailability } from "@norinote/ai";
 import { and, applications, desc, eq, gte, inArray, inboxAddresses, inboxMessages, outcomes, sql, type Db } from "@norinote/db";
 import { INBOX_OUTCOME_KINDS, type InboxKind } from "@norinote/shared";
 import { classifyMessage, type Classification } from "./classify.js";
-import { atsOfSender, linkApplication, loadCandidates, senderSpeaksFor, type AppCandidate } from "./link.js";
+import { linkApplication, loadCandidates, speaksForApplication, type AppCandidate } from "./link.js";
 import { settleAmbiguous, type InboxModel } from "./model.js";
 import { InboundTooLargeError, normalizeInbound, type AttachmentMeta, type InboundEmail, type InboundPayload } from "./parse.js";
 import { htmlToText, parseAddress } from "./text.js";
@@ -108,19 +108,20 @@ function analyse(email: Mail, candidates: readonly AppCandidate[], spam: boolean
   }
   const linked = linkApplication(candidates, { ...email, links }, rules.kind);
   const app = linked.app;
-  const trusted = !!app && (senderSpeaksFor({ address: email.from, name: email.fromName }, app.companyName, app.companyDomain) || atsOfSender(email.from) === app.atsType);
+  const trusted = !!app && speaksForApplication({ address: email.from, name: email.fromName }, app);
   return { ...rules, links, magicLink: magic, app, linkWhy: linked.why, linkAmbiguous: linked.ambiguous, trusted };
 }
 
-/** Records an outcome for a submitted application when the company (or its ATS) wrote the message. Once per application and kind. */
-async function recordOutcome(db: Db, app: AppCandidate | null, kind: InboxKind, from: { address: string; name: string }, at: Date): Promise<StoredInbound["outcome"]> {
-  if (!app || app.status !== "submitted") return null;
+/**
+ * Records an outcome for a submitted application when the company or its job system wrote the message (`trusted`, the
+ * same rule codes use). Once per application and kind: a kind already recorded, or one the person removed, is left alone.
+ */
+async function recordOutcome(db: Db, app: AppCandidate | null, kind: InboxKind, trusted: boolean, at: Date, messageId: string): Promise<StoredInbound["outcome"]> {
+  if (!app || app.status !== "submitted" || !trusted) return null;
   if (!(INBOX_OUTCOME_KINDS as readonly string[]).includes(kind)) return null;
-  // Anyone can write a company's name in a subject line: a status change needs the company or its job system as sender.
-  if (!senderSpeaksFor(from, app.companyName, app.companyDomain)) return null;
   const outcomeKind = kind as (typeof INBOX_OUTCOME_KINDS)[number];
   const [seen] = await db.select({ id: outcomes.id }).from(outcomes).where(and(eq(outcomes.applicationId, app.id), eq(outcomes.kind, OUTCOME_KIND[outcomeKind]))).limit(1);
-  if (!seen) await db.insert(outcomes).values({ applicationId: app.id, kind: OUTCOME_KIND[outcomeKind], at });
+  if (!seen) await db.insert(outcomes).values({ applicationId: app.id, kind: OUTCOME_KIND[outcomeKind], at, messageId }).onConflictDoNothing();
   return outcomeKind;
 }
 
@@ -175,7 +176,7 @@ export async function storeInbound(db: Db, email: InboundEmail, opts: { now?: Da
       links: existing.links, verificationLink: m.verificationLink ?? null, ambiguous: !!m.ambiguous, spam: !!m.spam, outcome: null, wake: null,
     };
   }
-  const outcome = await recordOutcome(db, a.app, a.kind, { address: email.from, name: email.fromName }, now);
+  const outcome = await recordOutcome(db, a.app, a.kind, a.trusted, now, row.id);
   const wake = wakeFor({ applicationId: a.app?.id ?? null, kind: a.kind, code: a.code, link: meta.verificationLink ?? null, trusted: a.trusted }, outcome);
   notifyInbox(userId);
   return {
@@ -237,7 +238,7 @@ export async function reprocessMessage(db: Db, messageId: string, opts: Reproces
   const trusted = a.trusted || (!!app && !a.app && !!prior.trusted);
   const meta: InboxMeta = { ...prior, ...metaOf({ ...a, trusted, code }, { }, classifiedBy), ...(prior.provider ? { provider: prior.provider } : {}) };
   await db.update(inboxMessages).set({ kind: a.kind, code: a.kind === "verification_code" ? code : null, links, applicationId, meta }).where(eq(inboxMessages.id, messageId));
-  const outcome = await recordOutcome(db, app, a.kind, { address: mail.from, name: mail.fromName }, row.receivedAt);
+  const outcome = await recordOutcome(db, app, a.kind, trusted, row.receivedAt, messageId);
   const finalCode = a.kind === "verification_code" ? code : null;
   notifyInbox(row.userId);
   return {

@@ -14,15 +14,20 @@ history, summary), `packages/match/src/outcome-learning.ts` (the nudge), `apps/a
 | confirmation of receipt | a linked, trusted `confirmation` message | `applications.confirmed_at` and `receipt.confirmation` (not an outcome) |
 | no response | 30 days after submission with no active outcome | derived on read, never stored |
 
-- **Idempotent.** `syncInboxOutcomes` writes at most one row per message (unique `message_id`). The inbox package already
-  writes one row per application and kind when the mail arrives (without a message id); the sync gives that row its message
-  id instead of adding a second. A message the model later settles as another kind moves its row; one settled as not an
-  outcome drops it. Unlinked, spam and untrusted messages, and applications never submitted, are ignored.
+- **One per application and kind.** A unique index (`outcomes_application_kind_active_uq`, active rows only) keeps at
+  most one active outcome of each kind per application, and every writer inserts with on-conflict-do-nothing. The first
+  message of a kind records it (`at` is its arrival); a later message of the same kind adds nothing. The inbox package
+  writes the row, with its message id, as the mail arrives; `syncInboxOutcomes` records anything the inbox missed (at most
+  one row per message, unique `message_id`) and gives older rows without a message id theirs. A message the model later
+  settles as another kind moves its row, unless the application already has that kind, in which case the row is dropped;
+  one settled as not an outcome drops it. Unlinked, spam and untrusted messages, and applications never submitted, are
+  ignored. Trusted is one rule for codes and outcomes (`speaksForApplication` in packages/inbox): the company's own
+  domain, an ATS display name naming it, or the job's own job system.
 - **When it runs.** On every read that needs it (`GET /api/applications/:id/outcomes`, `GET /api/outcomes/summary`) and
   before the nudge is recomputed. It is a few indexed queries, so no daily job is needed and the worker is unchanged.
 - **Corrections.** `DELETE /api/applications/:id/outcomes/:outcomeId` (or `?kind=rejection` for every active row of a kind)
-  sets `deleted_at`; the row stays so re-reading its message never brings it back. The inbox package's own check ("already
-  recorded for this application and kind") sees the kept row too. Then add the right one with POST.
+  sets `deleted_at`; the row stays, and a kind the person removed is never recorded again from mail (neither the same
+  message nor a later one of that kind). Then add the right one with POST.
 - **Manual add.** `{ kind, at? }` (ISO time, default now, not in the future). An active outcome of the same kind is returned
   (200) instead of a second one; a new one answers 201. The application must be submitted (409 otherwise). Every route
   checks ownership: another user's application is a 404.
