@@ -10,14 +10,15 @@ export const DEV_SESSION_SECRET = "norinote-dev-session-secret";
  *
  *   a.<job>.<sig>           Apply to a shortlisted job
  *   s.<job>.<sig>           Skip (dismiss) it
+ *   r.<job>.<i>.<sig>       Why it was skipped: SKIP_REASONS[i], after a Skip
  *   c.<msg>.<q>.<o>.<sig>   Choose option o for question group q of a questions message
  *   t.<msg>.<q>.<sig>       Type a free-text answer for question group q
  */
-export type CallbackOp = "a" | "s" | "c" | "t";
+export type CallbackOp = "a" | "s" | "r" | "c" | "t";
 export type Callback = { op: CallbackOp; args: string[] };
 
 const SIG_CHARS = 12;
-const OPS = new Set<CallbackOp>(["a", "s", "c", "t"]);
+const OPS = new Set<CallbackOp>(["a", "s", "r", "c", "t"]);
 
 const mac = (secret: string, userId: string, body: string) =>
   createHmac("sha256", secret).update(`tg1|${userId}|${body}`).digest("base64url").slice(0, SIG_CHARS);

@@ -4,6 +4,7 @@ import {
   createBotClient, createUpdateHandler, recordApplyIntent, SendQueue, webhookSecret,
   type BotClient, type TelegramActions, type TgUpdate,
 } from "@norinote/telegram";
+import { SKIP_REASON_LABELS } from "@norinote/shared";
 import { HttpError } from "./http.js";
 import { answerApplication, approveApplication, CANCELLED, ownedApplication, startApplication } from "./routes/applications.js";
 import { dismissShortlistJob } from "./routes/shortlist.js";
@@ -67,9 +68,10 @@ export function telegramActions(ctx: Ctx): TelegramActions {
         return { ok: false, message: reason(err) };
       }
     },
-    async skip(userId, jobId) {
+    async skip(userId, jobId, why) {
       try {
-        await dismissShortlistJob(ctx, userId, jobId);
+        const res = await dismissShortlistJob(ctx, userId, jobId, why ?? null);
+        if (why) return { ok: true, message: res.addedToSkipList ? "Noted. That company is on your skip list now." : `Noted: ${SKIP_REASON_LABELS[why]}.` };
         // A strong fit Nori prepared ahead: its unsent, unapproved application is cancelled with it (Retry brings it back).
         const [app] = await ctx.db.select().from(applications)
           .where(and(eq(applications.userId, userId), eq(applications.jobId, jobId), isNull(applications.approvedAt))).limit(1);

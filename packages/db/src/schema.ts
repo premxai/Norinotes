@@ -3,7 +3,7 @@ import {
   bigint, bigserial, boolean, date, index, integer, jsonb, numeric, pgTable, primaryKey, real, text,
   timestamp, uniqueIndex, uuid, vector,
 } from "drizzle-orm/pg-core";
-import type { ApplicationStatus, AtsType, CareerPointKind, InboxKind, JobSpec, ShortlistStatus } from "@norinote/shared";
+import type { ApplicationStatus, AtsType, CareerPointKind, InboxKind, JobSpec, ShortlistStatus, SkipReason } from "@norinote/shared";
 
 /** Embedding width. Must match EMBEDDING_MODEL (text-embedding-3-small is 1536). */
 export const EMBEDDING_DIMENSIONS = 1536;
@@ -246,6 +246,10 @@ export const shortlist = pgTable("shortlist", {
   fitMap: jsonb("fit_map").$type<unknown[]>().notNull().default([]),
   reasons: textArray("reasons").notNull().default(sql`'{}'::text[]`),
   status: text("status").$type<ShortlistStatus>().notNull().default("new"),
+  /** Why the person skipped it (SKIP_REASONS), when they said. Only the row they skipped carries it, not its other cities. */
+  skipReason: text("skip_reason").$type<SkipReason>(),
+  /** When it was dismissed; null for rows dismissed before this was recorded. */
+  dismissedAt: ts("dismissed_at"),
   createdAt: createdAt(),
 }, (t) => [
   uniqueIndex("shortlist_user_job_uq").on(t.userId, t.jobId),

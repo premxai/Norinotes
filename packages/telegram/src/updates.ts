@@ -1,4 +1,5 @@
 import { and, channelMessages, eq } from "@norinote/db";
+import { SKIP_REASONS, SKIP_REASON_LABELS, type SkipReason } from "@norinote/shared";
 import type { InlineKeyboard, TgCallbackQuery, TgMessage, TgUpdate } from "./client.js";
 import { digestKeyboard, type DigestItem } from "./digest.js";
 import { clip, esc } from "./format.js";
@@ -6,14 +7,14 @@ import { channelForChat, consumeLinkToken, unlinkChat, type LinkedChannel } from
 import { messageRow, updatePayload, type TelegramDeps } from "./outbox.js";
 import { firstTextGroup, questionsKeyboard, type QuestionsPayload } from "./questions.js";
 import { loadTelegramSettings } from "./settings.js";
-import { packId, unpackId, verifyCallback } from "./signing.js";
+import { packId, signCallback, unpackId, verifyCallback } from "./signing.js";
 
 /** What a button or reply does, through the same code paths as the web app. Implemented by the API. */
 export type TelegramActions = {
   /** Apply (counts as the user's approval). `message` is shown as the button's toast. */
   apply(userId: string, jobId: string): Promise<{ ok: boolean; message: string }>;
-  /** Skip: dismiss the shortlist row. */
-  skip(userId: string, jobId: string): Promise<{ ok: boolean; message: string }>;
+  /** Skip: dismiss the shortlist row. With a reason (the follow-up buttons): record why, on a row already skipped too. */
+  skip(userId: string, jobId: string, reason?: SkipReason): Promise<{ ok: boolean; message: string }>;
   /** Answers keyed by pending question id (POST /api/applications/:id/answer). */
   answer(userId: string, applicationId: string, answers: Record<string, string>): Promise<{ ok: boolean; status?: string; resumed?: boolean }>;
 };
@@ -124,6 +125,12 @@ export function createUpdateHandler(deps: UpdateDeps): (update: TgUpdate) => Pro
     if (parent.chatId && parent.telegramMessageId) await setKeyboard(Number(parent.chatId), parent.telegramMessageId, keyboardFor(channel, parent.id, { ...payload, answered: [...payload.answered, group] }));
   }
 
+  /** The skip reasons, two to a row. */
+  const skipReasonKeyboard = (userId: string, jobId: string): InlineKeyboard => {
+    const buttons = SKIP_REASONS.map((r, i) => ({ text: SKIP_REASON_LABELS[r], callback_data: signCallback(deps.secret, userId, "r", [packId(jobId), i]) }));
+    return { inline_keyboard: Array.from({ length: Math.ceil(buttons.length / 2) }, (_, i) => buttons.slice(i * 2, i * 2 + 2)) };
+  };
+
   const keyboardFor = (channel: LinkedChannel, rowId: string, p: QuestionsPayload) =>
     questionsKeyboard(p, { secret: deps.secret, userId: channel.userId, webUrl: deps.webUrl, messageId: packId(rowId) });
 
@@ -163,6 +170,17 @@ export function createUpdateHandler(deps: UpdateDeps): (update: TgUpdate) => Pro
       } else if (msg.reply_markup) {
         await setKeyboard(msg.chat.id, msg.message_id, { inline_keyboard: msg.reply_markup.inline_keyboard.filter((r) => !r.some((b) => "callback_data" in b && b.callback_data === q.data)) });
       }
+      if (cb.op === "s") await say(channel.chatId, "Skipped. Why? Optional: it helps Nori pick.", { reply_markup: skipReasonKeyboard(channel.userId, jobId) });
+      return;
+    }
+
+    if (cb.op === "r") {
+      const jobId = unpackId(cb.args[0] ?? "");
+      const reason = SKIP_REASONS[Number(cb.args[1])];
+      if (!jobId || !reason) { await toast(q); return; }
+      const res = await deps.actions.skip(channel.userId, jobId, reason);
+      await toast(q, res.message);
+      if (res.ok) await setKeyboard(msg.chat.id, msg.message_id, { inline_keyboard: [] });
       return;
     }
 

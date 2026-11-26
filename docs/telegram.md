@@ -56,7 +56,9 @@ twice. Rows older than 90 days are deleted.
   - When the profile has a daily cap above 0 and today's approvals have reached it, Apply refuses and says so. (A cap of 0
     means autopilot is off; manual approvals, from the web or Telegram, are then not limited.)
 - **Skip** dismisses the row (as `POST /api/shortlist/:jobId/dismiss`, other cities of the same role too). On a strong-fit
-  alert it also cancels the application Nori prepared ahead (`failed`, "Cancelled by you"; Retry brings it back).
+  alert it also cancels the application Nori prepared ahead (`failed`, "Cancelled by you"; Retry brings it back). Then a
+  short message asks why, with one button per skip reason (optional); a tap records it as the web's `{ reason }` does
+  (callback `r.<job>.<i>`), and the buttons go.
 - **Details** is a plain link to the app.
 - Applied and skipped jobs lose their buttons (`editMessageReplyMarkup`); the toast says what happened.
 

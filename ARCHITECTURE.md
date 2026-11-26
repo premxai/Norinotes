@@ -58,7 +58,7 @@ Per user:
 - `profiles` (contact, location, work authorisation, salary expectation, start date, EEO defaults, preferences)
 - `lanes` (user_id, name, titles[], locations[], remote, min_fit, enabled), one shared daily cap on the profile
 - `career_points` (user_id, kind: role/project/achievement/education/certification/skill, title, org, start, end, text, skills[], scope jsonb, metrics jsonb, source_quote) and `career_point_embeddings`
-- `shortlist` (user_id, job_id, fit numeric, fit_map jsonb, reasons[], status: new/dismissed/applied, created_at)
+- `shortlist` (user_id, job_id, fit numeric, fit_map jsonb, reasons[], status: new/dismissed/applied, skip_reason, dismissed_at, created_at)
 - `applications` (user_id, job_id, canonical_url, status, resume_id, answers jsonb, pending_questions jsonb, receipt jsonb, error, attempts, prepared_at, approved_at, submitted_at); unique per (user, job) and (user, canonical_url)
 - `resumes` (application_id, content jsonb, changes jsonb, pdf_path, pages, ats_checks jsonb)
 - `answer_bank` (user_id, question_text, question_embedding, answer, source: default/user/model, last_used_at)
@@ -160,6 +160,16 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 
    The person sets `aggressiveness` on the Nori page settings or in the chat; `minFit` still sets the Recommended list
    and the roles' minimum. The 60-day company rule is defined once (`RECENT_COMPANY_DAYS` in decision.ts).
+7. Skip feedback (`skip-feedback.ts`): the optional reason a person gives on Skip (`shortlist.skip_reason`). "Company I
+   don't want" adds the company to the skip list. "Not my kind of role" (role family, with the software subfamily or
+   specialty), "Too senior" / "Too junior" (job level and above / below: the second-highest, or second-lowest, level
+   skipped that way) and "Wrong location" (the one city, or state, the job names) count only after 2 skips of the same
+   kind in 90 days. Each active effect lowers a matching job's fit by 0.05, at most 0.1 together, after gates and the lane
+   minimum (so it reorders, never removes or admits a row, never overrides a gate) and the row says why ("You skipped 3
+   jobs at senior level or above as too senior (-0.05 fit)"). "Missing skills" and "Other" are only stored. The person
+   lists and removes effects (`/api/shortlist/skip-effects`); removing one stores the time in
+   `profiles.preferences.skipFeedback.cleared` and the skips before it stop counting. The decision reads the stored fit,
+   so a penalty counts against a strong fit there and against being prepared ahead.
 
 ## Tailoring (packages/tailor)
 

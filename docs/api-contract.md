@@ -110,7 +110,23 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `"basic"` when more than half of the listed roles were read without the AI (only a rule-based job spec, no job
   embedding, or no embedded career points, so they were ranked by skill overlap), else `"full"` (also for an empty list).
   The dashboard can show a plain note for `"basic"`, e.g. "Your matches are using basic reading right now".
-- POST `/api/shortlist/:jobId/dismiss`
+- POST `/api/shortlist/:jobId/dismiss` with an optional body `{ reason }`, returning `{ ok: true, reason, addedToSkipList }`.
+  Skips the job (and the same role in other cities). `reason` is one of `not_my_kind` ("Not my kind of role"), `too_senior`
+  ("Too senior"), `too_junior` ("Too junior"), `wrong_location` ("Wrong location"), `company` ("Company I don't want"),
+  `missing_skills` ("Missing skills"), `other` ("Other"), or null/absent (no body still works); anything else is 400. Labels
+  are `SKIP_REASON_LABELS` in @norinote/shared. Calling it again with a reason on a job already skipped records the reason,
+  so the dashboard can skip first and ask why second. An applied job is left alone (`reason: null`). Effects:
+  - `company` adds the company to the skip list (`preferences.excludeCompanies`); `addedToSkipList` is true when it was not
+    there yet. Undo: remove it from the skip list (PUT `/api/profile`).
+  - `not_my_kind`, `too_senior`, `too_junior`, `wrong_location` feed matching once the same kind is skipped twice (see
+    skip effects below); `missing_skills` and `other` are only stored.
+- GET `/api/shortlist/skip-effects` returning `[{ id, kind, reason, label, skips, delta }]`: what the person's skip reasons
+  currently change in their matches. `kind` is `role` (a role family, e.g. label "frontend software engineering roles"),
+  `level_above` / `level_below` ("senior level and above"), `city` ("Austin, TX") or `state` ("TX"); `skips` is how many
+  skips are behind it; `delta` is the fit change for a matching job (-0.05; all effects together at most -0.1). Matching
+  rows say so in their `reasons`, e.g. "You skipped 3 jobs at senior level or above as too senior (-0.05 fit)".
+- DELETE `/api/shortlist/skip-effects/:id` (URL-encode the id, e.g. `role%3Asales`) removes an effect and rematches:
+  the skips behind it stop counting (new skips of that kind can bring it back). 404 when it is not active.
 
 ## Applications
 - GET `/api/applications` returning `[{ application, job, resume? }]`; POST `/api/applications` with `{ jobId, send? }`.

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, channelMessages, channels, eq, runEvents, shortlist } from "@norinote/db";
+import { applications, channelMessages, channels, eq, profiles, runEvents, shortlist } from "@norinote/db";
 import { APPLY_DECISION_STEP, STRONG_FIT_STEP } from "@norinote/apply";
 import { createBotClient, packId, runTelegramTick, SendQueue, signCallback, webhookSecret, type NotifierDeps } from "@norinote/telegram";
 import { callbackUpdate, fakeBotApi, textUpdate } from "@norinote/telegram/testing";
@@ -145,6 +145,42 @@ describe("daily shortlist buttons", () => {
     await hook(callbackUpdate(5001, 1, signCallback(api.config.sessionSecret!, s.user.id, "a", [packId(c.job.id)])));
     expect(lastAnswer().text).toMatch(/Applying to Platform Engineer/);
     expect(api.queuedOf("apply.run").length).toBeGreaterThan(0);
+  });
+});
+
+describe("skip reasons from Telegram", () => {
+  it("after Skip offers the reasons; a tap records it, and Company I don't want adds the company to the skip list", async () => {
+    const s = await linked("tg-skip-reasons@example.com", 5301);
+    const a = await seedJob(api.db, { title: "Staff Engineer", company: "Lambda" });
+    const b = await seedJob(api.db, { title: "Backend Engineer", company: "Mu Corp" });
+    await seedShortlist(api.db, s.user.id, a.job.id, 0.8);
+    await seedShortlist(api.db, s.user.id, b.job.id, 0.7);
+
+    fake.clear();
+    await hook(callbackUpdate(5301, 1, signCallback(api.config.sessionSecret!, s.user.id, "s", [packId(a.job.id)])));
+    expect(lastAnswer().text).toBe("Skipped.");
+    const ask = fake.lastSent()!;
+    expect(ask.text).toBe("Skipped. Why? Optional: it helps Nori pick.");
+    const buttons = ask.reply_markup!.inline_keyboard!.flat();
+    expect(buttons.map((x) => x.text)).toEqual(["Not my kind of role", "Too senior", "Too junior", "Wrong location", "Company I don't want", "Missing skills", "Other"]);
+
+    await hook(callbackUpdate(5301, 77, buttons[1]!.callback_data!));
+    expect(lastAnswer().text).toBe("Noted: Too senior.");
+    expect((await api.db.select().from(shortlist).where(eq(shortlist.jobId, a.job.id)))[0]).toMatchObject({ status: "dismissed", skipReason: "too_senior" });
+    expect(lastEdit().reply_markup.inline_keyboard).toEqual([]);
+
+    // Another user's chat cannot use these buttons.
+    await linked("tg-skip-reasons-other@example.com", 5302);
+    await hook(callbackUpdate(5302, 78, buttons[0]!.callback_data!));
+    expect(lastAnswer().text).toBeUndefined();
+    expect((await api.db.select().from(shortlist).where(eq(shortlist.jobId, a.job.id)))[0]!.skipReason).toBe("too_senior");
+
+    await hook(callbackUpdate(5301, 2, signCallback(api.config.sessionSecret!, s.user.id, "s", [packId(b.job.id)])));
+    const company = fake.lastSent()!.reply_markup!.inline_keyboard!.flat()[4]!;
+    await hook(callbackUpdate(5301, 79, company.callback_data!));
+    expect(lastAnswer().text).toBe("Noted. That company is on your skip list now.");
+    const [p] = await api.db.select({ preferences: profiles.preferences }).from(profiles).where(eq(profiles.userId, s.user.id));
+    expect((p!.preferences as { excludeCompanies?: string[] }).excludeCompanies).toEqual(["Mu Corp"]);
   });
 });
 
