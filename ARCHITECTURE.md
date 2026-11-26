@@ -118,7 +118,9 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    US `citizen`, a U.S.-person job takes `citizen` or `permanentResident` (from the onboarding status; citizens count),
    and a profile that states neither fails both. Order: lane matches, then widened
    rows; well-specified jobs first, then fit x confidence plus a small recency bonus.
-4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring. A failure there, or in the
+4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring. A row keeps at most three
+   reasons (`withReason` in `reasons.ts`): adding the line or the outcome nudge's reason drops other lines from the end, never
+   a "Gap: ..." line or the nudge's reason. A failure there, or in the
    outcome nudge, never fails the shortlist; an unexpected one logs one JSON warn line (`match.explain_failed`,
    `match.outcome_learning_failed`, error class and code only), while over budget and the AI being unavailable stay quiet.
    `GET /api/shortlist/meta` reports `reading: "basic"` when most listed jobs were read without the AI.

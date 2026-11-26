@@ -9,6 +9,7 @@ import { profileEmbedding } from "@norinote/graph";
 import { isSkippedCompany } from "@norinote/shared";
 import { matchTargetOf, widenedTooFar, type MatchTarget } from "./alignment.js";
 import { buildRequirements, relevantYears, requirementTexts, scoreFit, type FitMapItem, type QualityLevel } from "./fit.js";
+import { withReason } from "./reasons.js";
 import { checkGates } from "./gates.js";
 import { heuristicSpec } from "./heuristic-spec.js";
 import { engineJobSql } from "./engine.js";
@@ -256,7 +257,7 @@ async function explainTop(db: Db, profile: MatchProfile, items: Array<ShortlistC
     try {
       const res = await complete({ tier: "small", system: WHY_SYSTEM, prefix, input, schema: Why, schemaName: "why_fits", strict: true, userId: profile.userId, db, maxOutputTokens: 80 });
       const line = res.output.line.replace(/\s+/g, " ").trim().slice(0, 240);
-      if (line && line !== "fake") item.reasons = [line, ...item.reasons].slice(0, 3);
+      if (line && line !== "fake") item.reasons = withReason(item.reasons, line, 0);
     } catch (err) {
       // Over budget or a model error: the deterministic reasons stand.
       warnSwallowed("match.explain_failed", err);
