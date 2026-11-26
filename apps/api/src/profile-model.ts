@@ -4,7 +4,7 @@ import type { profiles } from "@norinote/db";
 import { parseProfileContact, parseProfilePreferences, parseSalaryExpectation, normalizeCountry } from "@norinote/shared";
 
 /**
- * The profile as the web sees it (`Profile` in apps/web/src/lib/types.ts) versus how it is stored (packages/db):
+ * The profile as the dashboard sees it (`Profile` in apps/landing/lib/api.ts) versus how it is stored (packages/db):
  * contact keys live in `profiles.contact`, work authorisation per country in `profiles.work_auth` (so the match gates read
  * it), and everything the schema has no column for (pronouns, notice period, clearance text, over-18, attestations, onboarding progress)
  * in `profiles.preferences` next to the real preferences.

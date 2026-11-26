@@ -1,7 +1,7 @@
-# API contract used by the temporary web app
+# API contract used by the dashboard
 
-The trimmed dashboard in `apps/web` calls exactly these endpoints. The API must serve these shapes. The new frontend
-from the design team will use the same API, so keep it stable and document additions here.
+The dashboard and site in `apps/landing` call exactly these endpoints. The API must serve these shapes, so keep it
+stable and document additions here.
 
 Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, secure in production, sameSite lax.
 

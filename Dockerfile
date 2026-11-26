@@ -2,7 +2,7 @@
 #   docker build --target api    -t norinote-api .
 #   docker build --target worker -t norinote-worker .
 # Both run the TypeScript sources with tsx, as in development. Only the API and worker workspaces are installed;
-# the web apps are deployed to Vercel and are left out by .dockerignore.
+# the landing app is deployed to Vercel and is left out by .dockerignore.
 
 ARG PLAYWRIGHT_VERSION=1.64.1
 

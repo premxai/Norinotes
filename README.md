@@ -6,7 +6,7 @@ Design and rules live in [ARCHITECTURE.md](ARCHITECTURE.md). Package conventions
 
 ## Layout
 
-- `apps/api`: HTTP API (Hono). `apps/worker`: background jobs on the queue. `apps/web`: the current dashboard (temporary; the new landing page and dashboard will replace it and use the same API).
+- `apps/api`: HTTP API (Hono). `apps/worker`: background jobs on the queue. `apps/landing`: the site and dashboard (Next.js), the only frontend.
 - `packages/`: `db` (Postgres + pgvector, PGlite for local and tests), `queue` (pg-boss), `ai` (model routing, budget, fallbacks), `ingest` (job-system feeds), `graph` (resume to career points), `match` (job specs, shortlist), `tailor` (one-page resume), `answers` (answer bank), `apply` (form drivers, browser pool), `inbox` (owned email for codes and replies), `shared` (contracts).
 
 ## Run locally
@@ -18,7 +18,7 @@ npm install
 npx playwright install chromium   # once, for the form drivers and resume PDFs
 cp .env.example .env              # optional: everything runs without it
 npm run dev                       # API on :4000 and the worker in one process
-npm run dev --workspace @norinote/web   # dashboard on :3000
+npm run dev --workspace @norinote/landing   # site and dashboard on :3400
 ```
 
 With no `DATABASE_URL`, `npm run dev` uses an embedded PGlite database under `./data/pglite` and an in-memory queue, so nothing else needs installing. With a `DATABASE_URL` it uses Postgres and pg-boss; in production the API (`npm run dev:api`) and the worker (`npm run dev:worker`) run as separate processes against the same database.

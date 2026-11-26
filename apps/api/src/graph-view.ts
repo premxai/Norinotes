@@ -1,7 +1,7 @@
 import type { CareerPoint } from "@norinote/shared";
 import type { SkillSummary } from "@norinote/graph";
 
-/** The web's graph node and edge (apps/web/src/lib/types.ts). */
+/** The dashboard's graph node and edge (`GraphNode`, `GraphEdge` in apps/landing/lib/api.ts). */
 export type GraphNode = {
   id: string;
   type: string;
