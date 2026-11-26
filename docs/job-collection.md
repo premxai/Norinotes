@@ -95,7 +95,7 @@ carries full descriptions; Workday list rows carry none (filled by `fetchJob` fo
 ## Company registry (`companies` table)
 
 Columns: `ats_type`, `ats_token`, `name`, `domain`, `discovered_via` (registry, seed:ats-scrapers, seed:open-ats-feed,
-user, url, crawl), `status` (candidate, active, probation, disabled, dead), `last_polled_at`, `last_success_at`,
+user, url, crawl, or the discovery source that promoted it), `status` (candidate, active, probation, disabled, dead), `last_polled_at`, `last_success_at`,
 `next_poll_at`, `error_streak`, `not_found_since`, `last_job_count`, `new_jobs_7d`, `etag`, `priority`, `blocked`.
 
 - New seeds start as `candidate`; a validation job reads the feed once: jobs found -> `active`; empty -> `active` with low
@@ -167,16 +167,32 @@ A person names a company, by name or by link, and Nori adds its public job board
   system is in `ENGINE_ATS`. Who asked is not stored.
 - The API allows 10 requests per person per hour.
 
-## Seeds (discovery without crawling, for now)
+## Board discovery (`packages/ingest/src/discovery/`)
 
-- `kalil0321/ats-scrapers` `ats-companies/*.csv` (MIT code; data licence to confirm before redistributing): Workday,
-  Oracle, SmartRecruiters, Workable, iCIMS, BambooHR, Personio, Teamtailor, Rippling, Breezy, Recruitee, Greenhouse,
-  Lever, Ashby and more.
-- `veresk06/open-ats-feed` (MIT, data public domain): verified Greenhouse, Lever, Ashby, Breezy, Recruitee, Teamtailor
-  boards.
-- Excluded: `Riley-Dorrington/job-board-aggregator` data (CC BY-NC, non-commercial only).
-- Seeds are imported by a script into `companies` as `candidate`; nothing is trusted until validated.
-- Later: Common Crawl columnar index (Athena) discovery and a career-page scan for custom domains.
+Discovery finds boards on allowed systems (Greenhouse, Lever, Ashby, Workable, Rippling: `DISCOVERY_ATS`) and keeps
+them in `board_candidates`, apart from `companies`, so the poller never reads a board nobody has verified.
+
+Candidate sources (`CandidateSource` in sources.ts: an id, a licence, `disabledReason`, `list`):
+
+| Source | What | Licence |
+|---|---|---|
+| `user` | Boards people added (POST /api/companies). Already live; listed so they are scored too, never demoted. | people's own additions |
+| `seed:open-ats-feed` | `veresk06/open-ats-feed` `actor/data/companies.json`, verified live boards. | MIT code, data public domain |
+| `seed:ats-directory` | `moonie0201/ats-directory` `companies.jsonl`, rows a live probe confirmed (`ok`), US host only. | CC0 1.0 |
+| `seed:ats-company-slugs` | `datakit457/ats-company-slugs` `data/boards.csv`, rows with `board_ok`. | CC0 (README) |
+| `seed:open-jobs` | `elliottdehn/open-jobs` `slugs.json`, boards its crawler runs (not those marked gone). | CC0 1.0 |
+| `seed:ats-scrapers` | `kalil0321/ats-scrapers` `ats-companies/{system}.csv`. | MIT (repository licence) |
+| `aggregator:treg` | Paid aggregator (Treg/MobiusEngine). A stub: off without `TREG_API_KEY`, and not built until Prem decides on paid sources. | paid |
+
+Excluded: `Riley-Dorrington/job-board-aggregator` (CC BY-NC), lists with no licence, Common Crawl (its terms), and
+parked systems.
+
+- `npx tsx scripts/discover-boards.mts load [--dry-run]` lists every enabled source into `board_candidates` (status
+  `new`). A board listed by several sources is stored once (case-insensitive) with every source's id; a board already
+  live in `companies` is stored as `promoted` and linked. Blocklisted boards are skipped.
+- The old path, `npx tsx scripts/import-seeds.mts [--dry-run] [--only workday,oracle] [--include-empty] [--dir folder]`,
+  still imports seed rows straight into `companies` as `candidate` (the first poll validates them); it is the only
+  way to seed Workday and Oracle tenants.
 
 ## US jobs only
 
