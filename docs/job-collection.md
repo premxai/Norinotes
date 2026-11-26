@@ -192,7 +192,10 @@ parked systems.
   live in `companies` is stored as `promoted` and linked. Blocklisted boards are skipped.
 - Verification (`verifyCandidates`, discovery/verify.ts): each due candidate's feed is read once through its connector, the
   same read the poller makes (robots.txt and Crawl-delay obeyed in http.ts), one board at a time per feed host with a
-  1 s gap; a host that keeps answering 429/503 is left alone for the rest of the run. The board is scored on its open US
+  1 s gap; a host that keeps answering 429/503 is left alone for the rest of the run. A board whose feed has not
+  answered in `BOARD_TIMEOUT_MS` (2 min) is abandoned and counts as a failed read, so a hanging board cannot stall the
+  run; `verify --all` stops a job system once every board in a batch times out or is rate limited, and names the boards it
+  gave up on. The board is scored on its open US
   jobs (`isUsPlace`) dated in the last 7 days whose title is in a target role family (`targetFamilyOf` in
   packages/match: ai_ml, data, product, software, design). Undated jobs never count.
 - Promotion: a score of at least `PROMOTE_BAR` (2) puts the board into `companies` as `active` with
@@ -205,7 +208,7 @@ parked systems.
   `packages/ingest/src/board-registry-discovered.ts` with every board verification promoted, and `BOARD_REGISTRY`
   includes that list next to the curated registry, so a fresh database (and `seedCompanies`) knows the boards without a
   discovery run. The file records the counts each entry was kept on.
-- `npx tsx scripts/discover-boards.mts verify [--systems greenhouse,lever] [--all]` verifies locally;
+- `npx tsx scripts/discover-boards.mts verify [--systems greenhouse,lever] [--all] [--timeout ms]` verifies locally;
   `npx tsx scripts/discover-boards.mts report` prints candidates found, verified, promoted, and fresh US target-role
   jobs per family before (registry and people's additions) and after.
 - In production the worker verifies `DISCOVERY_BATCH` (30) due candidates of the engine scope (`ENGINE_ATS`) every

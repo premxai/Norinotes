@@ -4,8 +4,9 @@
  *   npx tsx scripts/discover-boards.mts load              list every enabled source into board_candidates
  *   npx tsx scripts/discover-boards.mts load --dry-run    list and count, write nothing
  *   npx tsx scripts/discover-boards.mts verify [--systems greenhouse,lever] [--limit 500] [--gap 1000] [--all]
- *                                                       verify due candidates against their live feeds and promote
- *                                                       (--all: keep going until nothing is due)
+ *                                    [--timeout 120000]   verify due candidates against their live feeds and promote
+ *                                                       (--all: keep going until nothing is due; a board with no answer
+ *                                                       in --timeout ms is skipped and named at the end)
  *   npx tsx scripts/discover-boards.mts report [--json]   candidates found, verified, promoted, and fresh US target-role
  *                                                       jobs per family before (registry and people's additions) and after
  *   npx tsx scripts/discover-boards.mts export            rewrite packages/ingest/src/board-registry-discovered.ts with
@@ -90,19 +91,30 @@ ${entries.join("\n")}
     const atsTypes = (value("systems")?.split(",").map((s) => s.trim()).filter(Boolean) ?? null) as AtsType[] | null;
     const limit = Number(value("limit") ?? 200);
     const gapMs = Number(value("gap") ?? 1000);
+    const boardTimeoutMs = Number(value("timeout") ?? 120_000);
     const tally: Record<string, number> = {};
+    const skipped: string[] = [];
     let n = 0;
     const started = Date.now();
-    const onBoard = (b: { outcome: string }) => {
+    const onBoard = (b: { outcome: string; atsType: string; token: string; reason: string | null }) => {
       tally[b.outcome] = (tally[b.outcome] ?? 0) + 1;
+      // A board the run gave up on: named at the end, so nothing disappears silently.
+      if (b.outcome === "timeout" || b.outcome === "retry") skipped.push(`${b.atsType}:${b.token} (${b.outcome}: ${b.reason ?? "failed"})`);
       if (++n % 100 === 0) console.log(`${n} verified in ${Math.round((Date.now() - started) / 60_000)} min: ${JSON.stringify(tally)}`);
     };
-    if (!flag("all")) await verifyCandidates(db, { classify: targetFamilyOf, limit, gapMs, atsTypes, onBoard });
-    // Until nothing is due: one loop per job system, side by side (each system is its own feed host).
+    if (!flag("all")) await verifyCandidates(db, { classify: targetFamilyOf, limit, gapMs, atsTypes, boardTimeoutMs, onBoard });
+    // Until nothing is due: one loop per job system, side by side (each system is its own feed host). A board that hangs
+    // is abandoned after `--timeout` (2 min) and the loop carries on.
     else await Promise.all((atsTypes ?? DISCOVERY_ATS).map(async (system) => {
-      while ((await verifyCandidates(db, { classify: targetFamilyOf, limit, gapMs, atsTypes: [system], onBoard })).length > 0) { /* next batch */ }
+      for (;;) {
+        const done = await verifyCandidates(db, { classify: targetFamilyOf, limit, gapMs, atsTypes: [system], boardTimeoutMs, onBoard });
+        if (done.length === 0) break;
+        // A host that is refusing us answers every board the same way: stop this system rather than spin on it.
+        if (done.every((d) => d.outcome === "rate_limited" || d.outcome === "timeout")) break;
+      }
     }));
     console.log(`done: ${n} verified: ${JSON.stringify(tally)}`);
+    if (skipped.length) console.log(`${skipped.length} board(s) given up on this run:\n  ${skipped.join("\n  ")}`);
   } else {
     const rows = await db.select({
       atsType: boardCandidates.atsType, status: boardCandidates.status, sources: boardCandidates.sources, verifiedAt: boardCandidates.verifiedAt,
