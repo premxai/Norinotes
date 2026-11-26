@@ -37,6 +37,10 @@ export { htmlToText, isTrackingPixel, sanitizeHtml, stripTrackingParams } from "
 export { awaitVerification, createCodeWaiter, findVerification } from "./waiter.js";
 export type { AwaitVerificationArgs, CodeWaiterLike, CodeSource, CodeWaiterOptions, VerificationResult } from "./waiter.js";
 export {
+  ATS_MAIL_DOMAINS, keepReply, pollGmailReplies, registrableDomain, REPLY_SNIPPET_CHARS, REPLY_WINDOW_DAYS, replyQueries, startGmailReplyWatcher,
+  type PollRepliesResult, type ReplySource,
+} from "./gmail-replies.js";
+export {
   awaitVerificationWithGmail, ComposioError, codeQuery, createComposioGmail, getGmailConnection, readGmailMessages, saveGmailConnection, watchGmailForCodes,
   type ComposioGmail, type GmailConnection, type GmailConnectionStatus, type GmailMessage, type WatchGmailArgs,
 } from "./gmail.js";

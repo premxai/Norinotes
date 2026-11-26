@@ -36,7 +36,8 @@ packages/
   apply/      Application state machine, per-system Playwright drivers, warm browser pool, AI fallback hook, receipts.
   inbox/      Owned inbound email: provider adapters (Cloudflare Email Worker raw MIME, generic JSON, Postmark), HMAC
               webhook checks, rules-first classification (small model only when unsure), linking to applications,
-              `awaitVerification` for apply, forwarding (stub), retention. Details in docs/inbox.md.
+              `awaitVerification` for apply (with connected Gmail through Composio), the employer replies watcher
+              (connected Gmail, outcomes), forwarding (stub), retention. Details in docs/inbox.md.
   telegram/   Telegram channel: typed Bot API client (fetch), per-chat send queue (429 retry_after), signed button data,
               deep-link linking, daily shortlist, batched questions, events, quiet hours. Details in docs/telegram.md.
   shared/     Types and zod contracts shared by api, worker and web.
@@ -252,7 +253,7 @@ scoring every job for every user, the 16 overlapping docs.
 
 `DATABASE_URL`, `OPENAI_API_KEY` (unset = AI off, rule-based fallbacks), `AI_FAKE` (1 = deterministic fake model, demos only), `AI_SMALL_MODEL` (default gpt-4.1-mini), `AI_LARGE_MODEL` (default gpt-4.1),
 `EMBEDDING_MODEL` (default text-embedding-3-small), `ALLOW_REAL_SUBMIT`, `INBOUND_EMAIL_DOMAIN`,
-`INBOUND_WEBHOOK_SECRET`, `INBOX_RETENTION_DAYS`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `WEB_URL`, `API_URL`, `SESSION_SECRET`.
+`INBOUND_WEBHOOK_SECRET`, `INBOX_RETENTION_DAYS`, `COMPOSIO_API_KEY`, `GMAIL_REPLY_POLL_MINUTES`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `WEB_URL`, `API_URL`, `SESSION_SECRET`.
 Hosting decisions (Vercel, Neon, Fly region) are made tomorrow; nothing here assumes a provider beyond Postgres.
 
 ## Quality gate

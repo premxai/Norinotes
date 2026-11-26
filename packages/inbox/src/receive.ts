@@ -32,6 +32,8 @@ export type InboxMeta = {
   link?: { why: string[]; ambiguous: boolean };
   forwardedAt?: string | null;
   forwardError?: string | null;
+  /** Read from the person's own mailbox and kept as a snippet only: the stored text is too short to classify again. */
+  snippetOnly?: boolean;
 };
 
 /** What the caller should wake after a message was stored. */
@@ -154,7 +156,7 @@ function metaOf(a: Analysis, email: { attachments?: AttachmentMeta[]; provider?:
  * says what to wake. Fast: no model call; ambiguous results are settled by the `inbox.receive` worker job.
  */
 export async function storeInbound(
-  db: Db, email: InboundEmail, opts: { now?: Date; userId?: string; keep?: (c: KeepCheck) => boolean } = {},
+  db: Db, email: InboundEmail, opts: { now?: Date; userId?: string; keep?: (c: KeepCheck) => boolean; snippet?: number } = {},
 ): Promise<ReceiveResult> {
   const now = opts.now ?? new Date();
   // Mail read from the person's own mailbox (connected Gmail) names its owner; mail to an inbox address is resolved.
@@ -166,11 +168,16 @@ export async function storeInbound(
   if (opts.keep && !opts.keep({ kind: a.kind, applicationId: a.app?.id ?? null, applicationStatus: a.app?.status ?? null, trusted: a.trusted, spam: email.spam.spam, from: email.from })) {
     return { stored: false, reason: "not_kept" };
   }
-  const meta: InboxMeta = { ...metaOf(a, email, "rules"), ...(email.fromName ? { fromName: email.fromName.slice(0, 200) } : {}) };
+  const meta: InboxMeta = {
+    ...metaOf(a, email, "rules"), ...(email.fromName ? { fromName: email.fromName.slice(0, 200) } : {}),
+    ...(opts.snippet ? { snippetOnly: true, verificationLink: null } : {}),
+  };
+  // `snippet`: only the start of the text is kept, with no links and no code.
+  const body = opts.snippet ? email.text.replace(/\s+/g, " ").trim().slice(0, opts.snippet) : email.text.slice(0, INBOX_BODY_MAX);
   // Arrival time, not the Date header: a code is "fresh" by when it reached us, and headers can be hours off.
   const inserted = await db.insert(inboxMessages).values({
-    userId, applicationId: a.app?.id ?? null, kind: a.kind, code: a.code, fromAddress: email.from,
-    messageId: email.messageId, links: a.links, subject: email.subject.slice(0, INBOX_SUBJECT_MAX), body: email.text.slice(0, INBOX_BODY_MAX), meta, receivedAt: now,
+    userId, applicationId: a.app?.id ?? null, kind: a.kind, code: opts.snippet ? null : a.code, fromAddress: email.from,
+    messageId: email.messageId, links: opts.snippet ? [] : a.links, subject: email.subject.slice(0, INBOX_SUBJECT_MAX), body, meta, receivedAt: now,
   }).onConflictDoNothing().returning({ id: inboxMessages.id });
 
   const row = inserted[0];
@@ -229,8 +236,8 @@ export async function reprocessMessage(db: Db, messageId: string, opts: Reproces
   const rules = classifyMessage(mail);
   let settled: Classification | undefined;
   let classifiedBy: InboxMeta["classifiedBy"] = "rules";
-  if (prior.classifiedBy === "model" || (prior.classifiedBy === "fallback" && !opts.retryFallback)) {
-    // Already decided once: keep that decision instead of paying for it again.
+  if (prior.classifiedBy === "model" || prior.snippetOnly || (prior.classifiedBy === "fallback" && !opts.retryFallback)) {
+    // Already decided once (or only a snippet is left to read): keep that decision instead of paying for it again.
     settled = { ...rules, kind: row.kind, code: row.code, ambiguous: false, verification: prior.verification ?? null };
     classifiedBy = prior.classifiedBy;
   } else if (rules.ambiguous && opts.model && !prior.spam) {
