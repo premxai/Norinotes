@@ -63,7 +63,7 @@ async function strongFit(userId: string, fit = 0.9, group: keyof typeof DECISION
 describe("fast path: strong fits are prepared right after matching, and autopilot sends them", () => {
   it("prepares a strong fit at once for a person with the schedule or the Telegram alert on, and for nobody else", async () => {
     const queue = new MemoryQueue();
-    const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer, applyOverrides: { drivers: [driver] } });
+    const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer, applyOverrides: { drivers: [driver], stillOpen: undefined } });
     try {
       const people = { schedule: await person("schedule"), telegram: await person("telegram"), alertOff: await person("telegram-alert-off"), paused: await person("paused"), none: await person("none") };
       const strong = {

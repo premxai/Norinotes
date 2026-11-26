@@ -171,6 +171,13 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    `profiles.preferences.skipFeedback.cleared` and the skips before it stop counting. The decision reads the stored fit,
    so a penalty counts against a strong fit there and against being prepared ahead.
 
+7. Ghost jobs (`ghost.ts`, computed, no request or model call): a job whose company board had 3 or more other postings with
+   the same normalised title (different external id) that were first seen in the 60 days before it and have closed since
+   is flagged as reposted. Its row loses 0.03 fit and rank, after the gates and the lane minimum, and says
+   "Reposted 3 times in 60 days". The apply decision treats a ghost job as at most `ask`, and autopilot sends only
+   `send` jobs, so a ghost stays prepared for the person. Three, because one repost is routine (an edited posting, a
+   second round) and two still fit a search that fell through.
+
 ## Tailoring (packages/tailor)
 
 Goal: the resume matches the posting as strongly as the person's real experience allows. Rewrite and reframe only; never add
@@ -227,6 +234,14 @@ Click to submitted in 12 to 30 seconds, under 2 cents, no invented answers. Deta
   links and timeouts park), account walls, unanswerable questions: `needs_user` with the reason. Never solved or evaded.
 - **Submit** only when `ALLOW_REAL_SUBMIT=true` (dry run otherwise: fill, stop before submit); races success signals
   (2xx on the submit request, confirmation text, form detached, URL change) against failure signals.
+- **Still open** (`still-open.ts`, `checkStillOpen`, wired by the worker as `ApplyDeps.stillOpen`): before preparing and
+  again before the browser opens the form to send it, one read of the posting on its public board through ingest's
+  polite fetch: Greenhouse's job JSON with questions (prepare's schema read reuses that response), Lever's posting JSON,
+  Ashby's public job board list. A 404 or 410, a board that no longer lists it, a "no longer accepting applications"
+  page, or a 403 that is still a 403 after one retry closes the job (`jobs.closed_at`; a later board read that lists it
+  reopens it) and the application (`failed`, "This job is no longer open"). Network errors, timeouts, 5xx and rate
+  limits are not a close: the application goes on. A check that found the job open stands for 15 minutes, so a send
+  right after preparing (autopilot) asks once. Other job systems are not checked.
 - Safety: one application per user and canonical job URL, one at a time per company plus a cooldown, the submit click
   recorded before anything else, receipts with screenshot, trace path and confirmation text. AI browser fallback: a
   typed hook only (`AiBrowserFallback`); unknown forms go to `needs_user`.

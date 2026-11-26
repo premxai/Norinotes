@@ -136,6 +136,29 @@ describe("autopilot for strong fits", () => {
     expect(await autopilotStrongFit(t.db, a.id, { now: NOW })).toEqual({ started: false, reason: "not_waiting" });
   });
 
+  it("never sends a ghost job on its own: the apply decision asks instead, and it waits for the person", async () => {
+    const u = await user();
+    await saveSchedule(t.db, u, { enabled: true });
+    const a = await preparedAhead(u, "Haunted");
+    const [title] = (await t.db.select({ title: jobs.title }).from(jobs).where(eq(jobs.id, a.job.id))).map((r) => r.title);
+    const firstSeen = (n: number) => new Date(Date.now() - n * 86_400_000);
+    for (const [i, days] of [50, 30].entries()) {
+      await t.db.insert(jobs).values({ companyId: a.job.companyId, atsType: "greenhouse", externalId: `old-${a.id}-${i}`, title: title!, applyUrl: "https://job-boards.greenhouse.io/x/jobs/old", dedupeKey: `old${i}`, firstSeenAt: firstSeen(days), closedAt: firstSeen(days - 10) });
+    }
+    expect(await autopilotStrongFit(t.db, a.id, { now: NOW })).toMatchObject({ started: true });
+
+    const b = await preparedAhead(u, "Haunted too");
+    const [bTitle] = (await t.db.select({ title: jobs.title }).from(jobs).where(eq(jobs.id, b.job.id))).map((r) => r.title);
+    for (const [i, days] of [50, 30, 10].entries()) {
+      await t.db.insert(jobs).values({ companyId: b.job.companyId, atsType: "greenhouse", externalId: `old-${b.id}-${i}`, title: bTitle!, applyUrl: "https://job-boards.greenhouse.io/x/jobs/old", dedupeKey: `oldb${i}`, firstSeenAt: firstSeen(days), closedAt: firstSeen(days - 5) });
+    }
+    const ghostSend = await autopilotStrongFit(t.db, b.id, { now: NOW });
+    expect(ghostSend).toMatchObject({ started: false, reason: "ask" });
+    const [logged] = await t.db.select().from(runEvents).where(and(eq(runEvents.applicationId, b.id), eq(runEvents.step, "apply_decision")));
+    expect((logged?.data as { reasons?: string[] })?.reasons?.[0]).toBe("Reposted 3 times in 60 days");
+    expect(await statusOf(b.id)).toMatchObject({ status: "prepared", approvedAt: null });
+  });
+
   it("leaves alone an application the person prepared themselves", async () => {
     const u = await user();
     await saveSchedule(t.db, u, { enabled: true });

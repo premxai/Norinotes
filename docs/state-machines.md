@@ -26,11 +26,16 @@ Change a machine here first, then in code.
   - `approvedAt`: the person said send. Cleared on retry. Today's approvals count against the daily limit. Every approval (`approveAndSubmit`, `approveBeforePrepared`) counts and stamps inside one transaction that holds the user's row lock, so two at once cannot both take the last place.
   - `batchId`: the batch drain sends it when its spacing slot comes.
   - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` / `captchaHeld` decide whether a re-run could duplicate an application. `submitClicked` is written, and the write confirmed, before every submit click; no confirmed write, no click.
+- **Closed job:** before `preparing` runs the preparer and before `applying` opens the browser, the worker re-reads the
+  posting (`checkStillOpen`, run event `still_open` with `data.state` open, closed or unknown). Closed: `preparing → failed`
+  or `applying → failed` with error "This job is no longer open: the company took the posting down." and the job's
+  `closed_at` set. Unknown (network trouble) goes on. An open answer is trusted for 15 minutes. Retry works as for any
+  failed application, and checks again.
 - **Recovery:** the worker's drain loop re-queues `preparing` / `applying` / `awaiting_code` rows untouched for 25 minutes (`staleRuns`). A row whose submit may already have been clicked is never re-sent; it goes to `needs_user`.
 - **Who sends:** the prepare consumer sends approved applications (batch or not), and, when the person's schedule is on and
   not paused, a strong fit Nori prepared ahead that the apply decision sends (`autopilotStrongFit` calls `decideApplies`
   with what is left of today's limit: action `send` only, within the weekly pace, no hard no, no company applied to in
-  60 days, skip list; `BATCH_ATS`; the daily limit counted atomically by `approveAndSubmit`). `ask`, `later` and `skip`
+  60 days, skip list, not a ghost job reposted 3 or more times in 60 days; `BATCH_ATS`; the daily limit counted atomically by `approveAndSubmit`). `ask`, `later` and `skip`
   leave it `prepared` for the person; the batch drain sends the batch's prepared, unapproved ones. The API's `sendsOnItsOwn` tells the UI which ones go out without another OK.
 
 ## Apply batches (`apply_batches.status`)
@@ -39,7 +44,9 @@ Change a machine here first, then in code.
 
 ## Jobs
 
-- **Freshness:** `open` (`closed_at` null) → `closed` after two complete reads without it, or when the board is gone.
+- **Freshness:** `open` (`closed_at` null) → `closed` after two complete reads without it, when the board is gone, or
+  when the check before applying finds the posting gone (404/410, no longer listed, a "no longer accepting applications"
+  page, or 403 twice). A board read that lists it again reopens it.
 - **Reading:** none → version 0 (`heuristic`, the rule-based fallback while the AI is down) → version ≥ 1 (AI). The worker's catch-up pass (every 10 min, only while the AI answers) re-reads version-0 jobs and rebuilds their embedding. `GET /api/health/ai` returns 503 when nearly all jobs read in the last hour are version 0, or at once when no `OPENAI_API_KEY` is set. A missing key counts as the AI being down. The catch-up's first run in each worker process also repairs rows that the old no-key fake model wrote (specs with role family "fake", mostly-zero embeddings): those jobs go back to version 0, and the resumes are marked for re-reading (`apps/worker/src/repair-ai-stub.ts`).
 - **Storage:** the sweep blanks the description and drops specs and embeddings of jobs that aged out.
 

@@ -1,3 +1,4 @@
+export { GHOST_FIT_PENALTY, GHOST_REPOSTS, GHOST_WINDOW_DAYS, ghostPenaltyOf, ghostReason, ghostRepostCounts, ghostRepostsOf, isGhost } from "./ghost.js";
 export { HEURISTIC_SPEC_VERSION, SPEC_VERSION, UNDERSTAND_SYSTEM, JobSpecModelOutput, finalizeSpec, jobEmbeddingText, loadCurrentSpec, understandJob } from "./understand.js";
 export type { StoredJobSpec, UnderstandResult } from "./understand.js";
 export {

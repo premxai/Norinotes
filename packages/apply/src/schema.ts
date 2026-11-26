@@ -8,6 +8,7 @@ import type { FieldType, SlotField } from "@norinote/answers";
 import { getJson, htmlToText } from "@norinote/ingest";
 import type { DiscoveredField } from "./form.js";
 import { parseHttpUrl } from "./drivers/util.js";
+import { takeCheckedGreenhouseJob } from "./still-open.js";
 
 export type AtsName = "greenhouse" | "lever" | "ashby" | "workday" | "smartrecruiters" | "workable" | "icims" | "unknown";
 
@@ -132,7 +133,8 @@ export function greenhouseSchemaFromJson(json: GreenhouseJobJson, token: string,
 
 /** GET the public form schema of a Greenhouse posting (no key needed). Null when the posting is gone. */
 export async function fetchGreenhouseSchema(token: string, jobId: string, opts: { fetch?: typeof fetch } = {}): Promise<FormSchema | null> {
-  const json = await getJson<GreenhouseJobJson>(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs/${encodeURIComponent(jobId)}?questions=true`, opts.fetch ? { fetch: opts.fetch } : {});
+  // The open check (still-open.ts) has usually just read this same JSON.
+  const json = takeCheckedGreenhouseJob(token, jobId) ?? await getJson<GreenhouseJobJson>(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs/${encodeURIComponent(jobId)}?questions=true`, opts.fetch ? { fetch: opts.fetch } : {});
   return json ? greenhouseSchemaFromJson(json, token, jobId) : null;
 }
 

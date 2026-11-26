@@ -6,7 +6,9 @@ export {
   normalizeTitle, normalizeCompany, DUPLICATE_WINDOW_DAYS, capDayStart, dailyCapUse, dailyCapReached,
 } from "./store.js";
 export type { ApplicationRow, CreateApplicationResult, ApproveResult, ApproveLaterResult, DailyCap, TransitionResult } from "./store.js";
-export { runApplication, driveApplication, createApplyHandler, createPrepareHandler, createFinishHandler, finishApplications, staleRuns, STALE_RUN_MS, MAX_FINISH_BATCH } from "./runner.js";
+export { runApplication, driveApplication, createApplyHandler, createPrepareHandler, createFinishHandler, finishApplications, staleRuns, STALE_RUN_MS, MAX_FINISH_BATCH, STILL_OPEN_STEP } from "./runner.js";
+export { checkStillOpen, takeCheckedGreenhouseJob, FORBIDDEN_RETRY_MS, JOB_CLOSED_REASON, OPEN_CHECK_FRESH_MS } from "./still-open.js";
+export type { StillOpen, StillOpenOptions, StillOpenState } from "./still-open.js";
 export type { ApplyDeps, FinishDeps, StaleRun, StepResult, WaitingFor } from "./runner.js";
 export { LiveInput, LIVE_KEYS, applyLiveInput, createMemoryInputBus, createPgInputBus, liveInputBusFor, sharedMemoryInputBus, type LiveInputBus, type LiveInputHandler } from "./control.js";
 export { createBrowserPool, PoolRunError } from "./pool.js";

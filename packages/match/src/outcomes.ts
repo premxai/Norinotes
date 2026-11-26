@@ -15,6 +15,7 @@ import {
   and, applications, asc, companies, eq, inArray, inboxMessages, isNull, jobSpecs, jobs, or, outcomes, resumes, shortlist, sql, type Db,
 } from "@norinote/db";
 import { INBOX_OUTCOME_KINDS } from "@norinote/shared";
+import { ghostPenaltyOf } from "./ghost.js";
 import { roleFamilyOf } from "./roles.js";
 import { skipPenaltyOf } from "./skip-feedback.js";
 
@@ -213,9 +214,9 @@ export function outcomeNudgeOf(reasons: readonly string[] | null | undefined): n
   return 0;
 }
 
-/** A shortlist row's fit without its outcome nudge and skip penalty, as the gates and the lane minimum saw it. */
+/** A shortlist row's fit without its outcome nudge, skip penalty and ghost penalty, as the gates and the lane minimum saw it. */
 export function rawFitOf(fit: number, reasons: readonly string[] | null | undefined): number {
-  return Math.round((fit - outcomeNudgeOf(reasons) - skipPenaltyOf(reasons)) * 1000) / 1000;
+  return Math.round((fit - outcomeNudgeOf(reasons) - skipPenaltyOf(reasons) + ghostPenaltyOf(reasons)) * 1000) / 1000;
 }
 
 // ---- history ------------------------------------------------------------------------------------------------------------

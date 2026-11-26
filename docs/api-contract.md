@@ -127,6 +127,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   rows say so in their `reasons`, e.g. "You skipped 3 jobs at senior level or above as too senior (-0.05 fit)".
 - DELETE `/api/shortlist/skip-effects/:id` (URL-encode the id, e.g. `role%3Asales`) removes an effect and rematches:
   the skips behind it stop counting (new skips of that kind can bring it back). 404 when it is not active.
+- A row's `reasons` may include "Reposted N times in 60 days" (N is 3 or more): the company keeps re-listing this job;
+  its `fit` is 0.03 lower for it.
+- POST `/api/shortlist/:jobId/dismiss`
 
 ## Applications
 - GET `/api/applications` returning `[{ application, job, resume? }]`; POST `/api/applications` with `{ jobId, send? }`.
@@ -163,6 +166,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   (a new frame about every second while `applying` or `awaiting_code`; the last one stays about 15 minutes). Owner only;
   404 when there is none; `cache-control: no-store`. The site's CSP allows images only from itself, data: and blob:, so
   the dashboard fetches each frame and shows it through an object URL.
+- An application whose job closed before it was sent becomes `failed` with error `"This job is no longer open: the
+  company took the posting down."` (checked before preparing and before sending). Retry checks again.
 - POST `/api/applications/:id/cancel`: the person drops the application. It becomes `failed` with error `"Cancelled by
   you"` (Retry brings it back). 409 while Nori is on the employer's page (`applying`, `awaiting_code`) or once it was
   `submitted`; cancelling a failed one is a no-op 200.

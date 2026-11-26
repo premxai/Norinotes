@@ -225,7 +225,8 @@ describe("worker: prepare and apply", () => {
     const pool = stubPool();
     worker = await startWorker({
       db: t.db, queue, config: config(), log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool: pool.pool, preparer, fetch,
-      applyOverrides: { drivers: [driver] },
+      // The open check has its own tests (still-open.test.ts, and the one below): here every read of a posting is a 404.
+      applyOverrides: { drivers: [driver], stillOpen: undefined },
     });
     return pool;
   }

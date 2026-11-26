@@ -16,6 +16,7 @@ import { engineJobSql } from "./engine.js";
 import { inlineLanesFitSql, laneFitsSql, locationFits, locationFitsSql, matchingLanes, type JobLike, type LaneLike } from "./lanes.js";
 import { lexicalOverlap, lexicalProfile, lexicalSimilarity } from "./lexical.js";
 import { warnSwallowed } from "./log.js";
+import { applyGhostPenalty } from "./ghost.js";
 import { applyOutcomeLearning } from "./outcome-learning.js";
 import { rawFitOf } from "./outcomes.js";
 import { placeFactor } from "./location.js";
@@ -379,6 +380,8 @@ async function scoreCandidates(db: Db, profile: MatchProfile, candidates: Candid
     const c = byId.get(jobId);
     return c && { title: c.title, seniority: specs.get(jobId)?.spec.seniority, location: c.location, remote: c.remote };
   }, opts.now);
+  // Ghost jobs (ghost.ts): reposted three or more times in 60 days rank a little lower and say so.
+  await applyGhostPenalty(db, out.scored);
   out.scored.sort(byRank);
   return out;
 }
