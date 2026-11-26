@@ -148,6 +148,18 @@ describe("the shortlist hook", () => {
     expect(strict.items.some((i) => i.jobId === open)).toBe(false);
   });
 
+  it("keeps the Gap line when the nudge's reason takes second place", async () => {
+    const learner = await analyst(t.db, true);
+    const jobId = await seedJob(t.db, { companyId, title: "Data Analyst" });
+    const items = [{ jobId, title: "Data Analyst", fit: 0.79, reasons: ["Strong evidence for SQL", "Strong evidence for Tableau", "Gap: Python"], rankScore: 0.79, confidence: 1 }];
+    await applyOutcomeLearning(t.db, learner, items, () => null, NOW);
+    expect(items[0]!.fit).toBeGreaterThan(0.79);
+    expect(items[0]!.reasons).toHaveLength(3);
+    expect(items[0]!.reasons[0]).toBe("Strong evidence for SQL");
+    expect(items[0]!.reasons[1]).toMatch(new RegExp(`^${OUTCOME_REASON_PREFIX}`));
+    expect(items[0]!.reasons[2]).toBe("Gap: Python");
+  });
+
   it("does nothing for a user without enough history, and never throws", async () => {
     const userId = await analyst(t.db, false);
     const items = [{ jobId: "00000000-0000-0000-0000-000000000000", title: "Data Analyst", fit: 0.7, reasons: ["r"], rankScore: 0.7, confidence: 1 }];

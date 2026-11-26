@@ -17,6 +17,7 @@ import { seniorityFromTitle } from "./heuristic-spec.js";
 import {
   OUTCOME_REASON_PREFIX, boardSizeOf, loadOutcomeHistory, resolveApplication, syncInboxOutcomes, type OutcomeHistoryRow,
 } from "./outcomes.js";
+import { withReason } from "./reasons.js";
 import { roleFamilyOf } from "./roles.js";
 import { warnSwallowed } from "./log.js";
 
@@ -197,8 +198,8 @@ export async function applyOutcomeLearning(db: Db, userId: string, items: Nudgea
       if (applied === 0) continue;
       item.fit = fit;
       if (item.rankScore != null) item.rankScore = Math.round((item.rankScore + applied * (item.confidence ?? 1)) * 10000) / 10000;
-      // Second place: an explanation line from the model goes first and the list is cut to three.
-      item.reasons.splice(Math.min(1, item.reasons.length), 0, applied === delta ? reason : reason.replace(/\([+-]0\.\d\d fit\)$/, `(${applied > 0 ? "+" : "-"}${Math.abs(applied).toFixed(2)} fit)`));
+      // Second place: an explanation line from the model goes first. Gap lines are kept when the list is trimmed.
+      item.reasons = withReason(item.reasons, applied === delta ? reason : reason.replace(/\([+-]0\.\d\d fit\)$/, `(${applied > 0 ? "+" : "-"}${Math.abs(applied).toFixed(2)} fit)`), 1);
     }
   } catch (err) {
     // Learning is a nudge, never a reason for a shortlist to fail.

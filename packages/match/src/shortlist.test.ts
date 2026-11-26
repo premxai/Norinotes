@@ -375,6 +375,19 @@ describe("buildShortlist: detailed fit, gates and saving", () => {
     expect(saved!.reasons[0]).toBe("You have shipped TypeScript services at Acme.");
   });
 
+  it("keeps the Gap line when the explanation takes the first place", async () => {
+    const { userId, job } = await setup();
+    const gap = await job("Lambda Engineer", baseSpec({ mustHaves: ["TypeScript", "PostgreSQL", "Rust"], requirementWeights: { TypeScript: 1, PostgreSQL: 1, Rust: 0.1 } }));
+    setProvider(createFakeProvider({ chat: () => ({ line: "You have shipped TypeScript services at Acme." }) }));
+    const opts = { profileEmbedding: profileVec("typescript postgresql backend services"), now: NOW };
+    const plain = (await buildShortlist(t.db, userId, opts)).items.find((i) => i.jobId === gap)!;
+    expect(plain.reasons).toHaveLength(3);
+    expect(plain.reasons[2]).toBe("Gap: Rust");
+    await t.db.delete(shortlist).where(eq(shortlist.userId, userId));
+    const explained = (await buildShortlist(t.db, userId, { ...opts, explain: { top: 1 } })).items.find((i) => i.jobId === gap)!;
+    expect(explained.reasons).toEqual(["You have shipped TypeScript services at Acme.", plain.reasons[0], "Gap: Rust"]);
+  });
+
   it("falls back to the plain reasons when the model call fails", async () => {
     const { userId, job } = await setup();
     await job("Lambda Engineer", baseSpec({ mustHaves: ["TypeScript"] }));
