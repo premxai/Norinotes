@@ -125,6 +125,24 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 5. Outcome nudge (`outcome-learning.ts`): after 10 resolved applications, fit moves by at most 0.05 toward role families,
    seniority, job systems and board sizes that got the user replies and away from repeated silence or rejection (age-decayed),
    after gates and the lane minimum; the row says why ("From your replies: ... (+0.02 fit)"). See docs/outcomes.md.
+6. Apply decision (`decision.ts`, `decideApplies`): what Nori may send without asking. It uses stored data only, with no
+   model call. Hard no's are skipped: the gates, a seniority gap of two or more levels either way, a central must-have
+   (weight 0.5+) the person clearly lacks, a company they skip, or a company they applied to in the last 60 days. The
+   rest fall into three groups:
+   - strong: every must-have evidenced, the job inside the person's level band, their own function, and a posting the
+     model read;
+   - worth a shot: most must-haves evidenced by weight, a title in or next to their function, and posted under 48 hours ago;
+   - stretch: everything else.
+
+   The person's aggressiveness (`preferences.nori.aggressiveness`) sets which groups are sent without asking and the
+   weekly pace (approved applications in the last 7 days):
+   - cautious: strong only, 10 a week;
+   - balanced (the default): strong and worth a shot, 20 a week;
+   - wide: the same groups with less evidence asked of worth a shot, 30 a week.
+
+   Groups that are not sent on their own become a one-tap Apply/Skip prompt (`ask`). Sends are one per company and spread
+   across kinds of jobs. Sendable jobs beyond the pace are `later`. Autopilot and batches call this one function; the
+   caller still applies the daily cap.
 
 ## Tailoring (packages/tailor)
 
