@@ -174,7 +174,10 @@ export async function fillFlow(page: Page, ctx: DriverContext, opts: FlowOptions
     const wall = await botWall(page, status);
     if (wall === "captcha") {
       ctx.onEvent("captcha", "A bot check is showing instead of the page; leaving it for the user", { status }, "warn");
-      return needsUser("captcha", CAPTCHA_REASON);
+      if (!(await handOff(ctx, "captcha"))) return needsUser("captcha", CAPTCHA_REASON);
+      // The person passed it: the site's own page loads in its place.
+      await page.locator(firstField).first().waitFor({ state: "attached", timeout: FIRST_FIELD_TIMEOUT }).catch(() => {});
+      await waitForHydration(page);
     }
     if (wall === "blocked") {
       ctx.onEvent("needs_user", "The site turned automated access away; Norinote does not try to get around that", { status }, "warn");

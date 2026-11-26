@@ -207,6 +207,20 @@ describe.skipIf(!run)("Greenhouse driver on the local fixture form", () => {
     expect(refused).toMatchObject({ status: "needs_user", needsUser: { kind: "blocked" } });
   }, TIMEOUT);
 
+  it("in a Finish session, hands the bot check to the person and fills the page that loads once they pass it", async () => {
+    const kinds: string[] = [];
+    const filled = await withPage(async (page) => {
+      const { ctx } = ctxFor({
+        applyUrl: `${server.origin}/bot-check`,
+        // Stands in for the person passing the check: the site then shows the real page.
+        handoff: async (kind) => { kinds.push(kind); await page.goto(FORM()); return true; },
+      });
+      return greenhouseDriver.fill(page, ctx);
+    });
+    expect(kinds).toEqual(["captcha"]);
+    expect(filled.status).toBe("filled");
+  }, TIMEOUT);
+
   it("submits only with dryRun false AND ALLOW_REAL_SUBMIT=true (against the local fixture)", async () => {
     process.env.ALLOW_REAL_SUBMIT = "true";
     const { ctx, events } = ctxFor({ dryRun: false });
