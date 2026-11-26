@@ -15,7 +15,7 @@
  */
 import { z } from "zod";
 import { complete, embed, type Usage } from "@norinote/ai";
-import type { Db } from "@norinote/db";
+import { and, applications, companies, eq, gte, jobs, ne, type Db } from "@norinote/db";
 import type { CareerPoint, PendingQuestion } from "@norinote/shared";
 import { fitAnswer, loadContext, pickBankAnswer } from "./answers.js";
 import { DEFAULT_MATCH_THRESHOLD, findSimilar, loadBank, markUsed, saveAnswer, type BankRow } from "./bank.js";
@@ -173,6 +173,51 @@ export function questionKind(label: string): QuestionKind {
   const l = label.toLowerCase().replace(/[’`]/g, "'");
   if (FACTUAL_QUESTION.test(l) || findTerms(label).length > 0) return "factual";
   return STORY_QUESTION.test(l) ? "story" : "other";
+}
+
+/** How far back a new draft is compared with the person's earlier ones, and how close counts as a copy. */
+export const RECENT_DRAFT_DAYS = 90;
+export const NEAR_COPY = { anyCompany: 0.7, sameCompany: 0.45 };
+
+/** Three-word shingles of a text, lowercased, punctuation dropped. */
+function shingles(text: string): Set<string> {
+  const w = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean);
+  const out = new Set<string>();
+  for (let i = 0; i + 2 < w.length; i++) out.add(`${w[i]} ${w[i + 1]} ${w[i + 2]}`);
+  return out;
+}
+
+/** Jaccard similarity of two texts' three-word shingles, 0 to 1. */
+export function draftSimilarity(a: string, b: string): number {
+  const x = shingles(a), y = shingles(b);
+  if (!x.size || !y.size) return 0;
+  let shared = 0;
+  for (const s of x) if (y.has(s)) shared++;
+  return shared / (x.size + y.size - shared);
+}
+
+export type EarlierDraft = { value: string; company: string };
+
+/**
+ * The earlier draft a new one copies, or null. Examples quote the same career points every time, so some overlap is
+ * expected; a copy is a draft that is mostly the same text (another company), or noticeably the same text for a company
+ * that will read both.
+ */
+export function nearCopyOf(text: string, company: string, earlier: readonly EarlierDraft[]): EarlierDraft | null {
+  const same = (c: string) => c.trim().toLowerCase() === company.trim().toLowerCase();
+  return earlier.find((d) => draftSimilarity(text, d.value) >= (same(d.company) ? NEAR_COPY.sameCompany : NEAR_COPY.anyCompany)) ?? null;
+}
+
+/** The person's drafts on their other applications in the last RECENT_DRAFT_DAYS (`receipt.prepared.drafted`). */
+async function earlierDrafts(db: Db, userId: string, jobId: string, now = new Date()): Promise<EarlierDraft[]> {
+  const since = new Date(now.getTime() - RECENT_DRAFT_DAYS * 86_400_000);
+  const rows = await db.select({ receipt: applications.receipt, company: companies.name }).from(applications)
+    .innerJoin(jobs, eq(jobs.id, applications.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
+    .where(and(eq(applications.userId, userId), ne(applications.jobId, jobId), gte(applications.updatedAt, since)));
+  return rows.flatMap((r) => {
+    const drafted = (r.receipt as { prepared?: { drafted?: { value?: unknown }[] } } | null)?.prepared?.drafted ?? [];
+    return drafted.flatMap((d) => (typeof d.value === "string" ? [{ value: d.value, company: r.company }] : []));
+  });
 }
 
 /** At most this many drafts per form, so one large call stays within the budget for a form Nori has not seen. */
@@ -409,11 +454,15 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
       reply = null;
     }
     const byKey = new Map((reply?.answers ?? []).map((r) => [r.key, r]));
+    // Drafts on this form count too: two questions must not get the same answer.
+    const earlier = reply ? await earlierDrafts(db, input.userId, input.jobId) : [];
     for (const f of drafts) {
       const d = byKey.get(f.key);
       const problem = d ? draftProblem(d, facts, posting, f.label) : "Your profile does not support an honest answer to this question";
       const text = d ? [d.need, ...d.examples, d.tie].map((x) => x.text.trim()).filter(Boolean).join(" ") : "";
       if (problem || text.split(/\s+/).length > 130) { unresolved(f, "custom", problem ?? "The draft was too long"); continue; }
+      if (nearCopyOf(text, ctx.job.company, earlier)) { unresolved(f, "custom", "Nori's draft was too close to one it wrote for another application"); continue; }
+      earlier.push({ value: text, company: ctx.job.company });
       // Not saved to the answer bank: the need and the tie come from this posting, so the answer is true for this job only.
       set(f, "custom", { status: "ready", value: text, source: "large" });
     }

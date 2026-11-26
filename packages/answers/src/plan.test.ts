@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createFakeProvider, setProvider, type ChatRequest } from "@norinote/ai";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
-import { inboxAddresses } from "@norinote/db";
-import { classifySlot, draftProblem, isAiTrap, loadBank, planForm, questionKind, saveAnswer, slotValue, careerFacts, factsFrom, ungroundedTokens, unsupportedSentences, type PlanField, type SlotField } from "./index.js";
-import { seedJob, seedUser } from "./test-fixtures.js";
+import { applications, eq, inboxAddresses } from "@norinote/db";
+import { classifySlot, draftProblem, draftSimilarity, isAiTrap, loadBank, NEAR_COPY, nearCopyOf, planForm, questionKind, saveAnswer, slotValue, careerFacts, factsFrom, ungroundedTokens, unsupportedSentences, type PlanField, type SlotField } from "./index.js";
+import { addApplication, seedJob, seedUser } from "./test-fixtures.js";
 
 let t: TestDb;
 beforeAll(async () => { t = await createTestDb(); });
@@ -269,7 +269,14 @@ describe("story and motivation drafts", () => {
       chat: (req) => {
         requests.push(req);
         const input = JSON.parse(req.messages.at(-1)!.content) as { questions: { key: string }[] };
-        return { answers: input.questions.map((x) => draft(x.key)) };
+        // Four different answers: the same text twice on one form would be a copy.
+        const variants = [
+          {},
+          { need: { text: "This job is about running APIs.", support: "build and run APIs" }, examples: [{ text: "I cut p95 latency by 60% on payment APIs in TypeScript.", support: "Built payment APIs in TypeScript serving 2 million requests per day and cut p95 latency by 60%" }], tie: { text: "Small businesses rely on that payment infrastructure.", support: "payment infrastructure for small businesses" } },
+          { need: { text: "A small platform team builds the APIs.", support: "build and run APIs with a small platform team" }, examples: [{ text: "My payment APIs served 2 million requests per day.", support: "Built payment APIs in TypeScript serving 2 million requests per day" }], tie: { text: "Payment infrastructure for small businesses is the product here.", support: "Initech builds payment infrastructure for small businesses" } },
+          { need: { text: "Running APIs with a small team is the job.", support: "You will build and run APIs with a small platform team" }, examples: [{ text: "I built TypeScript APIs for payments.", support: "Built payment APIs in TypeScript" }], tie: { text: "Initech builds for small businesses.", support: "Initech builds payment infrastructure for small businesses" } },
+        ];
+        return { answers: input.questions.map((x, i) => draft(x.key, variants[i] ?? {})) };
       },
     }));
     const stories = ["Why do you want to work at Initech?", "What excites you about this role?", "Describe a project you are proud of.", "Write a short cover note.", "Tell us about yourself."];
@@ -324,7 +331,39 @@ describe("AI-trap questions", () => {
     expect(by.q3).toMatchObject({ status: "skip" });
     expect(by.q4).toMatchObject({ status: "ready", value: "Mine", source: "answers" });
     expect(provider.calls).toHaveLength(0);
-    expect(plan.pending.map((p) => p.id)).toEqual(["field:q1", "field:q2"]);
+    expect(plan.pending.map((p) => p.id)).toEqual(["field:q1", "field:q2"]);  });
+});
+
+describe("near-copies of earlier drafts", () => {
+  const ours = "The role builds and runs APIs with a small platform team. I built payment APIs in TypeScript serving 2 million requests per day. Initech builds payment infrastructure for small businesses, where that work applies directly.";
+  const other = "The role needs someone to own data pipelines end to end. I built payment APIs in TypeScript serving 2 million requests per day. Globex makes logistics software for shipping teams, which is where that experience would go.";
+
+  it("allows the same real example in answers for different companies, and catches a copy", () => {
+    expect(draftSimilarity(ours, ours)).toBe(1);
+    expect(draftSimilarity(ours, other)).toBeLessThan(NEAR_COPY.anyCompany);
+    expect(nearCopyOf(ours, "Initech", [{ value: other, company: "Globex" }])).toBeNull();
+    expect(nearCopyOf(ours, "Initech", [{ value: ours.replace("directly", "right away"), company: "Globex" }])).not.toBeNull();
+    // The same company reads both: a closer bar.
+    const sameCo = ours.replace("The role builds and runs APIs with a small platform team.", "The role needs APIs for merchants.");
+    expect(draftSimilarity(ours, sameCo)).toBeLessThan(NEAR_COPY.anyCompany);
+    expect(nearCopyOf(sameCo, "Initech", [{ value: ours, company: "initech" }])).not.toBeNull();
+  });
+
+  it("sends a draft to the person when it copies one from the person's other applications or from this form", async () => {
+    const { userId } = await seedUser(t.db, "plan-copy");
+    const { jobId: earlierJob } = await seedJob(t.db, "plan-copy-old", "Globex");
+    const appId = await addApplication(t.db, userId, earlierJob, [], "submitted");
+    await t.db.update(applications).set({ receipt: { prepared: { drafted: [{ key: "q", label: "Why Globex?", value: ours }] } } }).where(eq(applications.id, appId));
+    const { jobId } = await seedJob(t.db, "plan-copy");
+    setProvider(createFakeProvider({ chat: (req) => ({ answers: (JSON.parse(req.messages.at(-1)!.content) as { questions: { key: string }[] }).questions.map((x) => draft(x.key)) }) }));
+    const plan = await planForm(t.db, { userId, jobId, fields: [f("s1", "Why do you want to work at Initech?", "textarea")] });
+    expect(plan.entries[0]).toMatchObject({ status: "pending", reason: expect.stringMatching(/too close/) });
+
+    const { userId: fresh } = await seedUser(t.db, "plan-copy-fresh");
+    const { jobId: job2 } = await seedJob(t.db, "plan-copy-fresh");
+    const plan2 = await planForm(t.db, { userId: fresh, jobId: job2, fields: [f("s1", "Why do you want to work at Initech?", "textarea"), f("s2", "What excites you about this role?", "textarea")] });
+    expect(plan2.entries.map((e) => e.status)).toEqual(["ready", "pending"]);
+
   });
 });
 
