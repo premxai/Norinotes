@@ -93,12 +93,16 @@ export function withCareerSites(hosted: Driver, others: readonly Driver[]): Driv
 
 /** Fill the Greenhouse form inside the company page's iframe, in place, in one pass. */
 async function fillEmbedded(page: Page, ctx: DriverContext, started: number): Promise<FillResult> {
+  // A cookie banner over the bottom of the page covers the form's menus: decline it first, as on any form. A cookie
+  // choice or the page's own Apply button may reload the iframe, so it is looked up again afterwards.
+  await declineCookies(page);
+  const first = await greenhouseIframe(page);
+  if (first) await revealIframe(page, first);
+  await page.waitForLoadState("load", { timeout: 5000 }).catch(() => {});
   const frame = await greenhouseIframe(page);
   if (!frame) return { status: "failed", formUrl: page.url(), fields: [], files: [], pending: [], error: "The embedded form went away", durationMs: Date.now() - started };
+  await frame.locator("form input:not([type=hidden])").first().waitFor({ state: "attached", timeout: 10_000 }).catch(() => {});
   const root = frame as unknown as Page;
-  // A cookie banner over the bottom of the page covers the form's menus: decline it first, as on any form.
-  await declineCookies(page);
-  await revealIframe(page, frame);
   const fields = await discoverFields(root, GREENHOUSE_FORM_SELECTORS);
   ctx.onEvent("discovered", `Found ${fields.length} fields in the embedded form`, { fields: fields.map((f) => ({ label: f.label, kind: f.kind, required: f.required, widget: f.widget })) });
   if (!fields.length) return { status: "failed", formUrl: page.url(), fields: [], files: [], pending: [], error: "No application form fields found", durationMs: Date.now() - started };
