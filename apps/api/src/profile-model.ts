@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { ATTESTATIONS, type Attestation } from "@norinote/answers";
 import type { profiles } from "@norinote/db";
 import { parseProfileContact, parseProfilePreferences, parseSalaryExpectation, normalizeCountry } from "@norinote/shared";
 
 /**
  * The profile as the web sees it (`Profile` in apps/web/src/lib/types.ts) versus how it is stored (packages/db):
  * contact keys live in `profiles.contact`, work authorisation per country in `profiles.work_auth` (so the match gates read
- * it), and everything the schema has no column for (pronouns, notice period, clearance text, over-18, onboarding progress)
+ * it), and everything the schema has no column for (pronouns, notice period, clearance text, over-18, attestations, onboarding progress)
  * in `profiles.preferences` next to the real preferences.
  */
 
@@ -18,7 +19,7 @@ type Rec = Record<string, unknown>;
 const rec = (v: unknown): Rec => (v && typeof v === "object" && !Array.isArray(v) ? (v as Rec) : {});
 
 /** Keys of `preferences` that are not user-facing preferences. */
-const EXTRA_KEYS = ["onboarding", "inbox", "telegram", "pronouns", "remotePreference", "noticePeriodWeeks", "securityClearance", "over18", "willingToRelocate", "heardAbout"] as const;
+const EXTRA_KEYS = ["onboarding", "inbox", "telegram", "pronouns", "remotePreference", "noticePeriodWeeks", "securityClearance", "over18", "willingToRelocate", "heardAbout", "attestations"] as const;
 
 // ---- input ------------------------------------------------------------------------------------------------------------
 
@@ -46,6 +47,8 @@ export const ProfilePatch = z.object({
   eeo: z.object({ gender: z.string().max(100), race: z.string().max(100), veteran: z.string().max(100), disability: z.string().max(100) }).partial().optional(),
   securityClearance: text(100),
   over18: z.boolean().nullable().optional(),
+  /** The person's answer per kind of attestation; null forgets it (Nori asks again). */
+  attestations: z.object(Object.fromEntries(ATTESTATIONS.map((k) => [k, z.boolean().nullable()])) as Record<Attestation, z.ZodNullable<z.ZodBoolean>>).partial().optional(),
   autoApplyDailyCap: z.number().int().min(0).max(100).optional(),
   preferences: z.object({
     titles: list.optional(), locations: list.optional(), remote: z.enum(["only", "ok", "no"]).optional(),
@@ -117,6 +120,7 @@ export function toProfile(row: ProfileRow, accountEmail: string) {
     eeo: rec(row.eeo),
     securityClearance: typeof prefs.securityClearance === "string" ? prefs.securityClearance : null,
     over18: typeof prefs.over18 === "boolean" ? prefs.over18 : null,
+    attestations: Object.fromEntries(ATTESTATIONS.map((k) => [k, typeof rec(prefs.attestations)[k] === "boolean" ? rec(prefs.attestations)[k] as boolean : null])) as Record<Attestation, boolean | null>,
     onboarding: readOnboarding(row),
   };
 }
@@ -162,6 +166,11 @@ export function buildUpdate(current: ProfileRow, patch: ProfilePatch): ProfileUp
   if (patch.noticePeriodWeeks !== undefined) setPref("noticePeriodWeeks", patch.noticePeriodWeeks);
   if (patch.securityClearance !== undefined) setPref("securityClearance", patch.securityClearance);
   if (patch.over18 !== undefined) setPref("over18", patch.over18);
+  if (patch.attestations) {
+    const merged: Rec = { ...rec(prefs.attestations) };
+    for (const [k, v] of Object.entries(patch.attestations)) if (v === null) delete merged[k]; else if (v !== undefined) merged[k] = v;
+    setPref("attestations", Object.keys(merged).length ? merged : null);
+  }
   if (patch.preferences) for (const [k, v] of Object.entries(patch.preferences)) if (v !== undefined) { prefsTouched = true; prefs[k] = v; }
   // One skip list: saving excludeCompanies retires the older copy in Nori's settings.
   if (patch.preferences?.excludeCompanies !== undefined && prefs.nori && typeof prefs.nori === "object") {
