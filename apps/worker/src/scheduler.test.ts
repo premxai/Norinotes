@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { companies, eq, jobs, lanes, users } from "@norinote/db";
+import { boardCandidates, companies, eq, jobs, lanes, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { BrowserPool } from "@norinote/apply";
 import { CONNECTORS } from "@norinote/ingest";
@@ -169,5 +169,33 @@ describe("scheduler", () => {
     for (let i = 0; i < 200 && done() < 5; i++) await new Promise((r) => setTimeout(r, 100));
     expect(retries.length).toBeGreaterThanOrEqual(3);
     expect(retries.filter(Boolean)).toHaveLength(1);
+  });
+});
+
+describe("board discovery", () => {
+  it("verifies due candidates within the engine scope, promotes the good ones and logs the outcomes", async () => {
+    await reset();
+    await t.db.delete(boardCandidates);
+    await t.db.insert(boardCandidates).values([
+      { atsType: "greenhouse", atsToken: "strong", name: "Strong", sources: ["seed:open-jobs"] },
+      { atsType: "greenhouse", atsToken: "weak", name: "Weak", sources: ["seed:open-jobs"] },
+      { atsType: "lever", atsToken: "elsewhere", name: "Elsewhere", sources: ["seed:open-jobs"] },
+    ]);
+    const lines: Array<Record<string, unknown>> = [];
+    await start(new MemoryQueue(), { engineAts: ["greenhouse"] }, greenhouseFetch({
+      strong: ["Machine Learning Engineer", "Senior Product Manager"], weak: ["Account Executive"],
+    }), { log: createLogger((l) => lines.push(JSON.parse(l)), () => NOW) });
+    expect(await worker!.consumers.verifyDiscoveredBoards()).toBe(1);
+    const rows = await t.db.select().from(boardCandidates);
+    expect(Object.fromEntries(rows.map((r) => [r.atsToken, r.status]))).toEqual({ strong: "promoted", weak: "low_value", elsewhere: "new" });
+    expect(rows.find((r) => r.atsToken === "strong")!.targetJobs).toEqual({ ai_ml: 1, product: 1 });
+    const [company] = await t.db.select().from(companies).where(eq(companies.atsToken, "strong"));
+    expect(company).toMatchObject({ status: "active", discoveredVia: "seed:open-jobs" });
+    expect(lines.find((l) => l.event === "discovery.verify")).toMatchObject({ ok: true, verified: 2, promoted: 1, low_value: 1 });
+  });
+
+  it("is off unless DISCOVERY_EVERY_MINUTES is set", () => {
+    expect(loadConfig({}).discoveryEveryMs).toBe(0);
+    expect(loadConfig({ DISCOVERY_EVERY_MINUTES: "30", DISCOVERY_BATCH: "10" })).toMatchObject({ discoveryEveryMs: 1_800_000, discoveryBatch: 10 });
   });
 });

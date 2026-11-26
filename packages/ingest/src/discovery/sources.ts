@@ -12,6 +12,7 @@
  * NOT used: Riley-Dorrington/job-board-aggregator (CC BY-NC), lists with no licence, and Common Crawl (its terms).
  *
  * Other sources:
+ * - registry: the curated registry, scored like everything else (the "before" numbers of a discovery run).
  * - user: boards people added (POST /api/companies). They are already in `companies`; listing them here gives them the
  *   same scoring and slow re-verification, and they are never demoted.
  * - aggregator:treg: a paid aggregator (Treg/MobiusEngine). A stub that stays off: no TREG_API_KEY, and Prem has not
@@ -20,6 +21,7 @@
 import type { AtsType } from "@norinote/shared";
 import { boardCandidates, companies, inArray, sql, type Db } from "@norinote/db";
 import { isBlockedBoard, isBlockedCompany } from "../blocklist.js";
+import { BOARD_REGISTRY } from "../board-registry.js";
 import { isSupportedAts } from "../connectors/index.js";
 import { USER_AGENT } from "../http.js";
 import { parseCsv, parseOpenAtsFeed, parseSeedCsv, SEED_CSV_SYSTEMS } from "../seeds.js";
@@ -155,6 +157,16 @@ export const openJobsSource: CandidateSource = {
   },
 };
 
+/** The curated registry (board-registry.ts): listed so its boards are scored like the rest and give the "before" numbers. */
+export const registrySource: CandidateSource = {
+  id: "registry",
+  licence: "our own verified list",
+  disabledReason: always,
+  async list() {
+    return BOARD_REGISTRY.filter((b) => DISCOVERY_ATS.includes(b.atsType)).map((b) => ({ atsType: b.atsType, token: b.token, name: b.name }));
+  },
+};
+
 /** Boards people added through POST /api/companies (`discovered_via` user or url). */
 export const userSource: CandidateSource = {
   id: "user",
@@ -179,7 +191,7 @@ export const tregSource: CandidateSource = {
 
 /** Every source, best first: when two list the same board, the first one is recorded first. */
 export const CANDIDATE_SOURCES: readonly CandidateSource[] = [
-  userSource, openAtsFeedSource, atsDirectorySource, atsCompanySlugsSource, openJobsSource, atsScrapersSource, tregSource,
+  registrySource, userSource, openAtsFeedSource, atsDirectorySource, atsCompanySlugsSource, openJobsSource, atsScrapersSource, tregSource,
 ];
 
 /** A download that sends our User-Agent, waits `gapMs` after each file, and treats 404 as absent. */

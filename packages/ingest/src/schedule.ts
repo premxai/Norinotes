@@ -5,7 +5,8 @@ const DAY = 24 * HOUR;
 
 /** Registry priorities: higher polls first. */
 /** `boost`: a user is waiting on the company (see `companies.boost_until`); it counts only until that time. */
-export const PRIORITY = { registry: 100, seed: 0, empty: -10, boost: 200 } as const;
+/** `discovered`: a board discovery verified and promoted (discovery/verify.ts). */
+export const PRIORITY = { registry: 100, discovered: 50, seed: 0, empty: -10, boost: 200 } as const;
 
 /** A board that answers "not found" keeps its jobs open this long before they close. */
 export const PROBATION_MS = 3 * DAY;

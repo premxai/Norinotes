@@ -47,6 +47,13 @@ export type WorkerConfig = {
   logoDomainsEveryMs: number;
   /** Companies searched per run. Default 500. */
   logoDomainsBatch: number;
+  /**
+   * How often board discovery verifies due candidates (board_candidates) and promotes the good ones, in ms. 0 = off,
+   * the default: the maintainer turns it on (DISCOVERY_EVERY_MINUTES) after loading candidates.
+   */
+  discoveryEveryMs: number;
+  /** Candidates verified per run, one board at a time per feed host. Default 30. */
+  discoveryBatch: number;
   /** How often the AI catch-up runs (see catch-up.ts), in ms. 0 = off. Default 10 minutes. */
   catchUpEveryMs: number;
   /** Where screenshots and resumes go. Unset = the packages' own defaults. */
@@ -85,6 +92,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     logoDomainsEveryMs: int(env.LOGO_DOMAINS_EVERY_MINUTES, 15) * 60_000,
     logoDomainsBatch: int(env.LOGO_DOMAINS_BATCH, 500, 1),
     catchUpEveryMs: int(env.AI_CATCH_UP_EVERY_MINUTES, 10) * 60_000,
+    discoveryEveryMs: int(env.DISCOVERY_EVERY_MINUTES, 0) * 60_000,
+    discoveryBatch: int(env.DISCOVERY_BATCH, 30, 1),
     artifactsDir: env.ARTIFACTS_DIR?.trim() || undefined,
   };
 }

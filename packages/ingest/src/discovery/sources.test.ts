@@ -3,7 +3,7 @@ import { boardCandidates, companies } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import {
   CANDIDATE_SOURCES, loadCandidates, parseAtsCompanySlugs, parseAtsDirectory, parseOpenJobsSlugs, politeDownload, tregSource,
-  type CandidateSource,
+  userSource, type CandidateSource,
 } from "./sources.js";
 
 describe("parseAtsDirectory", () => {
@@ -126,8 +126,7 @@ describe("loadCandidates", () => {
       { name: "Added", atsType: "ashby", atsToken: "added", status: "active", discoveredVia: "user" },
       { name: "Curated", atsType: "ashby", atsToken: "curated", status: "active", discoveredVia: "registry" },
     ]);
-    const [user] = CANDIDATE_SOURCES;
-    await loadCandidates(t.db, [user!], ctx);
+    await loadCandidates(t.db, [userSource], ctx);
     const rows = await t.db.select().from(boardCandidates);
     expect(rows.map((r) => [r.atsToken, r.status, r.sources])).toEqual([["added", "promoted", ["user"]]]);
   });

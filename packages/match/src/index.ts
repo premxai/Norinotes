@@ -39,6 +39,8 @@ export type { LexicalProfile } from "./lexical.js";
 export {
   POOL_DEFAULT_LIMIT, POOL_TTL_MS, ROLE_FAMILIES, SOFTWARE_SUBFAMILIES, adjacentTitles, clearRolePoolCache, mainFamilyOf, roleFamilyOf, rolePool,
 } from "./roles.js";
+export { TARGET_FAMILIES, targetFamilyOf } from "./target-families.js";
+export type { TargetFamily } from "./target-families.js";
 export type { DataSpecialty, DesignSpecialty, PoolJob, RoleClass, RoleFamily, RoleSeniority, RolePoolOptions, SoftwareSubfamily } from "./roles.js";
 export {
   WIDENED_BY, WIDENED_REASON_PREFIX, WIDEN_MIN_FIT, WIDEN_TARGET, deriveTemporaryLane, loadRemoteExcluded, loadTemporaryLane, widenedByOf, widenedReason,
