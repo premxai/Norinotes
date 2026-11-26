@@ -132,7 +132,7 @@ describe("daily shortlist", () => {
     await link(u.id, "7001");
     // No daily summary: later tests tick on the real clock, and an evening summary to this chat would take their messages.
     await saveTelegramSettings(db, u.id, { timezone: "Asia/Kolkata", dailyTime: "09:00", count: 2, quietHours: { enabled: false }, events: { summary: false } });
-    // Posted within 72 hours of every tick below.
+    // Posted within 7 days of every tick below.
     const postedAt = new Date("2026-11-01T12:00:00Z");
     const best = await job({ title: "Staff Engineer", company: "Acme", postedAt });
     const second = await job({ title: "Backend Engineer", company: "Beta", postedAt });
@@ -141,7 +141,7 @@ describe("daily shortlist", () => {
     const closed = await job({ closed: true, postedAt });
     const applied = await job({ postedAt });
     const skipped = await job({ postedAt });
-    const stale = await job({ title: "Stale Role", postedAt: new Date("2026-10-29T12:00:00Z") });
+    const stale = await job({ title: "Stale Role", postedAt: new Date("2026-10-25T12:00:00Z") });
     await db.insert(shortlist).values([
       { userId: u.id, jobId: best.id, fit: 0.86, reasons: ["Six years of TypeScript match the core stack"] },
       { userId: u.id, jobId: second.id, fit: 0.7, reasons: ["Postgres and AWS"] },
@@ -168,7 +168,7 @@ describe("daily shortlist", () => {
     expect(text).toContain("Six years of TypeScript");
     expect(text).not.toContain("Data Engineer");
     expect(text).not.toContain("Wide Role");
-    // Posted more than 72 hours before the tick: never sent, however good the fit.
+    // Posted more than 7 days before the tick: never sent, however good the fit.
     expect(text).not.toContain("Stale Role");
     const kb = msgs[0]!.reply_markup!.inline_keyboard!;
     expect(kb).toHaveLength(2);

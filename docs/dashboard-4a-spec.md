@@ -149,7 +149,7 @@ in the header reads "1 of 3" with previous and next.
   and opens the panel on the first; each still waits for **Send it**; the daily limit meets each there (4c spec section 7).
 - **Not for me:** hides the card at once and shows the toast; `POST /api/shortlist/:jobId/dismiss` is sent when the
   5 s are up (the API has no un-dismiss), and **Undo** within them cancels it.
-- **Posted:** "9 hours ago", "1 day ago". Users only ever see jobs from the last 72 hours; nothing here widens that.
+- **Posted:** "9 hours ago", "1 day ago". Users only ever see jobs from the last 7 days; nothing here widens that.
 
 ## 9. Empty and error states
 

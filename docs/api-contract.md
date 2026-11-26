@@ -56,12 +56,12 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   Greenhouse's own board (embedded forms on a company site are left out). Saved and Applied keep everything. Every fresh
   Greenhouse job is read and embedded, and Recommended is scored from all of them in the person's places (closeness to
   their graph, then evidence), not only titles that fit a role.
-- GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeHours` (1 to 72, default 72; `view=today` is the last 24 hours),
-  `clearance`, `limit`; only jobs posted in the last 72 hours are listed, plus jobs the user added by link (always); returns
+- GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeHours` (1 to 168, default 168, the 7-day window; `view=today` is the last 24 hours),
+  `clearance`, `limit`; only jobs posted in the last 7 days are listed, plus jobs the user added by link (always); returns
   `[{ job, match, applicationStatus?, locations?, locationNames? }]`; `job.companyName` is a non-null string.
   `job.companyLogoUrl` is the company's logo on Brandfetch's CDN, or null (no known domain, or `BRANDFETCH_CLIENT_ID`
   unset). Load it only in an `<img>`; it answers 404 when Brandfetch has no logo, so show the letter tile on error too.
-- GET `/api/jobs/summary` returning `{ open, newToday, fitsLanes, hasLanes }` over the last 72 hours, GET `/api/jobs/:id` returning `{ job, match }`, POST `/api/jobs/url` returning `{ job }` (and saving it for the user, so it always shows in their list).
+- GET `/api/jobs/summary` returning `{ open, newToday, fitsLanes, hasLanes }` over the last 7 days, GET `/api/jobs/:id` returning `{ job, match }`, POST `/api/jobs/url` returning `{ job }` (and saving it for the user, so it always shows in their list).
 - Every `job` also carries what its listing states, else null (never estimated): `pay: { min, max, currency: "USD" |
   "EUR" | "GBP" | "CAD", period: "year" | "month" | "hour" } | null`, `employmentType: "full_time" | "part_time" |
   "contract" | "internship" | "temporary" | null`, `workplace: "remote" | "hybrid" | "onsite" | null`.
@@ -175,7 +175,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
     either changes both. Matching leaves those companies out of the shortlist, Today hides them, batches skip them
     ("Acme, Inc." and "acme" are the same company).
 - POST `/api/nori/batches` with `{ recommended: true, limit? }` (Apply now): the server picks the Recommended jobs itself
-  (new matches at or above the threshold, open, last 72 hours, not applied, not skipped, one per company, best fit
+  (new matches at or above the threshold, open, last 7 days, not applied, not skipped, one per company, best fit
   first, allowed job systems; `limit` 1-50, default 10). 409 when there are none. Same response as below. It never
   takes more jobs than today's limit has room for (`dailyLimit` minus applications approved today, UTC); 429 when there
   is no room. Pressed again within 60 seconds while the batch it started is running (a double click), it starts nothing

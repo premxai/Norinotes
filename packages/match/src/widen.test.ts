@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fakeEmbedding, setProvider } from "@norinote/ai";
-import { eq, profiles, shortlist } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, eq, profiles, shortlist } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { clearRolePoolCache } from "./roles.js";
 import { buildShortlist, clearRequirementVectorCache } from "./shortlist.js";
@@ -27,7 +27,7 @@ const REACT_POSTING = `Requirements: React and TypeScript. ${NEUTRAL_DESCRIPTION
  * A frontend engineer in San Francisco whose lane matches `laneJobs` jobs, plus pools of jobs for each widening step. Every
  * widened job is a plausible frontend job (widening has a fit floor): some have a stored spec, the rest a posting the
  * heuristic spec reads; some have an embedding, the rest are ranked by skill overlap. `stale` jobs fit the lane but were posted more
- * than 72 hours ago: no step ever brings them in.
+ * than 7 days ago: no step ever brings them in.
  */
 async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; stale?: number; pool?: number; remoteExcluded?: boolean; lanes?: boolean }) {
   const co = await seedCompany(t.db, { name: "Index Co" });
@@ -49,7 +49,7 @@ async function seed(o: { laneJobs: number; adjacent?: number; remote?: number; s
     lane: await make(o.laneJobs, (i) => `Frontend Engineer, Lane ${i}`, { spec: SPEC }),
     adjacent: await make(o.adjacent ?? 0, (i) => `Software Engineer, Adjacent ${i}`),
     remote: await make(o.remote ?? 0, (i) => `Frontend Engineer, Remote ${i}`, { location: "Remote - US", remote: true }),
-    stale: await make(o.stale ?? 0, (i) => `Frontend Engineer, Stale ${i}`, (i) => ({ postedAt: hoursAgo(73 + i), firstSeenAt: hoursAgo(73 + i) })),
+    stale: await make(o.stale ?? 0, (i) => `Frontend Engineer, Stale ${i}`, (i) => ({ postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 1 + i), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 1 + i) })),
     // Same family (software), not one of the adjacent titles: only the role pool brings these in.
     pool: await make(o.pool ?? 0, (i) => `React Developer, Pool ${i}`),
   };

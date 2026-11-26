@@ -21,7 +21,7 @@ export async function seedUser(db: Db, opts: { workAuth?: Record<string, unknown
 
 /**
  * A company whose board was first read 30 days ago (`firstReadAt`), so an undated job first seen since then counts as
- * fresh within 72 hours of its first sighting. Pass `firstReadAt: null` for a board never read.
+ * fresh within MAX_JOB_AGE_HOURS of its first sighting. Pass `firstReadAt: null` for a board never read.
  */
 export async function seedCompany(db: Db, opts: { name?: string; blocked?: boolean; firstReadAt?: Date | null } = {}): Promise<string> {
   const [c] = await db.insert(companies).values({

@@ -39,7 +39,7 @@ export type UpsertResult = {
 export type UpsertOptions = {
   /**
    * Store the description whatever the job's age. Default false: a job that is not fresh when written (posted more than
-   * 72 hours ago, or undated and listed on the board's first read; see `isFreshJob`) is stored without its description,
+   * 7 days ago (`MAX_JOB_AGE_HOURS`), or undated and listed on the board's first read; see `isFreshJob`) is stored without its description,
    * and a known one keeps the text it has. A pasted link sets this, so an older job gets (or gets back) its text.
    */
   keepText?: boolean;
@@ -52,7 +52,7 @@ export type UpsertOptions = {
  *
  * Every row records whether it is a US job (`us`, from its location); a job outside the US is never fresh.
  *
- * Only fresh jobs carry their description (unless `opts.keepText`): users are shown nothing older than 72 hours, and
+ * Only fresh jobs carry their description (unless `opts.keepText`): users are shown nothing older than 7 days, and
  * the text is almost all of a job's size. A job that is not fresh is written with an empty description, and since an
  * empty incoming description never overwrites a stored one, later reads neither refill nor wipe it.
  */

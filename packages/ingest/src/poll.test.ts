@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { and, companies, eq, freshJobSql, jobs } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, and, companies, eq, freshJobSql, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import ghBoard from "./__fixtures__/greenhouse-board.json";
 import { json, noSleep, routeFetch } from "./__fixtures__/helpers.js";
@@ -483,12 +483,12 @@ describe("pollBoard: US jobs only", () => {
 });
 
 describe("pollBoard: only fresh jobs keep their description", () => {
-  const old = new Date(t1.getTime() - 100 * HOUR);
+  const old = new Date(t1.getTime() - (MAX_JOB_AGE_HOURS + 28) * HOUR);
   const fresh = new Date(t1.getTime() - 2 * HOUR);
   const texts = async () => Object.fromEntries((await allJobs()).map((r) => [r.externalId, r.descriptionText]));
   const read = (list: NormalizedJob[], now: Date) => withConnector("greenhouse", serving(() => ({ jobs: list, complete: true })), () => pollBoard(t.db, board, { now }));
 
-  it("stores a job posted more than 72 hours ago, or undated on the board's first read, without its description", async () => {
+  it("stores a job posted more than 7 days ago, or undated on the board's first read, without its description", async () => {
     const res = await read([feedJob("old", { postedAt: old }), feedJob("new", { postedAt: fresh }), feedJob("undated")], t1);
     expect(res).toMatchObject({ added: 3, trimmed: 2 });
     expect(await texts()).toEqual({ new: "text", old: "", undated: "" });

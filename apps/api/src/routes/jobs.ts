@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, companies, desc, eq, jobBookmarks, jobSpecs, jobs, savedJobs, shortlist } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, and, companies, desc, eq, jobBookmarks, jobSpecs, jobs, savedJobs, shortlist } from "@norinote/db";
 import { BlockedSourceError, JobNotFoundError, UnsafeUrlError, UnsupportedJobUrlError, addJobByUrl } from "@norinote/ingest";
 import { loadCurrentSpec } from "@norinote/match";
 import { JOBS } from "@norinote/queue";
@@ -20,8 +20,8 @@ const Query = z.object({
   sort: z.enum(["best", "new"]).optional(),
   lanes: z.enum(["true", "false", "1", "0"]).optional(),
   group: flag(true),
-  /** Posted within this many hours: 1 to 72 (nothing older than 72 hours is ever listed). */
-  maxAgeHours: int(1, 72).default(72),
+  /** Posted within this many hours: 1 to MAX_JOB_AGE_HOURS (nothing older than 7 days is ever listed). */
+  maxAgeHours: int(1, MAX_JOB_AGE_HOURS).default(MAX_JOB_AGE_HOURS),
   clearance: z.enum(["hide", "show"]).default("show"),
   limit: int(1, 200).default(50),
   q: z.string().trim().max(100).optional(),

@@ -460,7 +460,7 @@ cap). If the search was widened: "Showing similar roles while Nori looks for mor
 the right.
 
 **A job card:**
-- Title, company and location (or Remote), how long ago it was posted (always under 72 hours), and the fit score in
+- Title, company and location (or Remote), how long ago it was posted (always under 7 days), and the fit score in
   Geist Mono.
 - The two strongest reasons in a line each ("Led a design system, like this role asks").
 - **Apply** (primary) and **Not for me** (a quiet text button that dismisses it, with **Undo** for 5 seconds).

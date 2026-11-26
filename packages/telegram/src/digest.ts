@@ -25,7 +25,7 @@ const roleKey = (company: string, title: string) => `${company.toLowerCase().tri
 const RESEND_AFTER_DAYS = 60;
 
 /**
- * The top `count` new shortlist rows for the daily message: status new, job open and posted in the last 72 hours, company
+ * The top `count` new shortlist rows for the daily message: status new, job open and posted in the last 7 days, company
  * not blocked, no application yet, never sent in an earlier daily message. Same order as the web shortlist (lane matches before widened rows, then best fit),
  * and one entry per company and role.
  */

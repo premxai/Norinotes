@@ -96,7 +96,7 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
 
 ## Matching (packages/match)
 
-1. SQL filter: open, posted within 72 hours (undated jobs only if they appeared after the board's first read), fits an enabled lane (title, location, remote), not blocked, gates pass.
+1. SQL filter: open, posted within 7 days (`MAX_JOB_AGE_HOURS`) (undated jobs only if they appeared after the board's first read), fits an enabled lane (title, location, remote), not blocked, gates pass.
 2. Vector rank: cosine similarity between the user's profile embedding (mean of top career points) and `job_embeddings`, top about 200.
 3. Detailed fit: requirement by requirement against career points (exact skill match, embedding similarity, graph links), weighted by the spec; must-haves cap the score.
    Then scaled by function alignment (title and role family against the lanes and recent roles), seniority against the user's

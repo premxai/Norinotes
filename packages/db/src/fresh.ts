@@ -1,8 +1,8 @@
 import { sql, type SQL } from "drizzle-orm";
 import { companies, jobs } from "./schema.js";
 
-/** The oldest job anyone is shown or matched: posted in the last 72 hours. */
-export const MAX_JOB_AGE_HOURS = 72;
+/** The oldest job anyone is shown or matched: posted in the last 7 days. The one place the window is set. */
+export const MAX_JOB_AGE_HOURS = 7 * 24;
 const HOUR_MS = 3_600_000;
 
 /**

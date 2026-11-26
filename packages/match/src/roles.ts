@@ -255,7 +255,7 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * The freshest open jobs of one role family in one place, from the shared index: open, company not blocked, posted (else
- * posted within 72 hours (see `freshJobSql`), newest day first, then jobs a model has read before jobs it has not. Pools are cached per
+ * posted within 7 days (see `freshJobSql`), newest day first, then jobs a model has read before jobs it has not. Pools are cached per
  * process for an hour, keyed by family, metro and remote; a call that asks for more rows than the cached pool holds refreshes it.
  */
 export async function rolePool(db: Db, opts: RolePoolOptions): Promise<PoolJob[]> {
