@@ -16,6 +16,7 @@ import {
 } from "@norinote/db";
 import { INBOX_OUTCOME_KINDS } from "@norinote/shared";
 import { roleFamilyOf } from "./roles.js";
+import { skipPenaltyOf } from "./skip-feedback.js";
 
 export const OUTCOME_KINDS = ["reply", "interview", "rejection", "offer"] as const;
 export type OutcomeKind = (typeof OUTCOME_KINDS)[number];
@@ -212,9 +213,9 @@ export function outcomeNudgeOf(reasons: readonly string[] | null | undefined): n
   return 0;
 }
 
-/** A shortlist row's fit without its outcome nudge, as the gates and the lane minimum saw it. */
+/** A shortlist row's fit without its outcome nudge and skip penalty, as the gates and the lane minimum saw it. */
 export function rawFitOf(fit: number, reasons: readonly string[] | null | undefined): number {
-  return Math.round((fit - outcomeNudgeOf(reasons)) * 1000) / 1000;
+  return Math.round((fit - outcomeNudgeOf(reasons) - skipPenaltyOf(reasons)) * 1000) / 1000;
 }
 
 // ---- history ------------------------------------------------------------------------------------------------------------

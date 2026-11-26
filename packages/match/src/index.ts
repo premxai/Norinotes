@@ -60,3 +60,7 @@ export {
   OUTCOME_DIMENSIONS, OUTCOME_LEARNING, applyOutcomeLearning, jobFeatures, learnFromOutcomes, loadOutcomeLearning, outcomeNudge, refreshOutcomeLearning,
 } from "./outcome-learning.js";
 export type { JobFeatures, OutcomeDimension, OutcomeLearning, OutcomeNudge } from "./outcome-learning.js";
+export {
+  MATCHER_SKIP_REASONS, SKIP_FEEDBACK, SKIP_REASON_PREFIX, applySkipFeedback, clearSkipEffect, loadSkipEffects, skipEffectsOf, skipPenalty, skipPenaltyOf,
+} from "./skip-feedback.js";
+export type { SkipEffect, SkipEffectKind, SkipJob, SkipSignal } from "./skip-feedback.js";

@@ -19,6 +19,7 @@ import { warnSwallowed } from "./log.js";
 import { applyOutcomeLearning } from "./outcome-learning.js";
 import { rawFitOf } from "./outcomes.js";
 import { placeFactor } from "./location.js";
+import { applySkipFeedback } from "./skip-feedback.js";
 import { loadMatchProfile, type MatchProfile } from "./profile.js";
 import { rolePool } from "./roles.js";
 import { DEFAULT_SKILL_MAP, type SkillMap } from "./skills.js";
@@ -372,6 +373,12 @@ async function scoreCandidates(db: Db, profile: MatchProfile, candidates: Candid
   }
   // Outcome learning (outcome-learning.ts): a capped per-user nudge from the user's replies, after the gates and the lane minimum.
   await applyOutcomeLearning(db, profile.userId, out.scored, (jobId) => specs.get(jobId)?.spec.seniority, opts.now);
+  // Skip feedback (skip-feedback.ts): a capped per-user penalty from the reasons the user gave for repeated skips, also after them.
+  const byId = new Map(passed.map((c) => [c.jobId, c]));
+  await applySkipFeedback(db, profile.userId, out.scored, (jobId) => {
+    const c = byId.get(jobId);
+    return c && { title: c.title, seniority: specs.get(jobId)?.spec.seniority, location: c.location, remote: c.remote };
+  }, opts.now);
   out.scored.sort(byRank);
   return out;
 }

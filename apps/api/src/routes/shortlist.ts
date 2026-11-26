@@ -1,10 +1,13 @@
 import { Hono } from "hono";
 import { and, applications, careerPoints, companies, desc, eq, freshJobSql, inArray, isNull, jobs, profiles, shortlist, sql } from "@norinote/db";
-import { companyKey, isSkippedCompany, readSkipCompanies } from "@norinote/shared";
-import { WIDENED_BY, shortlistReading, widenedByOf, withoutWidenedReasons, type WidenedBy } from "@norinote/match";
+import { z } from "zod";
+import { SkipReason, companyKey, isSkippedCompany, readSkipCompanies } from "@norinote/shared";
+import {
+  MATCHER_SKIP_REASONS, WIDENED_BY, clearSkipEffect, loadSkipEffects, shortlistReading, widenedByOf, withoutWidenedReasons, type WidenedBy,
+} from "@norinote/match";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
-import { intParam, notFound, uuidParam } from "../http.js";
+import { intParam, notFound, parseBody, uuidParam } from "../http.js";
 import { brandfetchLogo, companyLogoDomain } from "../serialize.js";
 import { enqueueSoft, type AppEnv, type Ctx } from "../types.js";
 
@@ -95,17 +98,40 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   }
 
   r.post("/:jobId/dismiss", auth, async (c) => {
-    await dismissShortlistJob(ctx, c.get("user").id, uuidParam(c, "jobId"));
+    const jobId = uuidParam(c, "jobId");
+    const { reason } = await parseBody(c, Dismiss);
+    return c.json({ ok: true, ...await dismissShortlistJob(ctx, c.get("user").id, jobId, reason ?? null) });
+  });
+
+  /** What the person's skip reasons currently change in their matches (see skip-feedback.ts in @norinote/match). */
+  r.get("/skip-effects", auth, async (c) => {
+    const effects = await loadSkipEffects(db, c.get("user").id, ctx.now());
+    return c.json(effects.map(({ id, kind, reason, label, skips, delta }) => ({ id, kind, reason, label, skips, delta })));
+  });
+
+  /** Undo one effect: the skips behind it stop counting, and the shortlist is matched again. */
+  r.delete("/skip-effects/:id", auth, async (c) => {
+    const userId = c.get("user").id;
+    if (!await clearSkipEffect(db, userId, c.req.param("id"), ctx.now())) throw notFound("That effect is not active");
+    await enqueueSoft(ctx, JOBS.matchUser, { userId, reason: "profile" });
     return c.json({ ok: true });
   });
 
   return r;
 }
 
-/** Skip a job (the web's dismiss, or Telegram's Skip). Its postings in other cities go too. 404 when it is not on the list. */
-export async function dismissShortlistJob(ctx: Ctx, userId: string, jobId: string): Promise<void> {
+const Dismiss = z.object({ reason: SkipReason.nullable().optional() });
+
+/**
+ * Skip a job (the web's dismiss, or Telegram's Skip), with an optional reason. Its postings in other cities go too. 404
+ * when it is not on the list. A reason given for a job already skipped is recorded on it (a second step after Skip).
+ * "Company I don't want" adds the company to the skip list; a reason that feeds the matcher queues a new match when it
+ * makes an effect active, so the list reflects it.
+ */
+export async function dismissShortlistJob(ctx: Ctx, userId: string, jobId: string, reason: SkipReason | null = null): Promise<{ reason: SkipReason | null; addedToSkipList: boolean }> {
   const { db } = ctx;
-  const done = await db.update(shortlist).set({ status: "dismissed" })
+  const now = ctx.now();
+  const done = await db.update(shortlist).set({ status: "dismissed", dismissedAt: now, skipReason: reason })
     .where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId), eq(shortlist.status, "new"))).returning({ id: shortlist.id });
   if (done.length > 0) {
     // Dismissing a role dismisses its postings in other cities too, so the same role does not come straight back.
@@ -114,16 +140,37 @@ export async function dismissShortlistJob(ctx: Ctx, userId: string, jobId: strin
       const siblings = await db.select({ id: jobs.id, title: jobs.title }).from(jobs).where(and(eq(jobs.companyId, job.companyId), isNull(jobs.closedAt)));
       const ids = siblings.filter((s) => s.id !== jobId && normTitle(s.title) === normTitle(job.title)).map((s) => s.id);
       if (ids.length) {
-        await db.update(shortlist).set({ status: "dismissed" })
+        await db.update(shortlist).set({ status: "dismissed", dismissedAt: now })
           .where(and(eq(shortlist.userId, userId), eq(shortlist.status, "new"), inArray(shortlist.jobId, ids)));
       }
     }
-  }
-  if (done.length === 0) {
-    // Already dismissed or applied: nothing to do. Not on the list at all: 404.
-    const [row] = await db.select({ id: shortlist.id }).from(shortlist).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId))).limit(1);
+  } else {
+    // Not on the list at all: 404. Applied: nothing to do. Already dismissed: record the reason, if one came.
+    const [row] = await db.select({ id: shortlist.id, status: shortlist.status, dismissedAt: shortlist.dismissedAt }).from(shortlist)
+      .where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId))).limit(1);
     if (!row) throw notFound("That job is not on your shortlist");
+    if (row.status !== "dismissed" || !reason) return { reason: null, addedToSkipList: false };
+    await db.update(shortlist).set({ skipReason: reason, dismissedAt: row.dismissedAt ?? now }).where(eq(shortlist.id, row.id));
   }
+  if (!reason) return { reason: null, addedToSkipList: false };
+  const addedToSkipList = reason === "company" && await addSkipCompany(ctx, userId, jobId);
+  if ((MATCHER_SKIP_REASONS as readonly SkipReason[]).includes(reason) && (await loadSkipEffects(db, userId, now)).some((e) => e.reason === reason)) {
+    await enqueueSoft(ctx, JOBS.matchUser, { userId, reason: "profile" }, { dedupeKey: `skip-feedback:${userId}`, dedupeSeconds: 60 });
+  }
+  return { reason, addedToSkipList };
+}
+
+/** Adds the job's company to the one skip list (`preferences.excludeCompanies`). False when it was already there. */
+async function addSkipCompany(ctx: Ctx, userId: string, jobId: string): Promise<boolean> {
+  const { db } = ctx;
+  const [job] = await db.select({ name: companies.name }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, jobId)).limit(1);
+  const [p] = await db.select({ preferences: profiles.preferences }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  const current = readSkipCompanies(p?.preferences);
+  if (!job?.name || !companyKey(job.name) || current.some((n) => companyKey(n) === companyKey(job.name))) return false;
+  await db.update(profiles)
+    .set({ preferences: sql`jsonb_set(coalesce(${profiles.preferences}, '{}'::jsonb), '{excludeCompanies}', ${JSON.stringify([...current, job.name])}::jsonb, true)` })
+    .where(eq(profiles.userId, userId));
+  return true;
 }
 
 const WIDENED_LIKE = "widened:%";
