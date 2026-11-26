@@ -77,7 +77,9 @@ export {
   atsCompanySlugsSource, atsDirectorySource, atsScrapersSource, CANDIDATE_SOURCES, DISCOVERY_ATS, loadCandidates, openAtsFeedSource,
   openJobsSource, parseAtsCompanySlugs, parseAtsDirectory, parseOpenJobsSlugs, politeDownload, registrySource, tregSource, userSource,
 } from "./discovery/sources.js";
-export { FAILS_TO_PARK, PROMOTE_BAR, REVERIFY_MS, scoreJobs, verifyCandidates } from "./discovery/verify.js";
+export {
+  BOARD_TIMEOUT_MS, BoardTimeoutError, FAILS_TO_PARK, PROMOTE_BAR, REVERIFY_MS, scoreJobs, verifyCandidates,
+} from "./discovery/verify.js";
 export type { BoardScore, TargetClassifier, VerifiedBoard, VerifyOptions, VerifyOutcome } from "./discovery/verify.js";
 export type { CandidateBoard, CandidateSource, Download, SourceContext, SourceLoad } from "./discovery/sources.js";
 

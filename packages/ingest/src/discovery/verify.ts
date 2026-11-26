@@ -62,7 +62,29 @@ export function scoreJobs(jobs: readonly NormalizedJob[], now: Date, classify: T
   return { openJobs: jobs.length, freshUsJobs, targetJobs, score: Object.values(targetJobs).reduce((a, b) => a + b, 0) };
 }
 
-export type VerifyOutcome = BoardCandidateStatus | "rate_limited" | "retry";
+export type VerifyOutcome = BoardCandidateStatus | "rate_limited" | "retry" | "timeout";
+
+/** A board whose feed does not answer within `boardTimeoutMs` is given up on for this run and counted as a failure. */
+export const BOARD_TIMEOUT_MS = 120_000;
+
+/** The board's feed took too long: the read is abandoned (its requests still time out on their own). */
+export class BoardTimeoutError extends Error {
+  constructor(readonly ms: number) {
+    super(`no answer from the board's feed in ${Math.round(ms / 1000)} s`);
+    this.name = "BoardTimeoutError";
+  }
+}
+
+/** `p`, or a rejection with `BoardTimeoutError` after `ms`. The timer is cleared either way, so nothing keeps the process alive. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  if (!(ms > 0)) return p;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new BoardTimeoutError(ms)), ms);
+    timer.unref?.();
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+}
 
 export type VerifiedBoard = { id: string; atsType: AtsType; token: string; name: string; outcome: VerifyOutcome; score: BoardScore | null; reason: string | null };
 
@@ -82,6 +104,8 @@ export type VerifyOptions = {
   fetch?: typeof fetch;
   /** Other request knobs (tests). */
   http?: Omit<HttpOptions, "fetch">;
+  /** Longest one board's read may take before it is abandoned as a failure. Default BOARD_TIMEOUT_MS; 0 = no limit. */
+  boardTimeoutMs?: number;
   /** Replaces the gap's sleep (tests). */
   sleep?: (ms: number) => Promise<void>;
   /** Called after each board (progress for a long local run). */
@@ -132,7 +156,10 @@ async function verifyOne(db: Db, row: Row, opts: VerifyOptions, minScore: number
 
   let jobs: NormalizedJob[];
   try {
-    const read = toListResult(await getConnector(row.atsType).listJobs(row.atsToken, { ...opts.http, fetch: opts.fetch }));
+    const read = toListResult(await withTimeout(
+      getConnector(row.atsType).listJobs(row.atsToken, { ...opts.http, fetch: opts.fetch }),
+      opts.boardTimeoutMs ?? BOARD_TIMEOUT_MS,
+    ));
     if (read.notFound) return done("dead", "board not found");
     jobs = read.jobs;
   } catch (err) {
@@ -143,12 +170,13 @@ async function verifyOne(db: Db, row: Row, opts: VerifyOptions, minScore: number
       await db.update(boardCandidates).set({ nextVerifyAt: later(3_600_000) }).where(eq(boardCandidates.id, row.id));
       return { id: row.id, atsType: row.atsType, token: row.atsToken, name: row.name, outcome: "rate_limited", score: null, reason };
     }
+    const timedOut = err instanceof BoardTimeoutError;
     const streak = row.errorStreak + 1;
     const parked = streak >= FAILS_TO_PARK;
     await db.update(boardCandidates).set({
       status: parked ? "failing" : row.status, statusReason: reason, errorStreak: streak, nextVerifyAt: later(parked ? REVERIFY_MS.failing : DAY),
     }).where(eq(boardCandidates.id, row.id));
-    return { id: row.id, atsType: row.atsType, token: row.atsToken, name: row.name, outcome: parked ? "failing" : "retry", score: null, reason };
+    return { id: row.id, atsType: row.atsType, token: row.atsToken, name: row.name, outcome: timedOut ? "timeout" : parked ? "failing" : "retry", score: null, reason };
   }
 
   const score = scoreJobs(jobs, now, opts.classify);

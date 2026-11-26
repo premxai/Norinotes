@@ -140,4 +140,16 @@ describe("verifyCandidates", () => {
     expect(most).toBe(1);
     expect(gaps).toEqual([1234, 1234]);
   });
+  it("gives up on a board whose feed never answers, and carries on with the next one", async () => {
+    await add("hangs");
+    await add("quick");
+    const fetch = withRobots(routeFetch({
+      "https://boards-api.greenhouse.io/v1/boards/hangs/": () => new Promise<Response>(() => { /* never answers */ }),
+      "https://boards-api.greenhouse.io/v1/boards/quick/": () => gh([{ title: "Software Engineer", posted: daysAgo(1) }, { title: "Product Manager", posted: daysAgo(1) }]),
+    }));
+    const done = await verifyCandidates(t.db, { ...base, fetch, boardTimeoutMs: 50 });
+    expect(Object.fromEntries(done.map((d) => [d.token, d.outcome]))).toEqual({ hangs: "timeout", quick: "promoted" });
+    expect(done.find((d) => d.token === "hangs")!.reason).toMatch(/no answer from the board's feed in/);
+    expect(await row("hangs")).toMatchObject({ status: "new", errorStreak: 1, nextVerifyAt: daysAgo(-1) });
+  });
 });
