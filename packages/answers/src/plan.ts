@@ -19,7 +19,7 @@ import type { Db } from "@norinote/db";
 import type { CareerPoint, PendingQuestion } from "@norinote/shared";
 import { fitAnswer, loadContext, pickBankAnswer } from "./answers.js";
 import { DEFAULT_MATCH_THRESHOLD, findSimilar, loadBank, markUsed, saveAnswer, type BankRow } from "./bank.js";
-import { candidatePrefix, NEVER_DRAFT, PROSE } from "./draft.js";
+import { candidatePrefix, isAiTrap, NEVER_DRAFT, PROSE } from "./draft.js";
 import { careerFacts, classifySlot, EEO_SLOTS, LEGAL_SLOTS, SLOTS, slotValue, type Slot, type SlotField } from "./slots.js";
 import { findTerms, mentionsSkill } from "@norinote/tailor/terms";
 import { contentTokens, distinctiveTokens, matchOption, MULTI_SEPARATOR, normalizeQuestion } from "./text.js";
@@ -267,6 +267,8 @@ export async function planForm(db: Db, input: PlanFormInput): Promise<FormPlan> 
       const fitted = f.type === "file" ? given : isChoice(f) && f.options.length ? fitAnswer(toPending(f), given) : given.trim();
       if (fitted) { set(f, slot, { status: "ready", value: fitted, source: "answers" }); continue; }
     }
+    // Before any rule, bank or model: a question with instructions aimed at AI tools is the person's alone.
+    if (isAiTrap(f.label, f.description, f.placeholder)) { unresolved(f, slot, "This question has instructions aimed at AI tools, so only you should answer it"); continue; }
     if (slot !== "custom") {
       const v = slotValue(slot, f, ctx.facts, career, { jobCountry: ctx.job.country });
       if (v.status === "ready") set(f, slot, { status: "ready", value: v.value, source: v.source });

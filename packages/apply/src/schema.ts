@@ -5,7 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import type { FieldType, SlotField } from "@norinote/answers";
-import { getJson } from "@norinote/ingest";
+import { getJson, htmlToText } from "@norinote/ingest";
 import type { DiscoveredField } from "./form.js";
 import { parseHttpUrl } from "./drivers/util.js";
 
@@ -100,9 +100,11 @@ export function greenhouseSchemaFromJson(json: GreenhouseJobJson, token: string,
       if (f.type === "input_hidden" || /_text$/.test(f.name) && q.fields.some((g) => g.type === "input_file")) continue;
       const type = GH_TYPES[f.type] ?? "text";
       const options = (f.values ?? []).map((v) => clean(v.label));
+      // Hidden text stays in: an instruction aimed at AI tools is often styled out of sight.
+      const description = q.description ? htmlToText(q.description).trim() : "";
       fields.push({
         key: f.name, name: f.name, id: f.name, label: clean(q.label), type: type === "select" && options.length === 0 ? "text" : type,
-        required: q.required, options, section, multiple: f.type === "multi_value_multi_select",
+        required: q.required, options, section, multiple: f.type === "multi_value_multi_select", ...(description ? { description } : {}),
       });
     }
   };
