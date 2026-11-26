@@ -70,7 +70,11 @@ shortlist and to prepared.
      not saved to the answer bank (they are about this posting), and the receipt marks their fields "Nori wrote this". Optional long free text is left blank.
    - **Legal questions** (work authorisation, sponsorship, criminal history, salary, relocation, start date, age,
      consent) come only from the profile, even when the model classified them; otherwise pending. The model never
-     supplies their value.
+     supplies their value. A legal question answers only the fact it asks for: a nearby fact is not that fact, so
+     salary history (current or previous salary) is not the expected salary, past sponsorship is not the answer for
+     the future, a visa or a citizenship question is not the work authorisation, and office attendance (days a week,
+     hybrid, onsite, commuting) is not the willingness to relocate. Those are the person's to answer (`NOT_IN_PROFILE`
+     in packages/answers).
    - **Model picks on choice questions** are the model's word alone, so one is accepted only when its `evidence` is a
      quote from the career points and, for a years or experience question, the skill the question names appears in them
      (`pickProblem`). Otherwise the question goes to the person.
