@@ -53,7 +53,7 @@ describe("resume to career graph", () => {
 });
 
 describe("onboarding steps", () => {
-  it("walks the five steps, then creates the first lane and the inbox address", async () => {
+  it("walks the six steps, then creates the first lane and the inbox address", async () => {
     const { cookie, user } = await api.signup("wizard@example.com");
     const start = await api.call("GET", "/api/onboarding", { cookie });
     expect(start.json.step).toBe("resume");
@@ -77,9 +77,15 @@ describe("onboarding steps", () => {
     expect(auth.json.profile.willingToRelocate).toBe(true);
 
     const screening = await api.call("PUT", "/api/onboarding", { cookie, body: { step: "screening", data: { heardAbout: "a friend", salaryExpectation: { amount: 150000, currency: "USD", period: "year" }, earliestStartDate: "2 weeks", noticePeriodWeeks: 2, over18: true, securityClearance: "none", eeo: { gender: "decline" }, fullName: "ignored here" } } });
-    expect(screening.json.step).toBe("preferences");
+    expect(screening.json.step).toBe("attestations");
     expect(screening.json.profile).toMatchObject({ heardAbout: "a friend", earliestStartDate: "2 weeks", noticePeriodWeeks: 2, over18: true, securityClearance: "none", fullName: "Ada King" });
     expect(screening.json.profile.salaryExpectation).toEqual({ amount: 150000, currency: "USD", period: "year" });
+
+    // Agreements: each kind answered or left for Nori to ask; nothing else is saved from this step.
+    const agree = await api.call("PUT", "/api/onboarding", { cookie, body: { step: "attestations", data: { attestations: { privacy: true, arbitration: false, recording: null }, over18: false } } });
+    expect(agree.json.step).toBe("preferences");
+    expect(agree.json.profile.attestations).toMatchObject({ privacy: true, arbitration: false, recording: null, background_check: null, terms: null });
+    expect(agree.json.profile.over18).toBe(true);
 
     const before = api.queuedOf("match.user").length;
     const done = await api.call("PUT", "/api/onboarding", { cookie, body: { step: "preferences", data: { preferences: { titles: ["Software Engineer"], locations: ["San Francisco, CA"], remote: "ok", salaryMin: 140000 } } } });

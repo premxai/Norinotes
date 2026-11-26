@@ -10,7 +10,7 @@ import { parseProfileContact, parseProfilePreferences, parseSalaryExpectation, n
  * in `profiles.preferences` next to the real preferences.
  */
 
-export const ONBOARDING_STEPS = ["resume", "contact", "authorization", "screening", "preferences"] as const;
+export const ONBOARDING_STEPS = ["resume", "contact", "authorization", "screening", "attestations", "preferences"] as const;
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number];
 export type OnboardingStep = OnboardingStepId | "done";
 
@@ -63,6 +63,7 @@ export const STEP_KEYS: Record<OnboardingStepId, (keyof ProfilePatch)[]> = {
   contact: ["fullName", "email", "phone", "location", "city", "state", "country", "linkedin", "github", "website", "pronouns"],
   authorization: ["workAuth", "willingToRelocate", "remotePreference"],
   screening: ["heardAbout", "salaryExpectation", "earliestStartDate", "noticePeriodWeeks", "eeo", "securityClearance", "over18"],
+  attestations: ["attestations"],
   preferences: ["preferences", "autoApplyDailyCap"],
 };
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/Button";
 import { FormError } from "@/components/auth/fields";
+import { ATTESTATIONS, type Attestation } from "@/lib/api";
 import { STEPS, takeFocusNext, useOnboarding } from "@/lib/onboarding";
 
 /* Onboarding's parts (onboarding spec section 6). Text fields reuse the auth pages' Field. */
@@ -46,7 +47,7 @@ export function StepShell({
           <p className="text-[0.8125rem] font-medium text-ink-2 tabular-nums">
             Step {index + 1} of {STEPS.length} · {STEPS[index]?.name}
           </p>
-          <div role="progressbar" aria-label="Onboarding progress" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={index + 1} className="grid grid-cols-5 gap-1.5">
+          <div role="progressbar" aria-label="Onboarding progress" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={index + 1} className="grid grid-cols-6 gap-1.5">
             {STEPS.map((s, i) => (
               <span key={s.id} className={`h-1.5 rounded-full ${i <= index ? "bg-accent" : "bg-line"}`} />
             ))}
@@ -127,6 +128,58 @@ export function ChoiceGroup<T extends string>({
         </p>
       )}
     </fieldset>
+  );
+}
+
+/** What each kind of attestation agrees to, as the person reads it. */
+export const ATTESTATION_LABELS: Record<Attestation, string> = {
+  privacy: "The company using your personal data to consider your application",
+  demographic_data: "The company keeping your self-identification answers",
+  retention: "Keeping your details on file for future roles",
+  accuracy: "Confirming that what you submit is true and complete",
+  background_check: "A background check, if the company runs one",
+  ai_policy: "The company's AI policy, or AI tools reviewing your application",
+  recording: "Interviews being recorded or transcribed, including by AI notetakers",
+  arbitration: "Settling disputes by arbitration instead of in court",
+  contact: "Being contacted by the company, including about other roles",
+  terms: "The company's terms and conditions",
+};
+
+export type AttestationAnswers = Record<Attestation, "yes" | "no" | null>;
+
+export const attestationAnswers = (saved: Record<Attestation, boolean | null> | undefined) =>
+  Object.fromEntries(ATTESTATIONS.map((k) => [k, saved?.[k] === true ? "yes" : saved?.[k] === false ? "no" : null])) as AttestationAnswers;
+
+/** For `attestations` in a profile save: yes, no, or null (forget it, so Nori asks). */
+export const attestationPatch = (v: AttestationAnswers) => Object.fromEntries(ATTESTATIONS.map((k) => [k, v[k] ? v[k] === "yes" : null]));
+
+/**
+ * One Yes/No per kind of attestation. Nothing is chosen until the person picks, and "Ask me each time" takes an answer
+ * back, so each kind is answered once or left to the person on every form.
+ */
+export function AttestationChoices({ name, value, onChange }: { name: string; value: AttestationAnswers; onChange: (k: Attestation, v: "yes" | "no" | null) => void }) {
+  return (
+    <div className="flex flex-col gap-5">
+      {ATTESTATIONS.map((k) => (
+        <div key={k} className="flex flex-col gap-1">
+          <ChoiceGroup
+            legend={ATTESTATION_LABELS[k]}
+            name={`${name}-${k}`}
+            options={[
+              { value: "yes", label: "I agree" },
+              { value: "no", label: "I don't agree" },
+            ]}
+            value={value[k]}
+            onChange={(v) => onChange(k, v)}
+          />
+          {value[k] && (
+            <button type="button" onClick={() => onChange(k, null)} className="min-h-9 self-start text-small font-medium text-ink-2 underline underline-offset-[3px]">
+              Ask me each time
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

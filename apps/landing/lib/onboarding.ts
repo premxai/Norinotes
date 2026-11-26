@@ -15,12 +15,13 @@ export const STEPS = [
   { id: "contact", api: "contact", name: "Contact", path: "/onboarding/contact" },
   { id: "work", api: "authorization", name: "Work", path: "/onboarding/work" },
   { id: "questions", api: "screening", name: "Questions", path: "/onboarding/questions" },
+  { id: "agreements", api: "attestations", name: "Agreements", path: "/onboarding/agreements" },
   { id: "preferences", api: "preferences", name: "Preferences", path: "/onboarding/preferences" },
 ] as const satisfies readonly { id: string; api: StepId; name: string; path: string }[];
 
 export const DONE_PATH = "/onboarding/done";
 
-/** 0 to 4 for the steps, 5 once onboarding is done. */
+/** 0 to 5 for the steps, 6 once onboarding is done. */
 export const progressIndex = (p: Progress) => (p === "done" ? STEPS.length : STEPS.findIndex((s) => s.api === p));
 
 type State = {
