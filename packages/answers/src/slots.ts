@@ -341,6 +341,10 @@ export function slotValue(slot: Slot, f: SlotField, facts: Facts, career: Career
       return { status: "ready", value: v, source: DECLINE_RE.test(v) ? "decline" : "eeo" };
     }
     case "work_auth": case "sponsorship": case "salary": case "relocation": case "start_date": {
+      // Salary history, past sponsorship, visa details and office attendance are facts the profile does not hold: the
+      // person answers them, whatever slot the label was read as.
+      const notHeld = NOT_IN_PROFILE.find(([re]) => re.test(lc(f.label)))?.[1];
+      if (notHeld) return missing(f, notHeld);
       // The slot may come from a model's reading of an unusual label; the profile rules key on wording, so add the word.
       const hint = { work_auth: "authorized to work", sponsorship: "sponsorship", salary: "salary", relocation: "relocate", start_date: "start date" }[slot];
       // A citizenship question never falls back to the work authorisation answer: being authorised is not being a citizen.
@@ -365,6 +369,18 @@ export function slotValue(slot: Slot, f: SlotField, facts: Facts, career: Career
     case "custom": return { status: "skip", reason: "not a profile slot" };
   }
 }
+
+/**
+ * Legal questions whose fact the profile does not hold, whatever slot the label was read as: the person answers them,
+ * never a rule reaching for a nearby fact. Salary history is not the expected salary, past sponsorship is not the
+ * answer for the future, a visa is not the work authorisation, and office attendance is not the willingness to relocate.
+ */
+const NOT_IN_PROFILE: [RegExp, string][] = [
+  [/\b(current|previous|prior|past|last)\b[^?]{0,30}\b(salary|compensation|pay)\b|\bsalary history\b/, "salary history"],
+  [/\b(ever|previously|in the past|before|used to)\b[^?]{0,40}\bsponsor|\bsponsor\w*\b[^?]{0,30}\b(in the past|previously|before)\b/, "past sponsorship"],
+  [/\bvisa (status|type)\b|\bwhat visa\b|\bvalid visa\b|\bvisa\b[^?]{0,25}\b(hold|have|status|type)\b|h-?1b status/, "visa details"],
+  [/\b(\d+|one|two|three|four|five)\s+days?\s+(a|per|each)\s+week\b|\b(hybrid|onsite|on-site|in[- ]office|in[- ]person)\b|\bcommut\w*|\bwork(ing)? from (the|our|your) office\b/, "answer about being in the office"],
+];
 
 const LEGAL_WHAT: Record<string, string> = {
   work_auth: "work authorisation for this country", sponsorship: "sponsorship answer for this country", salary: "salary expectation",
