@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, channelMessages, channels, eq, shortlist } from "@norinote/db";
+import { applications, channelMessages, channels, eq, runEvents, shortlist } from "@norinote/db";
+import { STRONG_FIT_STEP } from "@norinote/apply";
 import { createBotClient, packId, runTelegramTick, SendQueue, signCallback, webhookSecret, type NotifierDeps } from "@norinote/telegram";
 import { callbackUpdate, fakeBotApi, textUpdate } from "@norinote/telegram/testing";
 import { makeApi, seedJob, seedShortlist, type Api } from "./testkit.js";
@@ -144,6 +145,60 @@ describe("daily shortlist buttons", () => {
     await hook(callbackUpdate(5001, 1, signCallback(api.config.sessionSecret!, s.user.id, "a", [packId(c.job.id)])));
     expect(lastAnswer().text).toMatch(/Applying to Platform Engineer/);
     expect(api.queuedOf("apply.run").length).toBeGreaterThan(0);
+  });
+});
+
+describe("strong fit alert", () => {
+  it("announces a strong fit Nori prepared ahead once, with Apply and Skip; Skip cancels it, Apply sends it", async () => {
+    const s = await linked("tg-strong@example.com", 5101);
+    await api.call("PUT", "/api/channels/telegram", { cookie: s.cookie, body: { quietHours: { enabled: false }, events: { digest: false, summary: false } } });
+    const prepareAhead = async (title: string, company: string) => {
+      const j = await seedJob(api.db, { title, company });
+      await seedShortlist(api.db, s.user.id, j.job.id, 0.91);
+      const [app] = await api.db.insert(applications).values({ userId: s.user.id, jobId: j.job.id, status: "prepared", preparedAt: new Date() }).returning();
+      await api.db.insert(runEvents).values({ applicationId: app!.id, step: STRONG_FIT_STEP, message: "Strong fit" });
+      return { jobId: j.job.id, appId: app!.id };
+    };
+    const skipped = await prepareAhead("Search Engineer", "Kappa");
+    const sent = await prepareAhead("Infra Engineer", "Lambda");
+    // The person's own prepared application is not a strong-fit alert.
+    const own = await seedJob(api.db, { title: "Own Engineer", company: "Mu" });
+    await api.db.insert(applications).values({ userId: s.user.id, jobId: own.job.id, status: "prepared", preparedAt: new Date() });
+
+    fake.clear();
+    await runTelegramTick(notifier());
+    const alerts = fake.sent().filter((m) => m.text.startsWith("<b>Strong fit</b>"));
+    expect(alerts.map((m) => m.text.split("\n")[0])).toEqual(expect.arrayContaining([
+      "<b>Strong fit</b>: Search Engineer at Kappa", "<b>Strong fit</b>: Infra Engineer at Lambda",
+    ]));
+    expect(alerts).toHaveLength(2);
+    expect(alerts[0]!.text).toContain("91% fit");
+    expect(alerts[0]!.reply_markup!.inline_keyboard![0]!.map((b) => b.text)).toEqual(["Apply", "Skip", "Details"]);
+    fake.clear();
+    await runTelegramTick(notifier());
+    expect(fake.sent().filter((m) => m.text.startsWith("<b>Strong fit</b>"))).toHaveLength(0);
+
+    await hook(callbackUpdate(5101, 1, signCallback(api.config.sessionSecret!, s.user.id, "s", [packId(skipped.jobId)])));
+    expect(lastAnswer().text).toBe("Skipped.");
+    expect((await api.db.select().from(applications).where(eq(applications.id, skipped.appId)))[0]).toMatchObject({ status: "failed", error: "Cancelled by you" });
+
+    await hook(callbackUpdate(5101, 2, signCallback(api.config.sessionSecret!, s.user.id, "a", [packId(sent.jobId)])));
+    expect(lastAnswer().text).toMatch(/Applying to Infra Engineer at Lambda/);
+    expect(api.queuedOf("apply.run").some((q) => q.payload.applicationId === sent.appId)).toBe(true);
+  });
+
+  it("waits for quiet hours to end", async () => {
+    const s = await linked("tg-strong-quiet@example.com", 5102);
+    await api.call("PUT", "/api/channels/telegram", { cookie: s.cookie, body: { timezone: "UTC", quietHours: { enabled: true, start: "00:00", end: "23:59" }, events: { digest: false, summary: false } } });
+    const j = await seedJob(api.db, { title: "Quiet Engineer", company: "Nu" });
+    const [app] = await api.db.insert(applications).values({ userId: s.user.id, jobId: j.job.id, status: "prepared", preparedAt: new Date() }).returning();
+    await api.db.insert(runEvents).values({ applicationId: app!.id, step: STRONG_FIT_STEP, message: "Strong fit" });
+    fake.clear();
+    await runTelegramTick(notifier());
+    expect(fake.sent().filter((m) => m.text.includes("Quiet Engineer"))).toHaveLength(0);
+    const [row] = await api.db.select().from(channelMessages).where(eq(channelMessages.dedupeKey, `strong_fit:${app!.id}`));
+    expect(row).toMatchObject({ status: "pending" });
+    expect(row!.notBefore).not.toBeNull();
   });
 });
 

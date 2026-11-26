@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applications, channels, companies, eq, jobs, resumes, shortlist, users } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { saveSchedule, type BrowserPool, type Preparer } from "@norinote/apply";
+import { saveTelegramSettings } from "@norinote/telegram";
 import { MemoryQueue, JOBS } from "@norinote/queue";
 import { loadConfig } from "./config.js";
 import { silentLogger } from "./log.js";
@@ -29,10 +30,11 @@ const preparer: Preparer = {
 };
 
 let n = 0;
-async function person(optIn: "schedule" | "telegram" | "paused" | "none") {
+async function person(optIn: "schedule" | "telegram" | "telegram-alert-off" | "paused" | "none") {
   const [u] = await t.db.insert(users).values({ email: `fast${n++}@example.test`, passwordHash: "x" }).returning();
   if (optIn === "schedule" || optIn === "paused") await saveSchedule(t.db, u!.id, { enabled: true, paused: optIn === "paused" });
-  if (optIn === "telegram") await t.db.insert(channels).values({ userId: u!.id, kind: "telegram", address: `chat${n}` });
+  if (optIn === "telegram" || optIn === "telegram-alert-off") await t.db.insert(channels).values({ userId: u!.id, kind: "telegram", address: `chat${n}` });
+  if (optIn === "telegram-alert-off") await saveTelegramSettings(t.db, u!.id, { events: { strongFit: false } });
   return u!.id;
 }
 async function strongFit(userId: string, fit = 0.9) {
@@ -44,12 +46,15 @@ async function strongFit(userId: string, fit = 0.9) {
 }
 
 describe("fast path: strong fits are prepared right after matching", () => {
-  it("prepares a strong fit at once for a person with the schedule or Telegram on, and for nobody else", async () => {
+  it("prepares a strong fit at once for a person with the schedule or the Telegram alert on, and for nobody else", async () => {
     const queue = new MemoryQueue();
     const worker = await startWorker({ db: t.db, queue, config: { ...loadConfig({}), matchBatchMs: 0, explainTop: 0 }, log: silentLogger, now: () => NOW, scheduler: false, seed: false, pool, preparer });
     try {
-      const people = { schedule: await person("schedule"), telegram: await person("telegram"), paused: await person("paused"), none: await person("none") };
-      const strong = { schedule: await strongFit(people.schedule), telegram: await strongFit(people.telegram), paused: await strongFit(people.paused), none: await strongFit(people.none) };
+      const people = { schedule: await person("schedule"), telegram: await person("telegram"), alertOff: await person("telegram-alert-off"), paused: await person("paused"), none: await person("none") };
+      const strong = {
+        schedule: await strongFit(people.schedule), telegram: await strongFit(people.telegram), alertOff: await strongFit(people.alertOff),
+        paused: await strongFit(people.paused), none: await strongFit(people.none),
+      };
       const plausible = await strongFit(people.schedule, 0.75);
       await queue.enqueue(JOBS.matchNewJobs, { jobIds: [...Object.values(strong), plausible] });
       await queue.drain();
@@ -59,6 +64,7 @@ describe("fast path: strong fits are prepared right after matching", () => {
       const forJob = (jobId: string) => apps.find((a) => a.jobId === jobId);
       expect(forJob(strong.schedule)).toMatchObject({ status: "prepared", approvedAt: null });
       expect(forJob(strong.telegram)).toMatchObject({ status: "prepared", approvedAt: null });
+      expect(forJob(strong.alertOff)).toBeUndefined();
       expect(forJob(strong.paused)).toBeUndefined();
       expect(forJob(strong.none)).toBeUndefined();
       expect(forJob(plausible)).toBeUndefined();

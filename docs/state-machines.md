@@ -46,7 +46,8 @@ Change a machine here first, then in code.
 ## Shortlist (`shortlist.status`)
 
 `new → dismissed | applied`, never back. Creating any application marks the row `applied`, including one Nori creates to
-prepare a new strong fit (0.8+) ahead for a person with the schedule or Telegram on (run event `strong_fit`). A full rebuild re-checks older `new` rows against the person's current roles, gates, skip list and minimum fit, and removes those that fail.
+prepare a new strong fit (0.8+) ahead for a person with the schedule or the Telegram strong-fit alert on (run event
+`strong_fit`). Skip on that alert cancels the application (`failed`, "Cancelled by you"). A full rebuild re-checks older `new` rows against the person's current roles, gates, skip list and minimum fit, and removes those that fail.
 
 ## Telegram outbox (`channel_messages.status`)
 

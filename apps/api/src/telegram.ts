@@ -1,11 +1,11 @@
-import { companies, eq, jobs } from "@norinote/db";
-import { approveBeforePrepared, dailyCapReached } from "@norinote/apply";
+import { and, applications, companies, eq, isNull, jobs } from "@norinote/db";
+import { approveBeforePrepared, dailyCapReached, transitionApplication } from "@norinote/apply";
 import {
   createBotClient, createUpdateHandler, recordApplyIntent, SendQueue, webhookSecret,
   type BotClient, type TelegramActions, type TgUpdate,
 } from "@norinote/telegram";
 import { HttpError } from "./http.js";
-import { answerApplication, approveApplication, ownedApplication, startApplication } from "./routes/applications.js";
+import { answerApplication, approveApplication, CANCELLED, ownedApplication, startApplication } from "./routes/applications.js";
 import { dismissShortlistJob } from "./routes/shortlist.js";
 import type { Ctx } from "./types.js";
 
@@ -70,6 +70,12 @@ export function telegramActions(ctx: Ctx): TelegramActions {
     async skip(userId, jobId) {
       try {
         await dismissShortlistJob(ctx, userId, jobId);
+        // A strong fit Nori prepared ahead: its unsent, unapproved application is cancelled with it (Retry brings it back).
+        const [app] = await ctx.db.select().from(applications)
+          .where(and(eq(applications.userId, userId), eq(applications.jobId, jobId), isNull(applications.approvedAt))).limit(1);
+        if (app && ["queued", "preparing", "prepared"].includes(app.status)) {
+          await transitionApplication(ctx.db, app.id, "failed", { from: app.status, error: CANCELLED, message: "Skipped from Telegram", by: "user" });
+        }
         return { ok: true, message: "Skipped." };
       } catch (err) {
         return { ok: false, message: reason(err) };

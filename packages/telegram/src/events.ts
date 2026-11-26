@@ -1,10 +1,13 @@
-import { and, applications, companies, eq, gte, inArray, inboxMessages, jobs, shortlist, sql, type Db } from "@norinote/db";
+import { and, applications, companies, eq, gte, inArray, inboxMessages, isNull, jobs, runEvents, shortlist, sql, type Db } from "@norinote/db";
+import { STRONG_FIT_STEP } from "@norinote/apply";
 import type { InlineKeyboard } from "./client.js";
+import { jobLink } from "./digest.js";
 import { clip, esc, plural } from "./format.js";
 import type { MessagePayload } from "./outbox.js";
+import { packId, signCallback } from "./signing.js";
 
 /** A message to queue: what `queueMessage` needs besides the user and the settings. */
-export type EventMessage = { kind: "submitted" | "needs_user" | "inbox" | "summary"; dedupeKey: string; applicationId: string | null; payload: MessagePayload; urgent: boolean };
+export type EventMessage = { kind: "submitted" | "needs_user" | "inbox" | "summary" | "strong_fit"; dedupeKey: string; applicationId: string | null; payload: MessagePayload; urgent: boolean };
 
 const appLink = (webUrl: string, id: string) => `${webUrl}/applications/${id}`;
 const button = (text: string, url: string): InlineKeyboard => ({ inline_keyboard: [[{ text, url }]] });
@@ -92,6 +95,37 @@ export async function codeNeededEvents(db: Db, userId: string, since: Date, webU
       keyboard: button("Type the code", appLink(webUrl, app.id)),
     },
   }));
+}
+
+/**
+ * New strong fits Nori prepared ahead (run event `strong_fit`) since `since`, still waiting for the person's OK: one
+ * message each, with Apply (sends it now, within today's limit), Skip and Details. Not urgent, so quiet hours hold it.
+ */
+export async function strongFitEvents(db: Db, userId: string, since: Date, o: { webUrl: string; secret: string }): Promise<EventMessage[]> {
+  const rows = await db.select({ app: applications, title: jobs.title, company: companies.name, location: jobs.location, remote: jobs.remote, fit: shortlist.fit, reasons: shortlist.reasons })
+    .from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId)).innerJoin(companies, eq(companies.id, jobs.companyId))
+    .leftJoin(shortlist, and(eq(shortlist.userId, applications.userId), eq(shortlist.jobId, applications.jobId)))
+    .where(and(
+      eq(applications.userId, userId), eq(applications.status, "prepared"), isNull(applications.approvedAt), gte(applications.preparedAt, since),
+      sql`exists (select 1 from ${runEvents} where ${runEvents.applicationId} = ${applications.id} and ${runEvents.step} = ${STRONG_FIT_STEP})`,
+    )).limit(20);
+  return rows.map(({ app, title, company, location, remote, fit, reasons }) => {
+    const where = [location, remote && !/remote/i.test(location ?? "") ? "Remote" : null].filter(Boolean).join(" · ");
+    const why = (reasons ?? []).find((r) => !r.startsWith("widened:") && r.trim() !== "");
+    const text = [
+      `<b>Strong fit</b>: ${esc(clip(title, 90))} at ${esc(clip(company, 60))}`,
+      [where ? esc(clip(where, 80)) : null, fit != null ? `${Math.round(fit * 100)}% fit` : null].filter(Boolean).join(" · "),
+      ...(why ? [`<i>${esc(clip(why, 160))}</i>`] : []),
+      "Nori has your resume and answers ready. Apply sends it now; early applicants hear back more often.",
+    ].filter((l) => l !== "").join("\n");
+    const id = packId(app.jobId);
+    const keyboard: InlineKeyboard = { inline_keyboard: [[
+      { text: "Apply", callback_data: signCallback(o.secret, userId, "a", [id]) },
+      { text: "Skip", callback_data: signCallback(o.secret, userId, "s", [id]) },
+      { text: "Details", url: jobLink(o.webUrl, app.jobId) },
+    ]] };
+    return { kind: "strong_fit", dedupeKey: `strong_fit:${app.id}`, applicationId: app.id, payload: { text, keyboard }, urgent: false };
+  });
 }
 
 const INBOX_KINDS = ["interview", "recruiter_reply", "offer"] as const;
