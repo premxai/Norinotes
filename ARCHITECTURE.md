@@ -102,6 +102,9 @@ Per-host concurrency and rate limits live in the queue config. Workers are idemp
    Then scaled by function alignment (title and role family against the lanes and recent roles), seniority against the user's
    years in that function, and place; capped for jobs without a description or with only a heuristic spec. Scale: 0.8+ strong,
    0.6 to 0.8 plausible (the default lane minimum is 0.6), 0.45 to 0.6 stretch (the widening floor), under 0.3 irrelevant.
+   0.6 (`DEFAULT_MIN_FIT`) is also the starting threshold: onboarding creates the first lane at it, and the Nori threshold
+   ("Recommended", Apply for me) reads as it until the person saves one. 0.45 is only the shortlist widening floor, never
+   an apply threshold.
    Gates also drop remote jobs limited to countries or regions the user cannot work in. Order: lane matches, then widened
    rows; well-specified jobs first, then fit x confidence plus a small recency bonus.
 4. Model only on the top few: a short "why this fits" line and the fit map used by tailoring.

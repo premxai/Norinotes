@@ -34,7 +34,7 @@ describe("the Nori chat", () => {
 
     // Undo each.
     for (const a of res.json.reply.actions) expect((await api.call("POST", `/api/nori/chat/undo/${a.undoId}`, { cookie })).json.ok).toBe(true);
-    expect((await api.call("GET", "/api/nori/settings", { cookie })).json.settings).toMatchObject({ minFit: 0.7, dailyLimit: 20, skipCompanies: [] });
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json.settings).toMatchObject({ minFit: 0.6, dailyLimit: 20, skipCompanies: [] });
     expect((await api.db.select().from(lanes).where(eq(lanes.userId, user.id))).map((l) => l.name)).toEqual(["AI Engineer"]);
     // Once only, and only your own.
     expect((await api.call("POST", `/api/nori/chat/undo/${res.json.reply.actions[0].undoId}`, { cookie })).json).toEqual({ ok: false, summary: "Already undone" });

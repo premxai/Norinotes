@@ -15,6 +15,7 @@
     "playwright": "^1.56.0",
     "@norinote/answers": "*",
     "@norinote/ingest": "*",
+    "@norinote/match": "*",
     "@norinote/ai": "*"
   }
 }

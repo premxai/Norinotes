@@ -5,6 +5,7 @@
  * whatever has not started. The batch counts as the person's approval for each of its applications.
  */
 import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql, gte, inArray, isNull, jobs, lanes, profiles, shortlist, sql, type Db } from "@norinote/db";
+import { DEFAULT_MIN_FIT } from "@norinote/match";
 import { readSkipCompanies } from "@norinote/shared";
 import { approveAndSubmit, createApplication, dailyCapUse, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
 
@@ -28,13 +29,13 @@ export type NoriSettings = {
   dailyLimit: number;
 };
 
-export const DEFAULT_NORI_SETTINGS: Omit<NoriSettings, "dailyLimit"> = { spacingMinutes: 4, minFit: 0.7, skipCompanies: [] };
+export const DEFAULT_NORI_SETTINGS: Omit<NoriSettings, "dailyLimit"> = { spacingMinutes: 4, minFit: DEFAULT_MIN_FIT, skipCompanies: [] };
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
 /**
  * How Nori works for the person. `minFit` is THE threshold ("Recommended" and Apply for me): `preferences.nori.minFit`
- * once saved, else the lowest of their enabled roles' (lanes') minFit, else 0.7. Saving it sets every role to it.
+ * once saved, else the lowest of their enabled roles' (lanes') minFit, else `DEFAULT_MIN_FIT` (0.6). Saving it sets every role to it.
  * `skipCompanies` is the one skip list, `preferences.excludeCompanies` (see readSkipCompanies).
  */
 export function readNoriSettings(preferences: unknown, dailyCap: number | null | undefined, laneMinFits: readonly number[] = []): NoriSettings {

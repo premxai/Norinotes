@@ -30,10 +30,10 @@ const setStatus = (id: string, status: "prepared" | "submitted" | "needs_user", 
 
 describe("Nori settings", () => {
   it("has sensible defaults and keeps what the person saves", async () => {
-    expect(readNoriSettings(undefined, 0)).toEqual({ spacingMinutes: 4, minFit: 0.7, skipCompanies: [], dailyLimit: 20 });
+    expect(readNoriSettings(undefined, 0)).toEqual({ spacingMinutes: 4, minFit: 0.6, skipCompanies: [], dailyLimit: 20 });
     const u = await user();
     const s = await saveNoriSettings(t.db, u, { spacingMinutes: 10, skipCompanies: ["Acme Inc"], dailyLimit: 5 });
-    expect(s).toEqual({ spacingMinutes: 10, minFit: 0.7, skipCompanies: ["Acme Inc"], dailyLimit: 5 });
+    expect(s).toEqual({ spacingMinutes: 10, minFit: 0.6, skipCompanies: ["Acme Inc"], dailyLimit: 5 });
   });
 });
 
