@@ -255,7 +255,7 @@ export const shortlist = pgTable("shortlist", {
 
 /**
  * Jobs a user added themselves by pasting a link. These always show for that user, whatever their age or lane fit: the
- * 72-hour limit is for jobs Norinote finds, not ones the user picked.
+ * 7-day limit is for jobs Norinote finds, not ones the user picked.
  */
 export const savedJobs = pgTable("saved_jobs", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

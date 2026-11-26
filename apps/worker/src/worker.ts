@@ -105,7 +105,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     timer.unref();
   }
 
-  // Lean job storage: trim jobs that aged out of the 72-hour window and nobody refers to, every JOB_SWEEP_EVERY_MINUTES (60).
+  // Lean job storage: trim jobs that aged out of the 7-day window and nobody refers to, every JOB_SWEEP_EVERY_MINUTES (60).
   let sweepTimer: ReturnType<typeof setInterval> | null = null;
   if (opts.scheduler !== false && config.jobSweepEveryMs > 0) {
     void consumers.sweepJobs();

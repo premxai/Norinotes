@@ -320,7 +320,7 @@ export const api = {
   dismiss: (jobId: string) => call<{ ok: true }>(`/shortlist/${encodeURIComponent(jobId)}/dismiss`, { json: {} }),
   // The server wraps the job ({ job, match }); only the job is read here.
   job: (id: string) => call<{ job: Job }>(`/jobs/${encodeURIComponent(id)}`),
-  // The Jobs page: open jobs from the last 72 hours (all of them, or those that fit the person's searches), one job with
+  // The Jobs page: open jobs from the last 7 days (all of them, or those that fit the person's searches), one job with
   // what it asks for and the person's fit, and the counts.
   jobs: ({ view, q, maxAgeHours, clearance, location, remote, limit }: JobsQuery) => {
     const p = new URLSearchParams({ view, lanes: view === "best" ? "true" : "false", limit: String(limit ?? 100) });

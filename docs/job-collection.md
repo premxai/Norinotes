@@ -133,10 +133,10 @@ summary or the Telegram digest. It is stored without its description like any jo
 understood (no model call). Rows written before the column existed count as US until their board is read again. The one
 exception is the same as for age: a job the user added by pasting its link.
 
-## Only the last 72 hours
+## Only the last 7 days
 
-Users are shown and matched only jobs posted in the last 72 hours (`MAX_JOB_AGE_HOURS` and `freshJobSql` in
-packages/db/src/fresh.ts), everywhere: the shortlist, widening, role pools, the jobs list and summary, and the Telegram digest.
+Users are shown and matched only jobs posted in the last 7 days (`MAX_JOB_AGE_HOURS`, the one place the window is set, and `freshJobSql` in
+packages/db/src/fresh.ts), everywhere: the shortlist, widening, role pools, the jobs list and summary, and the Telegram digest. Within the window, newer jobs get a small ranking bonus (`RECENCY_HOURS` in packages/match/src/shortlist.ts).
 The age is the feed's posted date. For a job whose feed gives none, the time we first saw it stands in, but only if it
 appeared on a later read than the board's first (`companies.first_read_at`): a first read finds everything already on the
 board, of unknown age, so those undated jobs never count. Older jobs stay in the index (for closing and stats) but are not shown.
@@ -149,8 +149,8 @@ A full collection is about 1.3M open jobs, and almost all of their size is `desc
 needs only its small row, so the collector still knows it has seen it. Job rows are never deleted (an undated job inserted
 again would count as new).
 
-- At write time (`upsertJobs`, packages/ingest/src/store.ts): a job that is not fresh when written (posted more than 72
-  hours ago, or undated and listed on the board's first read; `isFreshJob` in packages/db/src/fresh.ts mirrors
+- At write time (`upsertJobs`, packages/ingest/src/store.ts): a job that is not fresh when written (posted more than 7
+  days ago, or undated and listed on the board's first read; `isFreshJob` in packages/db/src/fresh.ts mirrors
   `freshJobSql`) is stored without its description. A known job that is not fresh keeps whatever text it has, so later
   polls neither refill a trimmed job nor wipe one a user needs. Such jobs are never queued for understanding: the worker
   only queues new jobs that are fresh and fit a lane.
@@ -185,5 +185,5 @@ domains, so the worker finds them in our own postings (`resolveLogoDomains`, pac
 
 1. Precomputed pools per (role family x metro or remote), refreshed hourly from the shared index.
 2. When a user's lanes match fewer than 20 open jobs, widen step by step: adjacent titles, then remote, then the
-   role-family pool. Age is never widened: every step keeps the 72-hour limit. Tell the user which widening was used.
+   role-family pool. Age is never widened: every step keeps the 7-day limit. Tell the user which widening was used.
 3. On signup or a lane change, raise the priority of companies whose recent jobs fit the lanes and poll them first.

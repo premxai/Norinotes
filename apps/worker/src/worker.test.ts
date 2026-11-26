@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
 import { createFakeProvider, setProvider } from "@norinote/ai";
-import { applications, applyBatches, careerPoints, companies, eq, inboxMessages, jobSpecs, jobs, lanes, profiles, resumes, runEvents, shortlist, users, type Db } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, applications, applyBatches, careerPoints, companies, eq, inboxMessages, jobSpecs, jobs, lanes, profiles, resumes, runEvents, shortlist, users, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { BrowserPool, Driver, FillResult, Preparer } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
@@ -454,7 +454,7 @@ describe("worker: inbox and lifecycle", () => {
 
   it("runs the storage sweep: trims a job out of the window that nobody refers to, keeps an applied one, logs the counts", async () => {
     const [c] = await t.db.insert(companies).values({ atsType: "greenhouse", atsToken: `sweep${n++}`, name: "Old Co", firstReadAt: new Date(NOW.getTime() - 30 * 86_400_000) }).returning();
-    const posted = new Date(NOW.getTime() - 100 * 3_600_000);
+    const posted = new Date(NOW.getTime() - (MAX_JOB_AGE_HOURS + 28) * 3_600_000);
     const old = async (id: string) => (await t.db.insert(jobs).values({
       companyId: c!.id, atsType: "greenhouse", externalId: id, title: "Engineer", descriptionText: "Long text.", applyUrl: `https://example.test/${id}`,
       postedAt: posted, firstSeenAt: posted, dedupeKey: id,

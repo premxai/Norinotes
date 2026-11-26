@@ -18,7 +18,7 @@ export function shortlistRoutes(ctx: Ctx): Hono<AppEnv> {
   type Row = Awaited<ReturnType<typeof loadRows>>[number];
 
   /**
-   * Visible rows (new, open, posted in the last 72 hours, company not blocked): the jobs the lanes fit first, then the
+   * Visible rows (new, open, posted in the last 7 days, company not blocked): the jobs the lanes fit first, then the
    * widened ones, each best fit first.
    */
   const loadRows = (userId: string, take: number) => db.select({

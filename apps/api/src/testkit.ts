@@ -91,7 +91,7 @@ export function cookieOf(headers: Headers, name = "norinote_session"): string | 
 let seq = 0;
 let ipSeq = 0;
 /**
- * A company and one open job posted `hoursAgo` hours ago (default 30: inside the 72-hour window, outside "today"). The
+ * A company and one open job posted `hoursAgo` hours ago (default 30: inside the 7-day window, outside "today"). The
  * board was first read 30 days ago, so the job also counts when a test clears its posted date.
  */
 export async function seedJob(db: Db, o: { title?: string; company?: string; location?: string | null; remote?: boolean; hoursAgo?: number; description?: string; closed?: boolean } = {}) {

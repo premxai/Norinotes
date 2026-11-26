@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { companies, eq, jobs } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, companies, eq, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { adjacentTitles, clearRolePoolCache, mainFamilyOf, roleFamilyOf, rolePool } from "./roles.js";
 import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob } from "./test-helpers.js";
@@ -110,7 +110,7 @@ describe("rolePool", () => {
     const older = await sf("Platform Engineer, Older", { postedAt: hoursAgo(70) });
     const remote = await seedJob(t.db, { companyId: co, title: "Software Engineer, Remote", location: "Remote - US", remote: true, postedAt: hoursAgo(24) });
     const out = [
-      await sf("Software Engineer, Too Old", { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(73) }),
+      await sf("Software Engineer, Too Old", { postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 1), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 1) }),
       await sf("Software Engineer, Closed", { closedAt: daysAgo(1) }),
       await seedJob(t.db, { companyId: blocked, title: "Software Engineer, Blocked", location: "San Francisco, CA" }),
       await sf("Product Manager, Wrong Family"),

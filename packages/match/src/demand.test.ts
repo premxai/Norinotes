@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
-import { jobSpecs } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, jobSpecs } from "@norinote/db";
 import { heuristicOnlyJobs, jobsFittingLanes, unspeccedJobsForBoard, unspeccedJobsForUser } from "./demand.js";
 import { NOW, baseSpec, daysAgo, hoursAgo, seedCompany, seedJob, seedLane, seedUser } from "./test-helpers.js";
 import { HEURISTIC_SPEC_VERSION, SPEC_VERSION } from "./understand.js";
@@ -27,7 +27,7 @@ describe("jobsFittingLanes", () => {
     const wrongTitle = await seedJob(t.db, { companyId, title: "Quokka Chef" });
     const disabledLane = await seedJob(t.db, { companyId, title: "Quokka Analyst" });
     const wrongCity = await seedJob(t.db, { companyId, title: "Quokka Engineer", location: "London, UK" });
-    const stale = await seedJob(t.db, { companyId, title: "Quokka Engineer", postedAt: hoursAgo(73), firstSeenAt: hoursAgo(73) });
+    const stale = await seedJob(t.db, { companyId, title: "Quokka Engineer", postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 1), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 1) });
     // Undated and seen on the board's first read: of unknown age, so never fresh.
     const onFirstRead = await seedJob(t.db, { companyId: justRead, title: "Quokka Engineer", postedAt: null, firstSeenAt: hoursAgo(10) });
     const closed = await seedJob(t.db, { companyId, title: "Quokka Engineer", closedAt: daysAgo(1) });
@@ -52,7 +52,7 @@ describe("unspeccedJobsForUser", () => {
     await t.db.insert(jobSpecs).values({ jobId: heuristic, version: HEURISTIC_SPEC_VERSION, spec: baseSpec(), model: "heuristic" });
     await seedJob(t.db, { companyId, title: "Numbat Engineer, Understood", spec: baseSpec() });
     await seedJob(t.db, { companyId, title: "Numbat Cook" });
-    await seedJob(t.db, { companyId, title: "Numbat Engineer", postedAt: hoursAgo(80), firstSeenAt: hoursAgo(80) });
+    await seedJob(t.db, { companyId, title: "Numbat Engineer", postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 8), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 8) });
 
     // A heuristic spec does not count as understood, so the model gets to read that job once it is available.
     expect(await unspeccedJobsForUser(t.db, userId, { now: NOW })).toEqual([newer, heuristic, older]);
@@ -80,7 +80,7 @@ describe("heuristicOnlyJobs", () => {
     const upgraded = await seedJob(t.db, { companyId: co, title: "Wombat Manager" });
     await heuristic(upgraded, hoursAgo(10));
     await t.db.insert(jobSpecs).values({ jobId: upgraded, version: SPEC_VERSION, spec: baseSpec(), model: "test" });
-    const stale = await seedJob(t.db, { companyId: co, title: "Wombat Writer", postedAt: hoursAgo(80), firstSeenAt: hoursAgo(80) });
+    const stale = await seedJob(t.db, { companyId: co, title: "Wombat Writer", postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 8), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 8) });
     await heuristic(stale, hoursAgo(70));
     const closed = await seedJob(t.db, { companyId: co, title: "Wombat Tester", closedAt: daysAgo(1) });
     await heuristic(closed, hoursAgo(10));
@@ -103,7 +103,7 @@ describe("unspeccedJobsForBoard", () => {
     const heuristic = await seedJob(t.db, { companyId: co, title: "Koala Analyst" });
     await t.db.insert(jobSpecs).values({ jobId: heuristic, version: HEURISTIC_SPEC_VERSION, spec: baseSpec(), model: "heuristic" });
     await seedJob(t.db, { companyId: co, title: "Koala Lead", spec: baseSpec() });
-    await seedJob(t.db, { companyId: co, title: "Koala Old", postedAt: hoursAgo(80), firstSeenAt: hoursAgo(80) });
+    await seedJob(t.db, { companyId: co, title: "Koala Old", postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 8), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 8) });
     await seedJob(t.db, { companyId: other, title: "Koala Elsewhere" });
     expect(await unspeccedJobsForBoard(t.db, co, { now: NOW })).toEqual([unread]);
   });

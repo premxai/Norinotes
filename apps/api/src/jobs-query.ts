@@ -16,7 +16,7 @@ export type JobListParams = {
   view: "best" | "new" | "today" | "saved" | "applied";
   sort: "best" | "new";
   lanes: boolean;
-  /** Posted within this many hours, at most 72. */
+  /** Posted within this many hours, at most MAX_JOB_AGE_HOURS (7 days). */
   maxAgeHours: number;
   clearance: "hide" | "show";
   limit: number;
@@ -189,7 +189,7 @@ async function postingPlaces(db: Db, companyIds: string[], now: Date, p: JobList
   return out;
 }
 
-/** Counts over open jobs posted in the last 72 hours: all of them, the last 24 hours, and those that fit the user's lanes. */
+/** Counts over open jobs posted in the last 7 days: all of them, the last 24 hours, and those that fit the user's lanes. */
 export async function jobsSummary(db: Db, userId: string, now: Date, engineAts?: readonly string[] | null) {
   const scope = engineJobSql(engineAts) ?? sql`true`;
   const hasLanes = await hasEnabledLanes(db, userId);
@@ -203,7 +203,7 @@ export async function jobsSummary(db: Db, userId: string, now: Date, engineAts?:
   return { open: row?.open ?? 0, newToday: row?.today ?? 0, fitsLanes: row?.fits ?? 0, hasLanes };
 }
 
-/** The most common locations of open jobs from the last 72 hours, for the Jobs page's location filter. */
+/** The most common locations of open jobs from the last 7 days, for the Jobs page's location filter. */
 export async function jobLocations(db: Db, now: Date, limit = 30): Promise<{ name: string; count: number }[]> {
   return queryRows<{ name: string; count: number }>(db, sql`
     SELECT ${jobs.location} AS name, count(*)::int AS count

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq, jobSpecs, jobs } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, eq, jobSpecs, jobs } from "@norinote/db";
 import { JobNotFoundError, UnsupportedJobUrlError } from "@norinote/ingest";
 import { makeApi, seedJob, seedShortlist, seedApplication, type Api } from "./testkit.js";
 
@@ -66,7 +66,7 @@ describe("jobs list", () => {
     const weak = await seedJob(api.db, { title: "Software Engineer II", company: "Weak Co", hoursAgo: 30 });
     const unmatched = await seedJob(api.db, { title: "Software Engineer", company: "Plain Co", hoursAgo: 40 });
     const wrongTitle = await seedJob(api.db, { title: "Chef de Cuisine", company: "Kitchen Co", hoursAgo: 30 });
-    const old = await seedJob(api.db, { title: "Software Engineer", company: "Old Co", hoursAgo: 73 });
+    const old = await seedJob(api.db, { title: "Software Engineer", company: "Old Co", hoursAgo: MAX_JOB_AGE_HOURS + 1 });
     const closed = await seedJob(api.db, { title: "Software Engineer", company: "Closed Co", hoursAgo: 40, closed: true });
     await seedShortlist(api.db, userId, strong.job.id, 0.91, { fitMap: [
       { requirement: "TypeScript", mustHave: true, score: 0.9, careerPointIds: ["p1"], note: "Built dashboards", evidence: "exact" },
@@ -96,7 +96,7 @@ describe("jobs list", () => {
     expect(rolesList.find((r) => r.job.companyName === "Plain Co")!.match).toBeNull();
   });
 
-  it("honours view, sort, lanes, maxAgeHours, status and limit, and never lists a job older than 72 hours", async () => {
+  it("honours view, sort, lanes, maxAgeHours, status and limit, and never lists a job older than 7 days", async () => {
     const all = await api.call("GET", "/api/jobs?lanes=false&view=new", { cookie });
     expect(all.json.some((r: { job: { title: string } }) => r.job.title === "Chef de Cuisine")).toBe(true);
     const dates = all.json.map((r: { job: { postedAt: string } }) => r.job.postedAt);
@@ -111,8 +111,8 @@ describe("jobs list", () => {
     const withClosed = await api.call("GET", "/api/jobs?lanes=false&view=new&status=all", { cookie });
     expect(names(withClosed.json)).toContain("Closed Co");
     expect(names(withClosed.json)).not.toContain("Old Co");
-    // Nothing older than 72 hours can be asked for.
-    expect((await api.call("GET", "/api/jobs?lanes=false&maxAgeHours=73", { cookie })).status).toBe(400);
+    // Nothing older than 7 days can be asked for.
+    expect((await api.call("GET", `/api/jobs?lanes=false&maxAgeHours=${MAX_JOB_AGE_HOURS + 1}`, { cookie })).status).toBe(400);
     expect((await api.call("GET", "/api/jobs?lanes=false&maxAgeHours=0", { cookie })).status).toBe(400);
     expect((await api.call("GET", "/api/jobs?lanes=false&maxAgeDays=0", { cookie })).json.some((r: { job: { companyName: string } }) => r.job.companyName === "Old Co")).toBe(false);
 
@@ -164,7 +164,7 @@ describe("jobs list", () => {
 });
 
 describe("summary, detail and add by link", () => {
-  it("counts open jobs posted in the last 72 hours, and those from the last 24 hours as new today", async () => {
+  it("counts open jobs posted in the last 7 days, and those from the last 24 hours as new today", async () => {
     const res = await api.call("GET", "/api/jobs/summary", { cookie });
     expect(res.status).toBe(200);
     expect(res.json.hasLanes).toBe(true);

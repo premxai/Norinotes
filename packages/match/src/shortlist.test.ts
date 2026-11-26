@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createFakeProvider, fakeEmbedding, setProvider } from "@norinote/ai";
-import { and, applications, eq, shortlist, sql } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, and, applications, eq, shortlist, sql } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { FitMapEntry, isUsPlace } from "@norinote/shared";
 import { laneFitsJob } from "./lanes.js";
@@ -37,14 +37,14 @@ describe("buildShortlist: the SQL filter", () => {
       developer: await mk("Staff Zeta Developer, Payments", { location: "San Francisco Bay Area" }),
       remote: await mk("Zeta Engineers", { location: "Remote - US", remote: true }),
       noPostedDate: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: hoursAgo(30) }),
-      justInside: await mk("Zeta Engineer, Platform", { postedAt: hoursAgo(71) }),
+      justInside: await mk("Zeta Engineer, Platform", { postedAt: hoursAgo(MAX_JOB_AGE_HOURS - 1) }),
     };
     const out = {
-      tooOld: await mk("Zeta Engineer", { postedAt: hoursAgo(73), firstSeenAt: hoursAgo(73) }),
-      oldFirstSeen: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: hoursAgo(73) }),
+      tooOld: await mk("Zeta Engineer", { postedAt: hoursAgo(MAX_JOB_AGE_HOURS + 1), firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 1) }),
+      oldFirstSeen: await mk("Zeta Engineer", { postedAt: null, firstSeenAt: hoursAgo(MAX_JOB_AGE_HOURS + 1) }),
       // Undated and seen on the board's first read: of unknown age.
       onFirstRead: await mk("Zeta Engineer", { companyId: justRead, postedAt: null, firstSeenAt: hoursAgo(10) }),
-      // Seen within 72 hours but posted long before.
+      // Seen within 7 days but posted long before.
       oldPosting: await mk("Zeta Engineer", { postedAt: daysAgo(10), firstSeenAt: hoursAgo(5) }),
       closed: await mk("Zeta Engineer", { closedAt: daysAgo(1) }),
       blocked: await seedJob(t.db, { companyId: blocked, title: "Zeta Engineer", embedText: "zeta engineer", spec: baseSpec() }),
