@@ -93,6 +93,14 @@ read without a key is read before the click.
   with `ownDataOnly`: their answers, profile slots, and bank answers they typed or saved; no model call and no model draft
   from the bank). Nobody reviews these before they are sent, so when every required one is answered the run starts again;
   otherwise the application stays `needs_user` until the person answers.
+- **Finish** (`finishApplications`, queue `apply.finish`): the person presses Finish on applications with one step left.
+  One fresh browser context (`personal`: every resource loads so a captcha can show its pictures; no trace, no failure
+  screenshot) takes up to 5 in turn. The driver fills the form again; at the wall `DriverContext.handoff` hands the page to
+  the person: their clicks and keys arrive through the live input bus (Postgres LISTEN/NOTIFY between API and worker,
+  in memory in one process; never stored) and Nori looks every second whether the wall is gone (no visible captcha
+  challenge; no visible password field). After a sign-in Nori opens the form again with the person's session; after a
+  captcha on submit it waits for the site's own submit and clicks Submit once more only if the form is still there. The
+  context, and every sign-in in it, is closed when the session ends.
 - **Submit** (only `dryRun === false && ALLOW_REAL_SUBMIT === "true"`, checked again at the click): race success
   signals (a 2xx answer to the submit request, confirmation text, the form detached, the URL changed) against failure
   signals (error text, a captcha challenge, an email-code prompt). Event driven; no fixed sleeps.

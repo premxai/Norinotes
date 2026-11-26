@@ -607,7 +607,7 @@ export function Jobs() {
   const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
   const [q, setQ] = useState("");
-  const [age, setAge] = useState<24 | 72>(72);
+  const [age, setAge] = useState<24 | 72 | 168>(168);
   const [hideClearance, setHideClearance] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   /** "" anywhere, REMOTE, or a place from GET /jobs/locations. */
@@ -847,7 +847,7 @@ export function Jobs() {
               <div id={`${ids}-filters`} className={`flex flex-wrap gap-x-8 gap-y-3 ${wide ? "border-b-[1.5px] border-line px-[18px] py-3.5" : "mb-3 rounded-card border-[1.5px] border-line bg-surface p-4"}`}>
                 <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <legend className="float-left mr-3 min-h-9 content-center text-small font-semibold text-ink">Posted in the last</legend>
-                  {([[24, "24 hours"], [72, "3 days"]] as const).map(([h, label]) => (
+                  {([[24, "24 hours"], [72, "3 days"], [168, "7 days"]] as const).map(([h, label]) => (
                     <label key={h} className="flex min-h-9 cursor-pointer items-center gap-2 text-small text-ink">
                       <input type="radio" name={`${ids}-age`} checked={age === h} onChange={() => setAge(h)} className="size-4 accent-accent" />
                       {label}

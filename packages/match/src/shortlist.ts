@@ -128,7 +128,7 @@ const recencySql = () => sql<string>`coalesce(${jobs.postedAt}, ${jobs.firstSeen
 
 // ---- shared SQL conditions --------------------------------------------------------------------------------------------
 
-/** Open, not blocked, and posted within the last 72 hours (see `freshJobSql`). */
+/** Open, not blocked, and posted within the last 7 days (see `freshJobSql`). */
 export function openAndFreshSql(now: Date) {
   return and(isNull(jobs.closedAt), eq(companies.blocked, false), freshJobSql(now));
 }
@@ -203,7 +203,7 @@ async function loadSpecs(db: Db, jobIds: readonly string[]): Promise<Map<string,
 
 // ---- ranking ----------------------------------------------------------------------------------------------------------
 
-/** At most this much is added to the ranking key of a job posted just now, nothing at the 72-hour limit. */
+/** At most this much is added to the ranking key of a job posted just now, nothing at the 7-day limit (`MAX_JOB_AGE_HOURS`), so newer jobs rank a little higher. */
 const RECENCY_BONUS = 0.03;
 const RECENCY_HOURS = MAX_JOB_AGE_HOURS;
 
@@ -387,7 +387,7 @@ async function fitAndSave(db: Db, profile: MatchProfile, candidates: CandidateJo
 /**
  * Rebuild one user's shortlist.
  *
- * 1. SQL filter: open, posted within 72 hours (`freshJobSql`), company not blocked, fits an enabled lane by title and
+ * 1. SQL filter: open, posted within 7 days (`freshJobSql`), company not blocked, fits an enabled lane by title and
  *    location or remote, not already dismissed, applied or in progress. A user with no lane yet gets a temporary one from
  *    their most recent role and their location.
  * 2. Vector rank by cosine distance to the profile embedding on `job_embeddings`, keep `candidates` (200); when fewer than

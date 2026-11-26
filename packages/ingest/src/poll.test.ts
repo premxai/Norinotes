@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { and, companies, eq, jobs } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, and, companies, eq, freshJobSql, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import ghBoard from "./__fixtures__/greenhouse-board.json";
 import { json, noSleep, routeFetch } from "./__fixtures__/helpers.js";
@@ -470,13 +470,25 @@ describe("pollBoard", () => {
   });
 });
 
+describe("pollBoard: US jobs only", () => {
+  it("stores a job outside the US as not US, without its text, and never as fresh", async () => {
+    const jobAt = (id: number, location: string) => ({ id, title: "Machine Learning Engineer", absolute_url: `https://job-boards.greenhouse.io/acme/jobs/${id}`, first_published: RECENT, location: { name: location }, content: "Train models." });
+    const r = await pollBoard(t.db, board, { now: t1, fetch: ghFetch({ jobs: [jobAt(1, "Austin, TX"), jobAt(2, "London, United Kingdom"), jobAt(3, "Remote - Philippines")] }) });
+    expect(r).toMatchObject({ added: 3, trimmed: 2 });
+    const rows = await allJobs();
+    expect(rows.map((j) => [j.externalId, j.us, j.descriptionText])).toEqual([["1", true, "Train models."], ["2", false, ""], ["3", false, ""]]);
+    const visible = await t.db.select({ id: jobs.externalId }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(freshJobSql(t1));
+    expect(visible.map((v) => v.id)).toEqual(["1"]);
+  });
+});
+
 describe("pollBoard: only fresh jobs keep their description", () => {
-  const old = new Date(t1.getTime() - 100 * HOUR);
+  const old = new Date(t1.getTime() - (MAX_JOB_AGE_HOURS + 28) * HOUR);
   const fresh = new Date(t1.getTime() - 2 * HOUR);
   const texts = async () => Object.fromEntries((await allJobs()).map((r) => [r.externalId, r.descriptionText]));
   const read = (list: NormalizedJob[], now: Date) => withConnector("greenhouse", serving(() => ({ jobs: list, complete: true })), () => pollBoard(t.db, board, { now }));
 
-  it("stores a job posted more than 72 hours ago, or undated on the board's first read, without its description", async () => {
+  it("stores a job posted more than 7 days ago, or undated on the board's first read, without its description", async () => {
     const res = await read([feedJob("old", { postedAt: old }), feedJob("new", { postedAt: fresh }), feedJob("undated")], t1);
     expect(res).toMatchObject({ added: 3, trimmed: 2 });
     expect(await texts()).toEqual({ new: "text", old: "", undated: "" });

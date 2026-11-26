@@ -275,7 +275,7 @@ export async function takeFinishedBatches(db: Db, userId: string): Promise<Array
 }
 
 /**
- * "Apply now" from Recommended: the person's new matches at or above their threshold, open and posted in the last 72
+ * "Apply now" from Recommended: the person's new matches at or above their threshold, open and posted in the last 7 days
  * hours, best fit first, one per company, not applied to, not on the skip list, on the allowed job systems. At most
  * `limit` job ids, for startBatch.
  */

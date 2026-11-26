@@ -1,4 +1,5 @@
 import { fakeEmbedding } from "@norinote/ai";
+import { isUsPlace } from "@norinote/shared";
 import {
   careerPointEmbeddings, careerPoints, companies, jobEmbeddings, jobSpecs, jobs, lanes, profiles, users, type Db,
 } from "@norinote/db";
@@ -20,7 +21,7 @@ export async function seedUser(db: Db, opts: { workAuth?: Record<string, unknown
 
 /**
  * A company whose board was first read 30 days ago (`firstReadAt`), so an undated job first seen since then counts as
- * fresh within 72 hours of its first sighting. Pass `firstReadAt: null` for a board never read.
+ * fresh within MAX_JOB_AGE_HOURS of its first sighting. Pass `firstReadAt: null` for a board never read.
  */
 export async function seedCompany(db: Db, opts: { name?: string; blocked?: boolean; firstReadAt?: Date | null } = {}): Promise<string> {
   const [c] = await db.insert(companies).values({
@@ -64,9 +65,11 @@ export const NEUTRAL_DESCRIPTION = Array.from({ length: 8 }, () =>
 
 export async function seedJob(db: Db, o: SeedJob): Promise<string> {
   const id = uniq();
+  const location = o.location === undefined ? "San Francisco, CA" : o.location;
+  const remote = o.remote ?? false;
   const [j] = await db.insert(jobs).values({
     companyId: o.companyId, atsType: "greenhouse", externalId: id, title: o.title ?? "Software Engineer",
-    location: o.location === undefined ? "San Francisco, CA" : o.location, remote: o.remote ?? false,
+    location, remote, us: isUsPlace(location, remote),
     descriptionText: o.description ?? (o.spec ? NEUTRAL_DESCRIPTION : ""), applyUrl: `https://example.test/jobs/${id}`,
     postedAt: o.postedAt === undefined ? hoursAgo(48) : o.postedAt, firstSeenAt: o.firstSeenAt ?? hoursAgo(48),
     closedAt: o.closedAt ?? null, dedupeKey: id,

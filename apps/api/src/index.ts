@@ -2,6 +2,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { serve, type ServerType } from "@hono/node-server";
 import { connect, loadDotEnv, migrate } from "@norinote/db";
+import { liveInputBusFor } from "@norinote/apply";
 import { createQueue } from "@norinote/queue";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
@@ -27,7 +28,8 @@ export async function startApi(env: Record<string, string | undefined> = process
   if (config.production && !(config.resendApiKey && config.mailFrom)) console.warn("[api] RESEND_API_KEY or MAIL_FROM is not set: verification and password-reset emails will not be delivered.");
   if (!url) console.warn("[api] DATABASE_URL is not set: embedded database and in-memory queue. A separate worker process will not see these jobs.");
 
-  const app = createApp({ db: handle.db, enqueue: (name, payload, opts) => queue.enqueue(name, payload, opts), config });
+  const liveInputs = liveInputBusFor(url);
+  const app = createApp({ db: handle.db, enqueue: (name, payload, opts) => queue.enqueue(name, payload, opts), config, liveInputs });
   const server: ServerType = serve({ fetch: app.fetch, port: config.port });
   console.log(`[api] listening on :${config.port}`);
 
@@ -36,6 +38,7 @@ export async function startApi(env: Record<string, string | undefined> = process
     async stop() {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await queue.stop();
+      await liveInputs.close();
       await handle.close();
     },
   };

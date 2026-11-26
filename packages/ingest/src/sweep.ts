@@ -8,7 +8,7 @@ import type { SQL } from "drizzle-orm";
 export const SWEEP_BATCH_SIZE = 500;
 /** Batches per run at most, so one run never holds the database for long; the next run carries on. */
 export const SWEEP_MAX_BATCHES = 200;
-/** A job is swept only once it has been out of the 72-hour window this long, so a page a user just opened still reads. */
+/** A job is swept only once it has been out of the 7-day window this long, so a page a user just opened still reads. */
 export const SWEEP_GRACE_HOURS = 6;
 
 const HOUR_MS = 3_600_000;
@@ -48,7 +48,7 @@ function unreferencedSql(): SQL {
 }
 
 /**
- * Lean job storage. A job nobody can be shown any more (outside the 72-hour window, see `freshJobSql`) and that no user
+ * Lean job storage. A job nobody can be shown any more (outside the 7-day window, see `freshJobSql`) and that no user
  * refers to needs only its small row, so the collector still knows it has seen it: its description is blanked and its
  * `job_specs` and `job_embeddings` rows are deleted. Rows in `jobs` are never deleted (an undated job inserted again
  * would count as new).
@@ -61,7 +61,7 @@ export async function sweepStaleJobs(db: Db, opts: SweepOptions = {}): Promise<S
   const now = opts.now ?? new Date();
   const batchSize = Math.max(1, Math.floor(opts.batchSize ?? SWEEP_BATCH_SIZE));
   const maxBatches = Math.max(1, Math.floor(opts.maxBatches ?? SWEEP_MAX_BATCHES));
-  // Fresh as of `graceHours` ago = posted within 72 + graceHours hours of now.
+  // Fresh as of `graceHours` ago = posted within MAX_JOB_AGE_HOURS + graceHours hours of now.
   const asOf = new Date(now.getTime() - Math.max(0, opts.graceHours ?? SWEEP_GRACE_HOURS) * HOUR_MS);
   // coalesce: an undated job compares as null in the dated half; like everywhere else, null is not fresh.
   const stale = and(sql`NOT coalesce((${freshJobSql(asOf)}), false)`, unreferencedSql());

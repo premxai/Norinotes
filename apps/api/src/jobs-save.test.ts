@@ -66,6 +66,21 @@ describe("the Jobs page: saving, location filters, what you'll do", () => {
     expect(locations).toEqual(expect.arrayContaining([{ name: "Austin, TX", count: expect.any(Number) }]));
   });
 
+  it("shows US jobs only: the All list, search and the location list leave out jobs elsewhere", async () => {
+    const chicago = await seedJob(api.db, { title: "Quokka Engineer", location: "Chicago, IL", remote: false });
+    const london = await seedJob(api.db, { title: "Quokka Engineer", location: "London, United Kingdom", remote: false });
+    const manila = await seedJob(api.db, { title: "Quokka Engineer", location: "Remote - Philippines", remote: true });
+    const all = ids((await api.call("GET", "/api/jobs?view=new&lanes=false&group=false&limit=200", { cookie })).json);
+    const search = ids((await api.call("GET", "/api/jobs?view=new&lanes=false&group=false&limit=200&q=quokka", { cookie })).json);
+    for (const list of [all, search]) {
+      expect(list).toContain(chicago.job.id);
+      expect(list).not.toContain(london.job.id);
+      expect(list).not.toContain(manila.job.id);
+    }
+    const { locations } = (await api.call("GET", "/api/jobs/locations", { cookie })).json as { locations: { name: string }[] };
+    expect(locations.map((l) => l.name)).not.toContain("London, United Kingdom");
+  });
+
   it("returns the full list of what the job involves", async () => {
     const { job } = await seedJob(api.db, { title: "Spec Engineer" });
     await api.db.insert(jobSpecs).values({

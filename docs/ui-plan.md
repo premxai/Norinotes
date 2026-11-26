@@ -460,7 +460,7 @@ cap). If the search was widened: "Showing similar roles while Nori looks for mor
 the right.
 
 **A job card:**
-- Title, company and location (or Remote), how long ago it was posted (always under 72 hours), and the fit score in
+- Title, company and location (or Remote), how long ago it was posted (always under 7 days), and the fit score in
   Geist Mono.
 - The two strongest reasons in a line each ("Led a design system, like this role asks").
 - **Apply** (primary) and **Not for me** (a quiet text button that dismisses it, with **Undo** for 5 seconds).
@@ -649,6 +649,9 @@ it searches for, what it puts on forms, how it reaches you, and the account.
   (50 to 90%), and an on/off switch. **Add a lane** (up to 20), **Remove**. **Save** sends the whole list: "Saved. Nori
   looks again with these."
 - **Everywhere:** the lowest salary to consider, and companies to skip, as chips.
+- **Add a company** (on Settings → Job search, below Save): a company name or careers page and **Add**. Nori finds the
+  company's public job board and adds it for everyone (`POST /api/companies`): "Added Acme (Greenhouse). Everyone's
+  search reads its jobs now.", "Acme is already on Nori's list (Greenhouse).", or the API's words when it finds none.
 
 #### Nori (`/you/nori`)
 

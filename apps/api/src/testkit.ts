@@ -5,6 +5,7 @@ import path from "node:path";
 import { applications, companies, jobs, shortlist, type Db } from "@norinote/db";
 import { createTestDb } from "@norinote/db/testing";
 import { MemoryQueue, type JobName } from "@norinote/queue";
+import { isUsPlace } from "@norinote/shared";
 import { createApp } from "./app.js";
 import { loadConfig, type ApiConfig } from "./config.js";
 import type { Mail } from "./mailer.js";
@@ -15,7 +16,7 @@ export type Reply<T = any> = { status: number; json: T; headers: Headers };
 type Opts = { body?: unknown; cookie?: string; headers?: Record<string, string>; form?: FormData };
 
 /** The API on an in-memory PGlite, a MemoryQueue that records what was enqueued, and a mailer that records mail. */
-export async function makeApi(over: { config?: Partial<ApiConfig>; addJob?: ApiDeps["addJob"]; now?: () => Date; telegram?: ApiDeps["telegram"]; files?: ApiDeps["files"]; gmail?: ApiDeps["gmail"]; previewFetch?: ApiDeps["previewFetch"] } = {}) {
+export async function makeApi(over: { config?: Partial<ApiConfig>; addJob?: ApiDeps["addJob"]; discoverCompany?: ApiDeps["discoverCompany"]; now?: () => Date; telegram?: ApiDeps["telegram"]; files?: ApiDeps["files"]; gmail?: ApiDeps["gmail"]; previewFetch?: ApiDeps["previewFetch"] } = {}) {
   const t = await createTestDb();
   const queue = new MemoryQueue();
   const queued: Called[] = [];
@@ -36,6 +37,7 @@ export async function makeApi(over: { config?: Partial<ApiConfig>; addJob?: ApiD
     gmail: over.gmail ?? null,
     ...(over.previewFetch ? { previewFetch: over.previewFetch } : {}),
     ...(over.addJob ? { addJob: over.addJob } : {}),
+    ...(over.discoverCompany ? { discoverCompany: over.discoverCompany } : {}),
     ...(over.now ? { now: over.now } : {}),
     ...(over.telegram ? { telegram: over.telegram } : {}),
   });
@@ -89,7 +91,7 @@ export function cookieOf(headers: Headers, name = "norinote_session"): string | 
 let seq = 0;
 let ipSeq = 0;
 /**
- * A company and one open job posted `hoursAgo` hours ago (default 30: inside the 72-hour window, outside "today"). The
+ * A company and one open job posted `hoursAgo` hours ago (default 30: inside the 7-day window, outside "today"). The
  * board was first read 30 days ago, so the job also counts when a test clears its posted date.
  */
 export async function seedJob(db: Db, o: { title?: string; company?: string; location?: string | null; remote?: boolean; hoursAgo?: number; description?: string; closed?: boolean } = {}) {
@@ -99,7 +101,8 @@ export async function seedJob(db: Db, o: { title?: string; company?: string; loc
   const posted = new Date(Date.now() - (o.hoursAgo ?? 30) * 3_600_000);
   const [job] = await db.insert(jobs).values({
     companyId: co!.id, atsType: "greenhouse", externalId: `ext-${seq}-${Math.random().toString(36).slice(2, 8)}`, title: o.title ?? "Software Engineer",
-    location: o.location === undefined ? "Remote - US" : o.location, remote: o.remote ?? true, descriptionText: o.description ?? "Build things with TypeScript.",
+    location: o.location === undefined ? "Remote - US" : o.location, remote: o.remote ?? true,
+    us: isUsPlace(o.location === undefined ? "Remote - US" : o.location, o.remote ?? true), descriptionText: o.description ?? "Build things with TypeScript.",
     applyUrl: `https://boards.greenhouse.io/${co!.atsToken}/jobs/${seq}`, postedAt: posted, firstSeenAt: posted, lastSeenAt: new Date(), closedAt: o.closed ? new Date() : null,
     dedupeKey: `${company}|${o.title ?? "se"}|${o.location ?? ""}|${seq}`.toLowerCase(),
   }).returning();

@@ -308,7 +308,7 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
         </span>
         {a.approvedAt && <span className="font-mono text-[1.125rem] text-ink laptop:text-[1.25rem]">{clock(took)}</span>}
       </div>
-      <WatchNori key={`live:${a.id}`} application={a} events={detail.events} wide={onPage}>
+      <WatchNori key={`live:${a.id}`} application={a} events={detail.events} company={detail.job.companyName} refresh={() => void refresh()} wide={onPage}>
         {lines.length > 0 && (
           <ol aria-label="What Nori has done, newest first" className="flex flex-col gap-2.5">
             {lines.map((e, i) => {
@@ -362,6 +362,22 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
       )}
 
       {a.status === "needs_user" && !wall && <Answers questions={a.pendingQuestions} busy={busy} onSend={(answers) => void act(() => api.answer(a.id, answers))} />}
+
+      {a.status === "ready_to_finish" && (
+        <div className={`${box} flex flex-col items-start gap-2 border-2 border-warning text-ink`}>
+          <p>
+            {a.error ?? "This site asked for a captcha or a sign-in."} Press Finish and do that one step yourself in Nori&rsquo;s live view; Nori fills in the rest. Nori never solves captchas or stores passwords.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => void act(() => api.finish([a.id]))} aria-disabled={busy || undefined} className={buttonClass("primary", "min-h-11")}>
+              {busy ? "Opening…" : "Finish"}
+            </button>
+            <a href={detail.job.applyUrl} target="_blank" rel="noreferrer" className={buttonClass("outline", "min-h-11")}>
+              Finish on the employer&rsquo;s page<span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          </div>
+        </div>
+      )}
 
       {codeLate && (
         <div className={`${box} flex flex-col items-start gap-2 border-2 border-warning text-ink`}>

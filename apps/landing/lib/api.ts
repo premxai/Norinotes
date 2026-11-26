@@ -133,13 +133,25 @@ export type ShortlistEntry = {
 export type AppStatus = "queued" | "preparing" | "prepared" | "applying" | "awaiting_code" | "submitted" | "needs_user" | "ready_to_finish" | "failed";
 export type Question = { id: string; text: string; type: string; options: string[]; required: boolean };
 
+/** The person's turn in a Finish session: the live view takes their clicks and keys (POST /applications/:id/live/input). */
+export type Handoff = { kind: "captcha" | "account"; since: string };
+export type LiveKey = "Enter" | "Tab" | "Backspace" | "Delete" | "Escape" | "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "Home" | "End" | "Space";
+/** One input for the employer's page; click x and y are fractions (0 to 1) of the frame. */
+export type LiveInput =
+  | { kind: "click"; x: number; y: number }
+  | { kind: "type"; text: string }
+  | { kind: "key"; key: LiveKey; shift?: boolean }
+  | { kind: "scroll"; dy: number }
+  | { kind: "done" }
+  | { kind: "cancel" };
 /** An application (`toApplication`). */
 export type Application = {
   id: string;
   jobId: string;
   status: AppStatus;
   pendingQuestions: Question[];
-  receipt: Record<string, unknown> | null;
+  /** `handoff`: Nori is waiting on the person in the live view (Finish), at a captcha or a sign-in. */
+  receipt: (Record<string, unknown> & { handoff?: Handoff | null }) | null;
   error: string | null;
   preparedAt: string | null;
   approvedAt: string | null;
@@ -233,6 +245,12 @@ export type FlowNode = { id: string; label: string; count: number; stage: 0 | 1 
 export type Flow = { since: string | null; total: number; nodes: FlowNode[]; links: { source: string; target: string; value: number }[] };
 
 /** "Apply for me" (api-contract.md, Nori page): settings, batches the person approves at once, and what needs them. */
+/** POST /api/companies: the board Nori found (or already had). `reading` is false while its job system is switched off. */
+export type AddedCompany = {
+  status: "added" | "exists";
+  company: { id: string; name: string; system: string; systemName: string; reading: boolean };
+  openJobs?: number | null;
+};
 export type NoriSettings = { spacingMinutes: number; minFit: number; skipCompanies: string[]; dailyLimit: number };
 export type BatchCounts = { total: number; sent: number; working: number; preparing: number; ready: number; needsYou: number; cancelled: number; failed: number };
 export type Batch = { id: string; status: "running" | "stopped" | "done"; createdAt: string; finishedAt: string | null; lastStartedAt: string | null; counts: BatchCounts; waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | null; nextAt: string | null };
@@ -302,7 +320,7 @@ export const api = {
   dismiss: (jobId: string) => call<{ ok: true }>(`/shortlist/${encodeURIComponent(jobId)}/dismiss`, { json: {} }),
   // The server wraps the job ({ job, match }); only the job is read here.
   job: (id: string) => call<{ job: Job }>(`/jobs/${encodeURIComponent(id)}`),
-  // The Jobs page: open jobs from the last 72 hours (all of them, or those that fit the person's searches), one job with
+  // The Jobs page: open jobs from the last 7 days (all of them, or those that fit the person's searches), one job with
   // what it asks for and the person's fit, and the counts.
   jobs: ({ view, q, maxAgeHours, clearance, location, remote, limit }: JobsQuery) => {
     const p = new URLSearchParams({ view, lanes: view === "best" ? "true" : "false", limit: String(limit ?? 100) });
@@ -344,6 +362,10 @@ export const api = {
   cancel: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/cancel`, { json: {} }),
   /** The code an employer emailed the person, typed while the run waits for it (status awaiting_code). 409: not waiting any more. */
   code: (id: string, code: string) => call<{ ok: true }>(`/applications/${encodeURIComponent(id)}/code`, { json: { code } }),
+  /** Starts one Finish session for these (or the oldest 5 with one step left); the ids come back in the order Nori takes them. 409: none to finish. */
+  finish: (ids?: string[]) => call<{ ok: true; applicationIds: string[] }>("/applications/finish", { json: ids ? { ids } : {} }),
+  /** One click, key, typed text or scroll for the employer's page while Nori waits on the person. 409: it isn't waiting. */
+  liveInput: (id: string, input: LiveInput) => call<{ ok: true }>(`/applications/${encodeURIComponent(id)}/live/input`, { json: input }),
   agentStatus: () => call<AgentStatus>("/agent/status"),
   // Part 4b.
   outcomes: (id: string) => call<Outcomes>(`/applications/${encodeURIComponent(id)}/outcomes`),
@@ -372,6 +394,8 @@ export const api = {
   removeAnswer: (id: string) => call<{ ok: true }>(`/profile/answers/${encodeURIComponent(id)}`, { method: "DELETE" }),
   telegram: () => call<TelegramState>("/channels/telegram"),
   noriSettings: () => call<{ settings: NoriSettings }>("/nori/settings"),
+  /** Ask Nori to find a company's public job board (by name or careers link) and add it for everyone. 404: none found. */
+  addCompany: (query: string) => call<AddedCompany>("/companies", { json: { query } }),
   saveNoriSettings: (patch: Partial<NoriSettings>) => call<{ settings: NoriSettings }>("/nori/settings", { method: "PUT", json: patch }),
   batches: () => call<{ batches: Batch[] }>("/nori/batches"),
   batch: (id: string) => call<{ batch: Batch; applications: BatchApplication[] }>(`/nori/batches/${encodeURIComponent(id)}`),

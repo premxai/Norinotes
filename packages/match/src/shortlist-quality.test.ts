@@ -48,9 +48,11 @@ describe("location: the Europe-remote contractor", () => {
 
     const stats = await buildShortlist(t.db, userId, { profileEmbedding: fakeEmbedding(text), now: NOW, widen: false });
     const ids = stats.items.map((i) => i.jobId);
+    // Outside the US: never candidates at all (US jobs only), so they cannot rank first.
+    expect(stats.candidateIds).not.toContain(contractor);
+    expect(stats.candidateIds).not.toContain(philippines);
     expect(ids).not.toContain(contractor);
     expect(ids).not.toContain(philippines);
-    expect(stats.gated.map((g) => g.jobId)).toEqual(expect.arrayContaining([contractor, philippines]));
     expect(new Set(ids)).toEqual(new Set([us, nyc]));
     expect(stats.laneMatches).toBe(2);
   });
@@ -143,7 +145,7 @@ describe("widening", () => {
     const web = await seedJob(t.db, { companyId: co, title: "Web Developer", location: "Philadelphia, PA", spec: react, embedText: text });
     const seniorSwe = await seedJob(t.db, { companyId: co, title: "Senior Software Engineer", location: "Philadelphia, PA", spec: baseSpec({ mustHaves: ["React", "TypeScript"], seniority: "senior", yearsMin: 5 }), embedText: text });
     const rpa = await seedJob(t.db, { companyId: co, title: "Software Engineer, RPA (UiPath)", location: "Philadelphia, PA", spec: baseSpec({ mustHaves: ["UiPath"], seniority: "mid" }), embedText: text });
-    // Older than 72 hours and weak: no step ever widens age, so it never comes in.
+    // Older than 7 days and weak: no step ever widens age, so it never comes in.
     const oldWeak = await seedJob(t.db, { companyId: co, title: "Frontend Engineer, Legacy", location: "Philadelphia, PA", spec: baseSpec({ mustHaves: ["Angular", "Kubernetes"] }), embedText: text, postedAt: daysAgo(10), firstSeenAt: daysAgo(10) });
 
     const stats = await buildShortlist(t.db, userId, { profileEmbedding: fakeEmbedding(text), now: NOW });

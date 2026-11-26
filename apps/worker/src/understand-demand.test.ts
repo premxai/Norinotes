@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createFakeProvider, setAiLogger, setProvider, type ChatRequest } from "@norinote/ai";
-import { careerPoints, companies, eq, graphSources, jobSpecs, jobs, lanes, profiles, shortlist, users, type Db } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, careerPoints, companies, eq, graphSources, jobSpecs, jobs, lanes, profiles, shortlist, users, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import type { BrowserPool } from "@norinote/apply";
 import type { JobSpecModelOutput } from "@norinote/match";
@@ -114,7 +114,7 @@ describe("understand on demand: after a board poll", () => {
     const understood = (await t.db.select().from(jobSpecs)).map((r) => r.jobId);
     const titlesUnderstood = mine.filter((j) => understood.includes(j.id)).map((j) => j.title).sort();
     // Fits lane A and is fresh: the two backend jobs. The data scientist only fits a disabled lane, marketing fits none, and
-    // the legacy one is older than 72 hours.
+    // the legacy one is older than 7 days.
     expect(titlesUnderstood).toEqual(["Backend Engineer", "Senior Backend Engineer, Payments"]);
     expect(queue.stats(JOBS.understandJob)).toMatchObject({ completed: 2, failed: 0 });
     const poll = lines.find((l) => l.queue === JOBS.ingestPollBoard);
@@ -150,7 +150,7 @@ describe("understand on demand: after a board poll", () => {
 describe("understand on demand: a lane change reads the backlog", () => {
   it("match.user queues understand.job for unspecced jobs that fit the user's lanes, then the batch match shortlists them", async () => {
     setProvider(createFakeProvider({ chat: (req) => (req.jsonSchema?.name === "job_spec" ? modelSpec : undefined) }));
-    const [fitA, fitB, stale, other] = await seedBoard(t.db, "backlog", [["Zebra Engineer", 30], ["Senior Zebra Engineer", 50], ["Zebra Engineer", 80], ["Marketing Zebra", 30]]);
+    const [fitA, fitB, stale, other] = await seedBoard(t.db, "backlog", [["Zebra Engineer", 30], ["Senior Zebra Engineer", 50], ["Zebra Engineer", MAX_JOB_AGE_HOURS + 8], ["Marketing Zebra", 30]]);
     const userId = await seedUser(t.db);
     const queue = new MemoryQueue();
     await start(queue);

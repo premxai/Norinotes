@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { companies, eq, jobs } from "@norinote/db";
+import { MAX_JOB_AGE_HOURS, companies, eq, jobs } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import ghJob from "./__fixtures__/greenhouse-job.json";
 import { json, publicLookup, routeFetch, withRobots } from "./__fixtures__/helpers.js";
@@ -42,7 +42,7 @@ describe("addJobByUrl", () => {
     const again = await addJobByUrl(t.db, "https://boards.greenhouse.io/acme/jobs/4001", opts(f));
     expect(again).toMatchObject({ created: false, job: { id: first.job.id, descriptionText: "Build UI." } });
     // Posted long before `now`: a poll alone would have stored it without text.
-    expect(again.job.postedAt!.getTime()).toBeLessThan(now.getTime() - 72 * 3_600_000);
+    expect(again.job.postedAt!.getTime()).toBeLessThan(now.getTime() - MAX_JOB_AGE_HOURS * 3_600_000);
   });
 
   it("handles the Greenhouse embedded-form link and a scheme-less link", async () => {

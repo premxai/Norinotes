@@ -3,7 +3,8 @@ import { companies, eq, type Db } from "@norinote/db";
 import { PendingQuestion } from "@norinote/shared";
 import { planForm } from "@norinote/answers";
 import {
-  approveAndSubmit, createApplyHandler, createPrepareHandler, loadApplication, saveAnswers, staleRuns, STALE_RUN_MS, type ApplyDeps,
+  approveAndSubmit, createApplyHandler, createFinishHandler, createPrepareHandler, loadApplication, saveAnswers, sharedMemoryInputBus, staleRuns, STALE_RUN_MS,
+  type ApplyDeps, type LiveInputBus,
 } from "@norinote/apply";
 import { AiUnavailableError } from "@norinote/ai";
 import { embedCareerPoints, profileEmbedding } from "@norinote/graph";
@@ -26,6 +27,8 @@ export type ConsumerDeps = {
   log: Logger;
   config: WorkerConfig;
   apply: ApplyDeps;
+  /** The person's clicks and keys during a Finish session. Default: the in-process bus. */
+  liveInputs?: LiveInputBus;
   /** Replaces the global fetch for board polling (tests). */
   fetch?: typeof fetch;
   now?: () => Date;
@@ -362,6 +365,13 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     if (auto.resumed) await queue.enqueue(JOBS.applyRun, { applicationId: payload.applicationId, trigger: payload.trigger }, { delaySeconds: 1 });
     const after = await loadApplication(db, payload.applicationId);
     return { status: after?.status ?? "missing", autoAnswered: auto.answered, resumed: auto.resumed };
+  }));
+
+  // apply.finish: a Finish session in the live view: the person solves a captcha or signs in, Nori fills and sends.
+  const finishHandler = createFinishHandler(db, { ...apply, inputs: deps.liveInputs ?? sharedMemoryInputBus() });
+  await queue.work(JOBS.applyFinish, instrument(log, JOBS.applyFinish, async (payload) => {
+    await finishHandler(payload);
+    return { applications: payload.applicationIds.length };
   }));
 
   // inbox.receive: a stored inbound message: settle ambiguous ones with the small model, link, record outcomes, forward

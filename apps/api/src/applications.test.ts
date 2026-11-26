@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { answerBank, applications, applyBatches, careerPoints, eq, inboxMessages, jobs, resumes, runEvents, shortlist } from "@norinote/db";
 import { findVerification } from "@norinote/inbox";
-import { liveFrameKey } from "@norinote/apply";
+import { liveFrameKey, sharedMemoryInputBus } from "@norinote/apply";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { makeApi, seedApplication, seedJob, seedShortlist, type Api } from "./testkit.js";
@@ -275,6 +275,42 @@ describe("applications", () => {
     const other = await api.signup("live-other@example.com");
     expect((await api.call("GET", `/api/applications/${app.id}/live`, { cookie: other.cookie })).status).toBe(404);
     expect((await api.call("GET", `/api/applications/${app.id}/live`)).status).toBe(401);
+  });
+
+  it("Finish queues one session for the person's applications with one step left, oldest first", async () => {
+    const parkedApps = [];
+    for (const n of [1, 2]) {
+      const { job } = await seedJob(api.db, { company: `Finish Co ${n}` });
+      parkedApps.push(await seedApplication(api.db, userId, job.id, { status: "ready_to_finish", approvedAt: new Date(), preparedAt: new Date(), resumeId: null, error: "One step left" }));
+    }
+    const res = await api.call("POST", "/api/applications/finish", { cookie, body: { ids: [parkedApps[1]!.id] } });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ ok: true, applicationIds: [parkedApps[1]!.id] });
+    expect(api.queuedOf("apply.finish").at(-1)?.payload).toEqual({ userId, applicationIds: [parkedApps[1]!.id] });
+
+    // Someone else's, or one that is not waiting for its last step, is not taken.
+    const other = await api.signup("finish-other@example.com");
+    expect((await api.call("POST", "/api/applications/finish", { cookie: other.cookie, body: { ids: [parkedApps[0]!.id] } })).status).toBe(409);
+    expect((await api.call("POST", "/api/applications/finish", { cookie, body: { ids: ["not-a-uuid"] } })).status).toBe(400);
+    expect((await api.call("POST", "/api/applications/finish", {})).status).toBe(401);
+  });
+
+  it("passes the person's inputs to the live view only while Nori hands them the page", async () => {
+    const { job } = await seedJob(api.db, { company: "Handoff Co" });
+    const app = await seedApplication(api.db, userId, job.id, { status: "applying", approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
+    const got: unknown[] = [];
+    const off = await sharedMemoryInputBus().subscribe(app.id, (i) => got.push(i));
+    const url = `/api/applications/${app.id}/live/input`;
+    expect((await api.call("POST", url, { cookie, body: { kind: "click", x: 0.5, y: 0.5 } })).status).toBe(409);
+    await api.db.update(applications).set({ receipt: { handoff: { kind: "captcha", since: new Date().toISOString() } } }).where(eq(applications.id, app.id));
+    expect((await api.call("POST", url, { cookie, body: { kind: "click", x: 0.5, y: 0.5 } })).status).toBe(200);
+    expect((await api.call("POST", url, { cookie, body: { kind: "type", text: "secret" } })).status).toBe(200);
+    expect((await api.call("POST", url, { cookie, body: { kind: "key", key: "Meta+V" } })).status).toBe(400);
+    expect((await api.call("POST", url, { cookie, body: { kind: "click", x: 2, y: 0 } })).status).toBe(400);
+    const other = await api.signup("handoff-other@example.com");
+    expect((await api.call("POST", url, { cookie: other.cookie, body: { kind: "done" } })).status).toBe(404);
+    await off();
+    expect(got).toEqual([{ kind: "click", x: 0.5, y: 0.5 }, { kind: "type", text: "secret" }]);
   });
 
   it("refuses a typed code when the application is not waiting for one", async () => {

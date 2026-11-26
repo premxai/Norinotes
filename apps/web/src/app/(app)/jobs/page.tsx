@@ -20,7 +20,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   const viewQuery = viewToParams(state).toString();
 
   // The chosen view is fetched on the server: Best match uses the server's lane filter; Newest and New today are
-  // ordered by posting time in SQL. Only jobs posted in the last 72 hours are listed.
+  // ordered by posting time in SQL. Only jobs posted in the last 7 days are listed.
   const fetchJobs = (lanes: boolean) => api.listJobs({
     limit: 200,
     view: state.view,
