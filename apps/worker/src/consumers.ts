@@ -271,7 +271,7 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     let result;
     try {
       result = await limiter.run(feedHost(company.atsType, company.atsToken), maxPollsPerHost(company.atsType, config.pollsPerHost), () =>
-        pollBoard(db, { atsType: company.atsType, token: company.atsToken }, { now: now(), fetch: deps.fetch, backoff, demand }));
+        pollBoard(db, { atsType: company.atsType, token: company.atsToken }, { now: now(), fetch: deps.fetch, backoff, demand: demand.lanes, matching7d: demand.matching7d }));
     } catch (err) {
       if (err instanceof HostBackedOffError) {
         // The host is refusing us: try this board again later without using up a retry. One retry per board per window:
@@ -288,7 +288,8 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     return {
       board: `${company.atsType}/${company.atsToken}`, added: result.added, updated: result.updated, closed: result.closed, total: result.total, trimmed: result.trimmed,
       understand, notWanted: fresh.length - wanted.length, skipped: result.skipped,
-      status: result.status, demand,
+      status: result.status, demand: demand.lanes, matching7d: demand.matching7d,
+      ...(result.nextPollAt ? { nextPollMinutes: Math.round((result.nextPollAt.getTime() - now().getTime()) / 60_000) } : {}),
       ...(result.previousStatus === "candidate" ? { validated: result.status } : {}),
       ...(result.notModified ? { notModified: true } : {}),
       ...(result.notFound ? { notFound: true } : {}),

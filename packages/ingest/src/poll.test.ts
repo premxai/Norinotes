@@ -378,14 +378,16 @@ describe("pollBoard", () => {
       expect(await company()).toMatchObject({ errorStreak: 0, nextPollAt: null });
     });
 
-    it("sets next_poll_at from new jobs in the last 7 days, and lane demand shortens it", async () => {
+    it("sets next_poll_at from new jobs in the last 7 days, and lane demand shortens it to 3 hours, or 1 hour", async () => {
       const recent = { jobs: ghBoard.jobs.map((j) => ({ ...j, first_published: "2026-10-30T10:00:00Z" })) };
       const quiet = await pollBoard(t.db, board, { now: t1, fetch: ghFetch(recent) });
       expect(await company()).toMatchObject({ newJobs7d: 3 });
       // 24h / (1 + 3/7) = 16.8h
       expect(quiet.nextPollAt!.getTime() - t1.getTime()).toBe(Math.round(24 * HOUR / (1 + 3 / 7)));
       const wanted = await pollBoard(t.db, board, { now: t1, fetch: ghFetch(recent), demand: 3 });
-      expect(wanted.nextPollAt!.getTime() - t1.getTime()).toBe(Math.round(24 * HOUR / (1 + 3 / 7) / 2));
+      expect(wanted.nextPollAt!.getTime() - t1.getTime()).toBe(3 * HOUR);
+      const hot = await pollBoard(t.db, board, { now: t1, fetch: ghFetch(recent), demand: 3, matching7d: 3 });
+      expect(hot.nextPollAt!.getTime() - t1.getTime()).toBe(HOUR);
     });
 
     it("counts a job as new by its posting date, not by the day it was first seen", async () => {

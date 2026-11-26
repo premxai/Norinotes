@@ -43,7 +43,7 @@ export { EARLY_CAREER_BOARDS, EARLY_CAREER_VERIFIED_AT } from "./board-registry-
 export { hostKey } from "./hosts.js";
 export {
   PRIORITY, PROBATION_MS, EMPTY_DISABLE_MS, ERROR_STREAK_LIMIT, RECHECK_MS, PROBATION_RECHECK_MS, MISSING_READS_TO_CLOSE,
-  pollIntervalMs, errorRetryMs,
+  pollIntervalMs, errorRetryMs, LANE_INTERVAL_MS, HOT_INTERVAL_MS, HOT_MATCHES_7D,
 } from "./schedule.js";
 export type { NextPollInput } from "./schedule.js";
 export { seedCompanies, nextBoards, maxPollsPerHost, DEFAULT_POLLS_PER_HOST } from "./companies.js";

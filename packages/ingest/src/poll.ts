@@ -65,6 +65,8 @@ export type PollOptions = {
   backoff?: HostBackoff;
   /** Enabled lanes (of any user) that match this company's recent jobs; shortens the time to its next poll. Default 0. */
   demand?: number;
+  /** Of the company's jobs from the last 7 days, how many match an enabled lane; often enough, it is read hourly. Default 0. */
+  matching7d?: number;
 };
 
 type CompanyRow = typeof companies.$inferSelect;
@@ -114,8 +116,8 @@ async function recordBlocked(db: Db, row: CompanyRow, now: Date, statusReason: s
  * - Status: a candidate's first poll validates it (jobs or an empty feed: `active`, empty at low priority; not found:
  *   `dead`). Five failed polls in a row, or 14 days at zero jobs, disable a board; disabled and dead boards are
  *   rechecked weekly and come back as `active` when they answer with jobs.
- * - `next_poll_at = now + clamp(24h / (1 + new_jobs_7d / 7), 1h, 48h)`, shortened by `opts.demand`, never shorter than
- *   the job system allows.
+ * - `next_poll_at = now + clamp(24h / (1 + new_jobs_7d / 7), 1h, 48h)`; at most 3 h for a board with lane demand
+ *   (`opts.demand`), 1 h when it often posts jobs that fit (`opts.matching7d`); never shorter than the job system allows.
  *
  * - robots.txt is obeyed on every request (see http.ts): a feed it disallows disables the board like a 401/403 does.
  *
@@ -161,10 +163,11 @@ export async function pollBoard(db: Db, board: { atsType: AtsType; token: string
   }
   const company = row;
   const demand = opts.demand ?? 0;
+  const matching7d = opts.matching7d ?? 0;
 
   // 304: nothing changed. Only the poll times move.
   if (listed.notModified) {
-    const nextPollAt = after(now, pollIntervalMs({ atsType, newJobs7d: company.newJobs7d, demand }));
+    const nextPollAt = after(now, pollIntervalMs({ atsType, newJobs7d: company.newJobs7d, demand, matching7d }));
     await db.update(companies).set({ lastPolledAt: now, lastSuccessAt: now, firstReadAt: company.firstReadAt ?? now, nextPollAt, errorStreak: 0 }).where(eq(companies.id, company.id));
     return {
       ...emptyResult(null), total: company.lastJobCount, notModified: true, status: company.status, previousStatus: company.status, nextPollAt,
@@ -234,7 +237,7 @@ export async function pollBoard(db: Db, board: { atsType: AtsType; token: string
       status = now.getTime() - emptySince.getTime() >= EMPTY_DISABLE_MS ? "disabled" : "active";
     }
     // (an incomplete read with no jobs proves nothing: status stays as it was)
-    const nextPollAt = after(now, status === "disabled" ? RECHECK_MS : pollIntervalMs({ atsType, newJobs7d, demand }));
+    const nextPollAt = after(now, status === "disabled" ? RECHECK_MS : pollIntervalMs({ atsType, newJobs7d, demand, matching7d }));
 
     await tx.update(companies).set({
       status, priority, emptySince, nextPollAt, newJobs7d,

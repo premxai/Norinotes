@@ -96,6 +96,7 @@ describe("scheduler", () => {
     await queue.drain();
     const rows = await t.db.select().from(companies);
     const wait = (token: string) => rows.find((r) => r.atsToken === token)!.nextPollAt!.getTime() - NOW.getTime();
+    expect(wait("wanted")).toBe(3 * HOUR);
     expect(wait("wanted")).toBeLessThan(wait("plain"));
     expect(wait("plain")).toBeGreaterThan(8 * HOUR);
   });
