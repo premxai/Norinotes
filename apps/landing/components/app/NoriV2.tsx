@@ -12,10 +12,14 @@ import { buttonClass } from "@/components/Button";
 import { FormError } from "@/components/auth/fields";
 import {
   api,
+  SKIP_REASON_LABELS,
+  type Aggressiveness,
   type Batch,
   type NoriAction,
+  type NoriDecision,
   type NoriMessage,
   type NoriSchedule,
+  type SkipReason,
 } from "@/lib/api";
 import { shortDate } from "@/lib/app-state";
 import { usePolling } from "@/lib/use-polling";
@@ -25,7 +29,8 @@ import { PageHead } from "./PageHead";
  * /nori, dashboard v2 (docs/dashboard-v2-plan.md section 6): talk with your agent. The chat (GET/POST /api/nori/chat)
  * lists every change Nori made under its reply, each with Undo (Stop for Apply now). Beside it, the setup card shows what
  * the chat edits: roles, the daily cap with what went out today, the threshold with how many jobs are Recommended, the
- * schedule, and Apply now (POST /api/nori/batches { recommended: true }). Every number on it is the API's.
+ * schedule, and Apply now (POST /api/nori/batches { recommended: true }). Every number on it is the API's. Below the chat,
+ * "Your call" lists the jobs Nori asks about (GET /api/nori/decisions, action "ask"): Apply or Skip, with a reason.
  */
 
 const PAGE = 50;
@@ -95,6 +100,7 @@ type Setup = {
   cap: number | null;
   sentToday: number | null;
   threshold: number | null;
+  aggressiveness: Aggressiveness | null;
   recommended: { count: number; more: boolean } | null;
   schedule: NoriSchedule | null;
   running: Batch | null;
@@ -266,6 +272,74 @@ function ApplyNow({
   );
 }
 
+const AGGRESSIVENESS: Record<Aggressiveness, { label: string; line: string }> =
+  {
+    cautious: {
+      label: "Cautious",
+      line: "Only jobs where you meet every must-have, about 10 a week",
+    },
+    balanced: {
+      label: "Balanced",
+      line: "Strong fits plus fresh jobs you mostly match, about 20 a week",
+    },
+    wide: {
+      label: "Wide",
+      line: "Also jobs you partly match, about 30 a week",
+    },
+  };
+
+/** PUT /api/nori/settings { aggressiveness }; the choice shows at once and goes back if saving fails. */
+function AggressivenessChoice({
+  value,
+  onSaved,
+}: {
+  value: Aggressiveness;
+  onSaved: () => void;
+}) {
+  const [chosen, setChosen] = useState(value);
+  const [failure, setFailure] = useState<string | null>(null);
+  async function choose(next: Aggressiveness) {
+    const was = chosen;
+    setChosen(next);
+    setFailure(null);
+    const r = await api.saveNoriSettings({ aggressiveness: next });
+    if (!r.ok) {
+      setChosen(was);
+      return setFailure(r.error);
+    }
+    onSaved();
+  }
+  return (
+    <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+      <legend className="sr-only">How much Nori sends on its own</legend>
+      {(Object.keys(AGGRESSIVENESS) as Aggressiveness[]).map((k) => (
+        <label
+          key={k}
+          className="flex min-h-12 cursor-pointer items-start gap-3 rounded-row border-[1.5px] border-line px-3 py-2.5 has-[:checked]:border-accent has-[:checked]:bg-accent-tint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink"
+        >
+          <input
+            type="radio"
+            name="aggressiveness"
+            value={k}
+            checked={chosen === k}
+            onChange={() => void choose(k)}
+            className="mt-0.5 size-5 flex-none accent-accent"
+          />
+          <span className="min-w-0">
+            <span className="block font-semibold text-ink">
+              {AGGRESSIVENESS[k].label}
+            </span>
+            <span className="block text-small text-ink-2">
+              {AGGRESSIVENESS[k].line}
+            </span>
+          </span>
+        </label>
+      ))}
+      {failure && <FormError>{failure}</FormError>}
+    </fieldset>
+  );
+}
+
 function SetupCard({
   setup,
   prefill,
@@ -276,11 +350,19 @@ function SetupCard({
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { roles, cap, sentToday, threshold, recommended, schedule } = setup;
+  const {
+    roles,
+    cap,
+    sentToday,
+    threshold,
+    aggressiveness,
+    recommended,
+    schedule,
+  } = setup;
   const summary = [
     roles ? `${roles.length} ${roles.length === 1 ? "role" : "roles"}` : null,
     cap !== null ? `${cap} a day` : null,
-    threshold !== null ? `${threshold}+` : null,
+    aggressiveness ? AGGRESSIVENESS[aggressiveness].label : null,
     schedule
       ? scheduleOn(schedule)
         ? daysOf(schedule.days)
@@ -292,7 +374,7 @@ function SetupCard({
   return (
     <aside
       aria-labelledby="setup-title"
-      className={`${card} laptop:sticky laptop:top-6 laptop:order-2`}
+      className={`${card} laptop:sticky laptop:top-6 laptop:order-2 laptop:row-span-2`}
     >
       <h2
         id="setup-title"
@@ -392,28 +474,23 @@ function SetupCard({
             )}
           </p>
         </Row>
-        <Row
-          title="Threshold score"
-          onChange={() => prefill("Only send ones at ")}
-          changeLabel="Change the threshold score"
-        >
-          <p className="text-body text-ink">
-            {threshold === null ? (
-              "…"
-            ) : (
-              <>
-                <b className="text-[1.25rem] tabular-nums">{threshold}</b> or
-                above
-              </>
-            )}
-          </p>
-          {recommended && (
+        <Row title="How much Nori sends on its own">
+          {aggressiveness === null ? (
+            <p className="text-body text-ink">…</p>
+          ) : (
+            <AggressivenessChoice
+              key={aggressiveness}
+              value={aggressiveness}
+              onSaved={onChanged}
+            />
+          )}
+          {recommended && threshold !== null && (
             <p className="text-small text-ink-2">
               <Link href="/jobs" className={link}>
                 {recommended.count}
                 {recommended.more ? "+" : ""} Recommended now
               </Link>
-              : your matches in your roles at this score or above.
+              : your matches in your roles at a score of {threshold} or above.
             </p>
           )}
         </Row>
@@ -454,6 +531,201 @@ function SetupCard({
         <ApplyNow setup={setup} onChanged={onChanged} />
       </div>
     </aside>
+  );
+}
+
+// ---- Your call --------------------------------------------------------------------------------------------------------------
+
+const GROUP: Record<NonNullable<NoriDecision["group"]>, string> = {
+  strong: "Strong fit",
+  worth_a_shot: "Worth a shot",
+  stretch: "Stretch",
+};
+
+/** One job Nori asks about: Apply starts a batch of just this job; Skip asks why (or skips without a reason). */
+function CallRow({
+  d,
+  onDone,
+}: {
+  d: NoriDecision;
+  onDone: (said: string) => void;
+}) {
+  const [skipping, setSkipping] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const acting = useRef(false);
+  async function act(run: () => Promise<string | null>) {
+    if (acting.current) return;
+    acting.current = true;
+    setBusy(true);
+    setFailure(null);
+    const error = await run().finally(() => {
+      acting.current = false;
+    });
+    setBusy(false);
+    if (error) setFailure(error);
+  }
+  const apply = () =>
+    act(async () => {
+      const r = await api.startBatch([d.jobId]);
+      if (!r.ok) return r.error;
+      onDone(`Nori is applying to ${d.title} at ${d.company}.`);
+      return null;
+    });
+  const skip = (reason?: SkipReason) =>
+    act(async () => {
+      const r = await api.dismiss(d.jobId, reason);
+      if (!r.ok) return r.error;
+      onDone(
+        r.data.addedToSkipList
+          ? `Skipped. Nori won’t show jobs at ${d.company} again.`
+          : `Skipped ${d.title} at ${d.company}.`,
+      );
+      return null;
+    });
+  return (
+    <li className="flex flex-col gap-2.5 rounded-row border-[1.5px] border-line p-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="min-w-0 text-body text-ink">
+          <b className="font-semibold">{d.title}</b>{" "}
+          <span className="text-ink-2">at {d.company}</span>
+        </p>
+        {d.group && (
+          <span className="flex-none rounded-full bg-tint px-2.5 py-0.5 text-[0.75rem] font-medium text-ink">
+            {GROUP[d.group]}
+          </span>
+        )}
+      </div>
+      {d.reasons[0] && <p className="text-small text-ink-2">{d.reasons[0]}</p>}
+      {skipping ? (
+        <div
+          role="group"
+          aria-label={`Why skip ${d.title}?`}
+          className="flex flex-col gap-2"
+        >
+          <p className="text-small font-semibold text-ink">Why skip it?</p>
+          <ul className="flex flex-wrap gap-2">
+            {(Object.keys(SKIP_REASON_LABELS) as SkipReason[]).map((k) => (
+              <li key={k}>
+                <button
+                  type="button"
+                  onClick={() => void skip(k)}
+                  aria-disabled={busy || undefined}
+                  className="min-h-10 rounded-row bg-accent-tint px-3.5 text-small font-semibold text-accent hover:bg-tint aria-disabled:opacity-60"
+                >
+                  {SKIP_REASON_LABELS[k]}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-x-3">
+            <button
+              type="button"
+              onClick={() => void skip()}
+              aria-disabled={busy || undefined}
+              className={quiet}
+            >
+              Skip without a reason
+            </button>
+            <button
+              type="button"
+              onClick={() => setSkipping(false)}
+              className={quiet}
+            >
+              Keep it
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void apply()}
+            aria-disabled={busy || undefined}
+            className={buttonClass("primary", "min-h-11")}
+          >
+            {busy ? "Starting…" : "Apply"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSkipping(true)}
+            className={buttonClass("outline", "min-h-11")}
+          >
+            Skip
+          </button>
+        </div>
+      )}
+      {failure && <FormError>{failure}</FormError>}
+    </li>
+  );
+}
+
+/** Keyed by the aggressiveness, so a new choice reads the decisions again. */
+function YourCall({
+  aggressiveness,
+  onChanged,
+}: {
+  aggressiveness: Aggressiveness | null;
+  onChanged: () => void;
+}) {
+  const decisions = usePolling(
+    `nori-decisions:${aggressiveness}`,
+    api.noriDecisions,
+    300_000,
+  );
+  const [done, setDone] = useState<string[]>([]);
+  const [said, setSaid] = useState<string | null>(null);
+  const asks = (decisions.data?.decisions ?? []).filter(
+    (d) => d.action === "ask" && !done.includes(d.jobId),
+  );
+  return (
+    <section
+      aria-labelledby="call-title"
+      className={`${card} min-w-0 gap-3 p-4 tablet:p-5 laptop:order-3`}
+    >
+      <div>
+        <h2
+          id="call-title"
+          className="text-[1.125rem] font-semibold text-ink tablet:text-[1.25rem]"
+        >
+          Your call
+          {asks.length > 0 && (
+            <span className="font-normal text-ink-2"> · {asks.length}</span>
+          )}
+        </h2>
+        <p className="mt-1 text-small text-ink-2">
+          Jobs Nori won&rsquo;t send without you. Apply or skip each one.
+        </p>
+      </div>
+      {said && (
+        <p role="status" className="text-small text-ink">
+          {said}
+        </p>
+      )}
+      {!decisions.data ? (
+        <p className="text-small text-ink-2">{decisions.error ?? "Loading…"}</p>
+      ) : asks.length === 0 ? (
+        <p className="text-small text-ink-2">
+          Nothing to decide right now. When Nori finds a job it isn&rsquo;t sure
+          about, it shows up here.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {asks.map((d) => (
+            <CallRow
+              key={d.jobId}
+              d={d}
+              onDone={(text) => {
+                setDone((x) => [...x, d.jobId]);
+                setSaid(text);
+                void decisions.refresh();
+                onChanged();
+              }}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -702,6 +974,7 @@ export function NoriV2() {
     cap: settings.data?.settings.dailyLimit ?? null,
     sentToday: status.data?.usedToday ?? null,
     threshold: minFit === undefined ? null : Math.round(minFit * 100),
+    aggressiveness: settings.data?.settings.aggressiveness ?? null,
     recommended: items
       ? {
           count: items.filter((i) => !i.applicationStatus).length,
@@ -891,6 +1164,10 @@ export function NoriV2() {
             {failure && <FormError>{failure}</FormError>}
           </div>
         </section>
+        <YourCall
+          aggressiveness={setup.aggressiveness}
+          onChanged={refreshSetup}
+        />
       </div>
     </main>
   );
