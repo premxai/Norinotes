@@ -52,12 +52,71 @@ function neededHits(total: number): number {
   return total <= 2 ? total : Math.ceil(total * 0.75);
 }
 
+/** Abbreviations titles use, spelled out before lane and job titles are compared. Mirrored in `titleFitsSql`. */
+export const TITLE_ABBREVIATIONS: Record<string, string> = {
+  ml: "machine learning", ai: "artificial intelligence", swe: "software engineer", sre: "site reliability engineer",
+  pm: "product manager", qa: "quality assurance", ux: "user experience", ui: "user interface",
+};
+
+/** Rewrites applied, in order, after `normalizeTitle`: compounds joined, one stem per role word, abbreviations spelled out. */
+const TITLE_REWRITES: ReadonlyArray<readonly [string, string]> = [
+  ["(front|back) end", "$1end"],
+  ["full stack", "fullstack"],
+  ["engineering", "engineer"],
+  ["scientists?", "science"],
+  ...Object.entries(TITLE_ABBREVIATIONS),
+];
+
+/**
+ * `normalizeTitle`, then the forms lanes compare: "front end" / "front-end" become "frontend" (also backend, fullstack),
+ * "engineering" counts as "engineer" and "scientist" as "science", and the abbreviations in `TITLE_ABBREVIATIONS` are spelled
+ * out ("ML Engineer" reads as "machine learning engineer").
+ */
+export function normalizeLaneTitle(title: string): string {
+  return TITLE_REWRITES.reduce((t, [from, to]) => t.replace(new RegExp(`\\b(?:${from})\\b`, "g"), to), normalizeTitle(title));
+}
+
+const significant = (words: string[]) => {
+  const kept = words.filter((w) => !STOP.has(w));
+  return kept.length > 0 ? kept : words;
+};
+const wordsOf = (title: string) => significant(normalizeLaneTitle(title).split(" ").filter(Boolean));
+const sameWord = (jobWord: string, laneWord: string) => jobWord === laneWord || jobWord === `${laneWord}s` || jobWord === `${laneWord}es`;
+
+/**
+ * Words that name a business function. Before a job title's role noun they make it another role: "Product Marketing
+ * Manager" is a marketing manager, not a product manager.
+ */
+const FUNCTION_WORDS = new Set([
+  "marketing", "sales", "operations", "ops", "program", "project", "account", "accounts", "finance", "legal", "people",
+  "recruiting", "talent", "partner", "partnerships", "support", "success", "customer", "communications", "community",
+  "content", "brand", "design", "engineer",
+]);
+
+/**
+ * Does a job title fit a lane title? Both are normalised (`normalizeLaneTitle`), and the lane loses seniority and filler words.
+ * 1. Word overlap: the job title has every remaining lane word (at least 75% when there are more than two), plurals tolerated.
+ * 2. Role noun: the lane's last word is its role noun ("manager" of "Product Manager"). Its last two words appear together
+ *    in the job title ("Senior Product Manager, Growth", "Software Engineering Manager"), or the role noun is the job title's
+ *    own role noun, the last word before a comma, dash or bracket, and the word before it there is not a business function
+ *    the lane does not name. So "Machine Learning Research Engineer" fits "Machine Learning Engineer", but "Product
+ *    Marketing Manager" does not fit "Product Manager" and "Executive Assistant to the Account Director" does not fit
+ *    "Account Executive".
+ * The SQL mirror (`titleFitsSql`) checks only the word overlap, so it is broader; the role noun check runs where lanes decide.
+ */
 export function titleMatches(laneTitle: string, jobTitle: string): boolean {
-  const words = significantTitleWords(laneTitle);
+  const words = [...new Set(wordsOf(laneTitle))];
   if (words.length === 0) return false;
-  const jt = normalizeTitle(jobTitle);
-  const hits = words.filter((w) => new RegExp(`\\b${w}(?:s|es)?\\b`).test(jt)).length;
-  return hits >= neededHits(words.length);
+  const job = wordsOf(jobTitle);
+  const hits = words.filter((w) => job.some((j) => sameWord(j, w))).length;
+  if (hits < neededHits(words.length)) return false;
+  const tail = words.slice(-2);
+  if (job.some((_, i) => tail.every((w, k) => i + k < job.length && sameWord(job[i + k]!, w)))) return true;
+  const main = wordsOf(jobTitle.split(/,|\(|\s[-\u2013\u2014|/]\s/)[0] ?? "");
+  const role = main.at(-1);
+  if (!role || !sameWord(role, words.at(-1)!)) return false;
+  const modifier = main.at(-2);
+  return !modifier || !FUNCTION_WORDS.has(modifier) || words.includes(modifier);
 }
 
 /** Lower case, accents dropped, everything but letters and digits a single space. */
@@ -202,9 +261,11 @@ const cityWordsSql = jsonbLiteral(Object.fromEntries([...Object.keys(CITY_SYNONY
 const areaIdsSql = jsonbLiteral(AREA_NAMES.names);
 const areaPatternsSql = jsonbLiteral(Object.fromEntries(Object.entries(AREA_NAMES.areas).map(([id, a]) => [id, { names: a.names.join("|"), codes: a.codes.join("|") }])));
 
-/** SQL for the normalised form of a title expression (see `normalizeTitle`). */
-const normTitleSql = (expr: SQL | typeof jobs.title) =>
-  sql`regexp_replace(regexp_replace(lower(${expr}), '\\m(developer|programmer)s?\\M', 'engineer', 'g'), '[^a-z0-9]+', ' ', 'g')`;
+/** SQL for the normalised form of a title expression (see `normalizeLaneTitle`). */
+const normTitleSql = (expr: SQL | typeof jobs.title) => TITLE_REWRITES.reduce<SQL>(
+  (t, [from, to]) => sql`regexp_replace(${t}, ${`\\m(?:${from})\\M`}, ${to.replace("$1", "\\1")}, 'g')`,
+  sql`regexp_replace(regexp_replace(lower(${expr}), '\\m(developer|programmer)s?\\M', 'engineer', 'g'), '[^a-z0-9]+', ' ', 'g')`,
+);
 
 /**
  * True when some title of `lanes` fits `jobs.title`. Both tables must be in scope of the query that embeds it
