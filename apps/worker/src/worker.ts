@@ -1,6 +1,6 @@
 import path from "node:path";
 import { connect, migrate, type Db, type DbHandle } from "@norinote/db";
-import { createBrowserPool, createLiveFrameSink, drainBatches, liveInputBusFor, runSchedules, type ApplyDeps, type BrowserPool, type LiveInputBus, type Preparer } from "@norinote/apply";
+import { checkStillOpen, createBrowserPool, createLiveFrameSink, drainBatches, liveInputBusFor, runSchedules, type ApplyDeps, type BrowserPool, type LiveInputBus, type Preparer } from "@norinote/apply";
 import { JOBS } from "@norinote/queue";
 import { artifactsRoot, fileStoreFromEnv } from "@norinote/shared/files";
 import { setAiLogger } from "@norinote/ai";
@@ -78,6 +78,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<Worker> {
     codeTimeoutMs: config.codeWaitMs,
     // "Watch Nori apply": the latest picture of the employer's page, for the owner's dashboard (GET /api/applications/:id/live).
     liveFrames: createLiveFrameSink({ root: config.artifactsDir ?? artifactsRoot(), store: fileStoreFromEnv(), log: (line) => log.info("apply.live", { line }) }),
+    // Before preparing and before sending: one read of the posting on its public board; a closed job closes the application.
+    stillOpen: (db, jobId) => checkStillOpen(db, jobId, opts.fetch ? { fetch: opts.fetch } : {}),
     now,
     ...opts.applyOverrides,
   };

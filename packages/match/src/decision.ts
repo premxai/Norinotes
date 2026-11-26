@@ -14,11 +14,13 @@
  *    a group that is not sent on its own is `ask` (a one-tap Apply/Skip prompt).
  * 4. Sends stay within the week's remaining pace, one per company, spread across kinds of jobs; sendable jobs left over
  *    are `later`.
+ * 5. A ghost job (reposted 3 or more times in 60 days, see ghost.ts) is never sent on its own: at most `ask`.
  */
 import { and, applications, asc, companies, eq, gte, inArray, jobSpecs, jobs, profiles, shortlist, sql, type Db } from "@norinote/db";
 import { companyKey, isSkippedCompany, readSkipCompanies } from "@norinote/shared";
 import { jobLevelBand, levelFromYears, matchTargetOf, titleAlignment } from "./alignment.js";
 import { coverageOf, relevantYears, type FitMapItem } from "./fit.js";
+import { ghostReason, ghostRepostCounts, isGhost } from "./ghost.js";
 import { checkGates } from "./gates.js";
 import { loadMatchProfile, type MatchProfile } from "./profile.js";
 import { roleFamilyOf } from "./roles.js";
@@ -221,6 +223,9 @@ export async function decideApplies(db: Db, userId: string, opts: DecideOptions)
   for (const r of recent) recentJobs.set(r.companyId, (recentJobs.get(r.companyId) ?? new Set()).add(r.jobId));
   const appliedRecently = (companyId: string, jobId: string) => [...(recentJobs.get(companyId) ?? [])].some((j) => j !== jobId);
 
+  // Ghost jobs (ghost.ts): a company that keeps re-listing this posting is never sent on Nori's own, only offered.
+  const reposts = await ghostRepostCounts(db, rows.map((r) => r.jobId));
+
   const profile = await loadMatchProfile(db, userId, now);
   const sendable: Array<ApplyDecision & { companyId: string; family: string }> = [];
   const rest: ApplyDecision[] = [];
@@ -231,6 +236,8 @@ export async function decideApplies(db: Db, userId: string, opts: DecideOptions)
     if (appliedRecently(r.companyId, r.jobId)) { rest.push({ jobId: r.jobId, group: null, action: "skip", reasons: [`You applied to this company in the last ${RECENT_COMPANY_DAYS} days`], fit: r.fit }); continue; }
     const a = assessJob({ ...r, fitMap: r.fitMap as JobForDecision["fitMap"], spec: s.spec, heuristicSpec: s.heuristic }, profile, policy, now);
     if (!a.group) { rest.push({ jobId: r.jobId, group: null, action: "skip", reasons: a.reasons, fit: r.fit }); continue; }
+    const ghost = reposts.get(r.jobId) ?? 0;
+    if (isGhost(ghost)) { rest.push({ jobId: r.jobId, group: a.group, action: "ask", reasons: [ghostReason(ghost), ...a.reasons].slice(0, 3), fit: r.fit }); continue; }
     if (policy.autoSend.includes(a.group)) sendable.push({ jobId: r.jobId, group: a.group, action: "send", reasons: a.reasons, fit: r.fit, companyId: r.companyId, family: kindOf(r.title) });
     else rest.push({ jobId: r.jobId, group: a.group, action: "ask", reasons: a.reasons, fit: r.fit });
   }

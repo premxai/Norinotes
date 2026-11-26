@@ -107,4 +107,32 @@ describe("decideApplies", () => {
     await t.db.insert(shortlist).values({ userId, jobId: other, fit: 0.9, fitMap: [must("Python", 0.8)], reasons: [] });
     expect((await decideApplies(t.db, userId, { now: NOW, jobIds: [other] })).decisions).toMatchObject([{ jobId: other, action: "skip", reasons: ["You applied to this company in the last 60 days"] }]);
   });
+
+  it("never sends a ghost job (reposted 3 or more times in 60 days) on its own: it asks", async () => {
+    const userId = await seedUser(t.db);
+    await t.db.update(profiles).set({ preferences: { nori: { aggressiveness: "wide" } } }).where(eq(profiles.userId, userId));
+    await seedLane(t.db, userId, { titles: ["Backend Engineer"], locations: [] });
+    await seedPoint(t.db, userId, { title: "Software Engineer", org: "Acme", start: "2022-01", text: "Built payment APIs in Python", skills: ["python"] });
+    const spec = baseSpec({ seniority: "mid" });
+    const strongMap = [must("Python", 0.8)];
+    const seed = async (name: string, title: string, earlier: number[]) => {
+      const companyId = await seedCompany(t.db, { name });
+      for (const days of earlier) {
+        await seedJob(t.db, { companyId, title, location: null, firstSeenAt: hoursAgo(24 * days), postedAt: hoursAgo(24 * days), closedAt: hoursAgo(24 * (days - 5)) });
+      }
+      const jobId = await seedJob(t.db, { companyId, title, spec, location: null, postedAt: hoursAgo(5) });
+      await t.db.insert(shortlist).values({ userId, jobId, fit: 0.9, fitMap: strongMap, reasons: [] });
+      return jobId;
+    };
+    const plain = await seed("A", "Backend Engineer", []);
+    const twice = await seed("B", "Backend Engineer", [50, 30]);
+    const ghost = await seed("C", "Backend Engineer", [50, 30, 10]);
+
+    const r = await decideApplies(t.db, userId, { now: NOW });
+    const by = Object.fromEntries(r.decisions.map((d) => [d.jobId, d]));
+    expect(by[plain]).toMatchObject({ action: "send", group: "strong" });
+    expect(by[twice]).toMatchObject({ action: "send", group: "strong" });
+    expect(by[ghost]).toMatchObject({ action: "ask", group: "strong" });
+    expect(by[ghost]!.reasons[0]).toBe("Reposted 3 times in 60 days");
+  });
 });

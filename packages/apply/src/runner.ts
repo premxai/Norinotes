@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from "@norinote/shared";
-import { and, applications, asc, eq, inArray, lt, sql } from "@norinote/db";
+import { and, applications, asc, desc, eq, inArray, lt, runEvents, sql } from "@norinote/db";
 import type { Db } from "@norinote/db";
 import type { Payload } from "@norinote/queue";
 import { defaultUnknownFormHandler, detectDriver, DRIVERS } from "./drivers/index.js";
@@ -11,6 +11,7 @@ import { sharedCompanyGate, type CompanyGate } from "./gate.js";
 import { recordStrategies } from "./recipes.js";
 import { isTerminal, MAX_ATTEMPTS, submitMayHaveHappened } from "./state.js";
 import { approveAndSubmit, loadApplication, logEvent, transitionApplication, type ApplicationRow } from "./store.js";
+import { JOB_CLOSED_REASON, OPEN_CHECK_FRESH_MS, type StillOpen } from "./still-open.js";
 import { startLiveFrames, type LiveFrameSink } from "./live.js";
 import { applyLiveInput, type LiveInput, type LiveInputBus } from "./control.js";
 import { detectCaptcha } from "./form.js";
@@ -51,6 +52,11 @@ export type ApplyDeps = {
   liveFrames?: LiveFrameSink;
   /** Interval between live frames (default 1000 ms). */
   liveFrameMs?: number;
+  /**
+   * Is the job still open? Asked before preparing and before the browser step (`checkStillOpen`, wired by the worker).
+   * Unset = not checked.
+   */
+  stillOpen?: (db: Db, jobId: string) => Promise<StillOpen>;
   now?: () => Date;
 };
 
@@ -166,8 +172,32 @@ export async function staleRuns(db: Db, opts: { now?: Date; olderThanMs?: number
 // preparing
 // ---------------------------------------------------------------------------------------------------------------------
 
+/** The run-log step of an open check; its `data.state` is open, closed or unknown. */
+export const STILL_OPEN_STEP = "still_open";
+
+/**
+ * Before an application is spent (prepared, or sent): is the job still open? A closed job closes the application
+ * (`failed`, with the reason); an open one is not asked about again for `OPEN_CHECK_FRESH_MS`; a check that could not
+ * tell (network trouble) lets the application go on. Null when the application goes on.
+ */
+async function closedJobStop(db: Db, row: ApplicationRow, deps: ApplyDeps, from: "preparing" | "applying"): Promise<StepResult | null> {
+  if (!deps.stillOpen) return null;
+  const [last] = await db.select({ ts: runEvents.ts }).from(runEvents)
+    .where(and(eq(runEvents.applicationId, row.id), eq(runEvents.step, STILL_OPEN_STEP), sql`${runEvents.data}->>'state' = 'open'`))
+    .orderBy(desc(runEvents.ts)).limit(1);
+  if (last && Date.now() - last.ts.getTime() < OPEN_CHECK_FRESH_MS) return null;
+  const check = await deps.stillOpen(db, row.jobId).catch((err): StillOpen => ({ state: "unknown", why: err instanceof Error ? err.message : String(err) }));
+  const said = check.state === "open" ? "The job is still open" : check.state === "closed" ? "The job is closed" : "Could not tell whether the job is still open; going on";
+  await logEvent(db, row.id, STILL_OPEN_STEP, `${said} (${check.why})`, { level: check.state === "open" ? "info" : "warn", data: { state: check.state, status: check.status ?? null, before: from === "preparing" ? "prepare" : "submit" } });
+  if (check.state !== "closed") return null;
+  const r = await transitionApplication(db, row.id, "failed", { from, error: JOB_CLOSED_REASON, message: JOB_CLOSED_REASON, data: { jobClosed: true } });
+  return result(row.id, r.ok ? r.application.status : row.status, { advanced: r.ok && !r.noop, waiting: "done", message: JOB_CLOSED_REASON });
+}
+
 async function prepareStep(db: Db, row: ApplicationRow, deps: ApplyDeps): Promise<StepResult> {
   const id = row.id;
+  const closed = await closedJobStop(db, row, deps, "preparing");
+  if (closed) return closed;
   let outcome;
   try {
     outcome = await deps.preparer.prepare(id);
@@ -235,6 +265,9 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps, sess
     const reason = "Submit was already clicked on an earlier run, so Norinote will not send it again. Check the employer's site or your email.";
     return done("needs_user", await transitionApplication(db, id, "needs_user", { from: "applying", error: reason, message: reason }));
   }
+
+  const closed = await closedJobStop(db, row, deps, "applying");
+  if (closed) return closed;
 
   let inputs: ApplyInputs;
   try {

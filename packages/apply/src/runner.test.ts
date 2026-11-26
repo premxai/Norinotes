@@ -6,6 +6,7 @@ import {
   approveAndSubmit, approveBeforePrepared, createApplication, driveApplication, retryApplication, runApplication, saveAnswers, normalizeTitle,
   MAX_ATTEMPTS, PoolRunError, STALE_RUN_MS, staleRuns, submitMayHaveHappened, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
 } from "./index.js";
+import { checkStillOpen, JOB_CLOSED_REASON, STILL_OPEN_STEP } from "./index.js";
 import type { ApplyInputs } from "./inputs.js";
 import { FINISH_ACCOUNT_REASON, FINISH_CAPTCHA_REASON } from "./flow.js";
 import { CompanyGate } from "./gate.js";
@@ -780,3 +781,74 @@ describe("the run log line for a code", () => {
     expect(codeFoundMessage("email", undefined)).toBe("Code received by email; entering it");
   });
 });
+
+describe("still open: checked before preparing and before sending", () => {
+  /** A fake board, no network: robots.txt is absent and the posting answers `posting` (a response, or a thrown error). */
+  function board(posting: () => Response | Error) {
+    const asked: string[] = [];
+    const fetch = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/robots.txt")) return new Response("", { status: 404 });
+      asked.push(url);
+      const r = posting();
+      if (r instanceof Error) throw r;
+      return r;
+    }) as typeof globalThis.fetch;
+    return { asked, stillOpen: (db: Parameters<typeof checkStillOpen>[0], jobId: string) => checkStillOpen(db, jobId, { fetch, sleep: async () => {} }) };
+  }
+  const open = () => new Response(JSON.stringify({ id: 1, title: "Engineer", questions: [] }), { status: 200, headers: { "content-type": "application/json" } });
+  const jobOf = async (id: string) => (await t.db.select().from(jobs).where(eq(jobs.id, id)))[0]!;
+  const stillOpenEvents = async (id: string) => (await t.db.select().from(runEvents).where(eq(runEvents.applicationId, id))).filter((e) => e.step === STILL_OPEN_STEP).map((e) => e.data);
+
+  it("a posting closed before preparing closes the job and the application, and nothing is prepared", async () => {
+    const b = board(() => new Response("not found", { status: 404 }));
+    const d = deps({ stillOpen: b.stillOpen });
+    const { app, job } = await seedApp();
+    expect(await driveApplication(t.db, app.id, d)).toMatchObject({ status: "failed", waiting: "done", message: JOB_CLOSED_REASON });
+    expect(d.preparer.calls).toHaveLength(0);
+    expect(b.asked).toHaveLength(1);
+    expect(await getApp(app.id)).toMatchObject({ status: "failed", error: JOB_CLOSED_REASON });
+    expect((await jobOf(job.id)).closedAt).toBeInstanceOf(Date);
+    expect(await stillOpenEvents(app.id)).toEqual([expect.objectContaining({ state: "closed", status: 404, before: "prepare" })]);
+  });
+
+  it("a posting closed after preparing closes the application right before the submit click, without opening the form", async () => {
+    const { driver, calls } = fakeDriver();
+    const { app, job, d } = await prepared(deps({ driver }));
+    const b = board(() => new Response("gone", { status: 410 }));
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, { ...d, stillOpen: b.stillOpen })).toMatchObject({ status: "failed", waiting: "done" });
+    expect(calls.fill).toHaveLength(0);
+    expect(calls.submit).toHaveLength(0);
+    expect(await getApp(app.id)).toMatchObject({ status: "failed", error: JOB_CLOSED_REASON, submittedAt: null });
+    expect((await jobOf(job.id)).closedAt).toBeInstanceOf(Date);
+    expect(await stillOpenEvents(app.id)).toEqual([expect.objectContaining({ state: "closed", before: "submit" })]);
+  });
+
+  it("a network error is not a closed job: the application goes on and the job stays open", async () => {
+    const { driver, calls } = fakeDriver();
+    const b = board(() => new TypeError("fetch failed"));
+    const d = deps({ driver, stillOpen: b.stillOpen });
+    const { app, job } = await seedApp();
+    expect(await driveApplication(t.db, app.id, d)).toMatchObject({ status: "prepared" });
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "prepared", advanced: true });
+    expect(calls.fill).toHaveLength(1);
+    expect((await jobOf(job.id)).closedAt).toBeNull();
+    expect(await stillOpenEvents(app.id)).toEqual([expect.objectContaining({ state: "unknown", before: "prepare" }), expect.objectContaining({ state: "unknown", before: "submit" })]);
+  });
+
+  it("asks the board once when the application is sent right after it was prepared", async () => {
+    const { driver, calls } = fakeDriver();
+    const b = board(open);
+    const d = deps({ driver, stillOpen: b.stillOpen });
+    const { app } = await seedApp();
+    expect(await driveApplication(t.db, app.id, d)).toMatchObject({ status: "prepared" });
+    await approveAndSubmit(t.db, app.id);
+    expect(await runApplication(t.db, app.id, d)).toMatchObject({ status: "prepared", advanced: true });
+    expect(calls.fill).toHaveLength(1);
+    expect(b.asked).toHaveLength(1);
+    expect(await stillOpenEvents(app.id)).toEqual([expect.objectContaining({ state: "open", before: "prepare" })]);
+  });
+});
+
