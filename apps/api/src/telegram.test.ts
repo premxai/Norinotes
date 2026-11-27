@@ -247,16 +247,22 @@ describe("strong fit alert", () => {
 
   it("waits for quiet hours to end", async () => {
     const s = await linked("tg-strong-quiet@example.com", 5102);
-    await api.call("PUT", "/api/channels/telegram", { cookie: s.cookie, body: { timezone: "UTC", quietHours: { enabled: true, start: "00:00", end: "23:59" }, events: { digest: false, summary: false } } });
+    // Quiet hours 22:00 to 08:00 UTC and a clock pinned at 23:00, so the alert is held until the morning. Pinning it is
+    // the point: the old window of 00:00 to 23:59 gave the opposite answer whenever the suite crossed UTC midnight.
+    await api.call("PUT", "/api/channels/telegram", { cookie: s.cookie, body: { timezone: "UTC", quietHours: { enabled: true, start: "22:00", end: "08:00" }, events: { digest: false, summary: false } } });
     const j = await seedJob(api.db, { title: "Quiet Engineer", company: "Nu" });
     const [app] = await api.db.insert(applications).values({ userId: s.user.id, jobId: j.job.id, status: "prepared", preparedAt: new Date() }).returning();
     await api.db.insert(runEvents).values({ applicationId: app!.id, step: STRONG_FIT_STEP, message: "Strong fit" });
     fake.clear();
-    await runTelegramTick(notifier());
+    await runTelegramTick(notifier(() => new Date("2026-11-26T23:00:00Z")));
     expect(fake.sent().filter((m) => m.text.includes("Quiet Engineer"))).toHaveLength(0);
     const [row] = await api.db.select().from(channelMessages).where(eq(channelMessages.dedupeKey, `strong_fit:${app!.id}`));
     expect(row).toMatchObject({ status: "pending" });
-    expect(row!.notBefore).not.toBeNull();
+    // Held until the window ends, and no longer than that.
+    expect(row!.notBefore?.toISOString()).toBe("2026-11-27T08:00:00.000Z");
+    fake.clear();
+    await runTelegramTick(notifier(() => new Date("2026-11-27T08:05:00Z")));
+    expect(fake.sent().filter((m) => m.text.includes("Quiet Engineer"))).toHaveLength(1);
   });
 });
 
