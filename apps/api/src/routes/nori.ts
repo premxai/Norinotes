@@ -39,6 +39,18 @@ function needOf(a: { pendingQuestions: unknown[]; receipt: Record<string, unknow
   return "other";
 }
 
+/** Why a batch left a job out, for the one-line reply when it could add none (packages/apply/src/batch.ts). */
+const BATCH_SKIP_WHY: Record<string, string> = {
+  not_found: "not found",
+  not_supported: "not on Greenhouse",
+  applied_recently: "at a company applied to in the last 60 days",
+  skipped_company: "at a company you skip",
+  same_company: "at a company another job in the batch is at",
+  already_applied: "already sent",
+  duplicate_recent: "applied to recently",
+  not_a_fit: "not ones Nori would send for you",
+};
+
 export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
   const auth = requireUser(ctx);
@@ -80,7 +92,12 @@ export function noriRoutes(ctx: Ctx): Hono<AppEnv> {
     if (jobIds.length === 0) throw new HttpError(409, "No jobs for Nori to send right now", "Nori sends new matches it would apply to on its own, within this week's pace. Pick jobs yourself to send others.");
     const res = await startBatch(db, user.id, jobIds, { now: ctx.now(), atsTypes: ctx.config.batchAts });
     for (const a of res.added) if (a.created) await enqueueSoft(ctx, JOBS.prepareApplication, { applicationId: a.applicationId });
-    if (!res.batchId) throw new HttpError(409, "None of these jobs can be added to a batch", JSON.stringify(res.skipped.map((s) => s.reason)));
+    if (!res.batchId) {
+      const counts = new Map<string, number>();
+      for (const s of res.skipped) counts.set(s.reason, (counts.get(s.reason) ?? 0) + 1);
+      const why = [...counts].map(([reason, n]) => `${n} ${BATCH_SKIP_WHY[reason] ?? "couldn't be added"}`).join(", ");
+      throw new HttpError(409, "None of these jobs can be added to a batch", why ? `Left out: ${why}.` : undefined);
+    }
     const [batch] = await db.select().from(applyBatches).where(eq(applyBatches.id, res.batchId)).limit(1);
     return c.json({ batch: await batchView(db, batch!, ctx.now()), added: res.added.length, skipped: res.skipped }, 201);
   });

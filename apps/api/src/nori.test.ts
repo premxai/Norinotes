@@ -54,6 +54,17 @@ describe("the Nori page API", () => {
     expect((await api.call("GET", `/api/nori/batches/${batchId}`, { cookie })).json.batch).toMatchObject({ status: "stopped", counts: { cancelled: 2 } });
   });
 
+  it("says in plain words why a batch could take none of the jobs", async () => {
+    const u = await api.signup("nori-skips@example.com");
+    await api.call("PUT", "/api/nori/settings", { cookie: u.cookie, body: { skipCompanies: ["Skipped Co"] } });
+    const { job } = await seedJob(api.db, { company: "Skipped Co" });
+    const res = await api.call("POST", "/api/nori/batches", { cookie: u.cookie, body: { jobIds: [job.id] } });
+    expect(res.status).toBe(409);
+    expect(res.json.error).toBe("None of these jobs can be added to a batch");
+    // A sentence for the person, never the raw list of codes.
+    expect(res.json.detail).toBe("Left out: 1 at a company you skip.");
+  });
+
   it("a second Apply now within a minute returns the batch it just started instead of starting another", async () => {
     const u = await api.signup("nori-double@example.com");
     for (const company of ["Double A", "Double B", "Double C", "Double D"]) {

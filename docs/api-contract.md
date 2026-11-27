@@ -62,8 +62,11 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   everything. Every fresh
   Greenhouse job is read and embedded, and Recommended is scored from all of them in the person's places (closeness to
   their graph, then evidence), not only titles that fit a role.
-- GET `/api/jobs` with `view`, `sort`, `lanes`, `maxAgeHours` (1 to 168, default 168, the 7-day window; `view=today` is the last 24 hours),
-  `clearance`, `limit`; only jobs posted in the last 7 days are listed, plus jobs the user added by link (always); returns
+- GET `/api/jobs` with `view` (best, new, today, saved, applied; default best), `sort` (best, new), `lanes` (true/false,
+  default true for `best`), `group` (true/false: one entry per role, default true), `maxAgeHours` (1 to 168, default 168,
+  the 7-day window; `view=today` is the last 24 hours), `clearance` (hide/show, default show), `minScore` (0 to 1),
+  `status` (open/all, default open), `q`, `limit` (1 to 200, default 50); only jobs posted in the last 7 days are listed,
+  plus jobs the user added by link (always); returns
   `[{ job, match, applicationStatus?, locations?, locationNames? }]`; `job.companyName` is a non-null string.
   `job.companyLogoUrl` is the company's logo on Brandfetch's CDN, or null (no known domain, or `BRANDFETCH_CLIENT_ID`
   unset). Load it only in an `<img>`; it answers 404 when Brandfetch has no logo, so show the letter tile on error too.
@@ -104,7 +107,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
     site could not be read right now.
 
 ## Shortlist
-- GET `/api/shortlist` returning
+- GET `/api/shortlist` (optional `limit`, 1 to 200, default 50) returning
   `[{ id, jobId, fit, reasons, status, createdAt, job: { id, companyName, companyLogoUrl, title, location, remote, applyUrl, postedAt } }]`
 - GET `/api/shortlist/meta` returning `{ total, widened, lanesMatched, poolUsed, reading }` for the list's banner. `reading` is
   `"basic"` when more than half of the listed roles were read without the AI (only a rule-based job spec, no job
@@ -198,6 +201,23 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   approved today, UTC); nothing changes and the application stays prepared. An application approved earlier (from
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
 
+## Outcomes
+- GET `/api/applications/:id/outcomes` returning `{ applicationId, submittedAt, confirmedAt, state, outcomes: [{ id,
+  kind, at, source, messageId }] }`: what the employer said, and the state it adds up to (`state` is the tracker's stage,
+  null before the application was sent). Reads from the inbox first (`syncInboxOutcomes`). `source` is `inbox` or `user`.
+- POST `/api/applications/:id/outcomes` with `{ kind, at? }` (`kind` one of `reply`, `interview`, `rejection`, `offer`;
+  `at` an ISO time, not in the future): records one by hand, for replies that reach the person's own mailbox. 201
+  `{ outcome, created, ...the view above }`, 200 when it was already there, 409 before the application was sent.
+- DELETE `/api/applications/:id/outcomes/:outcomeId` removes one; DELETE `/api/applications/:id/outcomes?kind=<kind>`
+  removes every active one of that kind (`{ ok, removed }`). A removed outcome is not re-added from its message.
+- GET `/api/outcomes/summary`: the person's own rates, `{ overall, bySystem, byRoleFamily, byFitBand, byResume,
+  minSample, noResponseDays, learning }`. A stats row is `{ key, applications, settled, pending, responses, interviews,
+  rejections, offers, noResponse, responseRate, interviewRate, rejectionRate, medianDaysToFirstReply, smallSample }`;
+  under `minSample` settled applications the rates and the median are null and `smallSample` is true, so counts only.
+  Rates are over settled applications. `learning` is the nudge Nori learned (`{ active, resolved, positive, needed,
+  computedAt, nudges: [{ dimension, value, positive, resolved, delta }] }`), or null when it cannot be computed. No
+  model call.
+
 ## Nori page ("Apply for me")
 - GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, aggressiveness, skipCompanies,
   dailyLimit (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
@@ -255,7 +275,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   model call per message, charged to the person's daily AI budget; when it is used up (or AI is down) the reply says so
   and nothing changes. `reply.actions: [{ kind, summary, undoId }]` lists every change Nori made: `set_threshold`,
   `set_aggressiveness` (cautious, balanced or wide), `set_daily_limit`, `add_role`, `remove_role`, `skip_company`, `unskip_company`, `apply_now` (a batch of Recommended
-  jobs). `undoId` is null when there is nothing to undo. Nori never changes anything without listing it. No schedule yet.
+  jobs), `schedule_on` and `schedule_off` (the autopilot below). `undoId` is null when there is nothing to undo. Nori never
+  changes anything without listing it.
 - POST `/api/nori/chat/undo/:undoId` returning `{ ok, summary }`: puts back what that change replaced (undoing
   `apply_now` stops the batch). Once only: `{ ok: false, summary: "Already undone" }` the second time; 404 for an unknown id.
 
@@ -295,7 +316,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   submitted, needs_user (also for ready_to_finish), reply, interview.
 
 ## Inbox and channels
-- GET `/api/inbox` (newest first) returning `[{ id, applicationId, application: { id, status, companyName, jobTitle } | null,
+- GET `/api/inbox` (newest first; optional `limit`, 1 to 200, default 100) returning `[{ id, applicationId, application: { id, status, companyName, jobTitle } | null,
   fromAddress, fromName, subject, bodyText, receivedAt, kind, code, verificationLink, links, attachments: [{ filename, contentType,
   size }], spam }]`; GET `/api/inbox/:id` adds `classifiedBy`, `forwardedAt` (404 for another user's message)
 - GET `/api/inbox/address` returning `{ address, configured, settings: { forwardTo, forwardEnabled, retentionDays } }` (creates
@@ -316,4 +337,7 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   already used this code").
 
 ## Health
-- GET `/api/health`
+- GET `/api/health`: `{ ok, time }`, the database only; 503 when it cannot be read (the platform's own check).
+- GET `/api/health/ai`: `{ ok, configured, recentSpecs?, ruleBased?, time }`, for an uptime monitor. 503 at once when this
+  process has no `OPENAI_API_KEY`, and when nearly all jobs read in the last hour came from the rule-based fallback
+  (at least 5 of them, 80% or more); the counts are only there when the key is set.
