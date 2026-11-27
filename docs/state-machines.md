@@ -17,10 +17,10 @@ Change a machine here first, then in code.
 | `prepared` | `applying`, `failed` |
 | `applying` | `awaiting_code`, `submitted`, `needs_user`, `ready_to_finish`, `failed`, `prepared` |
 | `awaiting_code` | `applying`, `submitted`, `needs_user`, `failed` |
-| `needs_user` | `preparing`, `applying`, `failed` |
+| `needs_user` | `preparing`, `applying`, `failed`, `submitted` |
 | `ready_to_finish` | `applying`, `failed` |
 | `submitted` | — (final) |
-| `failed` | `queued` |
+| `failed` | `queued`, `submitted` |
 
 - **What each move needs** (`checkTransition`): `preparing → prepared` needs a resume; `applying` needs
   `approvedAt` (the person's click, a batch's turn, or autopilot); `ready_to_finish → applying` only for the person
