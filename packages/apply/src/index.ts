@@ -2,11 +2,11 @@ export * from "./types.js";
 export { TRANSITIONS, MAX_ATTEMPTS, canTransition, checkTransition, transitionPatch, isTerminal, unansweredQuestions, submitMayHaveHappened } from "./state.js";
 export type { AppSnapshot, TransitionOptions, TransitionCheck } from "./state.js";
 export {
-  createApplication, approveAndSubmit, approveBeforePrepared, retryApplication, saveAnswers, transitionApplication, loadApplication, logEvent,
+  createApplication, approveAndSubmit, approveBeforePrepared, retryApplication, markSent, clearSubmitClick, saveAnswers, transitionApplication, loadApplication, logEvent,
   normalizeTitle, normalizeCompany, DUPLICATE_WINDOW_DAYS, capDayStart, dailyCapUse, dailyCapReached,
 } from "./store.js";
 export type { ApplicationRow, CreateApplicationResult, ApproveResult, ApproveLaterResult, DailyCap, TransitionResult } from "./store.js";
-export { runApplication, driveApplication, createApplyHandler, createPrepareHandler, createFinishHandler, finishApplications, staleRuns, STALE_RUN_MS, MAX_FINISH_BATCH, STILL_OPEN_STEP } from "./runner.js";
+export { runApplication, driveApplication, createApplyHandler, createPrepareHandler, createFinishHandler, finishApplications, staleRuns, STALE_RUN_MS, MAX_FINISH_BATCH, STILL_OPEN_STEP, applicationInFlight } from "./runner.js";
 export { checkStillOpen, takeCheckedGreenhouseJob, FORBIDDEN_RETRY_MS, JOB_CLOSED_REASON, OPEN_CHECK_FRESH_MS } from "./still-open.js";
 export type { StillOpen, StillOpenOptions, StillOpenState } from "./still-open.js";
 export type { ApplyDeps, FinishDeps, StaleRun, StepResult, WaitingFor } from "./runner.js";

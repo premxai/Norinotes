@@ -48,6 +48,12 @@ Change a machine here first, then in code.
   - `approvedAt`: the person said send. Cleared on retry. Today's approvals count against the daily limit. Every approval (`approveAndSubmit`, `approveBeforePrepared`) counts and stamps inside one transaction that holds the user's row lock, so two at once cannot both take the last place.
   - `batchId`: the batch drain sends it when its spacing slot comes.
   - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` / `captchaHeld` decide whether a re-run could duplicate an application. `submitClicked` is written, and the write confirmed, before every submit click; no confirmed write, no click.
+- **A click nobody could confirm:** Nori clicked submit and the employer's answer never arrived (`receipt.submitClicked`).
+  The worker will not send it again (the employer may have it) and will not call it sent (it may not), so Approve and
+  Retry are refused and Cancel is too: the person answers it, and both answers are final. `needs_user | failed →
+  submitted` by `markSent` (their word that it went out; receipt `markedSent`), or `clearSubmitClick` on `needs_user` /
+  `failed`, which drops the mark (receipt `clickClearedAt`) so Retry may send it and Cancel is allowed again. Only the
+  person (`by: "user"`); the worker never moves an application this way.
 - **Closed job:** before `preparing` runs the preparer and before `applying` opens the browser, the worker re-reads the
   posting (`checkStillOpen`, run event `still_open` with `data.state` open, closed or unknown). Closed: `preparing → failed`
   or `applying → failed` with error "This job is no longer open: the company took the posting down." and the job's

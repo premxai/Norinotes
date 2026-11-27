@@ -1,7 +1,7 @@
 import type { ApplicationStatus } from "@norinote/shared";
 import { and, applications, companies, eq, gte, isNull, jobs, ne, or, profiles, runEvents, shortlist, sql, users } from "@norinote/db";
 import type { Db } from "@norinote/db";
-import { checkTransition, transitionPatch, type AppSnapshot, type TransitionOptions } from "./state.js";
+import { checkTransition, submitMayHaveHappened, transitionPatch, type AppSnapshot, type TransitionOptions } from "./state.js";
 import { canonicalJobUrl } from "./schema.js";
 
 export type ApplicationRow = typeof applications.$inferSelect;
@@ -266,10 +266,47 @@ export async function saveAnswers(db: Db, applicationId: string, answers: Record
   return updated ?? null;
 }
 
+/**
+ * The person says an application reached the employer after all (Nori clicked submit and could not confirm it, or they
+ * finished it themselves on the employer's site). Only their own word moves it: the worker never does.
+ */
+export async function markSent(db: Db, applicationId: string, opts: { now?: Date } = {}): Promise<TransitionResult> {
+  const row = await loadApplication(db, applicationId);
+  if (!row) return { ok: false, reason: "application not found", application: null };
+  const now = opts.now ?? new Date();
+  return transitionApplication(db, applicationId, "submitted", {
+    by: "user", now, from: row.status,
+    receipt: { ...(row.receipt ?? {}), markedSent: true, markedSentAt: now.toISOString() },
+    message: "You marked it as sent",
+  });
+}
+
+/**
+ * The person says it did not reach the employer: the submit-click mark goes, so Retry may send it again and Cancel is
+ * allowed. Only a parked application with a marked click can be cleared, and only by the person.
+ */
+export async function clearSubmitClick(db: Db, applicationId: string, opts: { now?: Date } = {}): Promise<{ ok: boolean; reason?: string; application: ApplicationRow | null }> {
+  const row = await loadApplication(db, applicationId);
+  if (!row) return { ok: false, reason: "application not found", application: null };
+  if (row.status !== "needs_user" && row.status !== "failed") return { ok: false, reason: `this application is ${row.status}`, application: row };
+  if (!submitMayHaveHappened(row)) return { ok: false, reason: "no submit click is marked on this application", application: row };
+  const now = opts.now ?? new Date();
+  const { submitClicked: _clicked, awaitingCode: _code, codeMissing: _missing, captchaHeld: _held, ...rest } = (row.receipt ?? {}) as Record<string, unknown>;
+  const [updated] = await db.update(applications)
+    .set({ receipt: { ...rest, clickClearedAt: now.toISOString() }, updatedAt: now })
+    .where(and(eq(applications.id, applicationId), eq(applications.status, row.status)))
+    .returning();
+  if (!updated) return { ok: false, reason: "status changed concurrently", application: await loadApplication(db, applicationId) };
+  await logEvent(db, applicationId, "click_cleared", "You said it did not go through; the submit mark is cleared", { level: "warn", data: { from: row.status } });
+  return { ok: true, application: updated };
+}
+
 /** The user asks to try again: a failed application goes back to the queue, a parked one resumes. */
 export async function retryApplication(db: Db, applicationId: string): Promise<TransitionResult> {
   const row = await loadApplication(db, applicationId);
   if (!row) return { ok: false, reason: "application not found", application: null };
+  // The employer may already have it: say which first (markSent, or clearSubmitClick), then Retry can send it again.
+  if (submitMayHaveHappened(row)) return { ok: false, reason: "submit was already clicked; say whether it reached the employer first", application: row };
   if (row.status === "failed") return transitionApplication(db, applicationId, "queued", { by: "user", message: "Retry requested by the user" });
   if (row.status === "needs_user") {
     const to = row.resumeId && row.approvedAt ? "applying" : "preparing";

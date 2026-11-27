@@ -3,7 +3,7 @@ import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, applications, applyBatches, asc, companies, desc, eq, inArray, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { approveAndSubmit, approveBeforePrepared, createApplication, dailyCapReached, LiveInput, liveFrameKey, logEvent, MAX_FINISH_BATCH, retryApplication, saveAnswers, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
+import { applicationInFlight, approveAndSubmit, approveBeforePrepared, clearSubmitClick, createApplication, dailyCapReached, LiveInput, liveFrameKey, logEvent, markSent, MAX_FINISH_BATCH, retryApplication, saveAnswers, STALE_RUN_MS, submitMayHaveHappened, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -250,12 +250,33 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     return c.json({ ok: true });
   });
 
+  // An application Nori clicked submit on and could not confirm is the one case the worker will not resolve on its own:
+  // only the person knows whether the employer has it. These two are their answer.
+  r.post("/:id/marked-sent", auth, async (c) => {
+    const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
+    const res = await markSent(db, app.id, { now: ctx.now() });
+    if (!res.ok || !res.application) throw new HttpError(409, "Could not mark this application as sent", res.ok ? "application not found" : res.reason);
+    return c.json({ ok: true, status: res.application.status });
+  });
+
+  r.post("/:id/not-sent", auth, async (c) => {
+    const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
+    const res = await clearSubmitClick(db, app.id, { now: ctx.now() });
+    if (!res.ok || !res.application) throw new HttpError(409, "Could not clear the submit mark", res.ok ? "application not found" : res.reason);
+    return c.json({ ok: true, status: res.application.status });
+  });
+
   // The person drops an application they no longer want. Only while no browser is on the employer's page (a running
-  // or code-waiting run could still submit); it becomes failed with "Cancelled by you", and Retry can bring it back.
+  // or code-waiting run could still submit) and nothing says the employer may already have it: a marked click is the
+  // person's to settle first (marked-sent, or not-sent). It becomes failed with "Cancelled by you", and Retry brings it
+  // back.
   r.post("/:id/cancel", auth, async (c) => {
     const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
-    if (app.status === "applying" || app.status === "awaiting_code") throw new HttpError(409, "Nori is on the employer's page right now; cancel once this run finishes", app.status);
     if (app.status === "submitted") throw new HttpError(409, "This application was already sent", app.status);
+    if (submitMayHaveHappened(app)) throw new HttpError(409, "Nori clicked submit on this one and could not confirm it", "If it did not reach the employer, say so first; then you can cancel or try again.");
+    const live = (app.status === "applying" || app.status === "awaiting_code")
+      && (applicationInFlight(app.id) || ctx.now().getTime() - app.updatedAt.getTime() < STALE_RUN_MS);
+    if (live) throw new HttpError(409, "Nori is on the employer's page right now; cancel once this run finishes", app.status);
     if (app.status === "failed") return c.json({ ok: true, status: app.status });
     const res = await transitionApplication(db, app.id, "failed", { from: app.status, error: CANCELLED, message: CANCELLED, by: "user" });
     if (!res.ok) throw new HttpError(409, "Could not cancel this application", res.reason);

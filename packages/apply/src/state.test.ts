@@ -30,9 +30,14 @@ describe("transition table", () => {
     expect(canTransition("submitted", "applying")).toBe(false);
   });
 
-  it("lets submitted and failed go nowhere on their own (failed only back to queued for the user)", () => {
+  it("lets submitted go nowhere, and failed only back to queued or to submitted for the user", () => {
     expect(TRANSITIONS.submitted).toEqual([]);
-    expect(TRANSITIONS.failed).toEqual(["queued"]);
+    expect(TRANSITIONS.failed).toEqual(["queued", "submitted"]);
+    // "Marked as sent by you" from either park, and only by the person.
+    expect(checkTransition(app({ status: "needs_user" }), "submitted")).toMatchObject({ ok: false });
+    expect(checkTransition(app({ status: "needs_user" }), "submitted", { by: "user" })).toEqual({ ok: true });
+    expect(checkTransition(app({ status: "failed" }), "submitted", { by: "user" })).toEqual({ ok: true });
+    expect(checkTransition(app({ status: "applying" }), "submitted")).toEqual({ ok: true });
     expect(isTerminal("submitted")).toBe(true);
     expect(isTerminal("failed")).toBe(true);
     expect(isTerminal("needs_user")).toBe(false);

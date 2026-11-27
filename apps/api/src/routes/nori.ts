@@ -30,8 +30,11 @@ const Settings = z.object({
 }).strict();
 
 /** What a parked application needs from the person, for the "Needs you" list. */
-function needOf(a: { pendingQuestions: unknown[]; receipt: Record<string, unknown> | null; error: string | null }): "questions" | "code" | "captcha" | "account" | "offsite" | "other" {
+function needOf(a: { pendingQuestions: unknown[]; receipt: Record<string, unknown> | null; error: string | null }): "questions" | "code" | "captcha" | "account" | "offsite" | "unsupported" | "other" {
   if (a.pendingQuestions.length > 0) return "questions";
+  // Nori cannot fill this one at all: the person applies on the employer's page. Its own kind, so the page can say so
+  // instead of showing it as a question to answer.
+  if (/not supported|apply yourself/i.test(a.error ?? "")) return "unsupported";
   if (/own careers site/i.test(a.error ?? "")) return "offsite";
   if (a.receipt?.codeMissing === true || /verification code/i.test(a.error ?? "")) return "code";
   if (/captcha/i.test(a.error ?? "")) return "captcha";

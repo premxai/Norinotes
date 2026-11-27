@@ -152,6 +152,9 @@ export async function driveApplication(db: Db, applicationId: string, deps: Appl
 /** How long a run may leave an application untouched before it counts as lost: apply.run's 20-minute lease, plus a margin. */
 export const STALE_RUN_MS = 25 * 60_000;
 
+/** A browser step of this process is on this application right now (Cancel is refused while one is). */
+export const applicationInFlight = (applicationId: string): boolean => inflight.has(applicationId);
+
 export type StaleRun = { applicationId: string; status: "preparing" | "applying" | "awaiting_code" };
 
 /**
