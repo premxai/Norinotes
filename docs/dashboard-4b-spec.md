@@ -1,5 +1,9 @@
 # Dashboard 4b design spec: Applications and Inbox
 
+> **Superseded by [dashboard-v2-plan.md](dashboard-v2-plan.md).** Applications and Inbox were rebuilt as the v2 pages
+> (with Tracker and Jobs alongside them). This file is kept for the panel, list and error rules it decided, which still
+> hold; its page layouts do not.
+
 The rules to build part 4b from: `/applications`, `/applications/:id` and `/inbox`. [ui-plan.md](ui-plan.md) (part 4b)
 says what's on these pages and why. This file says how they look and behave, then gives the build checklist. The
 wireframe (the "Dashboard 4b: Applications and Inbox" page of the design canvas) follows these rules. Where they
