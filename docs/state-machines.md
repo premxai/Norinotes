@@ -7,6 +7,29 @@ Change a machine here first, then in code.
 
 `queued → preparing → prepared → applying → (awaiting_code →) submitted`, with `needs_user`, `ready_to_finish` and `failed` as exits.
 
+- **One table of allowed moves:** `TRANSITIONS` in `packages/apply/src/state.ts`, below. Every write goes through
+  `transitionApplication` (`packages/apply/src/store.ts`), guarded on the status it read; nothing sets a status directly.
+
+| From | May move to |
+|---|---|
+| `queued` | `preparing`, `failed` |
+| `preparing` | `prepared`, `needs_user`, `failed` |
+| `prepared` | `applying`, `failed` |
+| `applying` | `awaiting_code`, `submitted`, `needs_user`, `ready_to_finish`, `failed`, `prepared` |
+| `awaiting_code` | `applying`, `submitted`, `needs_user`, `failed` |
+| `needs_user` | `preparing`, `applying`, `failed` |
+| `ready_to_finish` | `applying`, `failed` |
+| `submitted` | — (final) |
+| `failed` | `queued` |
+
+- **What each move needs** (`checkTransition`): `preparing → prepared` needs a resume; `applying` needs
+  `approvedAt` (the person's click, a batch's turn, or autopilot); `ready_to_finish → applying` only for the person
+  (`by: "user"`, Finish or Retry); `failed → queued` only for the person (Retry), which clears the old approval;
+  `needs_user → applying` and `needs_user → preparing` need every required question answered; `applying → prepared` only
+  for a dry run (it resets the attempts); no move into `applying` while `submitMayHaveHappened` (the click was recorded
+  and no code or captcha held the form), and none once the worker's 3 attempts are used up (the person's own answers and
+  Retry start a fresh set).
+
 - **One step left (`ready_to_finish`):** `applying → ready_to_finish` when the form is filled (every question answered) and
   a visible captcha or a sign-in page is all that is left (a bot-check page shown instead of the form, such as Cloudflare's
   "Performing security verification", counts as a captcha), or when the submit click met a captcha challenge (receipt
@@ -20,7 +43,6 @@ Change a machine here first, then in code.
   broke, goes back to `ready_to_finish` (never a background retry: nobody would be there to take the step). The handoff
   wait (10 minutes) stays well inside `staleRuns`' 25 minutes.
 
-- **One table of allowed moves:** `TRANSITIONS` in `packages/apply/src/state.ts`. Every write goes through `transitionApplication` (`packages/apply/src/store.ts`), guarded on the status it read.
 - **Hidden state that changes behaviour:**
   - `attempts`: at most 3 browser tries. A browser retry counts; the person's own answer or Retry starts again at 1.
   - `approvedAt`: the person said send. Cleared on retry. Today's approvals count against the daily limit. Every approval (`approveAndSubmit`, `approveBeforePrepared`) counts and stamps inside one transaction that holds the user's row lock, so two at once cannot both take the last place.
@@ -38,13 +60,36 @@ Change a machine here first, then in code.
   60 days, skip list, not a ghost job reposted 3 or more times in 60 days; `BATCH_ATS`; the daily limit counted atomically by `approveAndSubmit`). `ask`, `later` and `skip`
   leave it `prepared` for the person; the batch drain sends the batch's prepared, unapproved ones. The API's `sendsOnItsOwn` tells the UI which ones go out without another OK.
 
+## Apply decision (`decideApplies`, no status of its own)
+
+What Nori would do with a new match, recomputed from stored rows on every call and never stored itself
+(`packages/match/src/decision.ts`, no model call). Each match gets a `group` and an `action`:
+
+- Hard no's are `skip`: a failed gate (location and remote scope, authorisation and sponsorship, citizenship and
+  clearance, a large years gap), a seniority gap of two levels or more either way, a central must-have the person clearly
+  lacks, a skipped company, or a company applied to in the last 60 days.
+- `strong`: every must-have evidenced, inside the person's level band, their own function, a posting the model read.
+  `worth_a_shot`: most must-have weight evidenced, a title in or next to their function, posted under 48 hours ago.
+  `stretch`: everything else that is not a hard no.
+- `send`: the person's aggressiveness sends that group on its own (cautious: strong, 10 a week; balanced: strong and
+  worth a shot, 20; wide: the same two, 30) and stays within the week's remaining pace, one per company, spread across
+  kinds of jobs. `later`: it would, but the pace, today's limit or one-per-company holds it. `ask`: a one-tap prompt.
+  A ghost job (reposted 3 or more times in 60 days) is at most `ask`.
+- The same decision is what "Apply for me" (`recommendedJobIds`, packages/apply/src/batch.ts), the schedule and the
+  strong-fit autopilot (`autopilotStrongFit`, packages/apply/src/strong-fit.ts) send, so a job Nori sends on its own is
+  one the decision says `send`.
+
 ## Apply batches (`apply_batches.status`)
 
 `running → done` (nothing left to send) or `→ stopped` (the person stopped it; final). The drain reopens `done` when a batch application comes back to send. A recommended batch started less than 60 s ago is reused, not duplicated, and is capped at what is left of today's limit.
 
 ## Jobs
 
-- **Freshness:** `open` (`closed_at` null) → `closed` after two complete reads without it, when the board is gone, or
+- **Freshness window:** only a job posted in the last 7 days is shown or matched to anyone (`MAX_JOB_AGE_HOURS`, the one
+  place the window is set, in `packages/db/src/fresh.ts`), and US jobs only for now. A newer job may rank higher; an older
+  one is never listed. A job whose feed gives no posted date counts only when it appeared on a later read than the board's
+  first. The 72-hour window of the first design is gone (Prem, 2026-11-25).
+- **Lifecycle:** `open` (`closed_at` null) → `closed` after two complete reads without it, when the board is gone, or
   when the check before applying finds the posting gone (404/410, no longer listed, a "no longer accepting applications"
   page, or 403 twice). A board read that lists it again reopens it.
 - **Reading:** none → version 0 (`heuristic`, the rule-based fallback while the AI is down) → version ≥ 1 (AI). The worker's catch-up pass (every 10 min, only while the AI answers) re-reads version-0 jobs and rebuilds their embedding. `GET /api/health/ai` returns 503 when nearly all jobs read in the last hour are version 0, or at once when no `OPENAI_API_KEY` is set. A missing key counts as the AI being down. The catch-up's first run in each worker process also repairs rows that the old no-key fake model wrote (specs with role family "fake", mostly-zero embeddings): those jobs go back to version 0, and the resumes are marked for re-reading (`apps/worker/src/repair-ai-stub.ts`).
