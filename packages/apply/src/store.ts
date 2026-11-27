@@ -1,6 +1,7 @@
 import type { ApplicationStatus } from "@norinote/shared";
 import { and, applications, companies, eq, gte, isNull, jobs, ne, or, profiles, runEvents, shortlist, sql, users } from "@norinote/db";
 import type { Db } from "@norinote/db";
+import { capDayStart, effectiveDailyCap, readTimeZone } from "./day.js";
 import { checkTransition, submitMayHaveHappened, transitionPatch, type AppSnapshot, type TransitionOptions } from "./state.js";
 import { canonicalJobUrl } from "./schema.js";
 
@@ -154,28 +155,29 @@ export type ApproveResult =
 /** The user's daily limit and today's approvals against it. */
 export type DailyCap = { cap: number; used: number };
 
-/** Midnight UTC of `now`'s day: the daily limit's day. */
-export const capDayStart = (now: Date): Date => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+/** The day a daily limit counts in, and how a stored 0 reads: see day.ts. Re-exported here for the callers that use it. */
+export { capDayStart, DEFAULT_DAILY_CAP, effectiveDailyCap } from "./day.js";
 
 /**
- * The daily limit (`profiles.daily_cap`, 0 = no limit) and how many applications were approved today (UTC day; an
- * application counts from its approval, by a click, Telegram or later autopilot). `except` leaves one application out.
+ * The daily limit (`profiles.daily_cap`, 0 = not set, so `DEFAULT_DAILY_CAP`) and how many applications were approved in
+ * the person's own day (their schedule's time zone, see day.ts; an application counts from its approval, by a click,
+ * Telegram, autopilot or a batch). `except` leaves one application out.
  */
 export async function dailyCapUse(db: Db, userId: string, now: Date, except?: string): Promise<DailyCap> {
-  const [profile] = await db.select({ cap: profiles.dailyCap }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
+  const [profile] = await db.select({ cap: profiles.dailyCap, preferences: profiles.preferences }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
   const [used] = await db.select({ n: sql<number>`count(*)::int` }).from(applications)
-    .where(and(eq(applications.userId, userId), gte(applications.approvedAt, capDayStart(now)), except ? ne(applications.id, except) : undefined));
-  return { cap: profile?.cap ?? 0, used: used?.n ?? 0 };
+    .where(and(eq(applications.userId, userId), gte(applications.approvedAt, capDayStart(now, readTimeZone(profile?.preferences))), except ? ne(applications.id, except) : undefined));
+  return { cap: effectiveDailyCap(profile?.cap), used: used?.n ?? 0 };
 }
 
 /**
- * The limit and today's use when one more approval would go over it; null when there is room (or no limit). `limit`
- * replaces the profile's limit (a batch's default when the person set none).
+ * The limit and today's use when one more approval would go over it; null when there is room. `limit` replaces the
+ * person's own limit (a batch passes the same one when they set none).
  */
 export async function dailyCapReached(db: Db, userId: string, now: Date, except?: string, limit?: number): Promise<DailyCap | null> {
   const use = await dailyCapUse(db, userId, now, except);
   const cap = { cap: limit ?? use.cap, used: use.used };
-  return cap.cap > 0 && cap.used >= cap.cap ? cap : null;
+  return cap.used >= cap.cap ? cap : null;
 }
 
 /**

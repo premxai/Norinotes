@@ -18,8 +18,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `workAuth.status`; without it the PUT returns 400 "Choose your work status". The status (citizen, permanent_resident,
   visa, other) is what the matching gates and form answers read for citizenship and permanent residence; being
   authorised to work says neither.
-- GET `/api/me`, PUT `/api/profile`. `autoApplyDailyCap` (0 to 100) is the daily limit: applications approved per UTC
-  day, by any channel; 0 = no limit. `attestations` holds the person's answer per kind of form attestation (`privacy`,
+- GET `/api/me`, PUT `/api/profile`. `autoApplyDailyCap` (0 to 100) is the daily limit: applications approved per day
+  in the person's own time zone, by any channel. 0 means "not set", so the default 20 applies; turning the limit off is
+  not offered (docs/api-contract.md, Nori page). `attestations` holds the person's answer per kind of form attestation (`privacy`,
   `demographic_data`, `retention`, `accuracy`, `background_check`, `ai_policy`, `recording`, `arbitration`,
   `contact`, `terms`): `true`, `false` or `null` (not answered, Nori asks). PUT a partial object; `null` forgets one.
   Nori ticks a form's attestation only from the answer for its kind (docs/applying.md).
@@ -205,8 +206,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `{ kind: "done" }` (check now), `{ kind: "cancel" }` (stop; back to one step left). Returns `{ ok: true }`; 409 when Nori
   is not waiting for the person on that application, 400 for anything else. Inputs go straight to the browser and are
   never stored or logged: they may be a password. Nori never types into a sign-in page itself.
-- Approve is refused with 429 when the daily limit is used up (`autoApplyDailyCap` above 0 and that many already
-  approved today, UTC); nothing changes and the application stays prepared. An application approved earlier (from
+- Approve is refused with 429 when the daily limit is used up (`autoApplyDailyCap`, or the default 20 when it is 0, all
+  approved today in the person's own time zone); nothing changes and the application stays prepared. An application approved earlier (from
   Telegram before it was prepared, or before its questions were answered) has already counted and is never refused.
 
 ## Outcomes
@@ -229,6 +230,10 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 ## Nori page ("Apply for me")
 - GET/PUT `/api/nori/settings`: `{ settings: { spacingMinutes (1-60, default 4), minFit, aggressiveness, skipCompanies,
   dailyLimit (1-100; the profile's daily cap, default 20) } }`. PUT takes any of these; unknown keys are 400.
+  - `dailyLimit` is the one daily limit: a click, Apply with send, Telegram, Apply now, a batch and the schedule all count
+    against it, and the day is the person's own (their schedule's time zone, `America/Los_Angeles` until they set one; see
+    `capDayStart` in packages/apply/src/day.ts). A profile with no limit set (`daily_cap = 0`) has the default 20; turning
+    the limit off is not offered.
   - `aggressiveness` (`cautious` | `balanced` | `wide`, default `balanced`; stored in `preferences.nori.aggressiveness`)
     is how much Nori sends without asking (ARCHITECTURE.md, Matching step 6): cautious sends only strong matches, 10 a
     week; balanced also worth-a-shot ones posted in the last 2 days, 20 a week; wide asks less of those, 30 a week.
@@ -320,8 +325,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
 - GET `/api/resumes/:id.pdf` (the PDF), GET `/api/artifacts/*` (receipt screenshots, owner only)
 
 ## Agent
-- GET `/api/agent/status` returning `{ dailyCap, usedToday, liveSubmit?, lastTickAt?, nextTickAt? }`; `usedToday`
-  counts applications approved since midnight UTC, the same count the limit is enforced on.
+- GET `/api/agent/status` returning `{ dailyCap, usedToday, liveSubmit?, lastTickAt?, nextTickAt? }`; `dailyCap` is the
+  limit in force (the person's, else 20) and `usedToday` counts applications approved since their own midnight, the same
+  count the limit is enforced on.
 - GET `/api/agent/activity?limit=` returning events of kind discovered, scored, queued, skipped, prepared, approved,
   submitted, needs_user (also for ready_to_finish), reply, interview.
 

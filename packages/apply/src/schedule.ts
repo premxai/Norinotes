@@ -5,6 +5,7 @@
  * on; `paused` stops it without losing the settings. The batch summary goes out like any batch's (Telegram).
  * Stored in `profiles.preferences.noriSchedule`.
  */
+import { localClock as localClockIn, validTimeZone } from "./day.js";
 import { dailyCapUse } from "./store.js";
 import { and, eq, profiles, sql, type Db } from "@norinote/db";
 import { MAX_BATCH, getNoriSettings, recommendedJobIds, startBatch } from "./batch.js";
@@ -17,15 +18,7 @@ export const DEFAULT_SCHEDULE: NoriSchedule = { enabled: false, days: ["mon", "t
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
-export function validTimeZone(tz: unknown): tz is string {
-  if (typeof tz !== "string" || !tz || tz.length > 64) return false;
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
+
 
 export function readSchedule(preferences: unknown): NoriSchedule {
   const o = rec(rec(preferences).noriSchedule);
@@ -40,11 +33,9 @@ export function readSchedule(preferences: unknown): NoriSchedule {
   };
 }
 
-/** The local date (YYYY-MM-DD), weekday and minutes since midnight of `at` in `tz`. */
+/** The local date (YYYY-MM-DD), weekday and minutes since midnight of `at` in `tz` (day.ts holds the calculation). */
 export function localClock(at: Date, tz: string): { date: string; day: Weekday; minutes: number } {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
-    .formatToParts(at).map((p) => [p.type, p.value]));
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, day: parts.weekday!.toLowerCase().slice(0, 3) as Weekday, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+  return localClockIn(at, tz) as { date: string; day: Weekday; minutes: number };
 }
 
 const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));

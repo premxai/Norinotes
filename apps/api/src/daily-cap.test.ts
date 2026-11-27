@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applications, eq } from "@norinote/db";
+import { dailyCapUse, saveSchedule } from "@norinote/apply";
 import { makeApi, seedApplication, seedJob, type Api } from "./testkit.js";
 
 let api: Api;
@@ -48,12 +49,30 @@ describe("the daily limit", () => {
     expect(res.status).not.toBe(429);
   });
 
-  it("has no limit at 0", async () => {
+  it("uses the default 20 where the person set no limit (0), the same number everywhere", async () => {
     const s = await api.signup("cap-none@example.com");
+    expect((await api.call("GET", "/api/agent/status", { cookie: s.cookie })).json).toMatchObject({ dailyCap: 20, usedToday: 0 });
     for (let i = 0; i < 3; i++) {
       const id = await prepared(s.user.id);
       expect((await api.call("POST", `/api/applications/${id}/approve`, { cookie: s.cookie, body: {} })).status).toBe(200);
     }
-    expect((await api.call("GET", "/api/agent/status", { cookie: s.cookie })).json).toMatchObject({ dailyCap: 0, usedToday: 3 });
+    expect((await api.call("GET", "/api/agent/status", { cookie: s.cookie })).json).toMatchObject({ dailyCap: 20, usedToday: 3 });
+    // The Nori page reads the same limit, so a batch cannot use a different number than a click.
+    expect((await api.call("GET", "/api/nori/settings", { cookie: s.cookie })).json.settings.dailyLimit).toBe(20);
+  });
+
+  it("counts the day in the person's own time zone, not UTC", async () => {
+    const s = await api.signup("cap-zone@example.com");
+    await api.call("PUT", "/api/profile", { cookie: s.cookie, body: { autoApplyDailyCap: 1 } });
+    // 20:00 UTC on the 25th is noon in Los Angeles and 5am on the 26th in Tokyo: one approval, two local days.
+    await prepared(s.user.id, { status: "submitted", approvedAt: new Date("2026-11-25T20:00:00Z") });
+    // Still the 25th there (3:30pm), so it counts.
+    expect(await dailyCapUse(api.db, s.user.id, new Date("2026-11-25T23:30:00Z"))).toEqual({ cap: 1, used: 1 });
+    // 09:00 UTC on the 26th is 1am in Los Angeles: their own day began at 08:00 UTC, so it no longer counts. Under the
+    // UTC rule it still did until midnight UTC, which for a Pacific person was 4pm.
+    expect(await dailyCapUse(api.db, s.user.id, new Date("2026-11-26T09:00:00Z"))).toEqual({ cap: 1, used: 0 });
+    // The boundary is the schedule's zone: the same instant is the 26th in Tokyo, whose day began at 15:00 UTC on the 25th.
+    await saveSchedule(api.db, s.user.id, { timezone: "Asia/Tokyo" });
+    expect(await dailyCapUse(api.db, s.user.id, new Date("2026-11-26T09:00:00Z"))).toEqual({ cap: 1, used: 1 });
   });
 });

@@ -52,7 +52,7 @@ export type Profile = {
   preferences: { titles?: string[]; locations?: string[]; remote?: "only" | "ok" | "no"; salaryMin?: number; excludeCompanies?: string[] };
   rawResumeText: string | null;
   location: string | null;
-  /** The daily limit: 0 is no limit (4c spec section 5.1). */
+  /** The daily limit in force today: the person's own, or the default 20 when they set none (Never 0). */
   autoApplyDailyCap: number;
 };
 

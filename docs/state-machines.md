@@ -17,10 +17,10 @@ Change a machine here first, then in code.
 | `prepared` | `applying`, `failed` |
 | `applying` | `awaiting_code`, `submitted`, `needs_user`, `ready_to_finish`, `failed`, `prepared` |
 | `awaiting_code` | `applying`, `submitted`, `needs_user`, `failed` |
-| `needs_user` | `preparing`, `applying`, `failed` |
+| `needs_user` | `preparing`, `applying`, `failed`, `submitted` |
 | `ready_to_finish` | `applying`, `failed` |
 | `submitted` | — (final) |
-| `failed` | `queued` |
+| `failed` | `queued`, `submitted` |
 
 - **What each move needs** (`checkTransition`): `preparing → prepared` needs a resume; `applying` needs
   `approvedAt` (the person's click, a batch's turn, or autopilot); `ready_to_finish → applying` only for the person
@@ -45,7 +45,7 @@ Change a machine here first, then in code.
 
 - **Hidden state that changes behaviour:**
   - `attempts`: at most 3 browser tries. A browser retry counts; the person's own answer or Retry starts again at 1.
-  - `approvedAt`: the person said send. Cleared on retry. Today's approvals count against the daily limit. Every approval (`approveAndSubmit`, `approveBeforePrepared`) counts and stamps inside one transaction that holds the user's row lock, so two at once cannot both take the last place.
+  - `approvedAt`: the person said send. Cleared on retry. Today's approvals count against the daily limit, counted in the person's own day (their schedule's time zone, `packages/apply/src/day.ts`; UTC before) against one limit: their own, or the default 20 when the profile has none (0). Every approval (`approveAndSubmit`, `approveBeforePrepared`) counts and stamps inside one transaction that holds the user's row lock, so two at once cannot both take the last place.
   - `batchId`: the batch drain sends it when its spacing slot comes.
   - Receipt flags `submitClicked` / `awaitingCode` / `codeMissing` / `captchaHeld` decide whether a re-run could duplicate an application. `submitClicked` is written, and the write confirmed, before every submit click; no confirmed write, no click.
 - **A click nobody could confirm:** Nori clicked submit and the employer's answer never arrived (`receipt.submitClicked`).
