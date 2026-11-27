@@ -104,8 +104,67 @@ type Setup = {
   recommended: { count: number; more: boolean } | null;
   schedule: NoriSchedule | null;
   running: Batch | null;
+  /** The one pause (`preferences.noriPaused`): nothing Nori does on its own goes out. null while it is loading. */
+  paused: boolean | null;
   offline: boolean;
 };
+
+/** The one pause, at the top of the setup card: everything Nori does on its own stops until it is cleared. */
+function PauseRow({
+  paused,
+  onChanged,
+}: {
+  paused: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const acting = useRef(false);
+  async function toggle() {
+    if (acting.current) return;
+    acting.current = true;
+    setBusy(true);
+    setFailure(null);
+    const r = await api.saveNoriSettings({ paused: !paused }).finally(() => {
+      acting.current = false;
+    });
+    setBusy(false);
+    if (!r.ok) return setFailure(r.error);
+    onChanged();
+  }
+  return (
+    <div className="flex flex-col gap-1.5 border-t-[1.5px] border-line pt-3.5 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-small font-semibold text-ink-2">Nori</h3>
+        <button
+          type="button"
+          onClick={() => void toggle()}
+          disabled={busy}
+          className={quiet}
+        >
+          {busy ? "Saving…" : paused ? "Resume" : "Pause everything"}
+        </button>
+      </div>
+      {paused ? (
+        <p role="status" className="text-body font-semibold text-ink">
+          Paused.
+        </p>
+      ) : (
+        <p className="text-body text-ink">Working within your cap.</p>
+      )}
+      <p className="text-small text-ink-2">
+        {paused
+          ? "Nothing goes out on its own: not the schedule, not a running batch, not a strong fit. Your own clicks still work. Resume carries on where it stopped."
+          : "Pause stops everything Nori does on its own, at once. Nothing already sent is undone."}
+      </p>
+      {failure && (
+        <p role="alert" className="text-small text-ink">
+          {failure}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function Row({
   title,
@@ -358,6 +417,7 @@ function SetupCard({
     aggressiveness,
     recommended,
     schedule,
+    paused,
   } = setup;
   const summary = [
     roles ? `${roles.length} ${roles.length === 1 ? "role" : "roles"}` : null,
@@ -412,6 +472,14 @@ function SetupCard({
           <p className="text-small text-ink-2">
             Couldn&rsquo;t reach Norinote. This card tries again by itself.
           </p>
+        )}
+        {paused === null ? (
+          <div className="flex flex-col gap-1.5">
+            <h3 className="text-small font-semibold text-ink-2">Nori</h3>
+            <p className="text-small text-ink-2">…</p>
+          </div>
+        ) : (
+          <PauseRow paused={paused} onChanged={onChanged} />
         )}
         <Row
           title={
@@ -823,6 +891,8 @@ function runLine(run: Batch) {
   const sent = `${run.counts.sent} of ${run.counts.total} sent`;
   const at = run.nextAt ? new Date(run.nextAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
   switch (run.waitingFor) {
+    case "paused":
+      return `Paused · ${sent}`;
     case "daily_limit":
       return `Paused until tomorrow: today’s limit is used up · ${sent}`;
     case "you":
@@ -966,6 +1036,7 @@ export function NoriV2() {
 
   const sched = schedule.data?.schedule ?? null;
   const items = rec.data ?? null;
+  const setupPaused = settings.data?.settings.paused ?? null;
   const setup: Setup = {
     roles: lanes.data
       ? lanes.data.filter((l) => l.enabled).map((l) => l.name)
@@ -983,6 +1054,7 @@ export function NoriV2() {
       : null,
     schedule: sched,
     running: batches.data?.batches.find((b) => b.status === "running") ?? null,
+    paused: setupPaused,
     offline: !settings.data && !!settings.error && settings.status !== 401,
   };
 

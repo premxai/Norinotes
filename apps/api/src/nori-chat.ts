@@ -2,13 +2,14 @@
  * The Nori chat (dashboard v2, the Nori page). The person talks to Nori; Nori answers about their matches and
  * applications and can change how it works for them: the threshold, how much Nori sends on its own, the daily limit, roles, companies to skip, and
  * "apply now" (a batch of Recommended jobs). One small-model call per message, charged to the person's daily AI budget.
- * Every change comes back as an action with an undo id; nothing is changed silently. Schedules (autopilot) are not here.
+ * Every change comes back as an action with an undo id; nothing is changed silently. The schedule (autopilot) is
+ * switching it on and off; the one pause (`noriPaused`) stops everything Nori does on its own.
  */
 import { z } from "zod";
 import { AiUnavailableError, BudgetExceededError, complete } from "@norinote/ai";
 import { and, applications, asc, companies, desc, eq, gte, jobs, lanes, lt, noriChatMessages, noriChatUndo, shortlist, sql, type Db } from "@norinote/db";
 import { AGGRESSIVENESS, type Aggressiveness } from "@norinote/match";
-import { getNoriSettings, getSchedule, nextRunOn, recommendedJobIds, saveNoriSettings, saveSchedule, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
+import { getNoriSettings, getSchedule, isNoriPaused, nextRunOn, recommendedJobIds, saveNoriSettings, saveSchedule, setNoriPaused, startBatch, stopBatch, type NoriSchedule } from "@norinote/apply";
 
 export type ChatAction = { kind: string; summary: string; undoId: string | null };
 export type ChatMessageView = { id: string; role: "user" | "nori"; text: string; actions: ChatAction[]; createdAt: string };
@@ -16,7 +17,7 @@ export type ChatMessageView = { id: string; role: "user" | "nori"; text: string;
 const Intent = z.object({
   reply: z.string(),
   actions: z.array(z.object({
-    kind: z.enum(["set_threshold", "set_aggressiveness", "set_daily_limit", "add_role", "remove_role", "skip_company", "unskip_company", "apply_now", "schedule_on", "schedule_off"]),
+    kind: z.enum(["set_threshold", "set_aggressiveness", "set_daily_limit", "add_role", "remove_role", "skip_company", "unskip_company", "apply_now", "schedule_on", "schedule_off", "pause", "resume"]),
     /** set_threshold: a percent 0-100; set_aggressiveness: cautious, balanced or wide; set_daily_limit: 1-100; apply_now: how many (1-50); roles/companies: the name. */
     value: z.string(),
   })),
@@ -34,7 +35,10 @@ You can change things only through actions; list each change the person clearly 
 - skip_company / unskip_company: value = the company name.
 - apply_now: value = how many Recommended jobs to send now (1-50, default 10). Only when they ask to apply or send now.
 - schedule_on: value = the time "HH:MM" (24-hour) to apply every chosen day, or "" to keep the current time. Turns the schedule on.
-- schedule_off: value = "". Pauses the schedule.
+- schedule_off: value = "". Pauses the schedule (the daily run); a running batch carries on.
+- pause: value = "". Stops everything Nori does on its own, now: the schedule, a running batch, strong fits, answering
+  questions and sending. Only when they ask Nori to stop, hold off or pause everything.
+- resume: value = "". Lets Nori work on its own again. Only when they ask Nori to carry on.
 Never invent facts, jobs, numbers or applications that are not in CONTEXT.
 Keep "reply" short (1-3 sentences), plain words, no markdown. Don't claim a change happened; the app lists the changes.`;
 
@@ -68,6 +72,7 @@ async function contextFor(db: Db, userId: string, now: Date): Promise<string> {
     `Latest applications: ${recent.length ? recent.map((a) => `${a.title} at ${a.company}: ${a.status}`).join("; ") : "none"}.`,
     `Apply for me sends Greenhouse jobs only for now.`,
     await scheduleLine(db, userId, now),
+    (await isNoriPaused(db, userId)) ? "Nori is paused: nothing goes out on its own until they resume." : "Nori is not paused.",
   ].join("\n");
 }
 
@@ -147,6 +152,15 @@ async function act(db: Db, userId: string, a: z.infer<typeof Intent>["actions"][
       for (const x of res.added) if (x.created) await deps.enqueuePrepare(x.applicationId);
       const undoId = await remember(db, userId, a.kind, { batchId: res.batchId });
       return { kind: a.kind, summary: `Started Apply for me with ${res.added.length} Recommended job${res.added.length === 1 ? "" : "s"}`, undoId };
+    }
+    case "pause":
+    case "resume": {
+      const before = await isNoriPaused(db, userId);
+      const next = a.kind === "pause";
+      if (before === next) return null;
+      const undoId = await remember(db, userId, "nori_paused", { paused: before });
+      await setNoriPaused(db, userId, next);
+      return { kind: a.kind, undoId, summary: next ? "Paused: nothing goes out on its own until you resume" : "Resumed: Nori works on its own again" };
     }
     case "schedule_on":
     case "schedule_off": {
@@ -228,6 +242,10 @@ export async function undoChatAction(db: Db, userId: string, undoId: string, dep
       await saveNoriSettings(db, userId, { skipCompanies: b.skipCompanies as string[] });
       await deps.enqueueMatch();
       summary = "Companies to skip put back as they were";
+      break;
+    case "nori_paused":
+      await setNoriPaused(db, userId, b.paused === true);
+      summary = b.paused === true ? "Paused again" : "Resumed again";
       break;
     case "schedule":
       await saveSchedule(db, userId, { enabled: b.enabled === true, paused: b.paused === true, time: String(b.time) });

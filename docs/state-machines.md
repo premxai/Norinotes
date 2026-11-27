@@ -17,10 +17,10 @@ Change a machine here first, then in code.
 | `prepared` | `applying`, `failed` |
 | `applying` | `awaiting_code`, `submitted`, `needs_user`, `ready_to_finish`, `failed`, `prepared` |
 | `awaiting_code` | `applying`, `submitted`, `needs_user`, `failed` |
-| `needs_user` | `preparing`, `applying`, `failed` |
+| `needs_user` | `preparing`, `applying`, `failed`, `submitted` |
 | `ready_to_finish` | `applying`, `failed` |
 | `submitted` | — (final) |
-| `failed` | `queued` |
+| `failed` | `queued`, `submitted` |
 
 - **What each move needs** (`checkTransition`): `preparing → prepared` needs a resume; `applying` needs
   `approvedAt` (the person's click, a batch's turn, or autopilot); `ready_to_finish → applying` only for the person
@@ -88,6 +88,8 @@ What Nori would do with a new match, recomputed from stored rows on every call a
 ## Apply batches (`apply_batches.status`)
 
 `running → done` (nothing left to send) or `→ stopped` (the person stopped it; final). The drain reopens `done` when a batch application comes back to send. A recommended batch started less than 60 s ago is reused, not duplicated, and is capped at what is left of today's limit.
+
+**The one pause** (`profiles.preferences.noriPaused`, `packages/apply/src/pause.ts`): while it is set, `drainBatches` approves nothing (a running batch keeps its place and its view reads `waitingFor: "paused"`), `runSchedules` starts nothing and marks no day as run, `autopilotStrongFit` answers `paused`, `prepareStrongFitsAhead` and `actsForPerson` create nothing, and the prepare consumer holds an application the person approved before the pause, as does the auto-answer step. The person's own clicks, Finish and Cancel still work. The flag has its own key and the scheduler's `lastRunOn` write is guarded on it, so no scheduler or settings write can clear it.
 
 ## Jobs
 

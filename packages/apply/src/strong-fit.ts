@@ -9,6 +9,7 @@
 import { and, applications, companies, eq, gte, inArray, jobs, runEvents, shortlist, sql, type Db } from "@norinote/db";
 import { decideApplies, type ApplyAction, type ApplyGroup } from "@norinote/match";
 import { getNoriSettings, recentlyAppliedCompanies } from "./batch.js";
+import { isNoriPaused } from "./pause.js";
 import { getSchedule, type NoriSchedule } from "./schedule.js";
 import { approveAndSubmit, capDayStart, createApplication, dailyCapUse, loadApplication, logEvent, normalizeCompany } from "./store.js";
 
@@ -43,6 +44,8 @@ export async function prepareStrongFitsAhead(db: Db, userId: string, fits: reado
   const out: PrepareAheadResult = { created: [], skipped: [] };
   const mine = fits.filter((f) => f.userId === userId);
   if (mine.length === 0) return out;
+  // Paused: Nori starts nothing on its own, so nothing is prepared ahead either.
+  if (await isNoriPaused(db, userId)) return { created: [], skipped: mine.map((f) => ({ jobId: f.jobId, reason: "paused" })) };
   const settings = await getNoriSettings(db, userId);
   const [today] = await db.select({ n: sql<number>`count(*)::int` }).from(runEvents).innerJoin(applications, eq(applications.id, runEvents.applicationId))
     .where(and(eq(applications.userId, userId), eq(runEvents.step, STRONG_FIT_STEP), gte(applications.createdAt, capDayStart(opts.now))));
@@ -102,6 +105,7 @@ export async function autopilotStrongFit(db: Db, applicationId: string, opts: { 
   const [marked] = await db.select({ data: runEvents.data }).from(runEvents)
     .where(and(eq(runEvents.applicationId, app.id), eq(runEvents.step, STRONG_FIT_STEP))).limit(1);
   if (!marked) return { started: false, reason: "not_strong_fit" };
+  if (await isNoriPaused(db, app.userId)) return { started: false, reason: "paused" };
   if (!autopilotOn(await getSchedule(db, app.userId))) return { started: false, reason: "autopilot_off" };
 
   const [job] = await db.select({ atsType: jobs.atsType }).from(jobs).where(eq(jobs.id, app.jobId)).limit(1);
