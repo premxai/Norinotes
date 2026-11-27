@@ -36,6 +36,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/dashboard", destination: "/overview", permanent: false },
+      // Today is retired: its page is Overview now. A Telegram link from before that (/today?job=…) still opens its job.
+      { source: "/today", has: [{ type: "query", key: "job" }], destination: "/jobs", permanent: false },
+      { source: "/today", destination: "/overview", permanent: false },
       { source: "/login", destination: "/signin", permanent: false },
       { source: "/you", destination: "/graph", permanent: false },
       { source: "/you/search", destination: "/settings/search", permanent: false },

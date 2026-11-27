@@ -94,7 +94,7 @@ const LOST = "This page isn’t here";
 const BROKE = "Something went wrong on this page";
 const PAGES = [
   { name: "not found", path: "/nowhere-at-all", h1: LOST, shell: false },
-  { name: "not found, dashboard", path: "/today/old", h1: LOST, shell: true },
+  { name: "not found, dashboard", path: "/overview/old", h1: LOST, shell: true },
   { name: "something broke", path: "/onboarding/done", o: { badLanes: true }, h1: BROKE, shell: false },
   { name: "something broke, dashboard", path: "/inbox", o: { badInbox: true }, h1: BROKE, shell: true },
 ];
@@ -106,7 +106,7 @@ const realErrors = (errors, p) => errors.filter((e) => !/favicon/i.test(e) && !(
 async function statuses() {
   const where = "http";
   const codes = {};
-  for (const path of ["/nowhere-at-all", "/today/old", "/you/settings", "/applications/a1/extra", "/inbox/m1/extra", "/overview", "/settings/search", "/applications/a1"]) {
+  for (const path of ["/nowhere-at-all", "/overview/old", "/you/settings", "/applications/a1/extra", "/inbox/m1/extra", "/overview", "/settings/search", "/applications/a1"]) {
     const r = await fetch(BASE + path, { redirect: "manual" });
     codes[path] = r.status;
     if (path === "/nowhere-at-all") {
@@ -115,7 +115,7 @@ async function statuses() {
       check(where, "the 404's title", html.includes("<title>Page not found · Norinote</title>"), html.match(/<title>[^<]*<\/title>/)?.[0]);
     }
   }
-  check(where, "unknown addresses answer 404, outside and under each section", ["/nowhere-at-all", "/today/old", "/you/settings", "/applications/a1/extra", "/inbox/m1/extra"].every((p) => codes[p] === 404), codes);
+  check(where, "unknown addresses answer 404, outside and under each section", ["/nowhere-at-all", "/overview/old", "/you/settings", "/applications/a1/extra", "/inbox/m1/extra"].every((p) => codes[p] === 404), codes);
   check(where, "real pages still answer 200 (static routes win over the catch-alls)", ["/overview", "/settings/search", "/applications/a1"].every((p) => codes[p] === 200), codes);
 }
 
@@ -295,7 +295,7 @@ async function weighed(browser, path, o, [w, h, mobile]) {
 }
 
 async function performance(browser) {
-  for (const [path, o] of [["/nowhere-at-all", {}], ["/onboarding/done", { badLanes: true }], ["/today/old", {}]]) {
+  for (const [path, o] of [["/nowhere-at-all", {}], ["/onboarding/done", { badLanes: true }], ["/overview/old", {}]]) {
     for (const [w, h, mobile] of [[390, 844, true], [1440, 900, false]]) {
       const where = `chromium ${path} ${w}x${h} 4G, 4x CPU`;
       const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: mobile ? 3 : 1, isMobile: mobile, hasTouch: mobile });

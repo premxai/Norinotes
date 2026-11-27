@@ -54,7 +54,7 @@ exist in the new app, and the old `/profile`, `/settings` and `/login` paths red
 The site and the API are on the same site (`norinote.xyz`), so the API's session cookie (httpOnly, `SameSite=Lax`,
 `Secure`) is sent with the app's calls. `WEB_URL` and `LANDING_URL` on the API are both `https://norinote.xyz`: it is the
 allowed browser origin, account-email links point at its `/verify-email` and `/reset-password`, and Telegram links open
-`/today?job=<id>`, `/applications/<id>` and `/inbox`.
+`/overview`, `/jobs?job=<id>`, `/applications/<id>` and `/inbox`.
 
 ## Files
 
