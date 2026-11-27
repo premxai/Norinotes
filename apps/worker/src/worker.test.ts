@@ -3,7 +3,7 @@ import type { Page } from "playwright";
 import { createFakeProvider, setProvider } from "@norinote/ai";
 import { MAX_JOB_AGE_HOURS, applications, applyBatches, careerPoints, companies, eq, inboxMessages, jobSpecs, jobs, lanes, profiles, resumes, runEvents, shortlist, users, type Db } from "@norinote/db";
 import { createTestDb, type TestDb } from "@norinote/db/testing";
-import type { BrowserPool, Driver, FillResult, Preparer } from "@norinote/apply";
+import { setNoriPaused, type BrowserPool, type Driver, type FillResult, type Preparer } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { embedCareerPoints } from "@norinote/graph";
 import { assignInboxAddress, receiveInbound } from "@norinote/inbox";
@@ -317,6 +317,28 @@ describe("worker: prepare and apply", () => {
     expect(calls).toHaveLength(2);
     expect(calls[1]![ask.id]).toBeTruthy();
     expect(await statusOf(t.db, appId)).toMatchObject({ status: "prepared" });
+  });
+
+  it("holds an application the person approved before a pause, and sends it once they resume", async () => {
+    const userId = await seedUser(t.db);
+    const appId = await seedApplication(t.db, userId, "Paused Engineer", "paused-acme");
+    await t.db.update(applications).set({ approvedAt: NOW }).where(eq(applications.id, appId));
+    const { driver, calls } = stubDriver(() => filled());
+    await boot(driver, stubPreparer(t.db));
+
+    await setNoriPaused(t.db, userId, true);
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: appId });
+    await queue.drain();
+    expect(queue.failures()).toEqual([]);
+    // Prepared, but Nori did not touch the employer's page: the approval waits for the resume.
+    expect(calls).toHaveLength(0);
+    expect(await statusOf(t.db, appId)).toMatchObject({ status: "prepared" });
+
+    await setNoriPaused(t.db, userId, false);
+    await queue.enqueue(JOBS.prepareApplication, { applicationId: appId });
+    await queue.drain();
+    expect(calls).toHaveLength(1);
+    expect((await statusOf(t.db, appId)).receipt).toMatchObject({ dryRun: true });
   });
 
   it("sends a batch application the person already approved as soon as it is prepared", async () => {

@@ -1,5 +1,9 @@
 # Dashboard 4c design spec: You
 
+> **Superseded by [dashboard-v2-plan.md](dashboard-v2-plan.md).** The "You" pages were split into Career graph,
+> Settings and the Nori page. This file is kept for the settings and account rules it decided, which still hold; its
+> routes (`/you`, `/you/search`, `/you/nori`, `/you/account`, which redirect) do not.
+
 The rules to build part 4c from: `/you`, `/you/search`, `/you/nori` and `/you/account`. [ui-plan.md](ui-plan.md)
 (part 4c) says what's on these pages and why. This file says how they look and behave, then gives the build checklist.
 The wireframe (the "Dashboard 4c: You" page of the design canvas) follows these rules. Where they disagree, this file

@@ -2,13 +2,16 @@
  * Nori's schedule (autopilot, the Nori page): on the days and at the time the person chose, in their time zone, Nori
  * starts an "Apply for me" batch of the new jobs the apply decision says to send (`recommendedJobIds`), within what is
  * left of the daily limit and the weekly pace. Off until the person turns it
- * on; `paused` stops it without losing the settings. The batch summary goes out like any batch's (Telegram).
- * Stored in `profiles.preferences.noriSchedule`.
+ * on; `paused` stops it without losing the settings, and the person's own pause (`noriPaused`, see pause.ts) stops it
+ * too. The batch summary goes out like any batch's (Telegram). Stored in `profiles.preferences.noriSchedule`.
  */
 import { localClock as localClockIn, validTimeZone } from "./day.js";
 import { dailyCapUse } from "./store.js";
 import { and, eq, profiles, sql, type Db } from "@norinote/db";
 import { MAX_BATCH, getNoriSettings, recommendedJobIds, startBatch } from "./batch.js";
+
+/** SQL for "Nori is not paused all over" (`preferences.noriPaused`), for the rows a scheduler pass may start. */
+const notPausedSql = sql`coalesce(${profiles.preferences} ->> 'noriPaused', 'false') <> 'true'`;
 
 export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -65,14 +68,48 @@ export async function getSchedule(db: Db, userId: string): Promise<NoriSchedule>
   return readSchedule(row?.preferences);
 }
 
+/**
+ * The fields of a write, each validated on its own. Only the keys in `patch` are written, so the scheduler marking today
+ * as done and the person changing the schedule at the same moment cannot undo each other.
+ */
+function scheduleFields(patch: Partial<Omit<NoriSchedule, "lastRunOn">> & { lastRunOn?: string | null }): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (patch.enabled !== undefined) out.enabled = patch.enabled === true;
+  if (patch.paused !== undefined) out.paused = patch.paused === true;
+  if (patch.time !== undefined) out.time = /^([01]\d|2[0-3]):[0-5]\d$/.test(patch.time) ? patch.time : DEFAULT_SCHEDULE.time;
+  if (patch.timezone !== undefined) out.timezone = validTimeZone(patch.timezone) ? patch.timezone : DEFAULT_SCHEDULE.timezone;
+  if (patch.days !== undefined) { const want = patch.days; const days = WEEKDAYS.filter((d) => want.includes(d)); out.days = days.length ? days : DEFAULT_SCHEDULE.days; }
+  if (patch.lastRunOn !== undefined) out.lastRunOn = patch.lastRunOn;
+  return out;
+}
+
 export async function saveSchedule(db: Db, userId: string, patch: Partial<Omit<NoriSchedule, "lastRunOn">> & { lastRunOn?: string | null }): Promise<NoriSchedule> {
-  const next = { ...(await getSchedule(db, userId)), ...patch };
-  const json = JSON.stringify(next);
-  await db.insert(profiles).values({ userId, preferences: { noriSchedule: next } }).onConflictDoUpdate({
-    target: profiles.userId,
-    set: { preferences: sql`coalesce(${profiles.preferences}, '{}'::jsonb) || jsonb_build_object('noriSchedule', ${json}::jsonb)` },
-  });
-  return next;
+  const fields = scheduleFields(patch);
+  if (Object.keys(fields).length > 0) {
+    const merge = sql`coalesce(${profiles.preferences} -> 'noriSchedule', '{}'::jsonb) || ${JSON.stringify(fields)}::jsonb`;
+    await db.insert(profiles).values({ userId, preferences: { noriSchedule: fields } }).onConflictDoUpdate({
+      target: profiles.userId,
+      set: { preferences: sql`coalesce(${profiles.preferences}, '{}'::jsonb) || jsonb_build_object('noriSchedule', ${merge})` },
+    });
+  }
+  return getSchedule(db, userId);
+}
+
+/**
+ * Marks today as run, but only while the schedule is still on and unpaused and Nori is not paused all over: a pause that
+ * lands between the check and this write stops the run too, and the write never brings a pause back.
+ */
+async function claimToday(db: Db, userId: string, date: string): Promise<boolean> {
+  const rows = await db.update(profiles)
+    .set({ preferences: sql`coalesce(${profiles.preferences}, '{}'::jsonb) || jsonb_build_object('noriSchedule', coalesce(${profiles.preferences} -> 'noriSchedule', '{}'::jsonb) || jsonb_build_object('lastRunOn', ${date}::text))` })
+    .where(and(
+      eq(profiles.userId, userId),
+      sql`${profiles.preferences} -> 'noriSchedule' ->> 'enabled' = 'true'`,
+      sql`coalesce(${profiles.preferences} -> 'noriSchedule' ->> 'paused', 'false') <> 'true'`,
+      notPausedSql,
+    ))
+    .returning({ id: profiles.userId });
+  return rows.length > 0;
 }
 
 export type ScheduledRun = { userId: string; batchId: string | null; created: string[]; reason?: string };
@@ -85,12 +122,12 @@ export type ScheduledRun = { userId: string; batchId: string | null; created: st
 export async function runSchedules(db: Db, opts: { now?: Date; atsTypes?: readonly string[] | null } = {}): Promise<ScheduledRun[]> {
   const now = opts.now ?? new Date();
   const rows = await db.select({ userId: profiles.userId, preferences: profiles.preferences }).from(profiles)
-    .where(and(sql`${profiles.preferences} -> 'noriSchedule' ->> 'enabled' = 'true'`, sql`coalesce(${profiles.preferences} -> 'noriSchedule' ->> 'paused', 'false') <> 'true'`));
+    .where(and(sql`${profiles.preferences} -> 'noriSchedule' ->> 'enabled' = 'true'`, sql`coalesce(${profiles.preferences} -> 'noriSchedule' ->> 'paused', 'false') <> 'true'`, notPausedSql));
   const out: ScheduledRun[] = [];
   for (const row of rows) {
     const s = readSchedule(row.preferences);
     if (!isDue(s, now)) continue;
-    await saveSchedule(db, row.userId, { lastRunOn: localClock(now, s.timezone).date });
+    if (!(await claimToday(db, row.userId, localClock(now, s.timezone).date))) continue;
     const settings = await getNoriSettings(db, row.userId);
     const use = await dailyCapUse(db, row.userId, now);
     const room = Math.min(MAX_BATCH, Math.max(0, settings.dailyLimit - use.used));

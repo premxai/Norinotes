@@ -275,7 +275,8 @@ export type AddedCompany = {
   openJobs?: number | null;
 };
 export type Aggressiveness = "cautious" | "balanced" | "wide";
-export type NoriSettings = { spacingMinutes: number; minFit: number; aggressiveness: Aggressiveness; skipCompanies: string[]; dailyLimit: number };
+/** `paused`: the one pause, everything Nori does on its own (PUT the same field to set it). */
+export type NoriSettings = { spacingMinutes: number; minFit: number; aggressiveness: Aggressiveness; skipCompanies: string[]; dailyLimit: number; paused: boolean };
 /** GET /api/nori/decisions: what Nori would do with each new match. `ask` is the person's call (Apply or Skip). */
 export type NoriDecision = { jobId: string; title: string; company: string; group: "strong" | "worth_a_shot" | "stretch" | null; action: "send" | "later" | "ask" | "skip"; reasons: string[]; fit: number };
 /** Why a person skips a job, in the order they see them: SKIP_REASON_LABELS in @norinote/shared (api.test.ts keeps them the same). */
@@ -290,7 +291,7 @@ export const SKIP_REASON_LABELS = {
 } as const;
 export type SkipReason = keyof typeof SKIP_REASON_LABELS;
 export type BatchCounts = { total: number; sent: number; working: number; preparing: number; ready: number; needsYou: number; cancelled: number; failed: number };
-export type Batch = { id: string; status: "running" | "stopped" | "done"; createdAt: string; finishedAt: string | null; lastStartedAt: string | null; counts: BatchCounts; waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | null; nextAt: string | null };
+export type Batch = { id: string; status: "running" | "stopped" | "done"; createdAt: string; finishedAt: string | null; lastStartedAt: string | null; counts: BatchCounts; waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | "paused" | null; nextAt: string | null };
 export type Needs = "questions" | "code" | "captcha" | "account" | "offsite" | "unsupported" | "other";
 export type BatchApplication = { id: string; jobId: string; title: string; company: string; status: AppStatus; error: string | null; submittedAt: string | null; needs?: Needs };
 export type BatchSkip = { jobId: string; reason: "not_found" | "skipped_company" | "same_company" | "already_applied" | "duplicate_recent" | string };

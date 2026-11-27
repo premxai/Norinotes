@@ -16,9 +16,9 @@ describe("the Nori page API", () => {
   afterAll(() => api.close());
 
   it("reads and saves how Nori works for the person", async () => {
-    expect((await api.call("GET", "/api/nori/settings", { cookie })).json).toEqual({ settings: { spacingMinutes: 4, minFit: 0.6, aggressiveness: "balanced", skipCompanies: [], dailyLimit: 20 } });
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json).toEqual({ settings: { spacingMinutes: 4, minFit: 0.6, aggressiveness: "balanced", skipCompanies: [], dailyLimit: 20, paused: false } });
     const put = await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 6, skipCompanies: ["Acme"], dailyLimit: 12 } });
-    expect(put.json).toEqual({ settings: { spacingMinutes: 6, minFit: 0.6, aggressiveness: "balanced", skipCompanies: ["Acme"], dailyLimit: 12 } });
+    expect(put.json).toEqual({ settings: { spacingMinutes: 6, minFit: 0.6, aggressiveness: "balanced", skipCompanies: ["Acme"], dailyLimit: 12, paused: false } });
     const cautious = await api.call("PUT", "/api/nori/settings", { cookie, body: { aggressiveness: "cautious" } });
     expect(cautious.json.settings).toMatchObject({ aggressiveness: "cautious", spacingMinutes: 6, dailyLimit: 12 });
     const [row] = await api.db.select({ preferences: profiles.preferences }).from(profiles).where(eq(profiles.userId, userId));
@@ -29,6 +29,24 @@ describe("the Nori page API", () => {
     expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { aggressiveness: "reckless" } })).status).toBe(400);
     expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 0 } })).status).toBe(400);
     expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { surprise: true } })).status).toBe(400);
+  });
+
+  it("pauses and resumes everything Nori does on its own", async () => {
+    const paused = await api.call("PUT", "/api/nori/settings", { cookie, body: { paused: true } });
+    expect(paused.json.settings.paused).toBe(true);
+    expect((await api.call("GET", "/api/nori/settings", { cookie })).json.settings.paused).toBe(true);
+    // A pause is its own key: it does not disturb the settings saved next to it.
+    expect((await api.call("PUT", "/api/nori/settings", { cookie, body: { spacingMinutes: 9 } })).json.settings).toMatchObject({ spacingMinutes: 9, paused: true });
+    // A running batch says so instead of claiming it is applying. (Rows, not a batch start: the queue is shared by
+    // these tests and must not gain a prepare job here.)
+    const [batch] = await api.db.insert(applyBatches).values({ userId, status: "running", total: 1 }).returning();
+    const one = await seedJob(api.db, { company: "Paused One" });
+    await seedApplication(api.db, userId, one.job.id, { batchId: batch!.id });
+    expect((await api.call("GET", `/api/nori/batches/${batch!.id}`, { cookie })).json.batch.waitingFor).toBe("paused");
+    await api.db.update(applyBatches).set({ status: "done" }).where(eq(applyBatches.id, batch!.id));
+
+    const resumed = await api.call("PUT", "/api/nori/settings", { cookie, body: { paused: false } });
+    expect(resumed.json.settings.paused).toBe(false);
   });
 
   it("starts a batch, prepares its applications, shows it and stops the rest", async () => {

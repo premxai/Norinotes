@@ -1,4 +1,8 @@
-# Launch checklist: Greenhouse engine, launch Monday 30 Nov 2026
+# Launch checklist: Greenhouse engine
+
+There is no launch date. Prem confirmed on 2026-11-25 that the 30 Nov date below was a placeholder and that the work is
+feature by feature, with each feature checked and built properly before the next. Read the weeks and the launch day as a
+sequence of gates, not a calendar.
 
 **Done means:** a new US user signs up on norinote.xyz, uploads a resume, and sees Greenhouse matches within about 15 minutes. They approve a job. Nori fills and submits the application, reading the verification code from Gmail if one is asked for. The user sees the application as submitted. Nobody on our side helps.
 
@@ -41,13 +45,13 @@ Owners: **You** = Prem, **Me** = this Claude session (backend, worker, deploys),
 - [ ] **You:** run a beta with 5–10 real users from 24 Nov (note that Thanksgiving is 26 Nov). I watch their runs daily and fix what breaks.
 - [ ] **Both:** code freeze on 28 Nov. Only fixes after that.
 
-## Launch day: Monday 30 Nov
+## Launch day (date not set)
 
 - [ ] **Me:** final deploy of both Fly apps. **UI:** Vercel deploy.
 - [ ] **Me:** smoke test on production: sign up → matches → one submitted application.
 - [ ] **Me:** keep the daily cap low (around 5 per user) for the first week, and watch every run on day one.
 
-## After launch (not needed for the 30th)
+## After launch (not needed for launch day)
 
 - The next job system after Greenhouse (Ashby or Lever), one at a time.
 - Norinote's own Google app for Gmail. Composio works for launch, but Google's review of the Gmail scope takes weeks, so start early if you want it.

@@ -35,6 +35,7 @@ export { loadRecipe, saveRecipe, touchRecipe, recordStrategies, labelKey } from 
 export type { FormRecipe, RecipeField, WidgetStrategy } from "./recipes.js";
 export { CompanyGate, sharedCompanyGate, defaultCooldownMs } from "./gate.js";
 export { DEFAULT_DAILY_CAP, DEFAULT_TIME_ZONE, effectiveDailyCap, readTimeZone } from "./day.js";
+export { readNoriPaused, isNoriPaused, setNoriPaused } from "./pause.js";
 export { blockHeavy, POLITE_UA_SUFFIX } from "./pool.js";
 export { createLiveFrameSink, liveFrameKey, startLiveFrames, type LiveFrame, type LiveFrameSink } from "./live.js";
 export {

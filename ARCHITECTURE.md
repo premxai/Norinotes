@@ -261,8 +261,9 @@ Keeps the shapes the dashboard in `apps/landing` uses for the core flows:
 `/api/channels/telegram/webhook` (POST, Telegram's secret_token),
 `/api/auth/account` (DELETE).
 
-Dropped on purpose: model settings and bring-your-own keys, Composio integrations, Google Sheets tracker sync,
-per-user discovery (`/api/jobs/discover`), manual board polling, the desktop companion, MCP, WhatsApp and Slack.
+Dropped on purpose: model settings and bring-your-own keys, the Composio toolkit beyond its Gmail connection
+(docs/inbox.md), Google Sheets tracker sync, per-user discovery (`/api/jobs/discover`), manual board polling, the desktop
+companion, MCP, WhatsApp and Slack.
 
 ## What is ported from Nori, and what is not
 
@@ -270,7 +271,7 @@ Ported (cleaned up, behind tests): job-system connectors, polite fetching, board
 additions, blocklist; resume parsing; tailoring rules and the one-page PDF template; Greenhouse, Lever and Ashby
 drivers; the citizenship and clearance detector; auth and sessions; the application state ideas and run events.
 
-Not ported: Parallel, Exa, Composio, Cline provider and bring-your-own-key, the companion app, MCP server, WhatsApp
+Not ported: Parallel, Exa, Cline provider and bring-your-own-key, the companion app, MCP server, WhatsApp
 and Slack, Google Sheets, social discovery, demo and hackathon scripts, `.clinerules`, the timer-and-lease scheduler,
 scoring every job for every user, the 16 overlapping docs.
 
@@ -279,7 +280,8 @@ scoring every job for every user, the 16 overlapping docs.
 `DATABASE_URL`, `OPENAI_API_KEY` (unset = AI off, rule-based fallbacks), `AI_FAKE` (1 = deterministic fake model, demos only), `AI_SMALL_MODEL` (default gpt-4.1-mini), `AI_LARGE_MODEL` (default gpt-4.1),
 `EMBEDDING_MODEL` (default text-embedding-3-small), `ALLOW_REAL_SUBMIT`, `INBOUND_EMAIL_DOMAIN`,
 `INBOUND_WEBHOOK_SECRET`, `INBOX_RETENTION_DAYS`, `COMPOSIO_API_KEY`, `GMAIL_REPLY_POLL_MINUTES`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `WEB_URL`, `API_URL`, `SESSION_SECRET`.
-Hosting decisions (Vercel, Neon, Fly region) are made tomorrow; nothing here assumes a provider beyond Postgres.
+Hosting (docs/deploy.md): the site and dashboard on Vercel at `norinote.xyz`, the API and the worker on Fly (sjc), and
+Postgres with pgvector on Supabase. Nothing here assumes more than Postgres.
 
 ## Quality gate
 

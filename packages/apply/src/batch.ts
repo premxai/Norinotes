@@ -8,6 +8,7 @@ import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql,
 import { DEFAULT_MIN_FIT, RECENT_COMPANY_DAYS, decideApplies, readAggressiveness, type Aggressiveness } from "@norinote/match";
 import { readSkipCompanies } from "@norinote/shared";
 import { DEFAULT_DAILY_CAP } from "./day.js";
+import { isNoriPaused } from "./pause.js";
 import { approveAndSubmit, createApplication, dailyCapUse, effectiveDailyCap, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
 
 /** The batch error an application carries when Stop cancelled it (the same words as a single cancel). */
@@ -176,6 +177,8 @@ export type DrainStep = { batchId: string; applicationId: string };
  * One pass over running batches. For each: when nothing of the batch is on an employer's page and `spacingMinutes`
  * passed since the last start, approve the oldest prepared application (the batch is the approval) if the daily limit
  * allows. Returns the applications the caller must queue `apply.run` for. A batch with nothing left to send is done.
+ * While the person has Nori paused (`noriPaused`) nothing is approved: the batch keeps its place and carries on when they
+ * resume.
  */
 export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<DrainStep[]> {
   const now = opts.now ?? new Date();
@@ -188,6 +191,14 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
   const running = await db.select().from(applyBatches).where(eq(applyBatches.status, "running")).orderBy(asc(applyBatches.createdAt));
   const out: DrainStep[] = [];
   const startedFor = new Set<string>();
+  const paused = new Map<string, boolean>();
+  const isPaused = async (userId: string) => {
+    const known = paused.get(userId);
+    if (known !== undefined) return known;
+    const flag = await isNoriPaused(db, userId);
+    paused.set(userId, flag);
+    return flag;
+  };
   for (const batch of running) {
     const apps = await db.select({ id: applications.id, status: applications.status, approvedAt: applications.approvedAt, createdAt: applications.createdAt })
       .from(applications).where(eq(applications.batchId, batch.id)).orderBy(asc(applications.createdAt));
@@ -198,6 +209,7 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
       continue;
     }
     if (inFlight || startedFor.has(batch.userId)) continue;
+    if (await isPaused(batch.userId)) continue;
     const settings = await getNoriSettings(db, batch.userId);
     if (batch.lastStartedAt && now.getTime() - batch.lastStartedAt.getTime() < settings.spacingMinutes * 60_000) continue;
     const next = waiting.find((a) => a.status === "prepared");
@@ -248,8 +260,8 @@ export function countBatch(apps: ReadonlyArray<Pick<ApplicationRow, "status" | "
 export type BatchView = {
   id: string; status: "running" | "stopped" | "done"; createdAt: Date; finishedAt: Date | null; lastStartedAt: Date | null;
   counts: BatchCounts;
-  /** Why a running batch is not sending right now, when it is not. */
-  waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | null;
+  /** Why a running batch is not sending right now, when it is not. `paused`: the person stopped Nori everywhere. */
+  waitingFor: "spacing" | "daily_limit" | "preparing" | "you" | "paused" | null;
   nextAt: Date | null;
 };
 
@@ -259,14 +271,17 @@ export async function batchView(db: Db, batch: typeof applyBatches.$inferSelect,
   let waitingFor: BatchView["waitingFor"] = null;
   let nextAt: Date | null = null;
   if (batch.status === "running" && counts.working === 0) {
-    const settings = await getNoriSettings(db, batch.userId);
-    const spacingEnds = batch.lastStartedAt ? new Date(batch.lastStartedAt.getTime() + settings.spacingMinutes * 60_000) : null;
-    if (counts.ready > 0) {
-      const use = await dailyCapUse(db, batch.userId, now);
-      if (use.used >= settings.dailyLimit) waitingFor = "daily_limit";
-      else if (spacingEnds && spacingEnds > now) { waitingFor = "spacing"; nextAt = spacingEnds; }
-    } else if (counts.preparing > 0) waitingFor = "preparing";
-    else if (counts.needsYou > 0) waitingFor = "you";
+    if (await isNoriPaused(db, batch.userId)) waitingFor = "paused";
+    else {
+      const settings = await getNoriSettings(db, batch.userId);
+      const spacingEnds = batch.lastStartedAt ? new Date(batch.lastStartedAt.getTime() + settings.spacingMinutes * 60_000) : null;
+      if (counts.ready > 0) {
+        const use = await dailyCapUse(db, batch.userId, now);
+        if (use.used >= settings.dailyLimit) waitingFor = "daily_limit";
+        else if (spacingEnds && spacingEnds > now) { waitingFor = "spacing"; nextAt = spacingEnds; }
+      } else if (counts.preparing > 0) waitingFor = "preparing";
+      else if (counts.needsYou > 0) waitingFor = "you";
+    }
   }
   return { id: batch.id, status: batch.status, createdAt: batch.createdAt, finishedAt: batch.finishedAt, lastStartedAt: batch.lastStartedAt, counts, waitingFor, nextAt };
 }
