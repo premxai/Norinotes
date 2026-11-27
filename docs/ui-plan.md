@@ -22,8 +22,8 @@ Four parts, one at a time. Each one is planned and wireframed, then built, befor
 | 6 | Privacy and Terms | `/privacy`, `/terms` | Planned, texts drafted ([privacy](../apps/landing/content/legal/privacy.md), [terms](../apps/landing/content/legal/terms.md)), wireframed, specified ([legal-pages-spec.md](legal-pages-spec.md)), built and QA'd. Goes live once support@norinote.xyz delivers and the processing terms are accepted |
 
 Rules for every part:
-- **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`), the current
-  `apps/web` dashboard, or the `nori-pet/playground` demo pages. Only what's decided in these docs and the design canvas
+- **Built fresh.** Nothing is copied from the older sites (`C:\dev\nori-landing`, `C:\dev\nori-site`) or the
+  `nori-pet/playground` demo pages. Only what's decided in these docs and the design canvas
   goes in.
 - **One design.** Same Dawn theme, Geist Serif Triangle, Geist and Geist Mono, spacing, grid, components and motion as the
   landing spec. Each part adds its own pages, not its own style.
@@ -400,7 +400,7 @@ where it and this plan differ. Next: build 4a.
 
 The everyday app: where the morning shortlist lands, where you approve and watch applications, and where everything Nori
 did is kept. It lives in `apps/landing` like the other parts (route group `(app)`), so the same Nori carries over from
-onboarding, and it replaces `apps/web` once it's done. Unlike the landing page it has a light and a dark mode.
+onboarding. Unlike the landing page it has a light and a dark mode.
 
 ### Decided
 

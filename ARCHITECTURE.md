@@ -18,8 +18,8 @@ This repo is a clean rebuild. It ports only the parts of Nori (the live repo at 
 apps/
   api/        Hono HTTP API (Node). Auth, profile, graph, jobs, shortlist, applications, agent status.
   worker/     Background runtime: pg-boss consumers for ingest, understand, match, prepare, apply, inbox.
-  web/        Current dashboard (Next.js), temporary. A teammate is building the new landing and dashboard; it will
-              replace this app and talk to the same API.
+  landing/    The site and dashboard (Next.js): landing, sign-in, onboarding, dashboard, legal pages. Deployed to
+              Vercel at norinote.xyz; it calls the same API.
 packages/
   db/         Drizzle schema, migrations (Postgres 17 + pgvector), client. PGlite (with the vector extension) for tests.
   queue/      pg-boss wrapper: typed job names, enqueue, work, schedule. In-memory adapter for unit tests.
@@ -40,7 +40,7 @@ packages/
               (connected Gmail, outcomes), forwarding (stub), retention. Details in docs/inbox.md.
   telegram/   Telegram channel: typed Bot API client (fetch), per-chat send queue (429 retry_after), signed button data,
               deep-link linking, daily shortlist, batched questions, events, quiet hours. Details in docs/telegram.md.
-  shared/     Types and zod contracts shared by api, worker and web.
+  shared/     Types and zod contracts shared by api, worker and landing.
 ```
 
 Package names are `@norinote/<name>`. TypeScript ESM, Node 22, npm workspaces, vitest, zod 4.
@@ -250,7 +250,7 @@ Click to submitted in 12 to 30 seconds, under 2 cents, no invented answers. Deta
 
 ## API surface (apps/api)
 
-Keeps the shapes the current web app uses for the core flows, so it keeps working until the new frontend lands:
+Keeps the shapes the dashboard in `apps/landing` uses for the core flows:
 `/api/health`, `/api/auth/*` (signup, login, logout, session, forgot/reset password, verify email, change password, sessions),
 `/api/me`, `/api/profile` (PUT), `/api/profile/resume`, `/api/profile/resume-file`, `/api/onboarding` (GET, PUT),
 `/api/graph` (GET), `/api/graph/facts` (POST), `/api/graph/nodes/:id` (DELETE), `/api/lanes` (GET, PUT),

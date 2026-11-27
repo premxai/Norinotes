@@ -8,7 +8,6 @@
 .env.*
 !.env.example
 data
-apps/web
 apps/landing
 nori-pet
 docs

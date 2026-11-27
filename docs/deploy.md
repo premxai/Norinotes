@@ -16,8 +16,8 @@ goes straight onto the real names; the old ones are deleted once the new stack w
 | Telegram | A new bot from BotFather | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` |
 | Company logos | Brandfetch Logo API (free, no attribution) | `BRANDFETCH_CLIENT_ID` |
 
-Code is in the public repository `premxai/Norinotes`. `apps/web` (the temporary dashboard) is not deployed: the dashboard
-lives in `apps/landing` (route group `(app)`: `/today`, `/applications`, `/inbox`, `/you`).
+Code is in the public repository `premxai/Norinotes`. One frontend is deployed: `apps/landing`. It serves the site and
+the dashboard (route group `(app)`: `/overview`, `/jobs`, `/applications`, `/inbox`, `/graph`, `/settings`).
 
 ## DNS
 

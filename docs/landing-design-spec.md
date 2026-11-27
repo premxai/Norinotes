@@ -5,7 +5,7 @@ it looks, moves and behaves at every size, followed by the build checklist. The 
 canvas) follows these rules. Where the two disagree, this file wins.
 
 Status: decided, except the items under [Still open](#17-still-open). Everything is built fresh: nothing is copied from
-the older sites, `apps/web` or the `nori-pet` playground pages (see the roadmap in [ui-plan.md](ui-plan.md)).
+the older sites or the `nori-pet` playground pages (see the roadmap in [ui-plan.md](ui-plan.md)).
 
 ## 1. Decisions at a glance
 
@@ -360,7 +360,7 @@ onboarding and the dashboard later. Versions match what the repo already runs.
 | Images | An art folder in the app: `art/scenes.mjs` (prompts and generation with `gpt-image-2.5-sunburst`, the same spending ledger) and `art/build.mjs` (sharp: dither, upscale, AVIF and WebP at 4 widths, blurred previews, `scenes.json`). Pages use `<picture>` with the prebuilt files | Full control over quality and budgets, and it works on any host |
 | Sign-up and sign-in (part 2) | Calls the existing `apps/api` auth endpoints directly, with response types in the app (`@norinote/shared` has no auth contracts). Full rules: [auth-design-spec.md](auth-design-spec.md) | The backend is the product; only the UI is new |
 | Tests | Vitest for small logic (the cover maths, the seat controller); Playwright for page checks and screenshots at the QA widths; `@axe-core/playwright` for accessibility; Lighthouse CI for the budgets in section 13 | Every item in the QA phase can be checked by a script |
-| Lint and types | Its own `eslint.config.mjs` (Next's rules) and `tsconfig.json`. The repo's root lint and type check skip `apps/landing`, as they already skip `apps/web` | Keeps the backend's `npm run gate` unaffected |
+| Lint and types | Its own `eslint.config.mjs` (Next's rules) and `tsconfig.json`. The repo's root lint and type check skip `apps/landing` | Keeps the backend's `npm run gate` unaffected |
 | Hosting | To be decided (Vercel fits Next.js and Geist best). Nothing is deployed without an explicit go | |
 
 App layout:
@@ -397,7 +397,7 @@ Phase 0, decide
 
 Phase 1, foundation
 - [x] Scaffold the app (section 16); add `geist` and `@norinote/nori-pet`; copy Nori's assets into `public/nori/`.
-- [x] Make the repo's root lint and type check skip `apps/landing`, as they skip `apps/web`.
+- [x] Make the repo's root lint and type check skip `apps/landing`.
 - [x] Placeholder `/signin` and `/signup` pages so every landing link works.
 - [x] Tokens: colours (section 5), spacing (3), radii and elevation (6), motion (10) as CSS variables and Tailwind theme
   (`apps/landing/app/globals.css`).

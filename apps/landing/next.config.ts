@@ -31,8 +31,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   transpilePackages: ["@norinote/nori-pet"],
   // Sign-in and onboarding send people to /dashboard; the dashboard's first page is Overview (dashboard v2 plan). You's
-  // pages moved to Career graph and Settings. The rest are the old dashboard's (apps/web) addresses, which reach this
-  // site through jobs.norinote.xyz (docs/deploy.md). The old /jobs?job=<id> needs none: the Jobs page opens that job.
+  // pages moved to Career graph and Settings. These are the old dashboard's addresses, which reach this site through
+  // jobs.norinote.xyz (docs/deploy.md). The old /jobs?job=<id> needs none: the Jobs page opens that job.
   async redirects() {
     return [
       { source: "/dashboard", destination: "/overview", permanent: false },
