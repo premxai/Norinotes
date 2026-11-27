@@ -252,7 +252,7 @@ describe("agent", () => {
     expect(res.json).toMatchObject({ dailyCap: 4, usedToday: 1, liveSubmit: false });
     const live = await makeApi({ config: { allowRealSubmit: true } });
     const s = await live.signup("live@example.com");
-    expect((await live.call("GET", "/api/agent/status", { cookie: s.cookie })).json).toMatchObject({ dailyCap: 0, usedToday: 0, liveSubmit: true });
+    expect((await live.call("GET", "/api/agent/status", { cookie: s.cookie })).json).toMatchObject({ dailyCap: 20, usedToday: 0, liveSubmit: true });
     await live.close();
     expect((await api.call("GET", "/api/agent/status")).status).toBe(401);
     expect(await api.db.select().from(profiles).where(eq(profiles.userId, a.user.id))).toHaveLength(1);

@@ -22,7 +22,8 @@ export function agentRoutes(ctx: Ctx): Hono<AppEnv> {
   const { db } = ctx;
 
   r.get("/status", auth, async (c) => {
-    // An application counts against today's limit from the moment it is approved (0 = no limit). Approvals over it are refused.
+    // An application counts against today's limit from the moment it is approved. `dailyCap` is the limit in force: the
+    // profile's own, or the default 20 when it has none (0, docs/api-contract.md). Approvals over it are refused.
     const use = await dailyCapUse(db, c.get("user").id, ctx.now());
     return c.json({
       dailyCap: use.cap,

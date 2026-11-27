@@ -7,15 +7,16 @@
 import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql, gte, inArray, isNull, jobs, lanes, profiles, shortlist, sql, type Db } from "@norinote/db";
 import { DEFAULT_MIN_FIT, RECENT_COMPANY_DAYS, decideApplies, readAggressiveness, type Aggressiveness } from "@norinote/match";
 import { readSkipCompanies } from "@norinote/shared";
+import { DEFAULT_DAILY_CAP } from "./day.js";
 import { isNoriPaused } from "./pause.js";
-import { approveAndSubmit, createApplication, dailyCapUse, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
+import { approveAndSubmit, createApplication, dailyCapUse, effectiveDailyCap, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
 
 /** The batch error an application carries when Stop cancelled it (the same words as a single cancel). */
 export const BATCH_CANCELLED = "Cancelled by you";
 /** At most this many jobs in one batch. */
 export const MAX_BATCH = 50;
-/** Applications a batch may send a day when the person set no daily limit. */
-export const DEFAULT_BATCH_DAILY_LIMIT = 20;
+/** Applications a batch may send a day when the person set no daily limit: the one default (day.ts). */
+export const DEFAULT_BATCH_DAILY_LIMIT = DEFAULT_DAILY_CAP;
 
 // ---- settings (profiles.preferences.nori; the daily limit is the profile's own `dailyCap`) -------------------------
 
@@ -49,7 +50,7 @@ export function readNoriSettings(preferences: unknown, dailyCap: number | null |
   const minFit = saved ?? (laneMinFits.length ? Math.min(...laneMinFits) : DEFAULT_NORI_SETTINGS.minFit);
   return {
     spacingMinutes: spacing, minFit, aggressiveness: readAggressiveness(preferences), skipCompanies: readSkipCompanies(preferences),
-    dailyLimit: dailyCap && dailyCap > 0 ? dailyCap : DEFAULT_BATCH_DAILY_LIMIT,
+    dailyLimit: effectiveDailyCap(dailyCap),
   };
 }
 
