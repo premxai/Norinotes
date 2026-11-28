@@ -4,7 +4,7 @@ import { applications, companies, eq, jobs, profiles, resumes, runEvents, users 
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import {
   approveAndSubmit, approveBeforePrepared, createApplication, driveApplication, retryApplication, runApplication, saveAnswers, normalizeTitle,
-  MAX_ATTEMPTS, PoolRunError, STALE_RUN_MS, staleRuns, submitMayHaveHappened, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
+  MAX_ATTEMPTS, PoolRunError, STALE_RUN_MS, staleRuns, failAbandonedRun, runLastSeen, submitMayHaveHappened, type ApplyDeps, type BrowserPool, type Driver, type DriverContext, type FillResult, type SubmitResult,
 } from "./index.js";
 import { checkStillOpen, JOB_CLOSED_REASON, STILL_OPEN_STEP } from "./index.js";
 import type { ApplyInputs } from "./inputs.js";
@@ -705,6 +705,32 @@ describe("attempts, retries and lost runs", () => {
     const found = (await staleRuns(t.db, { now })).filter((r) => Object.values(ids).includes(r.applicationId));
     expect(found.map((r) => r.applicationId).sort()).toEqual([ids.applying, ids.preparing, ids.code].sort());
     expect(found.find((r) => r.applicationId === ids.preparing)?.status).toBe("preparing");
+  });
+
+  it("fails a row the queue gave up on, so it is not stranded in applying, and leaves a clicked one alone", async () => {
+    const { app } = await prepared();
+    await approveAndSubmit(t.db, app.id);
+    expect(await failAbandonedRun(t.db, app.id, new Error("browser pool died"))).toBe(true);
+    const failed = await getApp(app.id);
+    expect(failed).toMatchObject({ status: "failed" });
+    expect(failed.error).toMatch(/browser pool died/);
+    // Not applying any more: a second call changes nothing.
+    expect(await failAbandonedRun(t.db, app.id, new Error("again"))).toBe(false);
+
+    const { app: clicked } = await prepared();
+    await approveAndSubmit(t.db, clicked.id);
+    await t.db.update(applications).set({ receipt: { submitClicked: true } }).where(eq(applications.id, clicked.id));
+    expect(await failAbandonedRun(t.db, clicked.id, new Error("browser pool died"))).toBe(false);
+    expect(await getApp(clicked.id)).toMatchObject({ status: "applying" });
+  });
+
+  it("reads the last sign of a run from the row and its events", async () => {
+    const { app } = await seedApp();
+    const earlier = new Date("2026-11-28T10:00:00Z");
+    await t.db.update(applications).set({ updatedAt: earlier }).where(eq(applications.id, app.id));
+    const later = new Date(Date.now() + 60_000);
+    await t.db.insert(runEvents).values({ applicationId: app.id, step: "field_filled", message: "Filled", ts: later });
+    expect((await runLastSeen(t.db, app.id))?.toISOString()).toBe(later.toISOString());
   });
 
   it("a person's answers start a fresh set of attempts; the worker's own answers do not", async () => {

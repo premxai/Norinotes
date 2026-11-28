@@ -3,7 +3,7 @@ import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, applications, applyBatches, asc, companies, desc, eq, inArray, inboxMessages, jobs, queryRows, resumes, runEvents, shortlist, sql, type Db } from "@norinote/db";
-import { applicationInFlight, approveAndSubmit, approveBeforePrepared, clearSubmitClick, createApplication, dailyCapReached, LiveInput, liveFrameKey, logEvent, markSent, MAX_FINISH_BATCH, retryApplication, saveAnswers, STALE_RUN_MS, submitMayHaveHappened, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
+import { applicationInFlight, runLastSeen, RUN_FRESH_MS, approveAndSubmit, approveBeforePrepared, clearSubmitClick, createApplication, dailyCapReached, LiveInput, liveFrameKey, logEvent, markSent, MAX_FINISH_BATCH, retryApplication, saveAnswers, submitMayHaveHappened, transitionApplication, unansweredQuestions, type ApplicationRow, type ApproveResult } from "@norinote/apply";
 import { saveAnswer } from "@norinote/answers";
 import { JOBS } from "@norinote/queue";
 import { requireUser } from "../auth/session.js";
@@ -269,13 +269,14 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
   // The person drops an application they no longer want. Only while no browser is on the employer's page (a running
   // or code-waiting run could still submit) and nothing says the employer may already have it: a marked click is the
   // person's to settle first (marked-sent, or not-sent). It becomes failed with "Cancelled by you", and Retry brings it
-  // back.
+  // back. A run counts as live while this process holds it or it wrote something in the last two minutes; a run the
+  // queue gave up on, or one that crashed, no longer blocks the person for 25 minutes.
   r.post("/:id/cancel", auth, async (c) => {
     const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
     if (app.status === "submitted") throw new HttpError(409, "This application was already sent", app.status);
     if (submitMayHaveHappened(app)) throw new HttpError(409, "Nori clicked submit on this one and could not confirm it", "If it did not reach the employer, say so first; then you can cancel or try again.");
-    const live = (app.status === "applying" || app.status === "awaiting_code")
-      && (applicationInFlight(app.id) || ctx.now().getTime() - app.updatedAt.getTime() < STALE_RUN_MS);
+    const lastSeen = app.status === "applying" || app.status === "awaiting_code" ? await runLastSeen(db, app.id) : null;
+    const live = !!lastSeen && (applicationInFlight(app.id) || ctx.now().getTime() - lastSeen.getTime() < RUN_FRESH_MS);
     if (live) throw new HttpError(409, "Nori is on the employer's page right now; cancel once this run finishes", app.status);
     if (app.status === "failed") return c.json({ ok: true, status: app.status });
     const res = await transitionApplication(db, app.id, "failed", { from: app.status, error: CANCELLED, message: CANCELLED, by: "user" });

@@ -258,6 +258,13 @@ describe("applications", () => {
       const busy = await seedApplication(api.db, userId, j.id, { status, approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
       expect((await api.call("POST", `/api/applications/${busy.id}/cancel`, { cookie })).status).toBe(409);
     }
+
+    // A run that has written nothing for a while holds nothing: the person may cancel instead of waiting out the
+    // 25-minute stale sweep.
+    const { job: stalledJob } = await seedJob(api.db, { company: "Stalled Co" });
+    const stalled = await seedApplication(api.db, userId, stalledJob.id, { status: "applying", approvedAt: new Date(), preparedAt: new Date(), resumeId: null });
+    await api.db.update(applications).set({ updatedAt: new Date(Date.now() - 10 * 60_000) }).where(eq(applications.id, stalled.id));
+    expect((await api.call("POST", `/api/applications/${stalled.id}/cancel`, { cookie })).status).toBe(200);
     expect((await api.call("POST", `/api/applications/${parked.id}/cancel`)).status).toBe(401);
   });
 
