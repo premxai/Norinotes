@@ -9,7 +9,7 @@ import { DEFAULT_MIN_FIT, RECENT_COMPANY_DAYS, decideApplies, readAggressiveness
 import { readSkipCompanies } from "@norinote/shared";
 import { DEFAULT_DAILY_CAP } from "./day.js";
 import { isNoriPaused } from "./pause.js";
-import { approveAndSubmit, createApplication, dailyCapUse, effectiveDailyCap, normalizeCompany, transitionApplication, type ApplicationRow } from "./store.js";
+import { approveAndSubmit, countsAsApplication, createApplication, dailyCapUse, effectiveDailyCap, normalizeCompany, transitionApplication, withUserLock, type ApplicationRow } from "./store.js";
 
 /** The batch error an application carries when Stop cancelled it (the same words as a single cancel). */
 export const BATCH_CANCELLED = "Cancelled by you";
@@ -94,16 +94,18 @@ export type BatchSkip = {
 export { RECENT_COMPANY_DAYS };
 
 /**
- * Companies the person has an application with (any status but failed) in the last RECENT_COMPANY_DAYS, with the jobs
- * those applications are for. Another job at such a company is skipped; the same job is not (an unsent application of
- * it is taken over, a sent one is reported as already applied).
+ * Companies the person has an application with (`countsAsApplication`: any status, and a failure that came after the
+ * submit click too) in the last RECENT_COMPANY_DAYS, with the jobs those applications are for. Another job at such a
+ * company is skipped; the same job is not (an unsent application of it is taken over, a sent one is reported as already
+ * applied).
  */
 export async function recentlyAppliedCompanies(db: Db, userId: string, now: Date): Promise<{ blocks: (companyId: string, jobId: string) => boolean }> {
   const since = new Date(now.getTime() - RECENT_COMPANY_DAYS * 86_400_000);
-  const rows = await db.select({ companyId: jobs.companyId, jobId: jobs.id }).from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
-    .where(and(eq(applications.userId, userId), gte(applications.createdAt, since), sql`${applications.status} <> 'failed'`));
+  const rows = await db.select({ companyId: jobs.companyId, jobId: jobs.id, status: applications.status, receipt: applications.receipt })
+    .from(applications).innerJoin(jobs, eq(jobs.id, applications.jobId))
+    .where(and(eq(applications.userId, userId), gte(applications.createdAt, since)));
   const byCompany = new Map<string, Set<string>>();
-  for (const r of rows) byCompany.set(r.companyId, (byCompany.get(r.companyId) ?? new Set()).add(r.jobId));
+  for (const r of rows) if (countsAsApplication(r)) byCompany.set(r.companyId, (byCompany.get(r.companyId) ?? new Set()).add(r.jobId));
   return { blocks: (companyId, jobId) => { const js = byCompany.get(companyId); return !!js && !js.has(jobId); } };
 }
 export type StartBatchResult = { batchId: string | null; added: Array<{ jobId: string; applicationId: string; created: boolean }>; skipped: BatchSkip[] };
@@ -113,6 +115,9 @@ export type StartBatchResult = { batchId: string | null; added: Array<{ jobId: s
  * never for a skipped company. The jobs the person picked are their approval, so the apply decision's groups and pace do
  * not filter them, but its hard no's (`skip`) are refused as `not_a_fit`. The caller queues `prepare.application` for
  * each `created` one.
+ *
+ * The company checks and the inserts run in one transaction under the person's lock, so two batches started at the same
+ * moment (the schedule and "Apply for me") cannot both take the same company: the second one sees the first one's rows.
  */
 export async function startBatch(db: Db, userId: string, jobIds: readonly string[], opts: { now?: Date; atsTypes?: readonly string[] | null } = {}): Promise<StartBatchResult> {
   const now = opts.now ?? new Date();
@@ -123,8 +128,21 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
     ? await db.select({ id: jobs.id, companyId: jobs.companyId, companyName: companies.name, atsType: jobs.atsType, applyUrl: jobs.applyUrl }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(inArray(jobs.id, ids))
     : [];
   const byId = new Map(rows.map((r) => [r.id, r]));
-  const recent = await recentlyAppliedCompanies(db, userId, now);
   const hardNo = new Map((await decideApplies(db, userId, { now, jobIds: ids })).decisions.filter((d) => d.action === "skip").map((d) => [d.jobId, d.reasons[0] ?? "Not a fit"]));
+  return withUserLock(db, userId, (tx) => createBatch(tx, userId, ids, { now, byId, skipSet, hardNo, atsTypes: opts.atsTypes ?? null }));
+}
+
+type BatchCandidate = { id: string; companyId: string; companyName: string; atsType: string; applyUrl: string };
+
+async function createBatch(db: Db, userId: string, ids: readonly string[], opts: {
+  now: Date;
+  byId: Map<string, BatchCandidate>;
+  skipSet: Set<string>;
+  hardNo: Map<string, string>;
+  atsTypes: readonly string[] | null;
+}): Promise<StartBatchResult> {
+  const { now, byId, skipSet, hardNo, atsTypes } = opts;
+  const recent = await recentlyAppliedCompanies(db, userId, now);
   const skipped: BatchSkip[] = [];
   const picked: string[] = [];
   const companiesSeen = new Set<string>();
@@ -132,7 +150,7 @@ export async function startBatch(db: Db, userId: string, jobIds: readonly string
     const job = byId.get(id);
     if (!job) { skipped.push({ jobId: id, reason: "not_found" }); continue; }
     // Job systems Nori sends batches through (BATCH_ATS); others stay for the person to apply to one at a time.
-    if (opts.atsTypes?.length && !opts.atsTypes.includes(job.atsType)) { skipped.push({ jobId: id, reason: "not_supported" }); continue; }
+    if (atsTypes?.length && !atsTypes.includes(job.atsType)) { skipped.push({ jobId: id, reason: "not_supported" }); continue; }
     if (recent.blocks(job.companyId, job.id)) { skipped.push({ jobId: id, reason: "applied_recently" }); continue; }
     if (skipSet.has(normalizeCompany(job.companyName))) { skipped.push({ jobId: id, reason: "skipped_company" }); continue; }
     if (hardNo.has(id)) { skipped.push({ jobId: id, reason: "not_a_fit", detail: hardNo.get(id)! }); continue; }

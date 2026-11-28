@@ -131,21 +131,30 @@ export async function createApplication(db: Db, userId: string, jobId: string, o
   const title = normalizeTitle(job.title);
   const company = normalizeCompany(job.companyName);
   const duplicate = recent.find((r) =>
-    r.app.status !== "failed" && normalizeTitle(r.title) === title && (r.companyId === job.companyId || normalizeCompany(r.companyName) === company));
+    countsAsApplication(r.app) && normalizeTitle(r.title) === title && (r.companyId === job.companyId || normalizeCompany(r.companyName) === company));
   if (duplicate) return { created: false, reason: "duplicate_recent", application: duplicate.app };
 
-  try {
-    const [row] = await db.insert(applications).values({ userId, jobId, canonicalUrl, status: "queued", createdAt: now, updatedAt: now }).returning();
-    await logEvent(db, row!.id, "created", `Queued ${job.title} at ${job.companyName}`);
-    // Whoever started it (Apply, a batch, Telegram), the job leaves the person's recommended list.
-    await db.update(shortlist).set({ status: "applied" }).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId), eq(shortlist.status, "new")));
-    return { created: true, application: row! };
-  } catch (err) {
-    // Two clicks at once: the unique (user, job) and (user, canonical URL) indexes let one through.
+  // Two inserts at once: the unique (user, job) and (user, canonical URL) indexes let one through. `onConflictDoNothing`
+  // keeps a caller's surrounding transaction usable when it loses that race.
+  const [row] = await db.insert(applications).values({ userId, jobId, canonicalUrl, status: "queued", createdAt: now, updatedAt: now }).onConflictDoNothing().returning();
+  if (!row) {
     const [again] = await db.select().from(applications).where(and(eq(applications.userId, userId), or(eq(applications.jobId, jobId), eq(applications.canonicalUrl, canonicalUrl)))).limit(1);
     if (again) return { created: false, reason: "already_exists", application: again };
-    throw err;
+    throw new Error("an application for this job was refused as a duplicate but no existing row was found");
   }
+  await logEvent(db, row.id, "created", `Queued ${job.title} at ${job.companyName}`);
+  // Whoever started it (Apply, a batch, Telegram), the job leaves the person's recommended list.
+  await db.update(shortlist).set({ status: "applied" }).where(and(eq(shortlist.userId, userId), eq(shortlist.jobId, jobId), eq(shortlist.status, "new")));
+  return { created: true, application: row };
+}
+
+/**
+ * Whether this application counts as one the employer may have: anything but a failure, and a failure that came after
+ * the submit click (the receipt's mark is set). A failed row the person cancelled, or one that never reached the
+ * click, does not hold the job or the company.
+ */
+export function countsAsApplication(row: Pick<ApplicationRow, "status" | "receipt">): boolean {
+  return row.status !== "failed" || submitMayHaveHappened({ receipt: row.receipt });
 }
 
 export type ApproveResult =
@@ -181,10 +190,11 @@ export async function dailyCapReached(db: Db, userId: string, now: Date, except?
 }
 
 /**
- * Runs `fn` in a transaction that holds the user's row lock, so approvals of one user (a click, Telegram, a batch) take
- * turns: each counts today's approvals and stamps its own before the next one counts. `fn` must use the `tx` it gets.
+ * Runs `fn` in a transaction that holds the user's row lock, so one user's approvals (a click, Telegram, a batch) and
+ * their batches' inserts take turns: each counts today's approvals and stamps its own before the next one counts, and a
+ * batch's company checks see the applications another batch just added. `fn` must use the `tx` it gets.
  */
-function asUser<T>(db: Db, userId: string, fn: (tx: Db) => Promise<T>): Promise<T> {
+export function withUserLock<T>(db: Db, userId: string, fn: (tx: Db) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
     return fn(tx);
@@ -202,7 +212,7 @@ export async function approveBeforePrepared(db: Db, applicationId: string, opts:
   const head = await loadApplication(db, applicationId);
   if (!head) return { ok: true, approved: false };
   const now = opts.now ?? new Date();
-  return asUser(db, head.userId, async (tx) => {
+  return withUserLock(db, head.userId, async (tx) => {
     const row = await loadApplication(tx, applicationId);
     if (!row || row.approvedAt || (row.status !== "queued" && row.status !== "preparing")) return { ok: true, approved: false };
     const cap = await dailyCapReached(tx, row.userId, now, row.id);
@@ -227,7 +237,7 @@ export async function approveBeforePrepared(db: Db, applicationId: string, opts:
 export async function approveAndSubmit(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user"; limit?: number } = {}): Promise<ApproveResult> {
   const head = await loadApplication(db, applicationId);
   if (!head) return { ok: false, status: null, reason: "application not found" };
-  return asUser(db, head.userId, (tx) => approveLocked(tx, applicationId, opts));
+  return withUserLock(db, head.userId, (tx) => approveLocked(tx, applicationId, opts));
 }
 
 async function approveLocked(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user"; limit?: number }): Promise<ApproveResult> {
