@@ -21,6 +21,7 @@ import { readGraphSource } from "./graph-sources.js";
 import type { WorkerConfig } from "./config.js";
 import { createDemandCounter } from "./demand.js";
 import { actsForPerson } from "./fast-path.js";
+import { tailorForApplication } from "./preparer.js";
 import type { LogFields, Logger } from "./log.js";
 
 export type ConsumerDeps = {
@@ -405,6 +406,12 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
     }
     return restored;
   }));
+
+  // prepare.resume: the resume for one application on the person's request (a job they send themselves, or a new copy).
+  await queue.work(JOBS.prepareResume, instrument(log, JOBS.prepareResume, async ({ applicationId }) => {
+    const res = await tailorForApplication(db, applicationId, { artifactsDir: config.artifactsDir });
+    return { resumeId: res.resumeId, ...(res.ok ? {} : { reason: res.reason ?? "no resume" }) };
+  }), { concurrency: 2 });
 
   // apply.run: the browser step; afterwards, questions the form asked get answered from the person's own data when they can be.
   const applyHandler = createApplyHandler(db, apply);

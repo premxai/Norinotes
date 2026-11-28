@@ -7,6 +7,7 @@ export const JOBS = {
   matchNewJobs: "match.new-jobs",
   matchUser: "match.user",
   prepareApplication: "prepare.application",
+  prepareResume: "prepare.resume",
   applyRun: "apply.run",
   applyFinish: "apply.finish",
   inboxReceive: "inbox.receive",
@@ -30,6 +31,8 @@ export const payloadSchemas = {
   "match.user": z.object({ userId: id, reason: z.enum(["profile", "graph", "lanes", "manual"]).default("manual") }),
   /** Tailor the resume, draft answers, mark the application prepared. */
   "prepare.application": z.object({ applicationId: id }),
+  /** Tailor (or re-tailor) just the resume for one application, on the person's request. */
+  "prepare.resume": z.object({ applicationId: id }),
   /** Fill and submit. A user click counts as approval; autopilot runs inside the daily cap. */
   "apply.run": z.object({ applicationId: id, trigger: z.enum(["click", "autopilot"]) }),
   /** Finish: the person does the last step (a captcha, a sign-in) of up to 5 applications in Nori's live view. */
@@ -61,6 +64,8 @@ export const QUEUE_CONFIG: Record<JobName, QueueConfig> = {
   "match.new-jobs": { retryLimit: 3, retryDelaySeconds: 30, expireSeconds: 10 * 60, concurrency: 2 },
   "match.user": { retryLimit: 3, retryDelaySeconds: 30, expireSeconds: 10 * 60, concurrency: 2 },
   "prepare.application": { retryLimit: 3, retryDelaySeconds: 30, expireSeconds: 5 * 60, concurrency: 4 },
+  // One tailored resume: a model rewrite and a PDF render, no live page.
+  "prepare.resume": { retryLimit: 2, retryDelaySeconds: 30, expireSeconds: 5 * 60, concurrency: 2 },
   // Applying drives a real browser and can wait for a verification email, so it gets the longest lease and few retries.
   "apply.run": { retryLimit: 1, retryDelaySeconds: 120, expireSeconds: 20 * 60, concurrency: 3 },
   // A Finish session waits for the person at each wall (up to 10 minutes each, 5 applications). A retry after a crash only

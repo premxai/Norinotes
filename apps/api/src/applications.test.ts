@@ -268,6 +268,17 @@ describe("applications", () => {
     expect((await api.call("POST", `/api/applications/${parked.id}/cancel`)).status).toBe(401);
   });
 
+  it("tailors one application's resume on request, but not while a run holds it", async () => {
+    const { job } = await seedJob(api.db, { company: "Resume Co" });
+    const parked = await seedApplication(api.db, userId, job.id, { status: "needs_user", error: "This form type is not supported yet", preparedAt: new Date() });
+    const res = await api.call("POST", `/api/applications/${parked.id}/resume`, { cookie });
+    expect(res.status).toBe(202);
+    expect(res.json).toMatchObject({ ok: true, tailored: false });
+    expect(api.queuedOf("prepare.resume").some((q) => q.payload.applicationId === parked.id)).toBe(true);
+    await setStatus(parked.id, { status: "applying" });
+    expect((await api.call("POST", `/api/applications/${parked.id}/resume`, { cookie })).status).toBe(409);
+  });
+
   it("serves the latest live frame of an application to its owner only", async () => {
     const { job } = await seedJob(api.db, { company: "Live Co" });
     const app = await seedApplication(api.db, userId, job.id, { status: "applying", approvedAt: new Date(), preparedAt: new Date(), resumeId: null });

@@ -1,5 +1,5 @@
-import { applications, eq, type Db } from "@norinote/db";
-import { prepareForm, saveAnswers, questionId, type BrowserPool, type PrepareFormDeps, type PrepareResult, type Preparer } from "@norinote/apply";
+import { applications, companies, eq, jobs, type Db } from "@norinote/db";
+import { applyYourselfReason, logEvent, prepareForm, saveAnswers, questionId, type BrowserPool, type PrepareFormDeps, type PrepareResult, type Preparer } from "@norinote/apply";
 import { answerQuestions } from "@norinote/answers";
 import { tailorResume } from "@norinote/tailor";
 import type { PendingQuestion } from "@norinote/shared";
@@ -31,8 +31,11 @@ export type PreparerDeps = {
 
 /**
  * The real Preparer: tailors the resume for the job (tailor package: one-page PDF, `applications.resume_id`), then answers
- * the standard questions (answers package) and stores the answers on the application. A user with no career points yet
- * is parked as `needs_user` instead of failing; any other error throws so the queue retries with backoff.
+ * the standard questions (answers package) and stores the answers on the application. A form Nori will not fill at all
+ * (Workday, a job system it does not send through, an unknown form: `applyYourselfReason`) is parked before any of that,
+ * so no resume is tailored and no model call is made for a job the person sends themselves (`tailorForApplication` makes
+ * the resume on demand). A user with no career points yet is parked as `needs_user` instead of failing; any other error
+ * throws so the queue retries with backoff.
  */
 export function createPreparer(db: Db, deps: PreparerDeps = {}): Preparer {
   const tailor = deps.tailor ?? tailorResume;
@@ -41,6 +44,15 @@ export function createPreparer(db: Db, deps: PreparerDeps = {}): Preparer {
     async prepare(applicationId): Promise<PrepareResult> {
       const [app] = await db.select({ userId: applications.userId, jobId: applications.jobId, resumeId: applications.resumeId }).from(applications).where(eq(applications.id, applicationId)).limit(1);
       if (!app) return { outcome: "failed", error: "application not found" };
+
+      // A job whose form Nori never fills is parked first: tailoring it would spend the model budget on an application
+      // nobody sends.
+      const [job] = await db.select({ applyUrl: jobs.applyUrl }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, app.jobId)).limit(1);
+      const applyYourself = job ? applyYourselfReason(job.applyUrl) : null;
+      if (applyYourself) {
+        await logEvent(db, applicationId, "prepare_parked", applyYourself, { level: "warn" });
+        return { outcome: "needs_user", reason: applyYourself };
+      }
 
       // Preparing again after the person answered questions: the tailored resume is already there.
       if (!app.resumeId) {
@@ -70,4 +82,23 @@ export function createPreparer(db: Db, deps: PreparerDeps = {}): Preparer {
       return { outcome: "prepared" };
     },
   };
+}
+
+/**
+ * Tailors and stores the resume for one application on demand (queue `prepare.resume`), for a job the person sends
+ * themselves or a resume they deleted: the same tailoring the Preparer does, without reading the form or answering
+ * anything.
+ */
+export async function tailorForApplication(db: Db, applicationId: string, deps: { artifactsDir?: string; tailor?: typeof tailorResume } = {}): Promise<{ ok: boolean; resumeId: string | null; reason?: string }> {
+  const [app] = await db.select({ userId: applications.userId, jobId: applications.jobId }).from(applications).where(eq(applications.id, applicationId)).limit(1);
+  if (!app) return { ok: false, resumeId: null, reason: "application not found" };
+  try {
+    const res = await (deps.tailor ?? tailorResume)(db, { userId: app.userId, jobId: app.jobId, applicationId, ...(deps.artifactsDir ? { artifactsDir: deps.artifactsDir } : {}) });
+    await logEvent(db, applicationId, "resume", "Tailored the resume for this job", { data: { resumeId: res.resumeId, pages: res.pages } });
+    return { ok: true, resumeId: res.resumeId };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/no career points/i.test(message)) return { ok: false, resumeId: null, reason: "Upload your resume first: there is nothing to build it from yet." };
+    throw err;
+  }
 }
