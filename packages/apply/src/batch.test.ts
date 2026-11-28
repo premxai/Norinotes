@@ -154,6 +154,29 @@ describe("sending a batch", () => {
     expect(done!.status).toBe("done");
   });
 
+  it("does not send after Stop, even when the drain had already read the batch", async () => {
+    const u = await user();
+    const res = await startBatch(t.db, u, [await job("Late Stop Co")]);
+    const id = res.added[0]!.applicationId;
+    await setStatus(id, "prepared");
+    // Stop set the batch stopped but had not reached this row yet (its row handling is a second pass).
+    await t.db.update(applyBatches).set({ status: "stopped" }).where(eq(applyBatches.id, res.batchId!));
+    expect((await drainBatches(t.db, { now: new Date() })).filter((s) => s.batchId === res.batchId)).toEqual([]);
+    expect(await statusOf(id)).toMatchObject({ status: "prepared" });
+  });
+
+  it("never shows a running batch without the applications it was started with", async () => {
+    const u = await user();
+    const jobId = await job("Atomic Batch Co");
+    // A drain pass lands while the batch is being created.
+    await Promise.all([startBatch(t.db, u, [jobId]), drainBatches(t.db, { now: new Date() })]);
+    const batches = await t.db.select().from(applyBatches).where(eq(applyBatches.userId, u));
+    expect(batches).toHaveLength(1);
+    const apps = await t.db.select().from(applications).where(eq(applications.batchId, batches[0]!.id));
+    expect(apps.length).toBeGreaterThan(0);
+    expect(batches[0]!.total).toBe(apps.length);
+  });
+
   it("finishes with one parked, then carries on when the person answers it", async () => {
     const u = await user();
     const res = await startBatch(t.db, u, [await job("Parked Co")]);

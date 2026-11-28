@@ -267,13 +267,15 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `greenhouse`) limits batches to those job systems; others are skipped as not_supported. Shortlist jobs carry
   `atsType`, so the page can offer only those.
 - The worker (every 30 s) starts a running batch's next prepared application when nothing of it is on a page, the
-  spacing has passed since the last start and today's limit has room. What needs the person is parked (needs_user)
+  spacing has passed since the last start and today's limit has room. It re-reads the batch's status right before each
+  approval, so a Stop that landed mid-pass stops it too. What needs the person is parked (needs_user)
   and never guessed; answering resumes it. A batch with nothing left to send becomes `done`; Telegram sends a summary.
 - GET `/api/nori/batches` (latest 10) and GET `/api/nori/batches/:id` (with its applications: id, jobId, title,
   company, status, error, needs). A batch view: `{ id, status: running|stopped|done, createdAt, finishedAt,
   lastStartedAt, counts: { total, sent, working, preparing, ready, needsYou, cancelled, failed }, waitingFor:
   spacing|daily_limit|preparing|you|paused|null, nextAt }`.
-- POST `/api/nori/batches/:id/stop`: cancels what has not started (`"Cancelled by you"`); sent ones stay sent.
+- POST `/api/nori/batches/:id/stop`: marks the batch `stopped` first, then cancels what has not started
+  (`"Cancelled by you"`); sent ones stay sent, and one already on a page finishes.
 - GET `/api/nori/decisions` (Apply decisions): `{ aggressiveness, weekUsed, weekLeft, decisions: [{ jobId, title, company,
   group: strong|worth_a_shot|stretch|null, action: send|later|ask|skip, reasons: [string], fit }] }` for the person's new
   matches, sends first (in sending order), then later, ask and skip, each best fit first. `send`: Nori would send it now
