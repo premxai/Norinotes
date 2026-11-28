@@ -155,6 +155,35 @@ export const STALE_RUN_MS = 25 * 60_000;
 /** A browser step of this process is on this application right now (Cancel is refused while one is). */
 export const applicationInFlight = (applicationId: string): boolean => inflight.has(applicationId);
 
+/**
+ * How recently a run must have written something (the row, or a run event) to count as still on the employer's page.
+ * A fill writes events as it goes, so a live run is never this quiet; a crashed one is. Cancel reads it.
+ */
+export const RUN_FRESH_MS = 2 * 60_000;
+
+/** The last sign of a run for this application: its row's own update, or its newest run event, whichever is later. */
+export async function runLastSeen(db: Db, applicationId: string): Promise<Date | null> {
+  const [row] = await db.select({ updatedAt: applications.updatedAt }).from(applications).where(eq(applications.id, applicationId)).limit(1);
+  const [event] = await db.select({ ts: runEvents.ts }).from(runEvents).where(eq(runEvents.applicationId, applicationId)).orderBy(desc(runEvents.ts)).limit(1);
+  const seen = [row?.updatedAt, event?.ts].filter((d): d is Date => !!d);
+  return seen.length ? new Date(Math.max(...seen.map((d) => d.getTime()))) : null;
+}
+
+/**
+ * The queue has given up on this run (its retries are used up), so nobody is going to move the row: left in `applying` it
+ * waits out `STALE_RUN_MS` while Cancel is refused. Moving it to `failed` now says what happened, and the person can
+ * retry or cancel at once. A row whose submit click may have gone through is not touched: the runner reports that one
+ * itself, and only the person may settle it.
+ */
+export async function failAbandonedRun(db: Db, applicationId: string, cause: unknown, opts: { now?: Date } = {}): Promise<boolean> {
+  const row = await loadApplication(db, applicationId);
+  if (!row || (row.status !== "applying" && row.status !== "awaiting_code")) return false;
+  if (submitMayHaveHappened(row)) return false;
+  const message = `The apply run stopped before it finished: ${cause instanceof Error ? cause.message : String(cause)}`;
+  const res = await transitionApplication(db, applicationId, "failed", { from: row.status, now: opts.now, error: message, message: `Failed: ${message}` });
+  return res.ok && !res.noop;
+}
+
 export type StaleRun = { applicationId: string; status: "preparing" | "applying" | "awaiting_code" };
 
 /**

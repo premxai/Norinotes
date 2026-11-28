@@ -171,11 +171,13 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   404 when there is none; `cache-control: no-store`. The site's CSP allows images only from itself, data: and blob:, so
   the dashboard fetches each frame and shows it through an object URL.
 - An application whose job closed before it was sent becomes `failed` with error `"This job is no longer open: the
-  company took the posting down."` (checked before preparing and before sending). Retry checks again.
+  company took the posting down."` (checked before preparing and before sending). Retry checks again. An approval for a
+  job the board already closed stops at once with `"This job has closed"` instead.
 - POST `/api/applications/:id/cancel`: the person drops the application. It becomes `failed` with error `"Cancelled by
-  you"` (Retry brings it back). 409 once it was `submitted`, while a live run holds it (`applying`, `awaiting_code` and
-  either a browser step of this process or a row touched within 25 minutes), and while a submit click is marked: that is
-  the person's to settle first (below). Cancelling a failed one is a no-op 200.
+  you"` (Retry brings it back). 409 once it was `submitted`, while a live run holds it (`applying` or `awaiting_code`, and
+  either a browser step of this process or the row's newest sign — its own update or a run event — within 2 minutes), and
+  while a submit click is marked: that is the person's to settle first (below). A run the queue gave up on is failed
+  itself, so it never blocks the person. Cancelling a failed one is a no-op 200.
 - A submit click Nori could not confirm (`receipt.submitClicked: true` on a `needs_user` or `failed` application) is the
   one case the worker will not resolve: only the person knows whether the employer has it, and both answers are final.
   - POST `/api/applications/:id/marked-sent`: `needs_user` or `failed` → `submitted`, as if Nori had seen the

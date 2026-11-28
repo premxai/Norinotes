@@ -3,7 +3,7 @@ import { companies, eq, type Db } from "@norinote/db";
 import { PendingQuestion, type AtsType } from "@norinote/shared";
 import { planForm } from "@norinote/answers";
 import {
-  approveAndSubmit, autopilotStrongFit, createApplyHandler, createFinishHandler, createPrepareHandler, isNoriPaused, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
+  approveAndSubmit, autopilotStrongFit, createApplyHandler, createFinishHandler, createPrepareHandler, failAbandonedRun, isNoriPaused, loadApplication, newStrongFits, prepareStrongFitsAhead, saveAnswers, sharedMemoryInputBus,
   staleRuns, STALE_RUN_MS,
   type ApplyDeps, type LiveInputBus,
 } from "@norinote/apply";
@@ -14,7 +14,7 @@ import {
 } from "@norinote/ingest";
 import { createResendForwarder, createStubForwarder, handleInboxReceive, smallModel } from "@norinote/inbox";
 import { buildShortlist, jobsFittingLanes, loadCurrentSpec, matchNewJobs, targetFamilyOf, understandJob, unspeccedJobsForBoard, unspeccedJobsForUser } from "@norinote/match";
-import { JOBS, type Handler, type JobContext, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
+import { JOBS, QUEUE_CONFIG, type Handler, type JobContext, type JobName, type Payload, type QueueAdapter } from "@norinote/queue";
 import { boostCompaniesForUser } from "./boost.js";
 import { catchUp } from "./catch-up.js";
 import { readGraphSource } from "./graph-sources.js";
@@ -408,8 +408,16 @@ export async function registerConsumers(deps: ConsumerDeps): Promise<Consumers> 
 
   // apply.run: the browser step; afterwards, questions the form asked get answered from the person's own data when they can be.
   const applyHandler = createApplyHandler(db, apply);
-  await queue.work(JOBS.applyRun, instrument(log, JOBS.applyRun, async (payload) => {
-    await applyHandler(payload);
+  // The queue's own retries for this run (attempt 1 is the first), after which nobody moves the row.
+  const applyAttempts = QUEUE_CONFIG[JOBS.applyRun].retryLimit + 1;
+  await queue.work(JOBS.applyRun, instrument(log, JOBS.applyRun, async (payload, ctx) => {
+    try {
+      await applyHandler(payload);
+    } catch (err) {
+      // The last attempt threw: the row would sit in `applying` until the 25-minute stale sweep, with Cancel refused.
+      if (ctx.attempt >= applyAttempts) await failAbandonedRun(db, payload.applicationId, err, { now: now() }).catch(() => false);
+      throw err;
+    }
     const auto = await autoAnswerPending(db, payload.applicationId);
     if (auto.resumed) await queue.enqueue(JOBS.applyRun, { applicationId: payload.applicationId, trigger: payload.trigger }, { delaySeconds: 1 });
     const after = await loadApplication(db, payload.applicationId);
