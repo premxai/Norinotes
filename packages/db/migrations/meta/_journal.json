@@ -148,6 +148,13 @@
       "when": 1795731284850,
       "tag": "0020_board_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795888105540,
+      "tag": "0021_brown_omega_red",
+      "breakpoints": true
     }
   ]
 }

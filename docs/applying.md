@@ -163,8 +163,10 @@ shortlist and to prepared.
 
 - One application per user and job, and per user and canonical job URL (`applications.canonical_url`, unique with the
   user; `canonicalJobUrl` folds boards, embeds and tracking links into one URL).
-- One application per company at a time, plus a cooldown between two (`CompanyGate`, `APPLY_COMPANY_COOLDOWN_MS`,
-  default 30 s).
+- One application per company at a time, plus a cooldown between two, for every worker machine: the claim and the
+  cooldown are rows in `apply_locks` (`CompanyGate` over `acquireLock`, `APPLY_COMPANY_COOLDOWN_MS`, default 30 s;
+  migration 0021). Two people's runs, or two machines', never fill one company's form at once. The same table holds
+  `user-send:<id>`, the spacing between a person's applications.
 - Submit is never clicked twice: right before each click the driver awaits `DriverContext.recordSubmitClick`, which
   writes `receipt.submitClicked` and confirms the row was updated. If that write fails, the click does not happen. A
   stored mark outranks the driver's own report, so a run that breaks at the click is failed and never sent again.

@@ -268,8 +268,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   `detail` says which in plain words, e.g. "Missing a must-have: Kubernetes")); 409 when nothing could be added. Applications are prepared now. `BATCH_ATS` on the API (e.g.
   `greenhouse`) limits batches to those job systems; others are skipped as not_supported. Shortlist jobs carry
   `atsType`, so the page can offer only those.
-- The worker (every 30 s) starts a running batch's next prepared application when nothing of it is on a page, the
-  spacing has passed since the last start and today's limit has room. It re-reads the batch's status right before each
+- The worker (every 30 s) starts a running batch's next prepared application when nothing of the person's is on a page,
+  the spacing has passed since Nori last started one of their applications (any batch, any worker machine: a
+  `user-send:<id>` row in `apply_locks`) and today's limit has room. It re-reads the batch's status right before each
   approval, so a Stop that landed mid-pass stops it too. What needs the person is parked (needs_user)
   and never guessed; answering resumes it. A batch with nothing left to send becomes `done`; Telegram sends a summary.
 - GET `/api/nori/batches` (latest 10) and GET `/api/nori/batches/:id` (with its applications: id, jobId, title,

@@ -374,6 +374,18 @@ export const applications = pgTable("applications", {
   index("applications_job_idx").on(t.jobId),
 ]);
 
+/**
+ * Short leases shared by every worker process that applies: `company:<key>` is held while a run fills that company's
+ * form (and cools down after it), `user-send:<id>` records when Nori last started one of the person's applications, so
+ * their batches are spaced whatever machine sends them. A key is free once `held_until` and `free_at` are both past.
+ */
+export const applyLocks = pgTable("apply_locks", {
+  key: text("key").primaryKey(),
+  holder: text("holder").notNull(),
+  heldUntil: ts("held_until").notNull(),
+  freeAt: ts("free_at").notNull(),
+});
+
 export const resumes = pgTable("resumes", {
   id: id(),
   applicationId: uuid("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
@@ -540,7 +552,7 @@ export const outcomes = pgTable("outcomes", {
 export const schema = {
   companies, jobs, jobSpecs, jobEmbeddings, users, sessions, authTokens, profiles, lanes, careerPoints,
   careerPointEmbeddings, shortlist, applications, resumes, answerBank, formRecipes, runEvents, inboxAddresses, inboxMessages,
-  channels, channelMessages, llmUsage, outcomes,
+  channels, channelMessages, llmUsage, outcomes, applyLocks,
 };
 
 /**
