@@ -7,6 +7,7 @@
 import { and, applications, applyBatches, asc, companies, desc, eq, freshJobSql, gte, inArray, isNull, jobs, lanes, profiles, shortlist, sql, type Db } from "@norinote/db";
 import { DEFAULT_MIN_FIT, RECENT_COMPANY_DAYS, decideApplies, readAggressiveness, type Aggressiveness } from "@norinote/match";
 import { readSkipCompanies } from "@norinote/shared";
+import { lockTaken, stampLock, userSendLockKey } from "./locks.js";
 import { DEFAULT_DAILY_CAP } from "./day.js";
 import { isNoriPaused } from "./pause.js";
 import { approveAndSubmit, countsAsApplication, createApplication, dailyCapUse, effectiveDailyCap, normalizeCompany, transitionApplication, withUserLock, type ApplicationRow } from "./store.js";
@@ -198,6 +199,13 @@ async function stillRunning(db: Db, batchId: string): Promise<boolean> {
   return !!row;
 }
 
+/** Whether any of the person's applications is on an employer's page right now (in this process or another). */
+async function personBusy(db: Db, userId: string): Promise<boolean> {
+  const [row] = await db.select({ id: applications.id }).from(applications)
+    .where(and(eq(applications.userId, userId), inArray(applications.status, [...IN_FLIGHT]))).limit(1);
+  return !!row;
+}
+
 /**
  * One pass over running batches. For each: when nothing of the batch is on an employer's page and `spacingMinutes`
  * passed since the last start, approve the oldest prepared application (the batch is the approval) if the daily limit
@@ -215,7 +223,6 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
   ));
   const running = await db.select().from(applyBatches).where(eq(applyBatches.status, "running")).orderBy(asc(applyBatches.createdAt));
   const out: DrainStep[] = [];
-  const startedFor = new Set<string>();
   const paused = new Map<string, boolean>();
   const isPaused = async (userId: string) => {
     const known = paused.get(userId);
@@ -233,10 +240,13 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
       await db.update(applyBatches).set({ status: "done", finishedAt: now }).where(and(eq(applyBatches.id, batch.id), eq(applyBatches.status, "running")));
       continue;
     }
-    if (inFlight || startedFor.has(batch.userId)) continue;
+    if (inFlight) continue;
     if (await isPaused(batch.userId)) continue;
+    // One at a time for the person, across their batches and across worker machines: nothing of theirs on a page, and
+    // the spacing counts from the last application Nori started for them, whichever batch it was.
+    if (await lockTaken(db, userSendLockKey(batch.userId), now)) continue;
+    if (await personBusy(db, batch.userId)) continue;
     const settings = await getNoriSettings(db, batch.userId);
-    if (batch.lastStartedAt && now.getTime() - batch.lastStartedAt.getTime() < settings.spacingMinutes * 60_000) continue;
     const next = waiting.find((a) => a.status === "prepared");
     if (!next) continue;
     // Stop may have landed since this pass read the batch: approve only while it is still running, so a stopped batch
@@ -244,9 +254,9 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
     if (!(await stillRunning(db, batch.id))) continue;
     const res = await approveAndSubmit(db, next.id, { now, limit: settings.dailyLimit });
     if (res.ok && res.started) {
+      await stampLock(db, userSendLockKey(batch.userId), now, settings.spacingMinutes * 60_000);
       await db.update(applyBatches).set({ lastStartedAt: now }).where(eq(applyBatches.id, batch.id));
       out.push({ batchId: batch.id, applicationId: next.id });
-      startedFor.add(batch.userId);
     }
   }
   return out;

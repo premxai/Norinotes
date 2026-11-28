@@ -7,7 +7,7 @@ import { FINISH_ACCOUNT_REASON, FINISH_CAPTCHA_REASON, submitAllowed } from "./f
 import { loadApplyInputs, type ApplyInputs } from "./inputs.js";
 import { PoolRunError, type BrowserPool, type PoolArtifacts } from "./pool.js";
 import { buildReceipt, type DraftedAnswer } from "./receipt.js";
-import { sharedCompanyGate, type CompanyGate } from "./gate.js";
+import { companyGateFor, type CompanyGate } from "./gate.js";
 import { recordStrategies } from "./recipes.js";
 import { isTerminal, MAX_ATTEMPTS, submitMayHaveHappened } from "./state.js";
 import { approveAndSubmit, loadApplication, logEvent, transitionApplication, type ApplicationRow } from "./store.js";
@@ -375,7 +375,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps, sess
   await logEvent(db, id, "apply_start", `Applying through ${driverName}${dryRun ? " (dry run)" : ""}`, { data: { url: inputs.applyUrl, attempt: row.attempts, dryRun } });
 
   // One application per company at a time, and a cooldown between two.
-  const gate = deps.companyGate ?? sharedCompanyGate();
+  const gate = deps.companyGate ?? companyGateFor(db);
   const release = await gate.acquire(inputs.companyKey ?? inputs.companyName, deps.companyWaitMs ?? 120_000);
   if (!release) {
     await logEvent(db, id, "company_busy", "Another application to this company is running or cooling down; will retry", { level: "warn" });
@@ -419,7 +419,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps, sess
       return { fill, submit, screenshotPath: after ?? screenshotPath, driverName } satisfies BrowserOutcome;
     }
   } catch (err) {
-    release();
+    await release();
     await flush();
     artifacts = err instanceof PoolRunError ? err.artifacts : {};
     const message = err instanceof Error ? err.message : String(err);
@@ -438,7 +438,7 @@ async function applyStepInner(db: Db, row: ApplicationRow, deps: ApplyDeps, sess
     }
     return done("failed", await transitionApplication(db, id, "failed", { from: "applying", error: message, receipt, message: `Failed after ${latest.attempts} attempts: ${message}` }));
   }
-  release();
+  await release();
   await flush();
 
   const { fill, submit } = outcome;

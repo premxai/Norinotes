@@ -177,6 +177,25 @@ describe("sending a batch", () => {
     expect(batches[0]!.total).toBe(apps.length);
   });
 
+  it("spaces the person's applications across their batches, not once per batch", async () => {
+    const u = await user();
+    await saveNoriSettings(t.db, u, { spacingMinutes: 5 });
+    const one = await startBatch(t.db, u, [await job("Spaced A")]);
+    const two = await startBatch(t.db, u, [await job("Spaced B")]);
+    const ids = [one.added[0]!.applicationId, two.added[0]!.applicationId];
+    for (const id of ids) await setStatus(id, "prepared");
+    const mine = async (now: Date) => (await drainBatches(t.db, { now })).filter((s) => s.batchId === one.batchId || s.batchId === two.batchId);
+    const t0 = new Date("2026-11-07T15:00:00Z");
+    const first = await mine(t0);
+    expect(first).toHaveLength(1);
+    const started = first[0]!.applicationId;
+    const waiting = ids.find((id) => id !== started)!;
+    await setStatus(started, "submitted", { submittedAt: t0 });
+    // The other batch waits out the person's spacing instead of sending in parallel.
+    expect(await mine(new Date(t0.getTime() + 60_000))).toEqual([]);
+    expect((await mine(new Date(t0.getTime() + 6 * 60_000))).map((s) => s.applicationId)).toEqual([waiting]);
+  });
+
   it("finishes with one parked, then carries on when the person answers it", async () => {
     const u = await user();
     const res = await startBatch(t.db, u, [await job("Parked Co")]);

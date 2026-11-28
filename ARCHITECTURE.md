@@ -242,7 +242,8 @@ Click to submitted in 12 to 30 seconds, under 2 cents, no invented answers. Deta
   reopens it) and the application (`failed`, "This job is no longer open"). Network errors, timeouts, 5xx and rate
   limits are not a close: the application goes on. A check that found the job open stands for 15 minutes, so a send
   right after preparing (autopilot) asks once. Other job systems are not checked.
-- Safety: one application per user and canonical job URL, one at a time per company plus a cooldown, the submit click
+- Safety: one application per user and canonical job URL, one at a time per company plus a cooldown (a claim in
+  `apply_locks`, so every worker machine obeys it), the submit click
   recorded before anything else, receipts with screenshot, trace path and confirmation text. AI browser fallback: a
   typed hook only (`AiBrowserFallback`); unknown forms go to `needs_user`.
 - Eval: 26 saved real forms replayed locally, plus live dry runs (docs/eval/apply-run1.md); about 0.2 cents per form in

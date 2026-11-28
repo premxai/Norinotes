@@ -33,7 +33,8 @@ export { parseJobUrl, canonicalJobUrl, greenhouseSchemaFromJson, fetchGreenhouse
 export type { AtsName, FormSchema, SchemaField, ParsedJobUrl, GreenhouseJobJson } from "./schema.js";
 export { loadRecipe, saveRecipe, touchRecipe, recordStrategies, labelKey } from "./recipes.js";
 export type { FormRecipe, RecipeField, WidgetStrategy } from "./recipes.js";
-export { CompanyGate, sharedCompanyGate, defaultCooldownMs } from "./gate.js";
+export { CompanyGate, companyGateFor, defaultCooldownMs, COMPANY_LEASE_MS } from "./gate.js";
+export { acquireLock, lockTaken, stampLock, companyLockKey, userSendLockKey } from "./locks.js";
 export { DEFAULT_DAILY_CAP, DEFAULT_TIME_ZONE, effectiveDailyCap, readTimeZone } from "./day.js";
 export { readNoriPaused, isNoriPaused, setNoriPaused } from "./pause.js";
 export { blockHeavy, POLITE_UA_SUFFIX } from "./pool.js";
