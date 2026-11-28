@@ -342,6 +342,13 @@ async function mockApi(context, o = {}) {
       return reply(200, { ok: true, ...view(r) });
     }
     if (key === "GET /applications/flow") return reply(200, o.flow ?? FLOW);
+    m = key.match(/^POST \/applications\/([\w-]+)\/resume$/);
+    if (m) {
+      const r = rows.find((x) => x.app.id === m[1]);
+      if (!r) return reply(404, { error: "Application not found" });
+      if (["queued", "preparing", "applying", "awaiting_code", "submitted"].includes(r.app.status)) return reply(409, { error: "This application is underway; its resume is not changed now" });
+      return reply(202, { ok: true, tailored: false });
+    }
     m = key.match(/^GET \/applications\/([\w-]+)\/live$/);
     if (m) {
       const r = rows.find((x) => x.app.id === m[1]);
@@ -376,7 +383,7 @@ async function mockApi(context, o = {}) {
       if (o.startsWaiting && r.app.status === "applying" && r.polls >= 3) r.app.status = "awaiting_code";
       if (r.typed && ++r.typed > 2) Object.assign(r.app, { status: "submitted", submittedAt: new Date(now + 20_000).toISOString(), receipt: { confirmation: "LR-1180", dryRun: false } });
       const events = r.app.approvedAt ? ["Opened the application page", "Filled 9 fields", "Uploaded your tailored resume", "Answered 2 questions from your answer bank", "Submitting", "Code 482 913 arrived; entered it", "Sent"].map((message, i) => ({ id: String(i + 1), ts: r.app.approvedAt, level: "info", step: "run", message })) : [];
-      return reply(200, { application: r.app, job: r.job, resume: ["queued", "preparing"].includes(r.app.status) ? null : RESUME(r.app.id), events });
+      return reply(200, { application: r.app, job: r.job, resume: ["queued", "preparing"].includes(r.app.status) || o.noResume?.includes(r.app.id) ? null : RESUME(r.app.id), events });
     }
     if (key.startsWith("GET /artifacts/")) return route.fulfill({ status: 200, headers: { ...cors, "content-type": "image/png" }, body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") });
     if (key === "GET /inbox/address") return reply(200, o.inboxOff ? { address: null, configured: false, settings } : { address: "alex.r@inbox.norinote.test", configured: true, settings });
@@ -594,16 +601,33 @@ async function flows(browser) {
     const panel = page.locator("#dtab-panel");
     const opt = await panel.innerText().catch(() => "");
     check(W, "optimizing: Optimizing your resume, and what comes next", opt.includes("Optimizing your resume for Quill") && opt.includes("kept in the Resume tab, and Nori starts the application"), opt.slice(0, 300));
-    check(W, "optimizing: the chip, and no resume yet", (await rowText(page, "Quill")).includes("Optimizing resume") && (await page.locator("#dtab-resume").getAttribute("aria-disabled")) === "true" && (await panel.locator("article").count()) === 0, null);
-    await page.locator("#dtab-resume").click({ force: true });
-    check(W, "optimizing: the Resume tab can't open yet", (await page.locator("#dtab-app").getAttribute("aria-selected")) === "true", null);
+    check(W, "optimizing: the chip, and no resume yet", (await rowText(page, "Quill")).includes("Optimizing resume") && (await panel.locator("article").count()) === 0, null);
+    await page.locator("#dtab-resume").click();
+    check(W, "optimizing: the Resume tab says Nori is making it, with nothing to ask for", (await page.locator("#dtab-resume").getAttribute("aria-selected")) === "true" && (await panel.innerText()).includes("Nori is making it now") && (await panel.getByRole("button", { name: /Make my resume/ }).count()) === 0, (await panel.innerText()).slice(0, 300));
+    await page.locator("#dtab-app").click();
     opts.advance = true;
     const live = await panel.locator("figcaption", { hasText: "Watch Nori apply" }).waitFor({ timeout: 12000 }).then(() => true, () => false);
     check(W, "optimizing: then live, without a reload", live, (await panel.innerText()).slice(0, 300));
-    check(W, "optimizing: and the Resume tab opens once the resume exists", (await page.locator("#dtab-resume").getAttribute("aria-disabled")) === null, null);
+    await page.locator("#dtab-resume").click();
+    check(W, "optimizing: and the Resume tab shows the resume once it exists", (await panel.locator("article").count()) === 1 && (await page.locator("#dtab-resume").getAttribute("aria-selected")) === "true", null);
     check(W, "optimizing: no errors", errors.length === 0, errors);
     await context.close();
   }
+  // An apply-yourself park (Workday): no resume was made, so the wall and the Resume tab both offer to make one.
+  {
+    const apps = [{ app: base("a14", "needs_user", { createdAt: at("2026-11-04T08:20:00"), error: "This job needs an account with the employer: apply on their site. Nori can still make your resume for it." }), job: job("j14", "Staff designer", "Ridgeline", null), outcomes: [] }, ...APPS()];
+    const { context, page, calls, errors } = await open(browser, "/applications/a14", { apps, noResume: ["a14"] });
+    const panel = page.locator("#dtab-panel");
+    check(W, "apply yourself: the wall offers to make the resume", (await panel.getByRole("button", { name: "Make my resume for this job" }).count()) === 1, (await panel.innerText()).slice(0, 300));
+    await panel.getByRole("button", { name: "Make my resume for this job" }).click();
+    await wait(400);
+    check(W, "apply yourself: asking posts once and says it is being made", calls.filter((c) => c.key === "POST /applications/a14/resume").length === 1 && (await panel.innerText()).includes("Making it"), (await panel.innerText()).slice(0, 300));
+    await page.locator("#dtab-resume").click();
+    check(W, "apply yourself: the Resume tab explains and offers the same", (await panel.innerText()).includes("No resume for this job yet") && (await panel.getByRole("button", { name: /Make my resume/ }).count()) === 1, (await panel.innerText()).slice(0, 300));
+    check(W, "apply yourself: no errors", errors.length === 0, errors);
+    await context.close();
+  }
+
   // Needs help: its questions as a form; answering sends it on, back to live.
   {
     const { context, page, calls } = await open(browser, "/applications/a2", { answerGoesLive: true });

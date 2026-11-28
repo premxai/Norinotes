@@ -11,6 +11,7 @@ import { usePolling } from "@/lib/use-polling";
 import { setOutcomes } from "@/lib/use-outcomes";
 import { CompanyLogo } from "./CompanyLogo";
 import { ApplicationBody, CancelAction, useApplication } from "./LivePanel";
+import { MakeResume } from "./MakeResume";
 import { PageHead } from "./PageHead";
 import { ListDetail } from "./v2/ListDetail";
 import { StatusChip, type ChipTone } from "./v2/StatusChip";
@@ -338,6 +339,28 @@ const contactLine = (c: Record<string, unknown>) =>
   ["location", "email", "phone", "linkedin", "github", "website"].map((k) => c[k]).filter((v): v is string => typeof v === "string" && !!v.trim());
 const dates = (start: string | null, end: string | null) => (start || end ? `${start ?? ""}${start && end ? " to " : ""}${end ?? (start ? " to now" : "")}` : null);
 
+/** The Resume tab before there is one: Nori skipped tailoring for a job you send yourself, or none was made yet. */
+function ResumeMissing({ detail, refresh }: { detail: ApplicationDetail; refresh: () => Promise<void> }) {
+  const a = detail.application;
+  const making = a.status === "queued" || a.status === "preparing";
+  const locked = a.status === "applying" || a.status === "awaiting_code" || a.status === "submitted";
+  return (
+    <div className="flex flex-col items-start gap-3 rounded-card border-[1.5px] border-line bg-surface-2 p-4 text-small leading-[1.55] text-ink">
+      <p className="font-semibold text-ink">No resume for this job yet</p>
+      {making ? (
+        <p className="text-ink-2">Nori is making it now. It shows here when it’s ready.</p>
+      ) : locked ? (
+        <p className="text-ink-2">Nori doesn’t change the resume while it’s on an employer’s form. You can make one once this application is done.</p>
+      ) : (
+        <>
+          <p className="text-ink-2">Nori makes a resume when it sends an application. For a job you apply to yourself, or a fresh copy, ask for it here.</p>
+          <MakeResume id={a.id} refresh={refresh} />
+        </>
+      )}
+    </div>
+  );
+}
+
 /** A resume's bullets, the lines tailored for this job highlighted. */
 function Bullets({ items, changed }: { items: { id: string; text: string }[]; changed: Set<string> }) {
   return (
@@ -485,10 +508,10 @@ function Detail({ id, row, heading }: { id: string; row: ApplicationRow | undefi
 
   const s = stageOf(a);
   const resume = detail?.resume ?? null;
-  const shown: DTab = tab === "resume" && !resume ? "app" : tab;
+  const shown: DTab = tab;
   const tabs: [DTab, string, boolean][] = [
     ["app", "Application", true],
-    ["resume", "Resume", !!resume],
+    ["resume", "Resume", true],
     ["job", "Job details", true],
   ];
   return (
@@ -515,7 +538,7 @@ function Detail({ id, row, heading }: { id: string; row: ApplicationRow | undefi
             aria-selected={shown === t}
             aria-controls="dtab-panel"
             aria-disabled={!enabled || undefined}
-            title={enabled ? undefined : "The resume shows here once it’s ready"}
+            title={undefined}
             onClick={() => enabled && setTab(t)}
             className={`-mb-[1.5px] min-h-11 flex-none border-b-2 px-3 text-small whitespace-nowrap ${shown === t ? "border-accent font-semibold text-ink" : "border-transparent font-medium text-ink-2"} ${enabled ? "hover:text-ink" : "cursor-not-allowed opacity-60"}`}
           >
@@ -526,8 +549,14 @@ function Detail({ id, row, heading }: { id: string; row: ApplicationRow | undefi
       {/* Focusable, so the panel scrolls from the keyboard. Its mono type (the run's clock, the code box) is set in the
           page's sans: Geist Mono stays off the first screen (the 450 KB budget). */}
       <div id="dtab-panel" role="tabpanel" tabIndex={0} aria-labelledby={`dtab-${shown}`} className="min-h-0 flex-1 overflow-y-auto p-4 tablet:p-6 [&_.font-mono]:font-sans [&_.font-mono]:tabular-nums">
-        {shown === "resume" && resume ? (
-          <ResumeDoc resume={resume} company={job.companyName} />
+        {shown === "resume" ? (
+          resume ? (
+            <ResumeDoc resume={resume} company={job.companyName} />
+          ) : !detail ? (
+            <div aria-hidden="true" className="h-[240px] w-full animate-pulse rounded-card bg-tint" />
+          ) : (
+            <ResumeMissing detail={detail} refresh={poll.refresh} />
+          )
         ) : shown === "job" ? (
           <JobDetails job={job} />
         ) : !detail ? (

@@ -174,8 +174,9 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   company took the posting down."` (checked before preparing and before sending). Retry checks again. An approval for a
   job the board already closed stops at once with `"This job has closed"` instead.
 - POST `/api/applications/:id/resume`: tailors (or re-tailors) this application's resume in the background (queue
-  `prepare.resume`). 202 `{ ok: true, tailored: <whether one already exists> }`; 409 while the application is `applying`,
-  `awaiting_code` or `submitted`. For jobs Nori parks as "apply yourself", the resume is made only when the person asks.
+  `prepare.resume`). 202 `{ ok: true, tailored: <whether one already exists> }`; 409 while the application is `queued`,
+  `preparing`, `applying` or `awaiting_code`, and once it was `submitted` (the resume is not changed under Nori). For jobs
+  Nori parks as "apply yourself", the resume is made only when the person asks.
 - POST `/api/applications/:id/cancel`: the person drops the application. It becomes `failed` with error `"Cancelled by
   you"` (Retry brings it back). 409 once it was `submitted`, while a live run holds it (`applying` or `awaiting_code`, and
   either a browser step of this process or the row's newest sign — its own update or a run event — within 2 minutes), and
