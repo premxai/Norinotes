@@ -177,6 +177,21 @@ describe("sending a batch", () => {
     expect(batches[0]!.total).toBe(apps.length);
   });
 
+  it("stops on a job the board has closed instead of sending it", async () => {
+    const u = await user();
+    const closed = await job("Closed Co");
+    const res = await startBatch(t.db, u, [closed]);
+    const id = res.added[0]!.applicationId;
+    await setStatus(id, "prepared");
+    await t.db.update(jobs).set({ closedAt: new Date("2026-11-27T00:00:00Z") }).where(eq(jobs.id, closed));
+    expect((await drainBatches(t.db, { now: new Date() })).filter((s) => s.batchId === res.batchId)).toEqual([]);
+    expect(await statusOf(id)).toMatchObject({ status: "failed", error: "This job has closed", approvedAt: null });
+    // The running batch has nothing sendable left, so it finishes and the person hears about it.
+    await drainBatches(t.db, { now: new Date() });
+    const [batch] = await t.db.select().from(applyBatches).where(eq(applyBatches.id, res.batchId!));
+    expect(batch!.status).toBe("done");
+  });
+
   it("finishes with one parked, then carries on when the person answers it", async () => {
     const u = await user();
     const res = await startBatch(t.db, u, [await job("Parked Co")]);
