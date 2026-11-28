@@ -191,6 +191,13 @@ const NOT_STARTED = ["queued", "preparing", "prepared"] as const;
 
 export type DrainStep = { batchId: string; applicationId: string };
 
+/** Whether the batch is still running, read again right before its next application is approved. */
+async function stillRunning(db: Db, batchId: string): Promise<boolean> {
+  const [row] = await db.select({ id: applyBatches.id }).from(applyBatches)
+    .where(and(eq(applyBatches.id, batchId), eq(applyBatches.status, "running"))).limit(1);
+  return !!row;
+}
+
 /**
  * One pass over running batches. For each: when nothing of the batch is on an employer's page and `spacingMinutes`
  * passed since the last start, approve the oldest prepared application (the batch is the approval) if the daily limit
@@ -232,6 +239,9 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
     if (batch.lastStartedAt && now.getTime() - batch.lastStartedAt.getTime() < settings.spacingMinutes * 60_000) continue;
     const next = waiting.find((a) => a.status === "prepared");
     if (!next) continue;
+    // Stop may have landed since this pass read the batch: approve only while it is still running, so a stopped batch
+    // never sends one more.
+    if (!(await stillRunning(db, batch.id))) continue;
     const res = await approveAndSubmit(db, next.id, { now, limit: settings.dailyLimit });
     if (res.ok && res.started) {
       await db.update(applyBatches).set({ lastStartedAt: now }).where(eq(applyBatches.id, batch.id));
@@ -242,11 +252,17 @@ export async function drainBatches(db: Db, opts: { now?: Date } = {}): Promise<D
   return out;
 }
 
-/** Stops a batch: whatever has not started (not approved, not on a page, not sent) is cancelled. Sent ones stay sent. */
+/**
+ * Stops a batch: whatever has not started (not approved, not on a page, not sent) is cancelled. Sent ones stay sent.
+ * The batch's own status goes to `stopped` first, so a drain pass that is already looking at it stops before approving
+ * another one; then its rows are cancelled.
+ */
 export async function stopBatch(db: Db, userId: string, batchId: string, opts: { now?: Date } = {}): Promise<{ ok: boolean; cancelled: number }> {
   const now = opts.now ?? new Date();
   const [batch] = await db.select().from(applyBatches).where(and(eq(applyBatches.id, batchId), eq(applyBatches.userId, userId))).limit(1);
   if (!batch) return { ok: false, cancelled: 0 };
+  await db.update(applyBatches).set({ status: "stopped", finishedAt: now })
+    .where(and(eq(applyBatches.id, batchId), eq(applyBatches.status, "running")));
   const apps = await db.select().from(applications).where(and(eq(applications.batchId, batchId), isNull(applications.approvedAt)));
   let cancelled = 0;
   for (const a of apps) {
@@ -254,7 +270,6 @@ export async function stopBatch(db: Db, userId: string, batchId: string, opts: {
     const r = await transitionApplication(db, a.id, "failed", { from: a.status, error: BATCH_CANCELLED, message: "Stopped with the rest of the batch", by: "user", now });
     if (r.ok) cancelled++;
   }
-  if (batch.status === "running") await db.update(applyBatches).set({ status: "stopped", finishedAt: now }).where(eq(applyBatches.id, batchId));
   return { ok: true, cancelled };
 }
 
