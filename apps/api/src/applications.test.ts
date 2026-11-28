@@ -275,8 +275,13 @@ describe("applications", () => {
     expect(res.status).toBe(202);
     expect(res.json).toMatchObject({ ok: true, tailored: false });
     expect(api.queuedOf("prepare.resume").some((q) => q.payload.applicationId === parked.id)).toBe(true);
-    await setStatus(parked.id, { status: "applying" });
-    expect((await api.call("POST", `/api/applications/${parked.id}/resume`, { cookie })).status).toBe(409);
+    for (const status of ["queued", "preparing", "applying", "awaiting_code", "submitted"] as const) {
+      await setStatus(parked.id, { status });
+      expect((await api.call("POST", `/api/applications/${parked.id}/resume`, { cookie })).status).toBe(409);
+    }
+    // Ready for review or parked: the person may ask again.
+    await setStatus(parked.id, { status: "needs_user" });
+    expect((await api.call("POST", `/api/applications/${parked.id}/resume`, { cookie })).status).toBe(202);
   });
 
   it("serves the latest live frame of an application to its owner only", async () => {

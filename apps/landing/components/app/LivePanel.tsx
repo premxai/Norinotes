@@ -10,6 +10,7 @@ import { noriReact } from "@/lib/auth-flow";
 import { usePolling } from "@/lib/use-polling";
 import { usePanel } from "./AppShell";
 import { WatchNori, codeSource } from "./WatchNori";
+import { MakeResume } from "./MakeResume";
 
 /* The live panel (4a spec section 7): a job, or an application playing its real status and run log. A side panel from
    1024 px, an overlay from 768, a modal sheet below that. */
@@ -413,11 +414,13 @@ export function ApplicationBody({ detail, refresh, onPage = false }: { detail: A
       )}
 
       {wall && !codeLate && (
-        <div className={`${box} border-2 border-warning text-ink`}>
-          <p className="mb-2">{a.error ?? "This site asked for something only you can do."} Nori never gets around those; finish it yourself and Nori will pick up the reply.</p>
+        <div className={`${box} flex flex-col items-start gap-2 border-2 border-warning text-ink`}>
+          <p>{a.error ?? "This site asked for something only you can do."} Nori never gets around those; finish it yourself and Nori will pick up the reply.</p>
           <a href={detail.job.applyUrl} target="_blank" rel="noreferrer" className={buttonClass("outline", "min-h-11")}>
             Open the application page
           </a>
+          {/* A job Nori parks as apply-yourself has no resume yet: it is made when the person asks. */}
+          {!detail.resume && <MakeResume id={a.id} refresh={refresh} label="Make my resume for this job" />}
         </div>
       )}
 

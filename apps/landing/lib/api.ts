@@ -401,6 +401,8 @@ export const api = {
   cancel: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/cancel`, { json: {} }),
   /** The person says a parked application did reach the employer (a click Nori could not confirm, or finished by hand). */
   markedSent: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/marked-sent`, { json: {} }),
+  /** Has the worker tailor this application's resume on demand (queue `prepare.resume`). 409 while a run holds it. */
+  requestResume: (id: string) => call<{ ok: true; tailored: boolean }>(`/applications/${encodeURIComponent(id)}/resume`, { json: {} }),
   /** The person says it did not: the submit mark is cleared, so Try again and Cancel are allowed. */
   notSent: (id: string) => call<{ ok: true; status: AppStatus }>(`/applications/${encodeURIComponent(id)}/not-sent`, { json: {} }),
   /** The code an employer emailed the person, typed while the run waits for it (status awaiting_code). 409: not waiting any more. */

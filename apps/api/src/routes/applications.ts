@@ -238,8 +238,9 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
   // shows it once it exists.
   r.post("/:id/resume", auth, async (c) => {
     const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
-    if (app.status === "applying" || app.status === "awaiting_code" || app.status === "submitted") {
-      throw new HttpError(409, "This application is already underway; its resume is not changed now", app.status);
+    // Not while Nori is making it or on an employer's form, and not once it was sent.
+    if (["queued", "preparing", "applying", "awaiting_code", "submitted"].includes(app.status)) {
+      throw new HttpError(409, "This application is underway; its resume is not changed now", app.status);
     }
     await enqueueRequired(ctx, JOBS.prepareResume, { applicationId: app.id });
     return c.json({ ok: true, tailored: app.resumeId !== null }, 202);
