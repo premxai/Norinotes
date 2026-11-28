@@ -216,7 +216,9 @@ Click to submitted in 12 to 30 seconds, under 2 cents, no invented answers. Deta
 - No job system has a keyless submit API (Greenhouse and Lever need employer keys, SmartRecruiters and Workable partner
   tokens, Ashby's /api/ is disallowed by robots.txt), so the browser submits; everything readable without a key is read
   before the click.
-- State machine: `queued -> preparing -> prepared -> applying -> awaiting_code -> submitted | needs_user | failed`. A user
+- State machine (docs/state-machines.md is the table): `queued -> preparing -> prepared -> applying`, then `applying ->
+  submitted | needs_user | ready_to_finish | failed`, with `awaiting_code` only for a form that emails a code
+  (`applying -> awaiting_code -> applying`, or straight to `submitted`). A dry run returns `applying -> prepared`. A user
   click on a prepared application approves and submits; autopilot uses the same path within the daily cap, for what
   the apply decision (Matching step 6) says to send.
 - **Prepare** (`prepare.application`, `prepareForm`): form schema (Greenhouse's public questions API; Lever and Ashby read

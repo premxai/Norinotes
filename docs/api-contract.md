@@ -257,7 +257,8 @@ Session cookie: `SESSION_COOKIE_NAME` (default `norinote_session`), httpOnly, se
   matches that are open, from the last 7 days, not applied, not skipped, on allowed job systems, that the apply decision
   sends now (`action: "send"` in GET `/api/nori/decisions`: the groups the person's aggressiveness sends, within the
   weekly pace, one per company, spread across kinds of jobs; `limit` 1-50, default 10). 409 when there are none. Same response as below. It never
-  takes more jobs than today's limit has room for (`dailyLimit` minus applications approved today, UTC); 429 when there
+  takes more jobs than today's limit has room for (`dailyLimit` minus applications approved today, counted in the
+  person's own day: their schedule's time zone, packages/apply/src/day.ts); 429 when there
   is no room. Pressed again within 60 seconds while the batch it started is running (a double click), it starts nothing
   and returns that batch: 200 `{ batch, added: <its total>, skipped: [], reused: true }`.
 - POST `/api/nori/batches` with `{ jobIds }` (1 to 50): the person approves these at once, whatever their apply
