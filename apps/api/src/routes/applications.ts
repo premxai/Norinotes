@@ -233,6 +233,18 @@ export function applicationRoutes(ctx: Ctx): Hono<AppEnv> {
     return c.json(await answerApplication(ctx, user.id, app, answers));
   });
 
+  // Tailor the resume for this application on request: for a job the person applies to themselves (Workday and the other
+  // systems Nori parks), or a fresh copy. The worker does the model rewrite and the PDF; the dashboard's Resume tab
+  // shows it once it exists.
+  r.post("/:id/resume", auth, async (c) => {
+    const app = await ownedApplication(db, c.get("user").id, uuidParam(c));
+    if (app.status === "applying" || app.status === "awaiting_code" || app.status === "submitted") {
+      throw new HttpError(409, "This application is already underway; its resume is not changed now", app.status);
+    }
+    await enqueueRequired(ctx, JOBS.prepareResume, { applicationId: app.id });
+    return c.json({ ok: true, tailored: app.resumeId !== null }, 202);
+  });
+
   // The person types the code the employer emailed them while the run is waiting on the page (status awaiting_code). It is
   // stored like an emailed code linked to this application, so the waiting run (awaitVerification) takes it within seconds.
   r.post("/:id/code", auth, async (c) => {

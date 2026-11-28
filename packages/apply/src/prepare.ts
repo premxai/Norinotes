@@ -64,6 +64,22 @@ export async function loadFormSchema(applyUrl: string, deps: PrepareFormDeps): P
   return { ats: parsed?.ats ?? "unknown", companyToken: parsed?.token ?? new URL(applyUrl).hostname, jobId: parsed?.jobId ?? "", formUrl, source: "dom", fields };
 }
 
+/**
+ * Why Nori will not fill this form at all, decided from the apply URL alone: Workday (it needs an account per employer,
+ * which Norinote never creates), a job system it does not send through yet, or a form with no driver. Null when the form
+ * is one Nori fills. `createPreparer` asks before it tailors, so a resume is not tailored for a job Nori will only ever
+ * hand to the person.
+ */
+export function applyYourselfReason(applyUrl: string): string | null {
+  const driver = detectDriver(applyUrl);
+  if (driver?.name === "workday") return WORKDAY_REASON;
+  if (driver && ["smartrecruiters", "workable", "icims"].includes(driver.name)) {
+    return NOT_YET_REASON(driver.name === "icims" ? "iCIMS" : driver.name === "smartrecruiters" ? "SmartRecruiters" : "Workable");
+  }
+  if (!driver) return "This form type is not supported yet: open the posting and apply yourself.";
+  return null;
+}
+
 export async function prepareForm(db: Db, applicationId: string, deps: PrepareFormDeps = {}): Promise<PrepareFormResult> {
   const t0 = Date.now();
   const timings: Record<string, number> = {};
@@ -72,12 +88,8 @@ export async function prepareForm(db: Db, applicationId: string, deps: PrepareFo
   const [job] = await db.select({ applyUrl: jobs.applyUrl, company: companies.name }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(eq(jobs.id, row.jobId)).limit(1);
   if (!job) return { outcome: "failed", reason: "job not found", pending: [], timings };
 
-  const driver = detectDriver(job.applyUrl);
-  if (driver?.name === "workday") return { outcome: "needs_user", reason: WORKDAY_REASON, pending: [], timings };
-  if (driver && ["smartrecruiters", "workable", "icims"].includes(driver.name)) {
-    return { outcome: "needs_user", reason: NOT_YET_REASON(driver.name === "icims" ? "iCIMS" : driver.name === "smartrecruiters" ? "SmartRecruiters" : "Workable"), pending: [], timings };
-  }
-  if (!driver) return { outcome: "needs_user", reason: "This form type is not supported yet: open the posting and apply yourself.", pending: [], timings };
+  const unsupported = applyYourselfReason(job.applyUrl);
+  if (unsupported) return { outcome: "needs_user", reason: unsupported, pending: [], timings };
 
   // A Greenhouse job whose hosted page sends people to the company's own site: which form is there (Lever, Ashby, an
   // embedded Greenhouse form, a bot check) is only known once the browser follows the posting, so it is read at the click.

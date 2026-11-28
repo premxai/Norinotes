@@ -27,6 +27,12 @@ logged as an `apply_decision` run event. Otherwise it stays prepared for the per
 "Your call" with the decision's reason; a hard no gets no alert. `scripts/measure-fast-path.mts` times first_seen_at to the
 shortlist and to prepared.
 
+A job Nori never fills is settled before any of that: `applyYourselfReason` reads the apply URL (Workday, SmartRecruiters,
+Workable, iCIMS, a form with no driver) and the preparer parks the application with the plain reason, so no resume is
+tailored and no model call is made for a job the person sends themselves. Their resume for it is made only if they ask
+(`POST /api/applications/:id/resume`, queue `prepare.resume`, `tailorForApplication`), which is also how they get a fresh
+copy later.
+
 `createPreparer` (apps/worker) tailors the resume (packages/tailor), answers the standard questions, then calls
 `prepareForm` (packages/apply/src/prepare.ts):
 
