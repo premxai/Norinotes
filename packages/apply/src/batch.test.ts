@@ -3,7 +3,7 @@ import { and, applications, applyBatches, companies, eq, jobs, shortlist, users 
 import { createTestDb, type TestDb } from "@norinote/db/testing";
 import { placeInGroup } from "@norinote/match/testing";
 import { countBatch, drainBatches, readNoriSettings, saveNoriSettings, startBatch, stopBatch, batchView } from "./batch.js";
-import { retryApplication } from "./store.js";
+import { createApplication, retryApplication } from "./store.js";
 
 let t: TestDb;
 beforeAll(async () => { t = await createTestDb(); });
@@ -202,6 +202,38 @@ describe("sending a batch", () => {
     const apps = await t.db.select().from(applications).where(eq(applications.batchId, res.batchId!));
     expect(countBatch(apps)).toMatchObject({ total: 3, sent: 1, cancelled: 2 });
     expect(await stopBatch(t.db, await user(), res.batchId!)).toEqual({ ok: false, cancelled: 0 });
+  });
+
+  it("treats a failure after the submit click as an application, and a failure before it as none", async () => {
+    const u = await user();
+    const clicked = await job("Clicked Co", "Software Engineer");
+    const [c] = await t.db.select({ companyId: jobs.companyId }).from(jobs).where(eq(jobs.id, clicked));
+    await t.db.insert(applications).values({ userId: u, jobId: clicked, status: "failed", error: "The run broke after submit was clicked", receipt: { submitClicked: true } });
+    // The same role reposted, and another role at the company: neither may be sent.
+    const repost = await jobAt(c!.companyId, "Software Engineer (Remote)");
+    expect(await createApplication(t.db, u, repost)).toMatchObject({ created: false, reason: "duplicate_recent" });
+    const other = await jobAt(c!.companyId, "Product Manager");
+    expect(await startBatch(t.db, u, [other])).toMatchObject({ batchId: null, added: [], skipped: [{ jobId: other, reason: "applied_recently" }] });
+
+    // A failure that never reached the click holds nothing: the person may apply again.
+    const u2 = await user();
+    const broke = await job("Broke Co", "Data Engineer");
+    const [b] = await t.db.select({ companyId: jobs.companyId }).from(jobs).where(eq(jobs.id, broke));
+    await t.db.insert(applications).values({ userId: u2, jobId: broke, status: "failed", error: "Browser step failed", receipt: { submitClicked: false } });
+    const again = await jobAt(b!.companyId, "Data Engineer");
+    expect(await createApplication(t.db, u2, again)).toMatchObject({ created: true });
+  });
+
+  it("cannot let two batches started at the same moment take the same company", async () => {
+    const u = await user();
+    const [race] = await t.db.insert(companies).values({ name: "Race Co", atsType: "greenhouse", atsToken: `race-${seq++}` }).returning();
+    const first = await jobAt(race!.id, "Engineer, Backend");
+    const second = await jobAt(race!.id, "Engineer, Frontend");
+    const [a, b] = await Promise.all([startBatch(t.db, u, [first]), startBatch(t.db, u, [second])]);
+    expect([...a.added, ...b.added]).toHaveLength(1);
+    const refused = a.added.length ? b : a;
+    const loser = a.added.length ? second : first;
+    expect(refused.skipped).toEqual([{ jobId: loser, reason: "applied_recently" }]);
   });
 
   it("marks the batch's jobs applied in the person's shortlist, so they leave the recommended list", async () => {
