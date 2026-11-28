@@ -9,6 +9,9 @@ export type ApplicationRow = typeof applications.$inferSelect;
 
 export const DUPLICATE_WINDOW_DAYS = 30;
 
+/** Why an approval stops on a job the board has taken down (`jobs.closed_at`). The run's own check has its own wording. */
+export const JOB_CLOSED_PARK_REASON = "This job has closed";
+
 const snapshot = (row: ApplicationRow): AppSnapshot => ({
   status: row.status,
   resumeId: row.resumeId,
@@ -237,7 +240,19 @@ export async function approveBeforePrepared(db: Db, applicationId: string, opts:
 export async function approveAndSubmit(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user"; limit?: number } = {}): Promise<ApproveResult> {
   const head = await loadApplication(db, applicationId);
   if (!head) return { ok: false, status: null, reason: "application not found" };
+  // A job the board has taken down is not sent: a batch can approve hours after it was prepared, and an old prepared
+  // row can be approved days later. Stopped here, the person sees why instead of waiting on a run that cannot happen.
+  if (head.status === "prepared" || head.status === "needs_user") {
+    const [job] = await db.select({ closedAt: jobs.closedAt }).from(jobs).where(eq(jobs.id, head.jobId)).limit(1);
+    if (job?.closedAt) return stopClosedJob(db, head, opts.now ?? new Date());
+  }
   return withUserLock(db, head.userId, (tx) => approveLocked(tx, applicationId, opts));
+}
+
+/** Stops an application whose job the board has taken down, with the reason the person sees. */
+async function stopClosedJob(db: Db, row: ApplicationRow, now: Date): Promise<ApproveResult> {
+  const res = await transitionApplication(db, row.id, "failed", { now, from: row.status, error: JOB_CLOSED_PARK_REASON, message: JOB_CLOSED_PARK_REASON });
+  return { ok: false, status: res.ok ? "failed" : row.status, reason: JOB_CLOSED_PARK_REASON };
 }
 
 async function approveLocked(db: Db, applicationId: string, opts: { now?: Date; by?: "system" | "user"; limit?: number }): Promise<ApproveResult> {

@@ -54,11 +54,13 @@ Change a machine here first, then in code.
   submitted` by `markSent` (their word that it went out; receipt `markedSent`), or `clearSubmitClick` on `needs_user` /
   `failed`, which drops the mark (receipt `clickClearedAt`) so Retry may send it and Cancel is allowed again. Only the
   person (`by: "user"`); the worker never moves an application this way.
-- **Closed job:** before `preparing` runs the preparer and before `applying` opens the browser, the worker re-reads the
-  posting (`checkStillOpen`, run event `still_open` with `data.state` open, closed or unknown). Closed: `preparing → failed`
-  or `applying → failed` with error "This job is no longer open: the company took the posting down." and the job's
-  `closed_at` set. Unknown (network trouble) goes on. An open answer is trusted for 15 minutes. Retry works as for any
-  failed application, and checks again.
+- **Closed job:** an approval (`approveAndSubmit`) refuses a job whose board already took it down (`jobs.closed_at` set by
+  any earlier check): `prepared → failed` or `needs_user → failed` with error "This job has closed", and no run starts. A
+  batch can approve hours after it prepared, so this is checked again just before the browser: before `preparing` runs the
+  preparer and before `applying` opens the browser, the worker re-reads the posting (`checkStillOpen`, run event
+  `still_open` with `data.state` open, closed or unknown). Closed: `preparing → failed` or `applying → failed` with error
+  "This job is no longer open: the company took the posting down." and the job's `closed_at` set. Unknown (network
+  trouble) goes on. An open answer is trusted for 15 minutes. Retry works as for any failed application, and checks again.
 - **Recovery:** the worker's drain loop re-queues `preparing` / `applying` / `awaiting_code` rows untouched for 25 minutes (`staleRuns`). A row whose submit may already have been clicked is never re-sent; it goes to `needs_user`. When the queue uses up its own retries for an `apply.run` that throws, the row is failed at once (`failAbandonedRun`, "The apply run stopped before it finished: …") rather than waiting out those 25 minutes, and Cancel works without waiting either (a run counts as live only while it is held by this process or wrote something in the last 2 minutes).
 - **Who sends:** the prepare consumer sends approved applications (batch or not), and, when the person's schedule is on and
   not paused, a strong fit Nori prepared ahead that the apply decision sends (`autopilotStrongFit` calls `decideApplies`
